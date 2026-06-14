@@ -1,0 +1,2496 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAG et mémoire pour agents — Vector Stores, ChromaDB</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f9fafb;
+  --bg-card: #ffffff;
+  --bg-callout: #f1f5f9;
+  --sidebar-bg: #1c2333;
+  --sidebar-hover: #2d3748;
+  --sidebar-active: #06b6d4;
+  --text: #111827;
+  --text-muted: #6b7280;
+  --text-sidebar: #94a3b8;
+  --accent: #0ea5e9;
+  --accent2: #06b6d4;
+  --green: #059669;
+  --orange: #d97706;
+  --red: #dc2626;
+  --purple: #7c3aed;
+  --border: #e5e7eb;
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --sidebar-width: 290px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--font-body);color:var(--text);background:var(--bg);line-height:1.75;font-size:16px}
+.layout{display:flex;min-height:100vh}
+
+/* PROGRESS */
+.progress-bar{height:3px;background:var(--border);position:fixed;top:0;left:0;right:0;z-index:100}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));width:0%;transition:width .3s}
+
+/* SIDEBAR */
+.sidebar{width:var(--sidebar-width);flex-shrink:0;background:var(--sidebar-bg);padding:1.5rem 0;overflow-y:auto;position:sticky;top:0;height:100vh}
+.sidebar-brand{padding:0 1.2rem 1.5rem;border-bottom:1px solid rgba(255,255,255,.07)}
+.sidebar-brand .label{font-family:var(--font-display);font-size:.7rem;font-weight:700;color:var(--accent2);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.3rem}
+.sidebar-brand .title{font-family:var(--font-display);font-size:.95rem;font-weight:600;color:#f1f5f9;line-height:1.3}
+.sidebar-nav{padding:.75rem 0}
+.mod-group{margin-bottom:.1rem}
+.mod-header{display:flex;align-items:center;gap:.5rem;padding:.5rem 1.2rem;cursor:pointer;transition:background .15s}
+.mod-header:hover{background:var(--sidebar-hover)}
+.mod-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.mod-name{font-size:.73rem;font-weight:600;color:var(--text-sidebar);text-transform:uppercase;letter-spacing:.04em;flex:1}
+.mod-chevron{font-size:.6rem;color:var(--text-sidebar);transition:transform .2s}
+.mod-group.open .mod-chevron{transform:rotate(90deg)}
+.lesson-list{display:none;padding:.1rem 0}
+.mod-group.open .lesson-list{display:block}
+.lesson-list a{display:flex;align-items:center;gap:.5rem;padding:.3rem 1.2rem .3rem 2.2rem;text-decoration:none;font-size:.8rem;color:#64748b;transition:all .15s;border-left:2px solid transparent}
+.lesson-list a:hover{background:var(--sidebar-hover);color:#cbd5e1;border-left-color:rgba(6,182,212,.3)}
+.lesson-list a.active{color:var(--accent2);border-left-color:var(--accent2);background:rgba(6,182,212,.06)}
+.check-dot{width:10px;height:10px;border-radius:50%;border:1.5px solid #334155;flex-shrink:0;transition:all .2s}
+.check-dot.done{background:var(--accent2);border-color:var(--accent2)}
+
+/* CONTENT */
+.main-wrap{flex:1;padding-top:3px}
+.content{max-width:820px;margin:0 auto;padding:3rem 2.5rem 5rem}
+section{border-top:1px solid var(--border);padding-top:2.5rem;margin-top:2.5rem}
+section:first-child{border-top:none;padding-top:0;margin-top:0}
+.lesson-tag{display:inline-flex;gap:.5rem;align-items:center;margin-bottom:1rem;font-size:.78rem;color:var(--text-muted)}
+.lesson-tag .sep{color:var(--border)}
+h1.lesson-title{font-family:var(--font-display);font-size:1.9rem;font-weight:700;color:var(--text);line-height:1.2;margin-bottom:1.5rem}
+h2{font-family:var(--font-display);font-size:1.2rem;font-weight:700;margin:2.2rem 0 .8rem;color:var(--text);display:flex;align-items:center;gap:.6rem}
+h2::before{content:'';display:inline-block;width:3px;height:1em;background:var(--accent2);border-radius:2px;flex-shrink:0}
+h3{font-size:1rem;font-weight:600;margin:1.5rem 0 .5rem;color:var(--accent)}
+p,ul,ol{margin-bottom:1rem}
+ul,ol{padding-left:1.5rem}
+li{margin-bottom:.25rem}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+code:not(pre code){background:#e0f2fe;color:#0369a1;padding:.1em .35em;border-radius:4px;font-size:.85em;font-family:'Space Grotesk',monospace}
+
+/* CODE BLOCKS */
+.code-block{margin:1.2rem 0;border-radius:10px;overflow:hidden;border:1px solid var(--border);box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.code-header{background:#1e2a3a;padding:.5rem 1rem;font-family:'Space Grotesk',monospace;font-size:.73rem;color:#64748b;display:flex;justify-content:space-between;align-items:center}
+.code-header .lang{color:var(--accent2);font-weight:700}
+.code-block pre{margin:0;border-radius:0}
+.code-block pre code.hljs{font-size:.82rem;line-height:1.6;padding:1rem}
+
+/* CALLOUTS */
+.callout{border-radius:8px;padding:1rem 1.1rem;margin:1.2rem 0;border-left:3px solid;background:var(--bg-callout)}
+.callout strong{display:block;font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem}
+.callout.info{border-color:var(--accent)}
+.callout.info strong{color:var(--accent)}
+.callout.pitfall{border-color:var(--orange);background:#fffbeb}
+.callout.pitfall strong{color:var(--orange)}
+.callout.exercise{border-color:var(--green);background:#f0fdf4}
+.callout.exercise strong{color:var(--green)}
+.callout.danger{border-color:var(--red);background:#fef2f2}
+.callout.danger strong{color:var(--red)}
+
+/* DIAGRAMS */
+.diagram{background:#1e2a3a;color:#a5f3fc;font-family:'Space Grotesk',monospace;font-size:.78rem;line-height:1.6;padding:1.2rem 1.5rem;border-radius:10px;overflow-x:auto;white-space:pre;margin:1.2rem 0;border:1px solid #2d3f52}
+
+/* TABLES */
+table{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.87rem}
+th{background:#1c2333;color:var(--accent2);font-family:var(--font-display);font-weight:600;padding:.65rem 1rem;text-align:left}
+td{padding:.6rem 1rem;border-bottom:1px solid var(--border)}
+tr:nth-child(even) td{background:rgba(14,165,233,.03)}
+.yes{color:var(--green);font-weight:600}
+.no{color:var(--red)}
+.partial{color:var(--orange)}
+
+/* MOBILE */
+.menu-toggle{display:none}
+@media(max-width:900px){
+  .sidebar{position:fixed;left:-100%;z-index:50;transition:left .25s;box-shadow:4px 0 20px rgba(0,0,0,.3)}
+  .sidebar.open{left:0}
+  .menu-toggle{display:block;position:fixed;top:.75rem;left:.75rem;z-index:60;background:var(--sidebar-bg);color:var(--accent2);border:1px solid rgba(6,182,212,.3);border-radius:6px;padding:.4rem .7rem;font-size:1rem;cursor:pointer}
+  .content{padding:4.5rem 1.25rem 3rem}
+}
+</style>
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-fill" id="pFill"></div></div>
+<button class="menu-toggle" id="menuBtn">☰</button>
+
+<div class="layout">
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <div class="label">Formation</div>
+    <div class="title">RAG & Mémoire<br>pour agents</div>
+  </div>
+  <div class="sidebar-nav">
+
+    <div class="mod-group open">
+      <div class="mod-header">
+        <span class="mod-dot" style="background:#0ea5e9"></span>
+        <span class="mod-name">M1 — Fondamentaux RAG</span>
+        <span class="mod-chevron">▶</span>
+      </div>
+      <ul class="lesson-list">
+        <li><a href="#m1l1" data-id="m1l1"><span class="check-dot"></span>Pourquoi le RAG ?</a></li>
+        <li><a href="#m1l2" data-id="m1l2"><span class="check-dot"></span>Architecture de bout en bout</a></li>
+        <li><a href="#m1l3" data-id="m1l3"><span class="check-dot"></span>Embeddings et représentation</a></li>
+        <li><a href="#m1l4" data-id="m1l4"><span class="check-dot"></span>Distance et similarité vectorielle</a></li>
+      </ul>
+    </div>
+
+    <div class="mod-group">
+      <div class="mod-header">
+        <span class="mod-dot" style="background:#06b6d4"></span>
+        <span class="mod-name">M2 — Vector Stores</span>
+        <span class="mod-chevron">▶</span>
+      </div>
+      <ul class="lesson-list">
+        <li><a href="#m2l1" data-id="m2l1"><span class="check-dot"></span>Qu'est-ce qu'un vector store ?</a></li>
+        <li><a href="#m2l2" data-id="m2l2"><span class="check-dot"></span>ChromaDB : architecture & modes</a></li>
+        <li><a href="#m2l3" data-id="m2l3"><span class="check-dot"></span>Alternatives : FAISS, Qdrant, Pinecone</a></li>
+        <li><a href="#m2l4" data-id="m2l4"><span class="check-dot"></span>Choisir son vector store</a></li>
+      </ul>
+    </div>
+
+    <div class="mod-group">
+      <div class="mod-header">
+        <span class="mod-dot" style="background:#7c3aed"></span>
+        <span class="mod-name">M3 — ChromaDB en pratique</span>
+        <span class="mod-chevron">▶</span>
+      </div>
+      <ul class="lesson-list">
+        <li><a href="#m3l1" data-id="m3l1"><span class="check-dot"></span>Collections, documents, métadonnées</a></li>
+        <li><a href="#m3l2" data-id="m3l2"><span class="check-dot"></span>Requêtes et filtres</a></li>
+        <li><a href="#m3l3" data-id="m3l3"><span class="check-dot"></span>Modes de déploiement</a></li>
+        <li><a href="#m3l4" data-id="m3l4"><span class="check-dot"></span>Mise à jour et suppression</a></li>
+      </ul>
+    </div>
+
+    <div class="mod-group">
+      <div class="mod-header">
+        <span class="mod-dot" style="background:#059669"></span>
+        <span class="mod-name">M4 — Chunking & indexation</span>
+        <span class="mod-chevron">▶</span>
+      </div>
+      <ul class="lesson-list">
+        <li><a href="#m4l1" data-id="m4l1"><span class="check-dot"></span>Stratégies de chunking</a></li>
+        <li><a href="#m4l2" data-id="m4l2"><span class="check-dot"></span>Chunk size, overlap, qualité</a></li>
+        <li><a href="#m4l3" data-id="m4l3"><span class="check-dot"></span>Métadonnées et enrichissement</a></li>
+        <li><a href="#m4l4" data-id="m4l4"><span class="check-dot"></span>Indexation incrémentale</a></li>
+      </ul>
+    </div>
+
+    <div class="mod-group">
+      <div class="mod-header">
+        <span class="mod-dot" style="background:#f59e0b"></span>
+        <span class="mod-name">M5 — Retrieval avancé</span>
+        <span class="mod-chevron">▶</span>
+      </div>
+      <ul class="lesson-list">
+        <li><a href="#m5l1" data-id="m5l1"><span class="check-dot"></span>Hybrid search (dense + BM25)</a></li>
+        <li><a href="#m5l2" data-id="m5l2"><span class="check-dot"></span>Reranking avec cross-encoders</a></li>
+        <li><a href="#m5l3" data-id="m5l3"><span class="check-dot"></span>MMR et diversité des résultats</a></li>
+        <li><a href="#m5l4" data-id="m5l4"><span class="check-dot"></span>Query transformation et HyDE</a></li>
+      </ul>
+    </div>
+
+    <div class="mod-group">
+      <div class="mod-header">
+        <span class="mod-dot" style="background:#ec4899"></span>
+        <span class="mod-name">M6 — Mémoire pour agents</span>
+        <span class="mod-chevron">▶</span>
+      </div>
+      <ul class="lesson-list">
+        <li><a href="#m6l1" data-id="m6l1"><span class="check-dot"></span>Les 4 types de mémoire</a></li>
+        <li><a href="#m6l2" data-id="m6l2"><span class="check-dot"></span>Mémoire court-terme (contexte)</a></li>
+        <li><a href="#m6l3" data-id="m6l3"><span class="check-dot"></span>Mémoire long-terme vectorielle</a></li>
+        <li><a href="#m6l4" data-id="m6l4"><span class="check-dot"></span>LangGraph Store & cross-thread</a></li>
+      </ul>
+    </div>
+
+    <div class="mod-group">
+      <div class="mod-header">
+        <span class="mod-dot" style="background:#ef4444"></span>
+        <span class="mod-name">M7 — Agentic RAG</span>
+        <span class="mod-chevron">▶</span>
+      </div>
+      <ul class="lesson-list">
+        <li><a href="#m7l1" data-id="m7l1"><span class="check-dot"></span>Du RAG linéaire à l'agent</a></li>
+        <li><a href="#m7l2" data-id="m7l2"><span class="check-dot"></span>Self-RAG et Corrective RAG</a></li>
+        <li><a href="#m7l3" data-id="m7l3"><span class="check-dot"></span>RAG multi-agents et routing</a></li>
+      </ul>
+    </div>
+
+    <div class="mod-group">
+      <div class="mod-header">
+        <span class="mod-dot" style="background:#64748b"></span>
+        <span class="mod-name">M8 — Évaluation & production</span>
+        <span class="mod-chevron">▶</span>
+      </div>
+      <ul class="lesson-list">
+        <li><a href="#m8l1" data-id="m8l1"><span class="check-dot"></span>RAGAS et métriques qualité</a></li>
+        <li><a href="#m8l2" data-id="m8l2"><span class="check-dot"></span>Déboguer un RAG défaillant</a></li>
+        <li><a href="#m8l3" data-id="m8l3"><span class="check-dot"></span>Performance, sécurité, scaling</a></li>
+      </ul>
+    </div>
+
+  </div>
+</nav>
+
+<div class="main-wrap">
+<div class="content">
+
+<!-- ═══════════════════════════════════════════════════ MODULE 1 -->
+
+<section id="m1l1">
+<div class="lesson-tag">Module 1 <span class="sep">·</span> Leçon 1 <span class="sep">·</span> Fondamentaux RAG</div>
+<h1 class="lesson-title">Pourquoi le RAG ?</h1>
+
+<p>Un LLM, aussi puissant soit-il, souffre de trois limitations structurelles qui le rendent insuffisant pour la plupart des applications réelles :</p>
+
+<ul>
+  <li><strong>Connaissances figées</strong> — le modèle ne sait rien après sa date de coupure (souvent 6 à 12 mois avant son lancement).</li>
+  <li><strong>Hallucinations</strong> — face à une question à laquelle il ne connaît pas la réponse, le modèle invente avec une confiance totale.</li>
+  <li><strong>Données privées inaccessibles</strong> — vos documents internes, base de clients, wiki d'entreprise n'ont jamais été dans l'entraînement.</li>
+</ul>
+
+<h2>La solution : Retrieval-Augmented Generation</h2>
+<p>Le RAG résout ces trois problèmes avec une idée simple : avant de générer une réponse, <strong>cherchez les documents pertinents</strong> dans votre base de connaissances, et injectez-les dans le contexte du LLM.</p>
+
+<div class="diagram">Sans RAG :
+  Question ──────────────────────────────► LLM ──► Réponse (peut halluciner)
+
+Avec RAG :
+  Question ──► [Recherche vectorielle] ──► Documents pertinents
+                                                      │
+  Question ──────────────────────────────────────────► LLM ──► Réponse ancrée</div>
+
+<h2>Pourquoi "retrieval" plutôt que "fine-tuning" ?</h2>
+<p>Une alternative au RAG est le fine-tuning : réentraîner le modèle sur vos données. Mais ce n'est généralement pas la bonne solution :</p>
+
+<table>
+<tr><th>Critère</th><th>RAG</th><th>Fine-tuning</th></tr>
+<tr><td>Données qui changent fréquemment</td><td class="yes">✓ Idéal</td><td class="no">✗ Réentraîner à chaque MAJ</td></tr>
+<tr><td>Traçabilité des sources</td><td class="yes">✓ Citations possibles</td><td class="no">✗ Le modèle "sait" sans dire d'où</td></tr>
+<tr><td>Coût d'implémentation</td><td class="yes">✓ Faible</td><td class="no">✗ Élevé (GPU, temps)</td></tr>
+<tr><td>Nouvelles connaissances factuelles</td><td class="yes">✓ Excellent</td><td class="partial">~ Partiel</td></tr>
+<tr><td>Adapter le style/tone du modèle</td><td class="no">✗ Limité</td><td class="yes">✓ Excellent</td></tr>
+</table>
+
+<div class="callout info">
+<strong>ℹ Règle pratique</strong>
+Fine-tunez pour changer <em>comment</em> le modèle répond (style, format, ton). Utilisez le RAG pour changer <em>ce que</em> le modèle sait (données factuelles, documents internes, actualités).
+</div>
+
+<div class="callout exercise">
+<strong>✏ Exercice</strong>
+Listez 3 cas d'usage de votre quotidien professionnel où le RAG apporterait une valeur réelle. Pour chacun : quelle est la base de connaissance source ? À quelle fréquence change-t-elle ? Qui l'utiliserait ?
+</div>
+</section>
+
+<!-- ─────────────────────────────────────────────────── -->
+<section id="m1l2">
+<div class="lesson-tag">Module 1 <span class="sep">·</span> Leçon 2</div>
+<h1 class="lesson-title">Architecture RAG de bout en bout</h1>
+
+<p>Un système RAG complet comprend deux pipelines distincts qui s'exécutent à des moments différents.</p>
+
+<h2>Pipeline 1 : Indexation (offline)</h2>
+<div class="diagram">Documents bruts (PDF, HTML, Markdown, CSV…)
+        │
+        ▼
+  [1. Chargement]     → loaders : PyPDF, WebBaseLoader, UnstructuredLoader…
+        │
+        ▼
+  [2. Chunking]       → découpage en morceaux (~500-1000 tokens)
+        │
+        ▼
+  [3. Embedding]      → modèle d'embedding : chaque chunk → vecteur [768 dims]
+        │
+        ▼
+  [4. Stockage]       → vector store (ChromaDB, Qdrant…) + métadonnées</div>
+
+<h2>Pipeline 2 : Retrieval + Generation (runtime)</h2>
+<div class="diagram">Question utilisateur
+        │
+        ▼
+  [5. Embedding]      → même modèle que l'indexation : question → vecteur
+        │
+        ▼
+  [6. Recherche]      → similarité cosinus dans le vector store → top-k chunks
+        │
+        ▼
+  [7. Prompt]         → "Réponds à la question en te basant sur ce contexte : {chunks}"
+        │
+        ▼
+  [8. Génération]     → LLM génère la réponse ancrée dans les documents</div>
+
+<h2>Implémentation minimale avec LangChain + ChromaDB</h2>
+<div class="code-block">
+<div class="code-header"><span class="lang">Python</span><span>rag_minimal.py</span></div>
+<pre><code class="language-python">from langchain_community.document_loaders import PyPDFLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores import Chroma
+from langchain_community.embeddings import OllamaEmbeddings  # ou OpenAIEmbeddings
+from langchain_anthropic import ChatAnthropic
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnablePassthrough
+
+# ── INDEXATION ──────────────────────────────────────────────────
+loader = PyPDFLoader("documentation.pdf")
+docs = loader.load()
+
+splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=150)
+chunks = splitter.split_documents(docs)
+
+embeddings = OllamaEmbeddings(model="nomic-embed-text")  # gratuit, local
+vectorstore = Chroma.from_documents(chunks, embeddings, persist_directory="./chroma_db")
+
+# ── RETRIEVAL + GENERATION ───────────────────────────────────────
+retriever = vectorstore.as_retriever(search_kwargs={"k": 4})
+
+prompt = ChatPromptTemplate.from_messages([
+    ("system", """Réponds à la question en te basant UNIQUEMENT sur le contexte.
+Si la réponse n'est pas dans le contexte, dis-le clairement.
+
+Contexte :
+{context}"""),
+    ("human", "{question}")
+])
+
+def format_docs(docs):
+    return "\n\n---\n\n".join(
+        f"[Source: {d.metadata.get('source','?')}, p.{d.metadata.get('page','?')}]\n{d.page_content}"
+        for d in docs
+    )
+
+chain = (
+    {"context": retriever | format_docs, "question": RunnablePassthrough()}
+    | prompt
+    | ChatAnthropic(model="claude-opus-4-8")
+    | StrOutputParser()
+)
+
+answer = chain.invoke("Quelle est la procédure de remboursement ?")
+print(answer)
+</code></pre>
+</div>
+
+<div class="callout pitfall">
+<strong>⚠ Piège : deux pipelines, un seul modèle d'embedding</strong>
+Le modèle d'embedding utilisé à l'indexation <em>doit être identique</em> à celui utilisé au retrieval. Changer de modèle d'embedding sans réindexer toute la base produit des résultats absurdes — les vecteurs de la question et des documents ne sont plus dans le même espace.
+</div>
+
+<div class="callout exercise">
+<strong>✏ Exercice</strong>
+Dessinez l'architecture RAG pour ce cas : un chatbot qui répond aux questions sur vos emails Outlook. Identifiez : qui indexe ? quand ? comment gérer les nouvelles réponses ? comment traiter les emails confidentiels ?
+</div>
+</section>
+
+<!-- ─────────────────────────────────────────────────── -->
+<section id="m1l3">
+<div class="lesson-tag">Module 1 <span class="sep">·</span> Leçon 3</div>
+<h1 class="lesson-title">Embeddings et représentation sémantique</h1>
+
+<p>Un <strong>embedding</strong> est la traduction d'un texte (mot, phrase, document) en un vecteur de nombres — une coordonnée dans un espace à haute dimension. Ce qui rend les embeddings magiques : les textes sémantiquement proches se retrouvent géographiquement proches dans cet espace.</p>
+
+<h2>Comment un modèle d'embedding produit un vecteur</h2>
+<div class="diagram">Texte : "Comment annuler une commande ?"
+         │
+         ▼
+  Tokenisation : ["Comment", "annuler", "une", "commande", "?"]
+         │
+         ▼
+  Transformer encoder (BERT-like) → représentation contextuelle
+         │
+         ▼
+  Pooling (CLS token ou mean) → vecteur unique
+         │
+         ▼
+  [0.12, -0.34, 0.89, 0.02, -0.67, ..., 0.44]  ← 768 dimensions (ex: all-MiniLM)</div>
+
+<p>Deux phrases sémantiquement équivalentes produisent des vecteurs très proches même si elles n'ont pas de mot en commun :</p>
+<div class="diagram">"Comment annuler une commande ?" → vecteur A
+"Je voudrais retourner mon achat"  → vecteur B
+
+cosine_similarity(A, B) ≈ 0.87  ← très proches sémantiquement ✓</div>
+
+<h2>Choisir son modèle d'embedding</h2>
+<div class="code-block">
+<div class="code-header"><span class="lang">Python</span><span>modèles d'embedding courants</span></div>
+<pre><code class="language-python"># ── LOCAL / GRATUIT ──────────────────────────────────────────────
+from langchain_community.embeddings import HuggingFaceEmbeddings
+
+# Meilleur rapport qualité/taille pour du français + anglais
+embed_multilingual = HuggingFaceEmbeddings(
+    model_name="intfloat/multilingual-e5-large",  # 560M params, 1024 dims
+    model_kwargs={"device": "cpu"},
+    encode_kwargs={"normalize_embeddings": True}  # important pour cosine sim
+)
+
+# Ultra-rapide, bon pour du prototypage
+embed_fast = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+# 384 dims, très rapide, anglais uniquement
+
+# ── API / CLOUD ──────────────────────────────────────────────────
+from langchain_openai import OpenAIEmbeddings
+embed_openai = OpenAIEmbeddings(model="text-embedding-3-large")  # 3072 dims
+
+from langchain_community.embeddings import VoyageEmbeddings
+embed_voyage = VoyageEmbeddings(model="voyage-3-large")  # excellent pour RAG
+
+# ── TESTER UN EMBEDDING ──────────────────────────────────────────
+v1 = embed_fast.embed_query("Comment annuler une commande ?")
+v2 = embed_fast.embed_query("Je voudrais retourner mon achat")
+v3 = embed_fast.embed_query("Recette de tarte aux pommes")
+
+import numpy as np
+def cosine_sim(a, b): return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+
+print(cosine_sim(v1, v2))  # → ~0.87 (proches sémantiquement)
+print(cosine_sim(v1, v3))  # → ~0.15 (éloignés)
+</code></pre>
+</div>
+
+<h2>Benchmarks MTEB : comment comparer</h2>
+<p>Le <strong>MTEB</strong> (Massive Text Embedding Benchmark) est la référence pour comparer les modèles. Il mesure la qualité sur des tâches de retrieval, clustering, classification. En 2026, les meilleurs modèles pour du RAG français :</p>
+<table>
+<tr><th>Modèle</th><th>Dims</th><th>MTEB FR Retrieval</th><th>Coût</th><th>Taille</th></tr>
+<tr><td>voyage-3-large</td><td>1024</td><td class="yes">Excellent</td><td>API payante</td><td>—</td></tr>
+<tr><td>multilingual-e5-large</td><td>1024</td><td class="yes">Très bon</td><td>Gratuit/local</td><td>560M</td></tr>
+<tr><td>text-embedding-3-large</td><td>3072</td><td class="yes">Très bon</td><td>API payante</td><td>—</td></tr>
+<tr><td>all-MiniLM-L6-v2</td><td>384</td><td class="partial">Moyen (anglais only)</td><td>Gratuit/local</td><td>22M</td></tr>
+</table>
+
+<div class="callout pitfall">
+<strong>⚠ Piège : le modèle de retrieval ≠ modèle de génération</strong>
+Vous pouvez utiliser un petit modèle d'embedding (e5-small) pour la recherche et un grand LLM (Claude Opus) pour la génération. Ces sont deux étapes indépendantes. Un modèle d'embedding n'a pas besoin d'être "intelligent" — il a besoin d'être <em>cohérent</em> dans sa représentation vectorielle.
+</div>
+
+<div class="callout exercise">
+<strong>✏ Exercice</strong>
+Installez <code>sentence-transformers</code> et comparez la similarité cosinus entre 5 paires de phrases : 2 paires sémantiquement proches, 2 paires éloignées, 1 paire piège (mêmes mots, sens opposé — ex: "je suis content" vs "je ne suis pas content"). Que remarquez-vous sur la dernière paire ?
+</div>
+</section>
+
+<!-- ─────────────────────────────────────────────────── -->
+<section id="m1l4">
+<div class="lesson-tag">Module 1 <span class="sep">·</span> Leçon 4</div>
+<h1 class="lesson-title">Distance et similarité vectorielle</h1>
+
+<p>La recherche dans un vector store consiste à trouver les vecteurs les plus "proches" d'une requête. Mais "proche" a plusieurs définitions mathématiques, et le choix impacte les résultats.</p>
+
+<h2>Similarité cosinus</h2>
+<p>La métrique la plus utilisée en RAG. Elle mesure l'<em>angle</em> entre deux vecteurs, ignorant leur magnitude. Idéale pour les embeddings qui représentent du sens.</p>
+<div class="code-block">
+<div class="code-header"><span class="lang">Python</span><span>métriques de distance</span></div>
+<pre><code class="language-python">import numpy as np
+
+def cosine_similarity(a, b):
+    return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+# Résultat : [-1, 1], où 1 = identique, 0 = orthogonal, -1 = opposé
+
+def euclidean_distance(a, b):
+    return np.linalg.norm(a - b)
+# Résultat : [0, ∞], où 0 = identique
+
+def dot_product(a, b):
+    return np.dot(a, b)
+# Similaire à cosinus si les vecteurs sont normalisés (||v|| = 1)
+
+# ChromaDB utilise par défaut : L2 (distance euclidienne)
+# mais peut être configuré pour cosinus ou dot product :
+import chromadb
+client = chromadb.Client()
+collection = client.create_collection(
+    name="ma_collection",
+    metadata={"hnsw:space": "cosine"}  # "l2", "cosine", ou "ip" (inner product)
+)
+
+# ⚠ Toujours normaliser vos embeddings si vous utilisez dot product ou IP
+# La plupart des modèles retournent des vecteurs déjà normalisés
+# Vérifiez : np.linalg.norm(vecteur) ≈ 1.0
+</code></pre>
+</div>
+
+<h2>Algorithmes d'index : ANN vs exact search</h2>
+<p>Pour des millions de vecteurs, comparer la requête avec chacun (exact search = O(n)) est trop lent. On utilise des algorithmes <strong>Approximate Nearest Neighbor (ANN)</strong> qui sacrifient un peu de précision pour gagner énormément en vitesse.</p>
+
+<table>
+<tr><th>Algorithme</th><th>Utilisé par</th><th>Avantage</th><th>Limite</th></tr>
+<tr><td>HNSW</td><td>ChromaDB, Qdrant, Weaviate</td><td>Très rapide, bonne précision</td><td>Consomme beaucoup de RAM</td></tr>
+<tr><td>IVF (Flat/PQ)</td><td>FAISS</td><td>Économique en mémoire</td><td>Moins précis sur petits datasets</td></tr>
+<tr><td>DiskANN</td><td>Azure AI Search</td><td>Fonctionne sur disque</td><td>Plus lent que HNSW en RAM</td></tr>
+<tr><td>Exact (brute-force)</td><td>FAISS, petits datasets</td><td>100% précis</td><td>O(n), lent sur de grands datasets</td></tr>
+</table>
+
+<div class="callout info">
+<strong>ℹ HNSW dans ChromaDB</strong>
+ChromaDB utilise HNSW par défaut via la bibliothèque <code>hnswlib</code>. Les paramètres clés : <code>hnsw:M</code> (connectivité — défaut 16, plus = meilleure précision mais plus de RAM) et <code>hnsw:ef_construction</code> (qualité de l'index — défaut 100). Pour la plupart des usages, les defaults sont bons.
+</div>
+
+<div class="callout exercise">
+<strong>✏ Exercice</strong>
+Créez 1000 embeddings aléatoires (np.random.randn) de dimension 384. Mesurez le temps de recherche exact (pour-chacun) vs HNSW (via <code>hnswlib</code>). À partir de combien de vecteurs la différence devient-elle perceptible ? Qu'est-ce que cela implique pour le choix de l'algorithme sur votre dataset ?
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════ MODULE 2 -->
+
+<section id="m2l1">
+<div class="lesson-tag">Module 2 <span class="sep">·</span> Leçon 1 <span class="sep">·</span> Vector Stores</div>
+<h1 class="lesson-title">Qu'est-ce qu'un vector store ?</h1>
+
+<p>Un <strong>vector store</strong> (ou base de données vectorielle) est un système de stockage spécialisé qui permet de stocker des vecteurs d'embedding et d'effectuer des recherches par similarité de façon efficace. C'est la brique centrale de tout système RAG.</p>
+
+<h2>Ce qu'il stocke et ce qu'il fait</h2>
+<div class="diagram">┌────────────────────────────────────────────────────────────┐
+│                      VECTOR STORE                          │
+│                                                            │
+│  id         vecteur [768 dims]         métadonnées         │
+│  ───────    ──────────────────         ─────────────────   │
+│  doc-001    [0.12, -0.34, …, 0.89]    {source: "faq.pdf"} │
+│  doc-002    [0.55,  0.21, …, -0.12]   {page: 3, date: …}  │
+│  doc-003    [-0.08, 0.67, …, 0.44]    {category: "RH"}    │
+│  …                                                         │
+│                                                            │
+│  Opérations :                                              │
+│  • add(vecteurs, textes, métadonnées)                      │
+│  • query(vecteur_requête, k=5) → top-5 plus proches       │
+│  • query_with_filter(vecteur, where={"category": "RH"})   │
+│  • update, delete, get                                     │
+└────────────────────────────────────────────────────────────┘</div>
+
+<h2>Vector store vs base de données classique</h2>
+<table>
+<tr><th>Critère</th><th>Base relationnelle (SQL)</th><th>Vector store</th></tr>
+<tr><td>Requête typique</td><td>WHERE name = 'Alice'</td><td>Les 5 docs les plus proches de cette question</td></tr>
+<tr><td>Type de recherche</td><td>Exacte (égalité, comparaison)</td><td>Approximative (similarité sémantique)</td></tr>
+<tr><td>Index</td><td>B-tree, hash</td><td>HNSW, IVF</td></tr>
+<tr><td>Scalabilité</td><td>Milliards de lignes (mature)</td><td>Milliards de vecteurs (en progrès)</td></tr>
+<tr><td>Transactionnel</td><td>Oui (ACID)</td><td>Rarement</td></tr>
+</table>
+
+<div class="callout info">
+<strong>ℹ La plupart des vector stores stockent aussi le texte</strong>
+ChromaDB, Qdrant, Weaviate stockent le document original (texte) en plus du vecteur. FAISS ne stocke que les vecteurs — vous devez gérer le texte vous-même en parallèle.
+</div>
+
+<div class="callout exercise">
+<strong>✏ Exercice</strong>
+Sans coder, réfléchissez à une base de connaissances de 50 000 documents FAQ. Combien de vecteurs de 768 dimensions faut-il stocker ? Quelle taille en mémoire (float32 = 4 octets) ? Ce chiffre vous semble-t-il gérable sur un laptop standard ?
+</div>
+</section>
+
+<!-- ─────────────────────────────────────────────────── -->
+<section id="m2l2">
+<div class="lesson-tag">Module 2 <span class="sep">·</span> Leçon 2</div>
+<h1 class="lesson-title">ChromaDB : architecture et modes</h1>
+
+<p>ChromaDB est le vector store le plus utilisé pour le prototypage et les applications à échelle modérée. Il se distingue par sa simplicité d'installation, son API Python intuitive, et ses trois modes de déploiement.</p>
+
+<h2>Architecture interne</h2>
+<div class="diagram">ChromaDB (version 0.5.x en 2026)
+
+┌─────────────────────────────────────────────┐
+│               Python Client API             │
+├─────────────────────────────────────────────┤
+│          Collection Manager                 │
+│  (gère les collections et leurs métadatas) │
+├──────────────┬──────────────────────────────┤
+│  Vector Index│  Document Store              │
+│  (HNSW)      │  (SQLite pour métadonnées   │
+│              │   + stockage des textes)     │
+└──────────────┴──────────────────────────────┘</div>
+
+<h2>Les trois modes de déploiement</h2>
+<div class="code-block">
+<div class="code-header"><span class="lang">Python</span><span>modes ChromaDB</span></div>
+<pre><code class="language-python">import chromadb
+
+# MODE 1 : In-memory (dev/test — perdu au redémarrage)
+client = chromadb.Client()
+
+# MODE 2 : Persistant (fichiers locaux — un seul processus)
+client = chromadb.PersistentClient(path="./chroma_data")
+
+# MODE 3 : Client/Serveur (multi-processus, multi-clients)
+# → Lancer le serveur d'abord :
+#   chroma run --path ./chroma_data --port 8000
+client = chromadb.HttpClient(host="localhost", port=8000)
+
+# Async client (pour les apps FastAPI/async)
+import asyncio
+async_client = await chromadb.AsyncHttpClient(host="localhost", port=8000)
+</code></pre>
+</div>
+
+<h2>Collections : l'unité d'organisation</h2>
+<div class="code-block">
+<div class="code-header"><span class="lang">Python</span><span>gestion des collections</span></div>
+<pre><code class="language-python">import chromadb
+
+client = chromadb.PersistentClient(path="./db")
+
+# Créer une collection
+collection = client.create_collection(
+    name="documentation_produit",
+    metadata={
+        "hnsw:space": "cosine",     # métrique de distance
+        "hnsw:M": 16,               # connectivité HNSW
+        "hnsw:ef_construction": 100 # qualité de l'index
+    }
+)
+
+# Obtenir ou créer (idempotent — pratique en prod)
+collection = client.get_or_create_collection(
+    name="documentation_produit",
+    metadata={"hnsw:space": "cosine"}
+)
+
+# Lister, supprimer
+print(client.list_collections())
+client.delete_collection("documentation_produit")
+
+# Statistiques
+print(collection.count())  # nombre de documents
+</code></pre>
+</div>
+
+<div class="callout pitfall">
+<strong>⚠ Piège : PersistentClient et plusieurs processus</strong>
+<code>PersistentClient</code> utilise SQLite, qui ne supporte pas bien la concurrence multi-processus. Si votre API FastAPI démarre plusieurs workers (Gunicorn avec 4 workers), utilisez impérativement le mode client/serveur (<code>HttpClient</code>). Un seul serveur Chroma, plusieurs clients.
+</div>
+
+<div class="callout exercise">
+<strong>✏ Exercice</strong>
+Installez ChromaDB (<code>pip install chromadb</code>) et créez une collection avec 3 documents simples ("Je m'appelle Alice", "Le ciel est bleu", "Python est un langage de programmation"). Interrogez avec "Quel est mon prénom ?" sans modèle d'embedding (Chroma utilise son embedding par défaut). Quel document est retourné en premier ?
+</div>
+</section>
+
+<!-- ─────────────────────────────────────────────────── -->
+<section id="m2l3">
+<div class="lesson-tag">Module 2 <span class="sep">·</span> Leçon 3</div>
+<h1 class="lesson-title">Alternatives : FAISS, Qdrant, Pinecone, Weaviate</h1>
+
+<p>ChromaDB n'est pas le seul vector store. Chaque outil a ses forces. Les connaître vous permet de migrer quand vos besoins évoluent.</p>
+
+<h2>FAISS (Meta AI)</h2>
+<div class="code-block">
+<div class="code-header"><span class="lang">Python</span><span>FAISS via LangChain</span></div>
+<pre><code class="language-python">from langchain_community.vectorstores import FAISS
+from langchain_community.embeddings import HuggingFaceEmbeddings
+
+embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+
+# Créer depuis des documents
+vectorstore = FAISS.from_documents(chunks, embeddings)
+
+# Sauvegarder / charger
+vectorstore.save_local("./faiss_index")
+vectorstore = FAISS.load_local("./faiss_index", embeddings,
+                                allow_dangerous_deserialization=True)
+
+# Merging : FAISS permet de fusionner des index
+vs1.merge_from(vs2)  # combine deux index FAISS
+
+# Points forts : ultra-rapide, mature, supporte GPU, nombreux types d'index
+# Limite : pas de serveur intégré, pas de filtres par métadonnées natifs
+</code></pre>
+</div>
+
+<h2>Qdrant (le choix production open-source)</h2>
+<div class="code-block">
+<div class="code-header"><span class="lang">Python</span><span>Qdrant</span></div>
+<pre><code class="language-python">from langchain_qdrant import Qdrant
+from qdrant_client import QdrantClient
+
+# Local (fichier)
+client = QdrantClient(path="./qdrant_data")
+
+# Docker : docker run -p 6333:6333 qdrant/qdrant
+client = QdrantClient(host="localhost", port=6333)
+
+# Cloud managé
+client = QdrantClient(url="https://xxx.qdrant.io", api_key="...")
+
+vectorstore = Qdrant(client=client, collection_name="docs", embeddings=embeddings)
+
+# Filtres payload (métadonnées) très expressifs
+from qdrant_client.models import Filter, FieldCondition, MatchValue
+results = client.search(
+    collection_name="docs",
+    query_vector=query_vector,
+    query_filter=Filter(
+        must=[FieldCondition(key="category", match=MatchValue(value="legal"))]
+    ),
+    limit=5
+)
+# Qdrant supporte aussi : range, geo, nested, full-text search intégré
+</code></pre>
+</div>
+
+<h2>Comparatif complet</h2>
+<table>
+<tr><th>Critère</th><th>ChromaDB</th><th>FAISS</th><th>Qdrant</th><th>Pinecone</th><th>Weaviate</th></tr>
+<tr><td>Déploiement</td><td>Local/Serveur</td><td>Local</td><td>Local/Cloud</td><td>Cloud uniquement</td><td>Local/Cloud</td></tr>
+<tr><td>Filtres métadonnées</td><td class="partial">Basique</td><td class="no">Non natif</td><td class="yes">Excellent</td><td class="yes">Bon</td><td class="yes">Excellent</td></tr>
+<tr><td>Hybrid search natif</td><td class="no">Non</td><td class="no">Non</td><td class="yes">Oui</td><td class="yes">Oui</td><td class="yes">Oui</td></tr>
+<tr><td>Scalabilité</td><td class="partial">100M vecteurs</td><td class="yes">Milliards</td><td class="yes">Milliards</td><td class="yes">Milliards</td><td class="yes">Milliards</td></tr>
+<tr><td>Facilité dev</td><td class="yes">Très facile</td><td class="partial">Moyenne</td><td class="partial">Moyenne</td><td class="yes">Facile</td><td class="partial">Moyenne</td></tr>
+<tr><td>Coût</td><td>Gratuit (OSS)</td><td>Gratuit (OSS)</td><td>Gratuit OSS / Cloud payant</td><td>Cloud payant</td><td>Gratuit OSS / Cloud payant</td></tr>
+<tr><td>Open source</td><td class="yes">Oui</td><td class="yes">Oui</td><td class="yes">Oui</td><td class="no">Non</td><td class="yes">Oui</td></tr>
+</table>
+
+<div class="callout exercise">
+<strong>✏ Exercice</strong>
+Installez Qdrant via Docker (<code>docker run -p 6333:6333 qdrant/qdrant</code>) et réindexez le même dataset que dans la leçon ChromaDB. Testez un filtre par métadonnée (ex: uniquement les documents de catégorie "technique"). Comparez l'API avec ChromaDB — quelle est la différence de verbosité ?
+</div>
+</section>
+
+<!-- ─────────────────────────────────────────────────── -->
+<section id="m2l4">
+<div class="lesson-tag">Module 2 <span class="sep">·</span> Leçon 4</div>
+<h1 class="lesson-title">Choisir son vector store</h1>
+
+<h2>Arbre de décision</h2>
+<div class="diagram">Je veux juste prototyper rapidement
+  → ChromaDB (in-memory ou persistent)
+
+Je n'ai pas besoin de filtres et je veux la vitesse pure
+  → FAISS
+
+Je veux du production-grade self-hosted avec filtres avancés
+  → Qdrant
+
+Je veux un managed service sans ops
+  → Pinecone (si budget) ou Qdrant Cloud
+
+J'ai besoin de hybrid search ET de filtres ET de GraphQL
+  → Weaviate
+
+Je suis déjà sur Azure/GCP/AWS
+  → Azure AI Search / Vertex AI / OpenSearch</div>
+
+<h2>Critères selon l'échelle</h2>
+<table>
+<tr><th>Volume</th><th>Recommandation</th></tr>
+<tr><td>&lt; 100k vecteurs</td><td>ChromaDB PersistentClient suffit largement</td></tr>
+<tr><td>100k – 10M</td><td>Qdrant self-hosted ou ChromaDB HttpClient</td></tr>
+<tr><td>10M – 1B</td><td>Qdrant distribué, Weaviate, ou Pinecone</td></tr>
+<tr><td>&gt; 1B</td><td>FAISS avec sharding custom, Elasticsearch kNN, Azure AI Search</td></tr>
+</table>
+
+<div class="callout info">
+<strong>ℹ Migration facilitée par LangChain</strong>
+LangChain abstrait tous ces vector stores derrière la même interface <code>VectorStore</code>. Migrer de ChromaDB à Qdrant = changer 3 lignes d'initialisation. Le reste de votre code (retriever, chaîne RAG) reste identique.
+</div>
+
+<div class="callout exercise">
+<strong>✏ Exercice</strong>
+Pour votre projet de chatbot FAQ (50k documents), calculez : le coût mensuel Pinecone (plan Starter/Standard), le coût d'un VPS pour Qdrant self-hosted, et le coût en temps dev pour maintenir chacun. Quel est votre choix et pourquoi ?
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════ MODULE 3 -->
+
+<section id="m3l1">
+<div class="lesson-tag">Module 3 <span class="sep">·</span> Leçon 1 <span class="sep">·</span> ChromaDB en pratique</div>
+<h1 class="lesson-title">Collections, documents, métadonnées</h1>
+
+<p>Maîtriser l'API ChromaDB dans ses détails évite les surprises en production. Voici le guide complet des opérations CRUD.</p>
+
+<h2>Ajouter des documents</h2>
+<div class="code-block">
+<div class="code-header"><span class="lang">Python</span><span>add() — tous les cas</span></div>
+<pre><code class="language-python">import chromadb
+from chromadb.utils import embedding_functions
+
+client = chromadb.PersistentClient(path="./db")
+
+# Fonction d'embedding : Chroma calcule les vecteurs pour vous
+ef = embedding_functions.SentenceTransformerEmbeddingFunction(
+    model_name="intfloat/multilingual-e5-small"
+)
+collection = client.get_or_create_collection("docs", embedding_function=ef)
+
+# Ajout simple
+collection.add(
+    documents=[
+        "La politique de remboursement est de 30 jours.",
+        "Les livraisons sont effectuées sous 48h ouvrées.",
+        "Notre support est disponible 24h/24 par email.",
+    ],
+    metadatas=[
+        {"category": "remboursement", "source": "faq.pdf", "page": 12},
+        {"category": "livraison",     "source": "faq.pdf", "page": 8},
+        {"category": "support",       "source": "faq.pdf", "page": 3},
+    ],
+    ids=["doc-001", "doc-002", "doc-003"]   # IDs uniques obligatoires
+)
+
+# Ajout avec embeddings pré-calculés (si vous gérez les embeddings vous-même)
+import numpy as np
+custom_embeddings = [np.random.rand(384).tolist() for _ in range(3)]
+collection.add(
+    embeddings=custom_embeddings,
+    documents=["Texte 1", "Texte 2", "Texte 3"],
+    ids=["e-001", "e-002", "e-003"]
+)
+
+# ⚠ Les IDs doivent être uniques dans la collection
+# Un add() avec un ID existant lève une erreur → utilisez upsert()
+collection.upsert(
+    documents=["Version mise à jour du doc 1"],
+    metadatas=[{"category": "remboursement", "source": "faq_v2.pdf", "page": 15}],
+    ids=["doc-001"]
+)
+</code></pre>
+</div>
+
+<h2>Métadonnées : types supportés</h2>
+<div class="code-block">
+<div class="code-header"><span class="lang">Python</span><span>types de métadonnées</span></div>
+<pre><code class="language-python"># ChromaDB supporte uniquement : str, int, float, bool
+# ❌ Ne pas utiliser : list, dict, None
+
+metadata_valide = {
+    "source": "rapport_annuel.pdf",   # str ✓
+    "page": 42,                        # int ✓
+    "score_qualite": 0.87,             # float ✓
+    "est_publie": True,                # bool ✓
+}
+
+# ❌ Invalide (sera ignoré ou plantera)
+metadata_invalide = {
+    "tags": ["python", "ml"],          # list ✗
+    "auteur": {"nom": "Alice"},        # dict ✗
+    "date": None,                      # None ✗
+}
+
+# Pour stocker des listes → sérialiser en JSON string
+import json
+metadata_contournement = {
+    "tags": json.dumps(["python", "ml"]),  # ✓ stocké comme string
+    "date": "2026-06-13",                  # ✓ date en ISO string
+}
+</code></pre>
+</div>
+
+<div class="callout pitfall">
+<strong>⚠ Piège : IDs sans stratégie</strong>
+Utiliser <code>str(uuid4())</code> pour les IDs rend impossible la mise à jour incrémentale — vous ne savez plus quel ID correspond à quel document. Adoptez une stratégie déterministe : hash du contenu, chemin de fichier + numéro de chunk, ou clé métier. Exemple : <code>f"{source_file}::chunk::{chunk_index}"</code>.
+</div>
+
+<div class="callout exercise">
+<strong>✏ Exercice</strong>
+Implémentez une fonction <code>add_document(filepath: str, collection)</code> qui : charge un PDF, le découpe en chunks, génère des IDs déterministes (hash SHA256 du contenu du chunk), et indexe dans ChromaDB avec les métadonnées source, page, chunk_index. Que se passe-t-il si vous appelez la fonction deux fois sur le même fichier ?
+</div>
+</section>
+
+<!-- ─────────────────────────────────────────────────── -->
+<section id="m3l2">
+<div class="lesson-tag">Module 3 <span class="sep">·</span> Leçon 2</div>
+<h1 class="lesson-title">Requêtes et filtres</h1>
+
+<h2>query() : la recherche de base</h2>
+<div class="code-block">
+<div class="code-header"><span class="lang">Python</span><span>query() — tous les paramètres</span></div>
+<pre><code class="language-python"># Recherche simple
+results = collection.query(
+    query_texts=["Comment obtenir un remboursement ?"],
+    n_results=5,                     # top-5 résultats
+    include=["documents", "metadatas", "distances", "embeddings"]
+    # distances : score de similarité (plus petit = plus proche pour L2)
+    # embeddings : vecteurs des résultats (rarement utile)
+)
+
+print(results["documents"][0])   # liste des 5 textes
+print(results["metadatas"][0])   # liste des 5 métadonnées
+print(results["distances"][0])   # liste des 5 distances
+print(results["ids"][0])         # liste des 5 IDs
+
+# Batch query : plusieurs questions en une fois
+results = collection.query(
+    query_texts=[
+        "Politique de remboursement ?",
+        "Délai de livraison ?",
+    ],
+    n_results=3
+)
+# results["documents"][0] → top-3 pour question 1
+# results["documents"][1] → top-3 pour question 2
+</code></pre>
+</div>
+
+<h2>Filtres where : filtrage par métadonnées</h2>
+<div class="code-block">
+<div class="code-header"><span class="lang">Python</span><span>filtres where</span></div>
+<pre><code class="language-python"># Filtres simples (égalité)
+results = collection.query(
+    query_texts=["remboursement"],
+    n_results=5,
+    where={"category": "remboursement"}           # égalité
+)
+
+# Opérateurs de comparaison
+results = collection.query(
+    query_texts=["question"],
+    n_results=5,
+    where={"page": {"$gte": 10}}   # page >= 10
+    # Opérateurs : $eq, $ne, $gt, $gte, $lt, $lte, $in, $nin
+)
+
+# Filtres combinés
+results = collection.query(
+    query_texts=["question"],
+    n_results=5,
+    where={
+        "$and": [
+            {"category": {"$in": ["remboursement", "livraison"]}},
+            {"est_publie": True},
+            {"page": {"$gte": 5}}
+        ]
+    }
+)
+
+# Filtre OR
+results = collection.query(
+    query_texts=["question"],
+    n_results=5,
+    where={"$or": [
+        {"category": "urgent"},
+        {"score_qualite": {"$gte": 0.9}}
+    ]}
+)
+
+# Filtre sur le texte (recherche dans le contenu des documents)
+results = collection.query(
+    query_texts=["question"],
+    n_results=5,
+    where_document={"$contains": "remboursement"}  # le texte contient ce mot
+    # aussi : $not_contains
+)
+</code></pre>
+</div>
+
+<div class="callout pitfall">
+<strong>⚠ Piège : where réduit le pool de candidats</strong>
+ChromaDB applique d'abord le filtre <code>where</code>, puis cherche les top-k dans le sous-ensemble filtré. Si votre filtre ne laisse que 3 documents mais que vous demandez <code>n_results=5</code>, vous n'obtiendrez que 3 résultats — sans erreur, sans avertissement. Vérifiez toujours que votre filtre laisse un pool suffisant.
+</div>
+
+<div class="callout exercise">
+<strong>✏ Exercice</strong>
+Indexez 20 documents avec des métadonnées variées (dates, catégories, scores). Construisez une requête qui trouve les 3 documents les plus pertinents pour "problème de paiement" parmi uniquement les documents publiés après le 1er janvier 2026 et ayant un score qualité > 0.7.
+</div>
+</section>
+
+<!-- ─────────────────────────────────────────────────── -->
+<section id="m3l3">
+<div class="lesson-tag">Module 3 <span class="sep">·</span> Leçon 3</div>
+<h1 class="lesson-title">Modes de déploiement</h1>
+
+<h2>Mode serveur (production)</h2>
+<div class="code-block">
+<div class="code-header"><span class="lang">bash</span><span>lancer le serveur ChromaDB</span></div>
+<pre><code class="language-bash"># Installation
+pip install "chromadb[server]"
+
+# Démarrage simple
+chroma run --path ./chroma_data --port 8000 --host 0.0.0.0
+
+# Avec authentification (token)
+export CHROMA_SERVER_AUTHN_CREDENTIALS="mon-token-secret"
+export CHROMA_SERVER_AUTHN_PROVIDER="chromadb.auth.token_authn.TokenAuthenticationServerProvider"
+chroma run --path ./chroma_data --port 8000
+
+# Docker
+docker run -p 8000:8000 \
+  -v $(pwd)/chroma_data:/chroma/chroma \
+  -e IS_PERSISTENT=TRUE \
+  chromadb/chroma:latest
+</code></pre>
+</div>
+
+<div class="code-block">
+<div class="code-header"><span class="lang">Python</span><span>client avec authentification</span></div>
+<pre><code class="language-python">import chromadb
+from chromadb.config import Settings
+
+client = chromadb.HttpClient(
+    host="chroma.internal.company.com",
+    port=8000,
+    settings=Settings(
+        chroma_client_auth_provider="chromadb.auth.token_authn.TokenAuthClientProvider",
+        chroma_client_auth_credentials="mon-token-secret"
+    )
+)
+
+# Client async (FastAPI, etc.)
+import asyncio
+async def main():
+    client = await chromadb.AsyncHttpClient(host="localhost", port=8000)
+    col = await client.get_or_create_collection("docs")
+    await col.add(documents=["Hello"], ids=["1"])
+
+asyncio.run(main())
+</code></pre>
+</div>
+
+<h2>Configuration avancée</h2>
+<div class="code-block">
+<div class="code-header"><span class="lang">Python</span><span>settings.yaml</span></div>
+<pre><code class="language-yaml"># chroma_settings.yaml
+chroma_db_impl: duckdb+parquet
+persist_directory: /data/chroma
+chroma_server_host: 0.0.0.0
+chroma_server_http_port: 8000
+anonymized_telemetry: false   # désactiver la télémétrie en prod
+</code></pre>
+</div>
+
+<div class="callout pitfall">
+<strong>⚠ Piège : backups ChromaDB</strong>
+ChromaDB PersistentClient écrit dans des fichiers SQLite et binaires. Ne faites jamais de backup à chaud (pendant que Chroma tourne) avec un simple <code>cp</code> — vous risquez une base corrompue. Utilisez : (1) arrêter Chroma → copier → redémarrer, (2) LVM snapshot, ou (3) le mode serveur avec une base PostgreSQL (via <code>chroma-qdrant</code> ou migration).
+</div>
+
+<div class="callout exercise">
+<strong>✏ Exercice</strong>
+Lancez ChromaDB en mode serveur Docker, indexez 100 documents depuis un process Python, et interrogez depuis un second process Python (simulant un autre service). Vérifiez que les deux processus voient la même collection. Simulez un redémarrage du serveur — les données sont-elles persistées ?
+</div>
+</section>
+
+<!-- ─────────────────────────────────────────────────── -->
+<section id="m3l4">
+<div class="lesson-tag">Module 3 <span class="sep">·</span> Leçon 4</div>
+<h1 class="lesson-title">Mise à jour et suppression</h1>
+
+<div class="code-block">
+<div class="code-header"><span class="lang">Python</span><span>update, delete, get</span></div>
+<pre><code class="language-python"># UPDATE : modifier des métadonnées (sans re-embedder)
+collection.update(
+    ids=["doc-001"],
+    metadatas=[{"category": "remboursement", "est_publie": True, "version": 2}]
+)
+
+# UPDATE avec nouveau texte (re-embeds automatiquement)
+collection.update(
+    ids=["doc-001"],
+    documents=["Nouvelle version du texte avec politique mise à jour."],
+    metadatas=[{"category": "remboursement", "version": 2}]
+)
+
+# UPSERT : add si n'existe pas, update si existe
+collection.upsert(
+    ids=["doc-001", "doc-999"],
+    documents=["Texte mis à jour", "Nouveau document"],
+    metadatas=[{"v": 2}, {"v": 1}]
+)
+
+# DELETE par IDs
+collection.delete(ids=["doc-001", "doc-002"])
+
+# DELETE par filtre (supprimer tous les docs d'une source)
+collection.delete(where={"source": "ancien_document.pdf"})
+
+# GET : récupérer des documents par ID ou filtre
+docs = collection.get(ids=["doc-001", "doc-002"])
+docs_filtres = collection.get(
+    where={"category": "livraison"},
+    include=["documents", "metadatas"],
+    limit=10,
+    offset=0   # pagination
+)
+print(f"Total dans la catégorie : {collection.count()}")
+
+# Peek : voir les premiers documents (debug)
+print(collection.peek(limit=5))
+</code></pre>
+</div>
+
+<h2>Stratégie de mise à jour incrémentale</h2>
+<div class="code-block">
+<div class="code-header"><span class="lang">Python</span><span>réindexation d'un fichier modifié</span></div>
+<pre><code class="language-python">import hashlib, json
+from pathlib import Path
+
+def get_chunk_id(source: str, chunk_index: int, content: str) -> str:
+    content_hash = hashlib.sha256(content.encode()).hexdigest()[:8]
+    return f"{source}::chunk::{chunk_index}::{content_hash}"
+
+def reindex_file(filepath: str, collection, splitter, embedder):
+    source = Path(filepath).name
+
+    # 1. Supprimer les anciens chunks de cette source
+    existing = collection.get(where={"source": source})
+    if existing["ids"]:
+        collection.delete(ids=existing["ids"])
+        print(f"Supprimé {len(existing['ids'])} anciens chunks de {source}")
+
+    # 2. Charger et découper le nouveau fichier
+    docs = load_and_split(filepath, splitter)
+
+    # 3. Réindexer
+    ids = [get_chunk_id(source, i, doc.page_content) for i, doc in enumerate(docs)]
+    collection.upsert(
+        documents=[d.page_content for d in docs],
+        metadatas=[{**d.metadata, "source": source, "chunk_index": i}
+                   for i, d in enumerate(docs)],
+        ids=ids
+    )
+    print(f"Indexé {len(docs)} chunks pour {source}")
+</code></pre>
+</div>
+
+<div class="callout exercise">
+<strong>✏ Exercice</strong>
+Implémentez un "sync watcher" : un script qui surveille un dossier, détecte les fichiers ajoutés/modifiés/supprimés (via <code>watchdog</code>), et met à jour ChromaDB en conséquence. Testez avec 5 fichiers texte. Que se passe-t-il si un fichier est très gros ?
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════ MODULE 4 -->
+
+<section id="m4l1">
+<div class="lesson-tag">Module 4 <span class="sep">·</span> Leçon 1 <span class="sep">·</span> Chunking & indexation</div>
+<h1 class="lesson-title">Stratégies de chunking</h1>
+
+<p>Le chunking est l'étape qui découpe vos documents en morceaux indexables. C'est souvent le facteur le plus impactant sur la qualité du RAG — plus que le choix du LLM ou du vector store.</p>
+
+<h2>Stratégie 1 : Taille fixe (Fixed-size)</h2>
+<div class="code-block">
+<div class="code-header"><span class="lang">Python</span><span>fixed-size chunking</span></div>
+<pre><code class="language-python">from langchain.text_splitter import CharacterTextSplitter
+
+splitter = CharacterTextSplitter(
+    chunk_size=500,      # en caractères (pas en tokens !)
+    chunk_overlap=50,
+    separator="\n\n"     # coupe sur les paragraphes en priorité
+)
+chunks = splitter.split_text(mon_texte)
+
+# Limitation : coupe sans tenir compte du sens
+# "La politique de remboursement s'applique à
+#  tou" ← chunk 1
+# "tes les commandes passées après..." ← chunk 2 (perdu le début)
+</code></pre>
+</div>
+
+<h2>Stratégie 2 : Récursive (recommandée par défaut)</h2>
+<div class="code-block">
+<div class="code-header"><span class="lang">Python</span><span>RecursiveCharacterTextSplitter</span></div>
+<pre><code class="language-python">from langchain.text_splitter import RecursiveCharacterTextSplitter
+
+splitter = RecursiveCharacterTextSplitter(
+    chunk_size=800,
+    chunk_overlap=150,
+    # Ordre de priorité pour couper :
+    separators=["\n\n", "\n", ". ", "! ", "? ", ", ", " ", ""]
+    # → tente de couper sur un double saut de ligne en premier,
+    #   puis sur un saut simple, puis sur une phrase, etc.
+)
+
+# Spécialisé par langage (code)
+from langchain.text_splitter import Language
+code_splitter = RecursiveCharacterTextSplitter.from_language(
+    language=Language.PYTHON,
+    chunk_size=1000,
+    chunk_overlap=100,
+)
+# Coupe sur les fonctions/classes Python, pas au milieu d'un if
+</code></pre>
+</div>
+
+<h2>Stratégie 3 : Par structure du document</h2>
+<div class="code-block">
+<div class="code-header"><span class="lang">Python</span><span>chunking par structure (Markdown, HTML)</span></div>
+<pre><code class="language-python">from langchain.text_splitter import MarkdownHeaderTextSplitter
+
+# Respecte la hiérarchie des titres Markdown
+md_splitter = MarkdownHeaderTextSplitter(
+    headers_to_split_on=[
+        ("#",  "titre_h1"),
+        ("##", "titre_h2"),
+        ("###","titre_h3"),
+    ],
+    strip_headers=False  # garder les titres dans le chunk
+)
+chunks = md_splitter.split_text(markdown_content)
+# → chaque chunk contient automatiquement sa hiérarchie de titres en métadonnée
+
+# HTMLHeaderTextSplitter pour le HTML
+from langchain.text_splitter import HTMLHeaderTextSplitter
+html_splitter = HTMLHeaderTextSplitter(
+    headers_to_split_on=[("h1", "h1"), ("h2", "h2"), ("h3", "h3")]
+)
+</code></pre>
+</div>
+
+<h2>Stratégie 4 : Sémantique (la plus avancée)</h2>
+<div class="code-block">
+<div class="code-header"><span class="lang">Python</span><span>semantic chunking</span></div>
+<pre><code class="language-python">from langchain_experimental.text_splitter import SemanticChunker
+from langchain_community.embeddings import HuggingFaceEmbeddings
+
+embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+
+# Semantic chunking : coupe quand le sens change significativement
+semantic_splitter = SemanticChunker(
+    embeddings,
+    breakpoint_threshold_type="percentile",  # ou "standard_deviation", "gradient"
+    breakpoint_threshold_amount=95,           # seuil du 95e percentile
+)
+# Principe : embed chaque phrase, calcule la distance entre phrases consécutives,
+# coupe là où la distance est grande (= changement de sujet)
+
+chunks = semantic_splitter.create_documents([long_text])
+# Avantage : chunks cohérents sémantiquement
+# Inconvénient : 2-3x plus lent à indexer (embed toutes les phrases)
+</code></pre>
+</div>
+
+<div class="callout pitfall">
+<strong>⚠ Piège : <code>chunk_size</code> en caractères ≠ tokens</strong>
+<code>RecursiveCharacterTextSplitter</code> compte les <em>caractères</em>, pas les tokens. Un caractère ≈ 0.7 token en moyenne pour l'anglais. Pour un chunk de 800 caractères, attendez ~560 tokens. Utilisez <code>TokenTextSplitter</code> si vous voulez un contrôle exact des tokens (important pour ne pas dépasser le context window du LLM).
+</div>
+
+<div class="callout exercise">
+<strong>✏ Exercice</strong>
+Prenez un document de 10 pages. Appliquez les 4 stratégies de chunking. Pour chaque stratégie, comptez : nombre de chunks produits, taille moyenne, taille du plus petit et du plus grand chunk. Laquelle produit les chunks les plus homogènes ? Les plus "cohérents sémantiquement" (à évaluer manuellement sur 5 chunks) ?
+</div>
+</section>
+
+<!-- ─────────────────────────────────────────────────── -->
+<section id="m4l2">
+<div class="lesson-tag">Module 4 <span class="sep">·</span> Leçon 2</div>
+<h1 class="lesson-title">Chunk size, overlap et qualité</h1>
+
+<p>Le chunk size est le paramètre qui impacte le plus la qualité du RAG. Ni trop petit, ni trop grand — mais le bon équilibre dépend de votre use case.</p>
+
+<h2>Impact du chunk size</h2>
+<div class="diagram">Chunk TROP PETIT (< 200 tokens)
+  ✓ Précision de la récupération (moins de bruit)
+  ✗ Perd le contexte → le LLM n'a pas assez de contexte pour répondre
+  ✗ Plus de chunks = index plus grand = plus lent
+
+Chunk TROP GRAND (> 2000 tokens)
+  ✓ Contexte riche pour le LLM
+  ✗ Le vecteur "dilue" le sens → mauvaise précision de récupération
+  ✗ Dépasse le budget de contexte si k=5 → 5 × 2000 = 10k tokens injectés
+
+SWEET SPOT : 400-1200 tokens selon le cas d'usage
+  • FAQ courtes, code    → 300-500 tokens
+  • Documentation tech  → 600-900 tokens
+  • Documents légaux    → 800-1200 tokens</div>
+
+<h2>L'overlap : pourquoi c'est important</h2>
+<div class="code-block">
+<div class="code-header"><span class="lang">Python</span><span>visualiser l'overlap</span></div>
+<pre><code class="language-python">texte = """Article 1 : Conditions générales.
+Les présentes conditions s'appliquent à toute commande.
+
+Article 2 : Remboursement.
+Toute demande de remboursement doit être faite dans les 30 jours.
+La demande doit être accompagnée du justificatif d'achat."""
+
+# SANS overlap (chunk_overlap=0)
+# Chunk 1 : "Article 1 : Conditions générales.\nLes présentes..."
+# Chunk 2 : "Article 2 : Remboursement.\nToute demande de remb..."
+# → Si la question porte sur "conditions + remboursement", aucun chunk ne couvre les deux
+
+# AVEC overlap (chunk_overlap=100)
+# Chunk 1 : "Article 1 : ... Les présentes conditions s'appliquent..."
+# Chunk 2 : "...s'appliquent à toute commande.\n\nArticle 2 : Remboursement..."
+# → La jonction est capturée dans les deux chunks → meilleure récupération
+
+# Règle : overlap ≈ 15-20% du chunk_size
+# Pour chunk_size=800 → chunk_overlap=120-160
+
+# Test rapide : combien de chunks perd-on avec et sans overlap ?
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+
+for overlap in [0, 50, 150, 300]:
+    s = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=overlap)
+    chunks = s.split_text(texte * 100)  # texte répété pour avoir un sample
+    print(f"overlap={overlap:3d} → {len(chunks)} chunks")
+</code></pre>
+</div>
+
+<h2>Chunk size et type de contenu : guide pratique</h2>
+<table>
+<tr><th>Type de contenu</th><th>chunk_size (tokens)</th><th>overlap</th><th>Stratégie</th></tr>
+<tr><td>FAQ questions/réponses</td><td>200–400</td><td>0–50</td><td>Une Q/R = un chunk</td></tr>
+<tr><td>Documentation technique</td><td>600–900</td><td>100–150</td><td>Récursive par section</td></tr>
+<tr><td>Code source</td><td>500–1000</td><td>50–100</td><td>Language splitter</td></tr>
+<tr><td>Articles de presse</td><td>400–700</td><td>80–120</td><td>Sémantique ou récursive</td></tr>
+<tr><td>Documents légaux/contrats</td><td>800–1200</td><td>150–200</td><td>Par article/section</td></tr>
+<tr><td>Transcriptions (audio/vidéo)</td><td>300–500</td><td>50–80</td><td>Par temps ou par locuteur</td></tr>
+</table>
+
+<div class="callout exercise">
+<strong>✏ Exercice</strong>
+Sur votre dataset de test, évaluez 3 configurations de chunk_size (300, 700, 1200) avec la même collection de 10 questions de référence. Pour chaque question, le "bon" document est-il dans le top-3 ? Tracez le recall@3 pour chaque configuration. Quelle taille gagne ?
+</div>
+</section>
+
+<!-- ─────────────────────────────────────────────────── -->
+<section id="m4l3">
+<div class="lesson-tag">Module 4 <span class="sep">·</span> Leçon 3</div>
+<h1 class="lesson-title">Métadonnées et enrichissement</h1>
+
+<p>Les métadonnées transforment un vecteur muet en document intelligent. Elles permettent le filtrage, la traçabilité des sources, et l'enrichissement du contexte donné au LLM.</p>
+
+<h2>Métadonnées essentielles à toujours capturer</h2>
+<div class="code-block">
+<div class="code-header"><span class="lang">Python</span><span>enrichissement des métadonnées</span></div>
+<pre><code class="language-python">from langchain_community.document_loaders import PyPDFLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from datetime import datetime
+import hashlib, os
+
+def load_and_enrich(filepath: str, splitter) -> list:
+    """Charge un document et enrichit chaque chunk avec des métadonnées."""
+    loader = PyPDFLoader(filepath)
+    pages = loader.load()
+
+    chunks = splitter.split_documents(pages)
+
+    file_stat = os.stat(filepath)
+
+    for i, chunk in enumerate(chunks):
+        # Métadonnées de base
+        chunk.metadata.update({
+            "source_file": os.path.basename(filepath),
+            "source_path": os.path.abspath(filepath),
+            "chunk_index": i,
+            "total_chunks": len(chunks),
+            "char_count": len(chunk.page_content),
+            # Date d'indexation (pour filtrer les docs récents)
+            "indexed_at": datetime.now().isoformat(),
+            # Date de modification du fichier
+            "file_modified": datetime.fromtimestamp(file_stat.st_mtime).isoformat(),
+            # Hash pour la déduplication
+            "content_hash": hashlib.sha256(chunk.page_content.encode()).hexdigest()[:16],
+        })
+
+        # Métadonnées dérivées du contenu (ex: détection de langue)
+        if any(word in chunk.page_content.lower() for word in ["legal", "contrat", "article"]):
+            chunk.metadata["content_type"] = "legal"
+        elif "def " in chunk.page_content or "class " in chunk.page_content:
+            chunk.metadata["content_type"] = "code"
+        else:
+            chunk.metadata["content_type"] = "general"
+
+    return chunks
+
+# Utilisation dans le contexte du LLM
+def format_with_sources(docs) -> str:
+    parts = []
+    for doc in docs:
+        m = doc.metadata
+        header = f"[{m['source_file']}, p.{m.get('page', '?')}, chunk {m['chunk_index']}]"
+        parts.append(f"{header}\n{doc.page_content}")
+    return "\n\n---\n\n".join(parts)
+</code></pre>
+</div>
+
+<h2>Parent Document Retriever : chunks petits, contexte large</h2>
+<div class="code-block">
+<div class="code-header"><span class="lang">Python</span><span>ParentDocumentRetriever</span></div>
+<pre><code class="language-python">from langchain.retrievers import ParentDocumentRetriever
+from langchain.storage import InMemoryStore
+from langchain_community.vectorstores import Chroma
+
+# Principe : indexer de petits chunks pour la précision de la recherche,
+# mais retourner le document parent (plus grand) au LLM pour le contexte
+
+child_splitter = RecursiveCharacterTextSplitter(chunk_size=200)   # petits chunks pour l'embedding
+parent_splitter = RecursiveCharacterTextSplitter(chunk_size=1000)  # grands chunks pour le LLM
+
+vectorstore = Chroma(embedding_function=embeddings)
+docstore = InMemoryStore()  # stocke les parents (Redis ou MongoDB en prod)
+
+retriever = ParentDocumentRetriever(
+    vectorstore=vectorstore,
+    docstore=docstore,
+    child_splitter=child_splitter,
+    parent_splitter=parent_splitter,
+)
+
+retriever.add_documents(docs)
+
+# La recherche trouve les petits chunks précis,
+# puis retourne les grands parents → meilleur contexte pour le LLM
+results = retriever.invoke("politique de remboursement")
+print(len(results[0].page_content))  # → ~1000 chars (parent), pas 200 (child)
+</code></pre>
+</div>
+
+<div class="callout exercise">
+<strong>✏ Exercice</strong>
+Comparez deux configurations sur 5 questions : (1) chunks 800 tokens, retournés tels quels au LLM ; (2) ParentDocumentRetriever avec child 200 / parent 800. Pour chaque question, notez : la qualité de la réponse LLM (1-5) et le nombre de tokens injectés en contexte. Quelle configuration donne le meilleur ratio qualité/coût ?
+</div>
+</section>
+
+<!-- ─────────────────────────────────────────────────── -->
+<section id="m4l4">
+<div class="lesson-tag">Module 4 <span class="sep">·</span> Leçon 4</div>
+<h1 class="lesson-title">Indexation incrémentale</h1>
+
+<p>En production, votre base de connaissance évolue en permanence. Réindexer tout à chaque changement est coûteux. L'indexation incrémentale ne traite que ce qui a changé.</p>
+
+<h2>IndexingAPI de LangChain</h2>
+<div class="code-block">
+<div class="code-header"><span class="lang">Python</span><span>indexation incrémentale avec IndexingAPI</span></div>
+<pre><code class="language-python">from langchain.indexes import index
+from langchain_community.vectorstores import Chroma
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain.indexes._api import IndexingResult
+
+embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+vectorstore = Chroma(embedding_function=embeddings, persist_directory="./db")
+
+# L'IndexingAPI maintient un record store (SQLite par défaut)
+# qui trace quels documents ont déjà été indexés
+
+result: IndexingResult = index(
+    docs_source=loader.load(),           # source de documents
+    record_manager=SQLRecordManager(     # garde trace des docs indexés
+        namespace="chroma/docs",
+        db_url="sqlite:///record_manager.db"
+    ),
+    vector_store=vectorstore,
+    cleanup="incremental",               # "None", "incremental", ou "full"
+    source_id_key="source",              # clé metadata = identifiant unique du doc source
+)
+
+print(f"Ajoutés: {result.num_added}")
+print(f"Mis à jour: {result.num_updated}")
+print(f"Supprimés: {result.num_deleted}")
+print(f"Ignorés: {result.num_skipped}")   # déjà indexés, non modifiés
+
+# La prochaine fois que vous appelez index() avec les mêmes docs non modifiés :
+# → num_skipped = N (tout est ignoré — pas de recalcul des embeddings)
+# Si un doc change → re-embedded uniquement lui
+# cleanup="incremental" → supprime les anciens chunks d'un doc mis à jour
+# cleanup="full" → supprime tout ce qui n'est plus dans la source
+</code></pre>
+</div>
+
+<div class="callout pitfall">
+<strong>⚠ Piège : source_id_key et déduplication</strong>
+L'IndexingAPI détecte les doublons par hachage du contenu. Si deux fichiers différents ont le même contenu, seul l'un sera indexé. Si votre <code>source_id_key</code> n'est pas cohérent entre les runs (ex: chemin absolu qui change), la déduplication ne fonctionnera pas et vous aurez des doublons.
+</div>
+
+<div class="callout exercise">
+<strong>✏ Exercice</strong>
+Mettez en place une indexation incrémentale sur un dossier de 20 fichiers Markdown. Mesurez le temps d'indexation initial. Modifiez 3 fichiers. Réexécutez — combien de temps pour la mise à jour ? Comparez avec une réindexation complète. Quel est le gain ?
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════ MODULE 5 -->
+
+<section id="m5l1">
+<div class="lesson-tag">Module 5 <span class="sep">·</span> Leçon 1 <span class="sep">·</span> Retrieval avancé</div>
+<h1 class="lesson-title">Hybrid Search : dense + BM25</h1>
+
+<p>La recherche vectorielle seule échoue sur les requêtes qui contiennent des termes très spécifiques (noms propres, codes produits, termes techniques rares). La recherche par mots-clés (BM25) excelle là où les embeddings peinent. En 2026, le <strong>hybrid search</strong> est la pratique standard en production.</p>
+
+<h2>Pourquoi combiner les deux</h2>
+<div class="diagram">Dense (vecteurs)          Sparse (BM25)
+─────────────────         ────────────────────
+Sémantique ✓              Mots-clés exacts ✓
+Synonymes ✓               Noms propres ✓
+Langue naturelle ✓        Codes (REF-4521) ✓
+Bruit ambiant ✗           Contexte sémantique ✗
+Termes rares ✗            Paraphrase ✗
+
+→ Combiner les deux via Reciprocal Rank Fusion (RRF)</div>
+
+<h2>Implémentation avec LangChain + BM25</h2>
+<div class="code-block">
+<div class="code-header"><span class="lang">Python</span><span>hybrid search avec EnsembleRetriever</span></div>
+<pre><code class="language-python">from langchain.retrievers import BM25Retriever, EnsembleRetriever
+from langchain_community.vectorstores import Chroma
+from langchain_community.embeddings import HuggingFaceEmbeddings
+
+# Supposons que `all_docs` est votre liste de Documents LangChain
+
+# Retriever 1 : BM25 (sparse / keywords)
+bm25_retriever = BM25Retriever.from_documents(
+    all_docs,
+    k=5  # top-5 résultats BM25
+)
+
+# Retriever 2 : Dense (vectoriel)
+embeddings = HuggingFaceEmbeddings(model_name="intfloat/multilingual-e5-large")
+vectorstore = Chroma.from_documents(all_docs, embeddings)
+dense_retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
+
+# EnsembleRetriever : combine les deux via Reciprocal Rank Fusion
+hybrid_retriever = EnsembleRetriever(
+    retrievers=[bm25_retriever, dense_retriever],
+    weights=[0.4, 0.6]   # 40% BM25, 60% dense — ajuster selon vos données
+)
+
+# La fusion RRF est automatique
+results = hybrid_retriever.invoke("Référence produit REF-4521 remboursement")
+# → BM25 trouve "REF-4521" par keywords, dense trouve les docs sur "remboursement"
+# → RRF fusionne et retourne les 5 meilleurs des deux listes
+</code></pre>
+</div>
+
+<h2>Reciprocal Rank Fusion (RRF)</h2>
+<div class="code-block">
+<div class="code-header"><span class="lang">Python</span><span>RRF — comment ça marche</span></div>
+<pre><code class="language-python">def reciprocal_rank_fusion(results_lists: list[list], k: int = 60) -> list:
+    """
+    results_lists : liste de listes, chaque liste = résultats d'un retriever
+    k : constante de fusion (60 est le standard)
+    """
+    scores = {}
+    for results in results_lists:
+        for rank, doc in enumerate(results):
+            doc_id = doc.page_content  # ou un hash
+            if doc_id not in scores:
+                scores[doc_id] = {"doc": doc, "score": 0}
+            # Score RRF : 1 / (k + rang)
+            # Rang 1 → 1/61 ≈ 0.016
+            # Rang 5 → 1/65 ≈ 0.015
+            # Rang 10 → 1/70 ≈ 0.014
+            scores[doc_id]["score"] += 1 / (k + rank + 1)
+
+    # Trier par score décroissant
+    return sorted(scores.values(), key=lambda x: x["score"], reverse=True)
+
+# Pourquoi k=60 ? Il atténue l'impact des positions élevées (rank 1 vs rank 2)
+# et favorise les documents qui apparaissent dans les DEUX listes
+</code></pre>
+</div>
+
+<div class="callout pitfall">
+<strong>⚠ Piège : BM25Retriever et la RAM</strong>
+<code>BM25Retriever.from_documents()</code> charge tous vos documents en RAM pour construire l'index BM25. Sur 1M de documents, c'est plusieurs GB. Pour la production, utilisez <code>rank_bm25</code> avec un stockage sur disque ou Elasticsearch (qui a un BM25 natif et scalable).
+</div>
+
+<div class="callout exercise">
+<strong>✏ Exercice</strong>
+Créez un dataset de 50 documents incluant 5 références produit du type "SKU-XXXX". Testez 3 requêtes incluant ces références avec : (1) dense uniquement, (2) BM25 uniquement, (3) hybrid (40/60). Pour quelles requêtes chaque approche échoue ou réussit ? Quel weight fonctionne le mieux ?
+</div>
+</section>
+
+<!-- ─────────────────────────────────────────────────── -->
+<section id="m5l2">
+<div class="lesson-tag">Module 5 <span class="sep">·</span> Leçon 2</div>
+<h1 class="lesson-title">Reranking avec cross-encoders</h1>
+
+<p>La recherche vectorielle retourne les k documents les plus proches — mais "proche" en espace vectoriel ne signifie pas toujours "pertinent pour la question". Le <strong>reranking</strong> est une seconde passe qui réévalue la pertinence de façon plus fine.</p>
+
+<h2>Bi-encoder vs Cross-encoder</h2>
+<div class="diagram">BI-ENCODER (embedding)                CROSS-ENCODER (reranker)
+──────────────────────                ────────────────────────────
+Query → [embed] → vecteur Q           Query + Document → [modèle] → score [0,1]
+Doc   → [embed] → vecteur D
+similarity(Q, D) ← rapide             Plus précis, mais plus lent
+                                       → seulement sur top-k candidats</div>
+
+<div class="code-block">
+<div class="code-header"><span class="lang">Python</span><span>reranking avec sentence-transformers</span></div>
+<pre><code class="language-python">from sentence_transformers import CrossEncoder
+from langchain.retrievers import ContextualCompressionRetriever
+from langchain.retrievers.document_compressors import CrossEncoderReranker
+
+# Modèle de reranking (cross-encoder)
+cross_encoder = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+# Pour le français : "antoinelouis/cross-encoder-mMiniLMv2-mMARCO-fr"
+
+# Calculer les scores manuellement
+query = "remboursement dans les 30 jours"
+candidates = ["Politique remboursement 30j", "Livraison 48h", "Support email"]
+scores = cross_encoder.predict([[query, doc] for doc in candidates])
+print(scores)  # [0.87, 0.02, 0.05] → le premier est clairement le plus pertinent
+
+# Intégration LangChain : reranker après le retriever de base
+from langchain.retrievers.document_compressors import CrossEncoderReranker
+
+reranker = CrossEncoderReranker(
+    model=cross_encoder,
+    top_n=3  # garder les 3 meilleurs après reranking
+)
+
+# Pipeline : retriever (top-20) → reranker → top-3 passés au LLM
+compression_retriever = ContextualCompressionRetriever(
+    base_compressor=reranker,
+    base_retriever=dense_retriever.with_config({"k": 20})
+)
+
+# Requête : récupère 20 docs, reranke, retourne les 3 meilleurs
+results = compression_retriever.invoke("Puis-je me faire rembourser après 30 jours ?")
+</code></pre>
+</div>
+
+<h2>Cohere Rerank (API cloud)</h2>
+<div class="code-block">
+<div class="code-header"><span class="lang">Python</span><span>Cohere Rerank API</span></div>
+<pre><code class="language-python">from langchain_cohere import CohereRerank
+from langchain.retrievers import ContextualCompressionRetriever
+
+reranker = CohereRerank(
+    model="rerank-multilingual-v3.0",  # supporte le français
+    top_n=5,
+    cohere_api_key="..."
+)
+
+compression_retriever = ContextualCompressionRetriever(
+    base_compressor=reranker,
+    base_retriever=hybrid_retriever
+)
+
+# Avantage Cohere : très bon sur le multilingue, pas de GPU local
+# Inconvénient : coût API (~$1/1000 requêtes de reranking)
+</code></pre>
+</div>
+
+<div class="callout info">
+<strong>ℹ Règle d'or du reranking</strong>
+Fetch large (k=20-50), rerank tight (top 3-5). La recherche vectorielle est un filtre grossier → rapide ; le cross-encoder est un filtre fin → précis mais lent. Sur 50 candidats, un cross-encoder local prend ~100ms — acceptable pour une latence totale de 500ms-2s en RAG.
+</div>
+
+<div class="callout exercise">
+<strong>✏ Exercice</strong>
+Mesurez le recall@5 sur 10 questions de référence, pour : (1) dense retriever k=5, (2) dense k=20 + reranking top-5. Quel est le gain en recall ? Quelle est la différence de latence ? Le gain justifie-t-il le coût en latence ?
+</div>
+</section>
+
+<!-- ─────────────────────────────────────────────────── -->
+<section id="m5l3">
+<div class="lesson-tag">Module 5 <span class="sep">·</span> Leçon 3</div>
+<h1 class="lesson-title">MMR et diversité des résultats</h1>
+
+<p>Sans contrôle, une recherche vectorielle peut retourner 5 chunks qui disent tous la même chose — différentes parties du même paragraphe. Le <strong>MMR (Maximal Marginal Relevance)</strong> résout ce problème en favorisant la diversité.</p>
+
+<h2>L'algorithme MMR</h2>
+<div class="diagram">MMR sélectionne les documents un par un :
+
+Pour chaque document candidat non encore sélectionné, calcule :
+  MMR_score = λ × similarity(doc, query) - (1-λ) × max_similarity(doc, selected_docs)
+
+  ↑ pertinence par rapport à la requête    ↑ différence par rapport à ce qu'on a déjà
+
+λ = 1 → tri pur par pertinence (= recherche classique)
+λ = 0 → maximise la diversité (ignore la pertinence)
+λ = 0.5 → équilibre pertinence et diversité (défaut)</div>
+
+<div class="code-block">
+<div class="code-header"><span class="lang">Python</span><span>MMR dans ChromaDB et LangChain</span></div>
+<pre><code class="language-python"># Via ChromaDB directement
+results = collection.query(
+    query_texts=["politique de remboursement"],
+    n_results=5,
+    include=["documents", "metadatas", "distances"]
+)
+# ChromaDB n'a pas MMR natif → utiliser LangChain
+
+# Via LangChain (recommandé)
+retriever_mmr = vectorstore.as_retriever(
+    search_type="mmr",                  # activer MMR
+    search_kwargs={
+        "k": 5,                         # retourner 5 docs
+        "fetch_k": 20,                  # évaluer 20 candidats
+        "lambda_mult": 0.7,             # 0.7 = penche vers la pertinence
+    }
+)
+
+# Comparaison visuelle
+retriever_sim = vectorstore.as_retriever(search_kwargs={"k": 5})
+
+q = "Quelle est la politique de remboursement ?"
+results_sim = retriever_sim.invoke(q)
+results_mmr = retriever_mmr.invoke(q)
+
+print("=== Similarité classique ===")
+for d in results_sim:
+    print(d.page_content[:80])  # risque : 5 chunks quasi-identiques
+
+print("\n=== MMR ===")
+for d in results_mmr:
+    print(d.page_content[:80])  # plus diversifié : remboursement + conditions + exceptions
+</code></pre>
+</div>
+
+<div class="callout pitfall">
+<strong>⚠ Piège : MMR = plus lent</strong>
+MMR évalue <code>fetch_k</code> candidats (ici 20) contre tous les documents déjà sélectionnés. La complexité est O(k × fetch_k). Sur de grandes collections avec un grand fetch_k, la latence augmente. Gardez <code>fetch_k &lt;= 50</code> en production pour rester sous 200ms.
+</div>
+
+<div class="callout exercise">
+<strong>✏ Exercice</strong>
+Indexez 30 chunks qui parlent tous de "remboursement" (avec des formulations différentes) et 20 chunks sur d'autres sujets. Testez la requête "remboursement" avec : (1) similarité classique k=5, (2) MMR lambda=0.5, (3) MMR lambda=0.9. Quel lambda produit les résultats les plus utiles pour le LLM ?
+</div>
+</section>
+
+<!-- ─────────────────────────────────────────────────── -->
+<section id="m5l4">
+<div class="lesson-tag">Module 5 <span class="sep">·</span> Leçon 4</div>
+<h1 class="lesson-title">Query transformation et HyDE</h1>
+
+<p>Parfois, la question de l'utilisateur est une mauvaise requête de recherche. La <strong>transformation de requête</strong> améliore le retrieval en reformulant ou décomposant la question avant de chercher.</p>
+
+<h2>Multi-Query Retriever</h2>
+<div class="code-block">
+<div class="code-header"><span class="lang">Python</span><span>MultiQueryRetriever</span></div>
+<pre><code class="language-python">from langchain.retrievers import MultiQueryRetriever
+from langchain_anthropic import ChatAnthropic
+
+llm = ChatAnthropic(model="claude-opus-4-8", temperature=0)
+
+# Le LLM génère plusieurs reformulations de la question
+# et merge les résultats
+multi_retriever = MultiQueryRetriever.from_llm(
+    retriever=vectorstore.as_retriever(search_kwargs={"k": 4}),
+    llm=llm,
+    # Prompt par défaut : "Génère 3 versions différentes de cette question..."
+)
+
+# Question difficile : ambiguë, avec argot, ou multi-aspect
+docs = multi_retriever.invoke("Ça marche comment le retour de trucs achetés sur internet ?")
+# LLM génère :
+# 1. "Politique de retour des achats en ligne"
+# 2. "Procédure de remboursement e-commerce"
+# 3. "Comment renvoyer un article commandé sur internet ?"
+# → 3 recherches → union des résultats → résultats plus riches
+</code></pre>
+</div>
+
+<h2>HyDE : Hypothetical Document Embeddings</h2>
+<p>HyDE inverse la logique : au lieu d'embedder la question, on demande au LLM de générer une réponse hypothétique, puis on embed cette réponse (plus proche des documents de la base).</p>
+<div class="code-block">
+<div class="code-header"><span class="lang">Python</span><span>HyDE</span></div>
+<pre><code class="language-python">from langchain.chains import HypotheticalDocumentEmbedder
+from langchain_core.prompts import ChatPromptTemplate
+
+# Prompt pour générer le document hypothétique
+hyde_prompt = ChatPromptTemplate.from_messages([
+    ("system", """Génère un extrait de document qui répondrait parfaitement 
+à la question suivante. Sois factuel et concis (2-3 phrases)."""),
+    ("human", "{question}")
+])
+
+# HyDE : question → LLM → réponse hypothétique → embedding → recherche
+hyde_embeddings = HypotheticalDocumentEmbedder.from_llm(
+    llm=llm,
+    base_embeddings=embeddings,
+    custom_prompt=hyde_prompt,
+)
+
+# Ces embeddings peuvent être utilisés comme retriever
+hyde_vectorstore = Chroma(embedding_function=hyde_embeddings)
+hyde_vectorstore.add_documents(all_docs)  # indexation avec embeddings normaux
+
+# La magie : à la recherche, HyDE génère d'abord une réponse hypothétique
+# puis embed cette réponse (pas la question) → meilleur alignment avec les docs
+results = hyde_vectorstore.similarity_search(
+    "Comment obtenir un remboursement ?"  # sera transformé par HyDE
+)
+</code></pre>
+</div>
+
+<div class="callout pitfall">
+<strong>⚠ Piège : HyDE double le coût</strong>
+HyDE fait un appel LLM avant chaque recherche. Sur un système avec 100 requêtes/minute, c'est 100 appels LLM supplémentaires juste pour le retrieval. Évaluez le gain avant de déployer — HyDE n'est pas toujours meilleur que multi-query, et coûte plus cher.
+</div>
+
+<div class="callout exercise">
+<strong>✏ Exercice</strong>
+Testez 3 stratégies de query transformation sur 10 questions "mal formulées" (argot, questions très courtes, questions multi-aspects) : (1) recherche directe, (2) MultiQueryRetriever, (3) HyDE. Mesurez le recall@5. Combien de tokens supplémentaires chaque stratégie consomme ? Quel ratio qualité/coût recommanderiez-vous ?
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════ MODULE 6 -->
+
+<section id="m6l1">
+<div class="lesson-tag">Module 6 <span class="sep">·</span> Leçon 1 <span class="sep">·</span> Mémoire pour agents</div>
+<h1 class="lesson-title">Les 4 types de mémoire</h1>
+
+<p>Un agent sans mémoire recommence de zéro à chaque conversation — comme un humain qui oublie tout entre deux rendez-vous. La mémoire est ce qui transforme un agent ponctuel en assistant qui apprend et s'adapte.</p>
+
+<h2>Taxonomie des mémoires</h2>
+<div class="diagram">┌──────────────────────────────────────────────────────────────┐
+│                     MÉMOIRE D'AGENT                          │
+│                                                              │
+│  1. SENSORIELLE      : messages reçus dans ce tour          │
+│     (quelques ms)                                            │
+│                                                              │
+│  2. COURT-TERME      : historique de la conversation         │
+│     (durée de la session)   → messages dans le contexte     │
+│                                                              │
+│  3. LONG-TERME       : souvenirs persistants entre sessions  │
+│     (jours, semaines)       → vector store, base de données │
+│                                                              │
+│  4. PROCÉDURALE      : "comment faire" — skills de l'agent  │
+│     (permanent)             → outils, prompts, workflows    │
+└──────────────────────────────────────────────────────────────┘
+</div>
+
+<h2>Analogie avec la cognition humaine</h2>
+<table>
+<tr><th>Type de mémoire</th><th>Équivalent agent</th><th>Implémentation</th></tr>
+<tr><td>Mémoire de travail</td><td>Historique de session</td><td>Liste messages dans état LangGraph</td></tr>
+<tr><td>Mémoire épisodique</td><td>Souvenirs d'interactions</td><td>Vector store dédié par utilisateur</td></tr>
+<tr><td>Mémoire sémantique</td><td>Base de connaissances RAG</td><td>Vector store de documents</td></tr>
+<tr><td>Mémoire procédurale</td><td>Outils et workflows</td><td>Fonctions Python, prompts</td></tr>
+</table>
+
+<div class="callout exercise">
+<strong>✏ Exercice</strong>
+Pour un assistant de support client, identifiez ce qui relève de chaque type : (a) la question que le client vient de poser, (b) les 5 échanges précédents, (c) le fait que ce client a eu un problème de livraison le mois dernier, (d) la procédure pour traiter un remboursement.
+</div>
+</section>
+
+<section id="m6l2">
+<div class="lesson-tag">Module 6 · Leçon 2</div>
+<h1 class="lesson-title">Mémoire court-terme : gestion du contexte</h1>
+
+<p>La mémoire court-terme est l'historique de conversation injecté dans le contexte LLM. Le défi : la fenêtre de contexte est limitée — il faut tronquer intelligemment.</p>
+
+<h2>Stratégies de gestion</h2>
+<div class="code-block">
+<div class="code-header"><span class="lang">Python</span><span>trim et résumé de messages</span></div>
+<pre><code class="language-python">from langchain_core.messages import trim_messages
+
+model = ChatAnthropic(model="claude-opus-4-8")
+
+# STRATÉGIE 1 : Troncature intelligente
+trimmed = trim_messages(
+    messages=all_messages,
+    max_tokens=4000,
+    strategy="last",           # garder les plus récents
+    token_counter=model,
+    include_system=True,
+    allow_partial=False,
+    start_on="human",
+)
+
+# STRATÉGIE 2 : Résumé progressif
+async def maybe_summarize(messages, model, threshold=20):
+    if len(messages) < threshold:
+        return messages
+    old_messages = messages[:-10]
+    recent = messages[-10:]
+    summary_response = await model.ainvoke([{
+        "role": "user",
+        "content": "Résume en 5 phrases cet historique : " +
+                   "\n".join(f"{m.type}: {m.content}" for m in old_messages)
+    }])
+    from langchain_core.messages import SystemMessage
+    return [SystemMessage(content=f"Résumé: {summary_response.content}")] + recent
+</code></pre>
+</div>
+
+<div class="callout pitfall">
+<strong>⚠ Piège : tronquer sans résumer</strong>
+Garder uniquement les derniers messages peut casser la cohérence. Si l'utilisateur a dit "je veux un remboursement" au message 1 et que vous tronquez à partir du message 5, l'agent perd le contexte. Implémentez toujours le résumé progressif pour les conversations longues.
+</div>
+
+<div class="callout exercise">
+<strong>✏ Exercice</strong>
+Simulez une conversation de 30 messages. Implémentez le résumé progressif (seuil 15 messages). Comparez la qualité des réponses aux messages 20, 25, 30 avec et sans résumé. Le résumé LLM préserve-t-il les informations critiques ?
+</div>
+</section>
+
+<section id="m6l3">
+<div class="lesson-tag">Module 6 · Leçon 3</div>
+<h1 class="lesson-title">Mémoire long-terme vectorielle</h1>
+
+<p>La mémoire long-terme persiste au-delà d'une session dans un vector store dédié aux souvenirs utilisateur — distinct de la base RAG de connaissances.</p>
+
+<h2>Architecture</h2>
+<div class="diagram">SESSION 1 (lundi)
+  User: "Je travaille sur un projet ML en Python"
+  Agent memorise: vectorise et stocke dans user_memory_store
+
+SESSION 2 (vendredi) — nouveau thread, contexte vide
+  User: "J'ai un problème avec mon code"
+  Agent: [recherche user_memory] -> "projet ML Python"
+       -> repond en tenant compte du contexte</div>
+
+<div class="code-block">
+<div class="code-header"><span class="lang">Python</span><span>mémoire long-terme ChromaDB</span></div>
+<pre><code class="language-python">import chromadb
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from datetime import datetime
+import json
+
+embed = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+chroma = chromadb.PersistentClient(path="./user_memory_db")
+
+def get_col(user_id):
+    return chroma.get_or_create_collection(f"memory_{user_id}", metadata={"hnsw:space": "cosine"})
+
+def save_memory(user_id, text, mem_type="general"):
+    col = get_col(user_id)
+    col.add(
+        embeddings=[embed.embed_query(text)],
+        documents=[text],
+        metadatas=[{"type": mem_type, "created_at": datetime.now().isoformat()}],
+        ids=[f"{user_id}_{datetime.now().timestamp()}"]
+    )
+
+def recall(user_id, query, k=3):
+    col = get_col(user_id)
+    if col.count() == 0:
+        return []
+    res = col.query(query_embeddings=[embed.embed_query(query)],
+                    n_results=min(k, col.count()), include=["documents"])
+    return res["documents"][0]
+
+async def agent_with_ltm(user_id, user_message, history, model):
+    memories = recall(user_id, user_message)
+    mem_ctx = "\n".join(f"- {m}" for m in memories) or "Aucun souvenir"
+
+    response = await model.ainvoke([
+        {"role": "system", "content": f"Souvenirs:\n{mem_ctx}"},
+        *history,
+        {"role": "user", "content": user_message}
+    ])
+
+    # Extraire et sauvegarder les faits importants
+    extraction = await model.ainvoke([{"role": "user", "content":
+        f'Extrais les faits importants a memoriser. JSON list: ["fait1",...] ou []\nUser:{user_message}\nAssistant:{response.content}'}])
+    try:
+        for fact in json.loads(extraction.content):
+            save_memory(user_id, fact)
+    except Exception:
+        pass
+    return response.content
+</code></pre>
+</div>
+
+<div class="callout pitfall">
+<strong>⚠ Piège : mémoriser trop de choses</strong>
+Si vous mémorisez chaque phrase, la collection grossit vite et le retrieval se noie dans le bruit. Filtrez agressivement : mémorisez uniquement les faits persistants (préférences, contraintes, historique projet) — jamais les salutations ou confirmations éphémères.
+</div>
+
+<div class="callout exercise">
+<strong>✏ Exercice</strong>
+Simulez 3 sessions avec le même utilisateur fictif. Vérifiez que l'agent rappelle les infos des sessions précédentes. Ajoutez une politique d'expiration : les souvenirs de plus de 30 jours sont filtrés via la métadonnée created_at.
+</div>
+</section>
+
+<section id="m6l4">
+<div class="lesson-tag">Module 6 · Leçon 4</div>
+<h1 class="lesson-title">LangGraph Store et mémoire cross-thread</h1>
+
+<p>LangGraph 1.0 introduit le <strong>Store</strong> — une mémoire partagée accessible depuis tous les threads d'un même agent. C'est la solution intégrée pour la mémoire long-terme sans gérer ChromaDB manuellement.</p>
+
+<div class="code-block">
+<div class="code-header"><span class="lang">Python</span><span>LangGraph Store complet</span></div>
+<pre><code class="language-python">from langgraph.store.memory import InMemoryStore
+from langgraph.store.base import BaseStore
+from langgraph.graph import StateGraph, START, END
+from langgraph.checkpoint.memory import MemorySaver
+from typing import TypedDict, Annotated
+from langgraph.graph.message import add_messages
+from datetime import datetime
+
+# Dev : InMemoryStore | Prod : PostgresStore
+store = InMemoryStore(index={"embed": embed.embed_query, "dims": 384})
+
+class State(TypedDict):
+    messages: Annotated[list, add_messages]
+    user_id: str
+
+def agent_node(state: State, store: BaseStore) -> dict:
+    user_id = state["user_id"]
+    last_msg = state["messages"][-1].content
+
+    # Recherche sémantique dans les souvenirs
+    memories = store.search(("memories", user_id), query=last_msg, limit=3)
+    context = "\n".join(m.value.get("text", "") for m in memories)
+
+    response = model.invoke([
+        {"role": "system", "content": f"Contexte memorise:\n{context}"},
+        *state["messages"]
+    ])
+
+    # Sauvegarder si pertinent
+    store.put(
+        ("memories", user_id),
+        key=f"mem_{datetime.now().timestamp()}",
+        value={"text": last_msg, "type": "episodic"}
+    )
+    return {"messages": [response]}
+
+builder = StateGraph(State)
+builder.add_node("agent", agent_node)
+builder.add_edge(START, "agent")
+builder.add_edge("agent", END)
+
+agent = builder.compile(checkpointer=MemorySaver(), store=store)
+
+# Thread 1 (lundi)
+agent.invoke(
+    {"messages": [("user", "Je prefere les reponses courtes")], "user_id": "alice"},
+    config={"configurable": {"thread_id": "alice-lundi"}}
+)
+# Thread 2 (vendredi) - nouveau thread, meme user_id, agent se souvient
+agent.invoke(
+    {"messages": [("user", "Explique les transformers")], "user_id": "alice"},
+    config={"configurable": {"thread_id": "alice-vendredi"}}
+)
+</code></pre>
+</div>
+
+<div class="callout exercise">
+<strong>✏ Exercice</strong>
+Construisez un agent avec mémoire cross-thread pour 3 utilisateurs fictifs. Simulez 2 sessions par utilisateur. Vérifiez l'isolation (Alice ne voit pas les souvenirs de Bob). Ajoutez une commande "oublie tout" qui supprime les souvenirs via store.delete().
+</div>
+</section>
+
+<!-- MODULE 7 -->
+
+<section id="m7l1">
+<div class="lesson-tag">Module 7 · Leçon 1 · Agentic RAG</div>
+<h1 class="lesson-title">Du RAG linéaire à l'agent de retrieval</h1>
+
+<p>Le RAG classique est un pipeline rigide : chercher → injecter → générer. L'<strong>Agentic RAG</strong> remplace ce pipeline par un agent qui décide dynamiquement quand chercher, quoi chercher, si les résultats sont suffisants, et quand s'arrêter.</p>
+
+<h2>Limites du RAG linéaire</h2>
+<div class="diagram">RAG LINEAIRE :
+  Question -> [1 recherche fixe] -> [contexte] -> [LLM genere]
+
+  Echecs :
+  • Question multi-aspect -> 1 seule recherche insuffisante
+  • Question vague -> mauvaise requete -> mauvais resultats
+  • Resultats insuffisants -> hallucination quand meme
+  • Plusieurs docs a croiser -> non supporte</div>
+
+<div class="code-block">
+<div class="code-header"><span class="lang">Python</span><span>Agentic RAG avec outils de recherche</span></div>
+<pre><code class="language-python">from langchain_core.tools import tool
+from langgraph.prebuilt import create_react_agent
+
+@tool
+def search_knowledge_base(query: str, category: str = None) -> str:
+    """Recherche dans la base de connaissances interne.
+    Args:
+        query: La question ou sujet a rechercher
+        category: Filtre optionnel par categorie (legal, technique, rh)
+    """
+    kwargs = {"k": 5}
+    if category:
+        kwargs["filter"] = {"category": category}
+    docs = vectorstore.similarity_search(query, **kwargs)
+    if not docs:
+        return "Aucun document trouve pour cette requete."
+    return "\n\n---\n\n".join(
+        f"[{d.metadata.get('source','?')}]\n{d.page_content}" for d in docs
+    )
+
+@tool
+def search_recent_documents(query: str, days_ago: int = 7) -> str:
+    """Recherche uniquement dans les documents recents.
+    Args:
+        query: Le sujet a rechercher
+        days_ago: Periode en jours (defaut: 7)
+    """
+    from datetime import datetime, timedelta
+    cutoff = (datetime.now() - timedelta(days=days_ago)).isoformat()
+    docs = vectorstore.similarity_search(query, k=5,
+               filter={"indexed_at": {"$gte": cutoff}})
+    return "\n\n".join(d.page_content for d in docs) if docs else "Aucun document recent."
+
+@tool
+def evaluate_sufficiency(question: str, draft_answer: str) -> str:
+    """Evalue si la reponse est suffisante. Retourne SUFFICIENT ou INSUFFICIENT."""
+    if len(draft_answer) < 50:
+        return "INSUFFICIENT: reponse trop courte, cherche plus d'informations."
+    return "SUFFICIENT: la reponse couvre bien la question."
+
+agentic_rag = create_react_agent(
+    model=ChatAnthropic(model="claude-opus-4-8"),
+    tools=[search_knowledge_base, search_recent_documents, evaluate_sufficiency],
+    state_modifier="""Tu es un assistant de recherche rigoureux.
+Pour chaque question : cherche les infos pertinentes, si multi-aspects fais
+plusieurs recherches, evalue ta reponse avant de la donner, cite tes sources."""
+)
+</code></pre>
+</div>
+
+<div class="callout exercise">
+<strong>✏ Exercice</strong>
+Comparez RAG linéaire et Agentic RAG sur 5 questions complexes (multi-aspect, ambiguës). Comptez le nombre de recherches effectuées. La qualité des réponses justifie-t-elle le coût supplémentaire ?
+</div>
+</section>
+
+<section id="m7l2">
+<div class="lesson-tag">Module 7 · Leçon 2</div>
+<h1 class="lesson-title">Self-RAG et Corrective RAG</h1>
+
+<p>Ces deux patterns sont devenus des références pour améliorer la fiabilité du RAG en production.</p>
+
+<h2>Self-RAG : l'agent grade ses propres sources</h2>
+<div class="diagram">Self-RAG (ICLR 2024) :
+
+Question
+  -> [Retrieve top-k]
+  -> [Relevance grade] -- NON PERTINENT -> ignorer ce chunk
+  -> [Generate avec chunks pertinents]
+  -> [Faithfulness check] -- HALLUCINATION -> retry
+  -> [Utility check] -- PAS UTILE -> retry
+  -> Reponse finale validee</div>
+
+<div class="code-block">
+<div class="code-header"><span class="lang">Python</span><span>grade de documents avec LLM</span></div>
+<pre><code class="language-python">from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+
+grader_prompt = ChatPromptTemplate.from_messages([
+    ("system", "Reponds OUI ou NON uniquement."),
+    ("human", "Question: {question}\nDocument: {doc}\nCe document est-il pertinent ?")
+])
+grader = grader_prompt | model | StrOutputParser()
+
+def filter_relevant_docs(question: str, docs: list) -> list:
+    relevant = []
+    for doc in docs:
+        score = grader.invoke({"question": question, "doc": doc.page_content[:500]})
+        if "OUI" in score.upper():
+            relevant.append(doc)
+    return relevant
+
+# Corrective RAG (CRAG) : si qualite insuffisante, fallback web
+def crag_retrieve(question: str, retriever, web_search_tool) -> list:
+    docs = retriever.invoke(question)
+    relevant = filter_relevant_docs(question, docs)
+    ratio = len(relevant) / max(len(docs), 1)
+
+    if ratio >= 0.7:
+        return relevant                           # docs locaux suffisants
+    elif ratio >= 0.3:
+        web_docs = web_search_tool(question)      # completer avec web
+        return relevant + web_docs
+    else:
+        return web_search_tool(question)          # ignorer docs locaux
+</code></pre>
+</div>
+
+<div class="callout exercise">
+<strong>✏ Exercice</strong>
+Implementez le grader LLM. Testez sur 20 paires (question, document) dont vous connaissez la pertinence. Quel est la précision du grader ? Quel seuil minimise les faux positifs ?
+</div>
+</section>
+
+<section id="m7l3">
+<div class="lesson-tag">Module 7 · Leçon 3</div>
+<h1 class="lesson-title">RAG multi-agents et routing</h1>
+
+<p>Pour les systèmes avec plusieurs bases de connaissances (technique, RH, légal), un agent routeur choisit dynamiquement quelle base interroger.</p>
+
+<div class="code-block">
+<div class="code-header"><span class="lang">Python</span><span>router multi-vectorstore</span></div>
+<pre><code class="language-python">from langchain_core.tools import tool
+
+stores = {
+    "technique": Chroma(persist_directory="./db_tech", embedding_function=embed),
+    "rh":        Chroma(persist_directory="./db_rh",   embedding_function=embed),
+    "legal":     Chroma(persist_directory="./db_legal", embedding_function=embed),
+}
+
+def make_search_tool(domain: str, store, description: str):
+    @tool
+    def search_tool(query: str) -> str:
+        docs = store.similarity_search(query, k=4)
+        return "\n\n".join(d.page_content for d in docs) if docs else "Aucun resultat."
+    search_tool.name = f"search_{domain}"
+    search_tool.__doc__ = description
+    return search_tool
+
+tools = [
+    make_search_tool("technique", stores["technique"],
+        "Recherche dans la documentation technique (API, code, architecture)."),
+    make_search_tool("rh", stores["rh"],
+        "Recherche dans les documents RH (conges, salaires, avantages)."),
+    make_search_tool("legal", stores["legal"],
+        "Recherche dans les documents legaux (contrats, CGU, RGPD)."),
+]
+
+multi_rag = create_react_agent(
+    model=model, tools=tools,
+    state_modifier="Choisis l'outil de recherche le plus adapte selon le domaine de la question."
+)
+
+result = multi_rag.invoke({
+    "messages": [("user", "Comment gerer un employe qui viole la politique de securite ?")]
+})
+# -> L'agent appelle search_rh ET search_legal
+</code></pre>
+</div>
+
+<div class="callout exercise">
+<strong>✏ Exercice</strong>
+Créez 3 mini-bases (5 docs chacune). Testez 10 questions : 7 mono-domaine et 3 transversales. L'agent choisit-il toujours le bon outil ? Pour les transversales, combine-t-il les deux sources dans sa réponse ?
+</div>
+</section>
+
+<!-- MODULE 8 -->
+
+<section id="m8l1">
+<div class="lesson-tag">Module 8 · Leçon 1 · Evaluation &amp; production</div>
+<h1 class="lesson-title">RAGAS et métriques qualité</h1>
+
+<p>RAGAS (RAG Assessment) est le framework standard pour mesurer automatiquement la qualité d'un système RAG selon 4 dimensions complémentaires.</p>
+
+<h2>Les 4 métriques RAGAS</h2>
+<div class="diagram">FAITHFULNESS       La reponse est-elle ancree dans les docs ?
+                   -> detecte les hallucinations
+
+ANSWER RELEVANCY   La reponse repond-elle a la question ?
+                   -> evite les reponses vraies mais hors sujet
+
+CONTEXT PRECISION  Les chunks recuperes sont-ils pertinents (peu de bruit) ?
+                   -> evalue la qualite du retrieval
+
+CONTEXT RECALL     Les chunks couvrent-ils toute l'info necessaire ?
+                   -> necessite une reference de reponse correcte</div>
+
+<div class="code-block">
+<div class="code-header"><span class="lang">Python</span><span>evaluation RAGAS</span></div>
+<pre><code class="language-python">from ragas import evaluate
+from ragas.metrics import faithfulness, answer_relevancy, context_precision, context_recall
+from datasets import Dataset
+
+eval_data = {
+    "question": ["Quel est le delai de remboursement ?", "Comment contacter le support ?"],
+    "answer":   ["Le delai est de 30 jours.", "Le support est joignable par email."],
+    "contexts": [
+        ["Toute commande peut etre retournee dans les 30 jours."],
+        ["Notre support est disponible 24h/24 : support@company.com"],
+    ],
+    "ground_truth": ["30 jours", "email support@company.com"]
+}
+
+results = evaluate(
+    dataset=Dataset.from_dict(eval_data),
+    metrics=[faithfulness, answer_relevancy, context_precision, context_recall],
+    llm=LangchainLLMWrapper(ChatAnthropic(model="claude-opus-4-8")),
+    embeddings=LangchainEmbeddingsWrapper(embeddings),
+)
+
+print(results)
+# {'faithfulness': 0.92, 'answer_relevancy': 0.88,
+#  'context_precision': 0.75, 'context_recall': 0.83}
+
+df = results.to_pandas()
+poor = df[df["faithfulness"] < 0.7]
+print("Questions avec hallucination :", poor["question"].tolist())
+</code></pre>
+</div>
+
+<div class="callout exercise">
+<strong>✏ Exercice</strong>
+Construisez un dataset de 20 paires (question, réponse de référence). Évaluez votre pipeline RAG. Identifiez la métrique la plus faible. Implémentez une amélioration ciblée (reranking si context_precision faible, multi-query si context_recall faible). Réévaluez.
+</div>
+</section>
+
+<section id="m8l2">
+<div class="lesson-tag">Module 8 · Leçon 2</div>
+<h1 class="lesson-title">Déboguer un RAG défaillant</h1>
+
+<h2>Arbre de diagnostic</h2>
+<div class="diagram">Mauvaise reponse RAG
+  |
+  +-- Documents recuperes pertinents ?
+  |     |
+  |     +-- NON -> Probleme retrieval
+  |     |           -> mauvais embedding ? chunk size ? besoin hybrid search ?
+  |     |
+  |     +-- OUI -> Probleme generation
+  |                 -> hallucination ? contexte trop long ? LLM insuffisant ?
+  |
+  +-- Aucun document recupere ?
+            -> collection vide ? filtre trop restrictif ? mauvaise metrique ?</div>
+
+<div class="code-block">
+<div class="code-header"><span class="lang">Python</span><span>outil de diagnostic complet</span></div>
+<pre><code class="language-python">def debug_rag(question: str, retriever, chain, vectorstore=None):
+    print(f"\n{'='*50}\nQUESTION: {question}\n")
+
+    # 1. Inspecter le retrieval
+    docs = retriever.invoke(question)
+    print(f"[RETRIEVAL] {len(docs)} documents:")
+    for i, doc in enumerate(docs):
+        print(f"  {i+1}. [{doc.metadata.get('source','?')}] {doc.page_content[:100]}...")
+
+    if not docs:
+        print("PROBLEME: Aucun document recupere !")
+        return
+
+    # 2. Inspecter les distances
+    if vectorstore:
+        raw = vectorstore.similarity_search_with_score(question, k=5)
+        print("\n[DISTANCES]:")
+        for doc, score in raw:
+            flag = "OK" if score < 0.3 else "FAIBLE"
+            print(f"  {flag} score={score:.4f} | {doc.page_content[:60]}")
+
+    # 3. Budget contexte
+    total_chars = sum(len(d.page_content) for d in docs)
+    print(f"\n[CONTEXTE] {total_chars} chars (~{total_chars//4} tokens)")
+    if total_chars > 15000:
+        print("WARNING: Contexte tres long -> envisagez reranking")
+
+    # 4. Generer et verifier fidelite
+    response = chain.invoke(question)
+    print(f"\n[REPONSE]: {response}")
+
+    doc_words = set(" ".join(d.page_content for d in docs).lower().split())
+    ans_words = set(response.lower().split())
+    overlap = len(ans_words & doc_words) / max(len(ans_words), 1)
+    if overlap < 0.3:
+        print(f"WARNING: Faible chevauchement lexical ({overlap:.0%}) -> possible hallucination")
+
+    return {"docs": docs, "response": response, "overlap": overlap}
+</code></pre>
+</div>
+
+<div class="callout exercise">
+<strong>✏ Exercice</strong>
+Cassez votre pipeline de 3 façons : (1) modèle d'embedding différent pour le retrieval, (2) filtre qui exclut tous les docs, (3) contexte tronqué à 50 tokens. Utilisez la fonction de debug pour diagnostiquer chaque cas.
+</div>
+</section>
+
+<section id="m8l3">
+<div class="lesson-tag">Module 8 · Leçon 3</div>
+<h1 class="lesson-title">Performance, sécurité et scaling</h1>
+
+<h2>Optimisations clés</h2>
+<div class="code-block">
+<div class="code-header"><span class="lang">Python</span><span>cache, batch, async</span></div>
+<pre><code class="language-python">import functools, asyncio
+from langchain.cache import SQLiteCache
+from langchain.globals import set_llm_cache
+
+# 1. Cache LLM : meme prompt -> meme reponse sans appel API
+set_llm_cache(SQLiteCache(database_path="./llm_cache.db"))
+
+# 2. Cache embeddings de requete
+@functools.lru_cache(maxsize=1000)
+def cached_embed(text: str) -> tuple:
+    return tuple(embeddings.embed_query(text))
+
+# 3. Batch embeddings a l'indexation
+from langchain_community.embeddings import HuggingFaceEmbeddings
+embed_fast = HuggingFaceEmbeddings(
+    model_name="all-MiniLM-L6-v2",
+    encode_kwargs={"batch_size": 64, "normalize_embeddings": True}
+)  # 10-20x plus rapide qu'un par un
+
+# 4. Async pour la concurrence
+async def handle_queries(questions: list[str]) -> list[str]:
+    return await asyncio.gather(*[chain.ainvoke(q) for q in questions])
+</code></pre>
+</div>
+
+<h2>Sécurité : RAG poisoning et contrôle d'accès</h2>
+<div class="code-block">
+<div class="code-header"><span class="lang">Python</span><span>validation et contrôle d'accès</span></div>
+<pre><code class="language-python">import re
+
+INJECTION_PATTERNS = [
+    r"ignore\s+previous\s+instructions",
+    r"forget\s+your\s+system\s+prompt",
+    r"new\s+system:",
+    r"<\|im_start\|>system",
+]
+
+def validate_before_indexing(content: str) -> bool:
+    for pattern in INJECTION_PATTERNS:
+        if re.search(pattern, content, re.IGNORECASE):
+            print(f"Document rejete : injection detectee")
+            return False
+    return True
+
+def get_authorized_retriever(user_role: str, base_retriever):
+    filters = {
+        "employee": {"$or": [{"visibility": "public"}, {"visibility": "employee"}]},
+        "manager":  {"visibility": {"$in": ["public", "employee", "manager"]}},
+        "admin":    {}
+    }
+    return base_retriever.configurable_fields(
+        search_kwargs={"filter": filters.get(user_role, {"visibility": "public"})}
+    )
+</code></pre>
+</div>
+
+<h2>Checklist production RAG</h2>
+<div class="callout info">
+<strong>✅ Checklist avant de déployer</strong>
+<ul>
+<li>Même modèle d'embedding pour indexation ET retrieval</li>
+<li>Hybrid search si votre domaine a des termes techniques/codes</li>
+<li>Reranking pour améliorer la précision (fetch 20, rerank → top 5)</li>
+<li>Troncature/résumé du contexte si plus de 5k tokens</li>
+<li>Cache des embeddings de requête et des appels LLM identiques</li>
+<li>Dataset RAGAS de 50+ questions, CI/CD sur chaque déploiement</li>
+<li>Contrôle d'accès par rôle sur les documents indexés</li>
+<li>Validation anti-injection à chaque document indexé</li>
+<li>Backup régulier du vector store (pas de cp à chaud)</li>
+<li>Monitoring des métriques RAGAS en production</li>
+</ul>
+</div>
+
+<div class="callout exercise">
+<strong>✏ Projet final</strong>
+Construisez un RAG documentaire complet : (1) indexation incrémentale de 3 formats (PDF, Markdown, CSV) avec métadonnées riches, (2) hybrid search + reranking, (3) mémoire long-terme par utilisateur, (4) contrôle d'accès par rôle, (5) évaluation RAGAS sur 20 questions, (6) API FastAPI avec streaming SSE. C'est le socle d'un vrai produit RAG en production.
+</div>
+</section>
+
+</div>
+</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+hljs.highlightAll();
+const sidebar = document.getElementById('sidebar');
+document.getElementById('menuBtn').addEventListener('click', () => sidebar.classList.toggle('open'));
+document.querySelectorAll('.mod-header').forEach(h => h.addEventListener('click', () => h.parentElement.classList.toggle('open')));
+const KEY = 'rag-course-v1';
+const done = JSON.parse(localStorage.getItem(KEY) || '{}');
+const links = document.querySelectorAll('[data-id]');
+function updateBar() {
+  document.getElementById('pFill').style.width =
+    (Object.values(done).filter(Boolean).length / links.length * 100) + '%';
+}
+links.forEach(link => {
+  const id = link.dataset.id;
+  if (done[id]) link.querySelector('.check-dot').classList.add('done');
+  link.addEventListener('click', () => {
+    done[id] = true;
+    localStorage.setItem(KEY, JSON.stringify(done));
+    link.querySelector('.check-dot').classList.add('done');
+    updateBar();
+    sidebar.classList.remove('open');
+    links.forEach(l => l.classList.remove('active'));
+    link.classList.add('active');
+  });
+});
+updateBar();
+const obs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting)
+      links.forEach(l => l.classList.toggle('active', l.dataset.id === e.target.id));
+  });
+}, { threshold: 0.25 });
+document.querySelectorAll('section[id]').forEach(s => obs.observe(s));
+</script>
+</body>
+</html>

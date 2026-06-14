@@ -31,6 +31,7 @@ I use a custom skill developed in Claude Code that:
 | Folder | Topic | Language |
 |--------|-------|----------|
 | [dev-agentique/frameworks-orchestration-agents/](dev-agentique/frameworks-orchestration-agents/) | Agent Orchestration Frameworks — LangGraph, LangChain, AutoGen | 🇫🇷 French |
+| [dev-agentique/rag-memoire-agents/](dev-agentique/rag-memoire-agents/) | RAG and Agent Memory — Vector Stores, ChromaDB | 🇫🇷 French |
 
 ## Adding a new course
 
