@@ -1,0 +1,4270 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Python pour la Data — Pandas, NumPy & Profiling</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Inter:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+<style>
+:root {
+  --bg:         #0a0e1a;
+  --bg-alt:     #111827;
+  --bg-card:    #162032;
+  --text:       #e2e8f0;
+  --text-muted: #64748b;
+  --accent:     #38bdf8;
+  --accent-dim: #0c4a6e;
+  --green:      #34d399;
+  --green-dim:  #064e3b;
+  --orange:     #fb923c;
+  --orange-dim: #431407;
+  --purple:     #a78bfa;
+  --border:     #1e2d3d;
+  --border2:    #243447;
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-body:    'Inter', sans-serif;
+  --font-mono:    'JetBrains Mono', monospace;
+  --sidebar-width: 300px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font-body);
+  color: var(--text);
+  background: var(--bg);
+  line-height: 1.7;
+  font-size: 1rem;
+}
+
+/* ═══════════════════════════════════════
+   PROGRESS BAR
+═══════════════════════════════════════ */
+.progress-bar {
+  height: 3px;
+  background: var(--border);
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 100;
+}
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--purple));
+  width: 0%;
+  transition: width 0.3s ease;
+}
+
+/* ═══════════════════════════════════════
+   LAYOUT
+═══════════════════════════════════════ */
+.layout { display: flex; min-height: 100vh; padding-top: 3px; }
+
+/* ═══════════════════════════════════════
+   SIDEBAR
+═══════════════════════════════════════ */
+.sidebar {
+  width: var(--sidebar-width);
+  flex-shrink: 0;
+  background: var(--bg-alt);
+  border-right: 1px solid var(--border);
+  padding: 1.5rem 0;
+  position: sticky;
+  top: 3px;
+  height: calc(100vh - 3px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border2) transparent;
+}
+
+.sidebar-header {
+  padding: 0 1.25rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1rem;
+}
+
+.sidebar-header .course-tag {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--accent);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+}
+
+.sidebar-header h1 {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.4;
+}
+
+.progress-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.progress-mini {
+  flex: 1;
+  height: 3px;
+  background: var(--border2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.progress-mini-fill {
+  height: 100%;
+  background: var(--accent);
+  width: 0%;
+  transition: width 0.3s ease;
+}
+
+.module-group { margin-bottom: 0.25rem; }
+
+.module-title {
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 0.6rem 1.25rem 0.3rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.module-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px; height: 20px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.module-title .chevron { margin-left: auto; transition: transform 0.2s; }
+.module-title.collapsed .chevron { transform: rotate(-90deg); }
+
+.lesson-list {
+  list-style: none;
+  padding: 0 0.75rem 0.5rem;
+  overflow: hidden;
+}
+
+.lesson-list li a {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 6px;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.83rem;
+  line-height: 1.35;
+  transition: background 0.15s, color 0.15s;
+}
+.lesson-list li a:hover { background: var(--border); color: var(--text); }
+.lesson-list li a.active { color: var(--accent); background: var(--accent-dim); }
+
+.lesson-check {
+  width: 14px; height: 14px;
+  border: 1.5px solid var(--border2);
+  border-radius: 3px;
+  flex-shrink: 0;
+  transition: background 0.2s, border-color 0.2s;
+  display: flex; align-items: center; justify-content: center;
+}
+.lesson-check.done {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.lesson-check.done::after {
+  content: '✓';
+  font-size: 9px;
+  color: #000;
+  font-weight: 800;
+}
+
+/* ═══════════════════════════════════════
+   CONTENU PRINCIPAL
+═══════════════════════════════════════ */
+.content {
+  flex: 1;
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 3rem 2.5rem 6rem;
+}
+
+.course-hero {
+  padding-bottom: 2.5rem;
+  margin-bottom: 3rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.course-hero .hero-tag {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--accent);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 0.75rem;
+}
+
+.course-hero h1 {
+  font-family: var(--font-display);
+  font-size: 2.4rem;
+  font-weight: 700;
+  line-height: 1.2;
+  margin-bottom: 1rem;
+  background: linear-gradient(135deg, #e2e8f0 30%, var(--accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.course-hero p {
+  color: var(--text-muted);
+  font-size: 1.05rem;
+  max-width: 620px;
+}
+
+.hero-stats {
+  display: flex;
+  gap: 2rem;
+  margin-top: 1.5rem;
+}
+
+.hero-stat {
+  display: flex;
+  flex-direction: column;
+}
+
+.hero-stat .stat-value {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.hero-stat .stat-label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Sections de leçon */
+.lesson-section {
+  padding-top: 1rem;
+  margin-bottom: 4rem;
+  scroll-margin-top: 2rem;
+}
+
+.lesson-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1.75rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.lesson-num {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--accent);
+  background: var(--accent-dim);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  flex-shrink: 0;
+  margin-top: 0.45rem;
+}
+
+.lesson-section h2 {
+  font-family: var(--font-display);
+  font-size: 1.65rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--text);
+}
+
+.module-section-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+  margin-top: 1rem;
+}
+
+.module-section-header .mod-badge {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--purple);
+  background: rgba(167,139,250,0.1);
+  padding: 0.3rem 0.7rem;
+  border-radius: 20px;
+  border: 1px solid rgba(167,139,250,0.25);
+}
+
+.module-section-header h2 {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+
+/* Typographie contenu */
+.content p { margin-bottom: 1.1rem; color: var(--text); }
+.content h3 {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 2rem 0 0.75rem;
+}
+.content ul, .content ol {
+  margin-bottom: 1.1rem;
+  padding-left: 1.5rem;
+}
+.content li { margin-bottom: 0.4rem; }
+.content strong { color: #f0f6ff; }
+.content code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  background: var(--bg-card);
+  color: var(--accent);
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+  border: 1px solid var(--border2);
+}
+
+pre {
+  background: #0d1117 !important;
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  padding: 1.25rem 1.5rem;
+  overflow-x: auto;
+  margin: 1.25rem 0;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  position: relative;
+}
+
+pre code { background: none !important; color: inherit !important; padding: 0 !important; border: none !important; font-size: inherit !important; }
+
+/* Callouts */
+.callout {
+  border-left: 3px solid var(--accent);
+  background: var(--bg-card);
+  padding: 1rem 1.25rem;
+  border-radius: 0 8px 8px 0;
+  margin: 1.5rem 0;
+}
+
+.callout-header {
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.callout.pitfall {
+  border-left-color: var(--orange);
+  background: rgba(251,146,60,0.06);
+}
+.callout.pitfall .callout-header { color: var(--orange); }
+
+.callout.exercise {
+  border-left-color: var(--green);
+  background: rgba(52,211,153,0.06);
+}
+.callout.exercise .callout-header { color: var(--green); }
+
+.callout.info {
+  border-left-color: var(--accent);
+  background: rgba(56,189,248,0.06);
+}
+.callout.info .callout-header { color: var(--accent); }
+
+.callout.tip {
+  border-left-color: var(--purple);
+  background: rgba(167,139,250,0.06);
+}
+.callout.tip .callout-header { color: var(--purple); }
+
+/* Tableau comparatif */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.25rem 0;
+  font-size: 0.9rem;
+}
+.data-table th {
+  background: var(--bg-card);
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 2px solid var(--border2);
+}
+.data-table td {
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.data-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+/* Mobile */
+.menu-toggle { display: none; }
+
+@media (max-width: 900px) {
+  .sidebar {
+    position: fixed;
+    left: -100%;
+    z-index: 50;
+    height: 100vh;
+    top: 0;
+    transition: left 0.25s ease;
+    box-shadow: 4px 0 24px rgba(0,0,0,0.5);
+  }
+  .sidebar.open { left: 0; }
+  .menu-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    top: 0.75rem; left: 0.75rem;
+    z-index: 60;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 8px;
+    width: 36px; height: 36px;
+    font-size: 1.1rem;
+    cursor: pointer;
+  }
+  .content { padding: 4.5rem 1.25rem 4rem; }
+  .course-hero h1 { font-size: 1.8rem; }
+  .hero-stats { gap: 1.25rem; }
+}
+</style>
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-bar-fill" id="progressFill"></div></div>
+<button class="menu-toggle" id="menuToggle">☰</button>
+
+<div class="layout">
+
+<!-- ════════════════════════════════════
+     SIDEBAR
+════════════════════════════════════ -->
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <div class="course-tag">▸ Python pour la Data</div>
+    <h1>Pandas, NumPy &amp; Profiling</h1>
+    <div class="progress-label">
+      <div class="progress-mini"><div class="progress-mini-fill" id="progressMini"></div></div>
+      <span id="progressText">0 / 30</span>
+    </div>
+  </div>
+
+  <!-- MODULE 1 -->
+  <div class="module-group">
+    <div class="module-title" onclick="toggleModule(this)">
+      <span class="module-badge">1</span> NumPy — Fondations
+      <span class="chevron">▾</span>
+    </div>
+    <ul class="lesson-list">
+      <li><a href="#m1-l1" data-lesson="m1-l1"><span class="lesson-check"></span>Arrays NumPy vs listes Python</a></li>
+      <li><a href="#m1-l2" data-lesson="m1-l2"><span class="lesson-check"></span>Indexing, Slicing et masques booléens</a></li>
+      <li><a href="#m1-l3" data-lesson="m1-l3"><span class="lesson-check"></span>Broadcasting : la règle d'or</a></li>
+      <li><a href="#m1-l4" data-lesson="m1-l4"><span class="lesson-check"></span>Reshape, Transpose et stacking</a></li>
+      <li><a href="#m1-l5" data-lesson="m1-l5"><span class="lesson-check"></span>ufuncs, performance et mémoire</a></li>
+    </ul>
+  </div>
+
+  <!-- MODULE 2 -->
+  <div class="module-group">
+    <div class="module-title" onclick="toggleModule(this)">
+      <span class="module-badge">2</span> Pandas — Structures
+      <span class="chevron">▾</span>
+    </div>
+    <ul class="lesson-list">
+      <li><a href="#m2-l1" data-lesson="m2-l1"><span class="lesson-check"></span>Series : l'array étiqueté</a></li>
+      <li><a href="#m2-l2" data-lesson="m2-l2"><span class="lesson-check"></span>DataFrame : anatomie et création</a></li>
+      <li><a href="#m2-l3" data-lesson="m2-l3"><span class="lesson-check"></span>Index : RangeIndex, MultiIndex, DatetimeIndex</a></li>
+      <li><a href="#m2-l4" data-lesson="m2-l4"><span class="lesson-check"></span>Dtypes et empreinte mémoire</a></li>
+    </ul>
+  </div>
+
+  <!-- MODULE 3 -->
+  <div class="module-group">
+    <div class="module-title" onclick="toggleModule(this)">
+      <span class="module-badge">3</span> Chargement &amp; Inspection
+      <span class="chevron">▾</span>
+    </div>
+    <ul class="lesson-list">
+      <li><a href="#m3-l1" data-lesson="m3-l1"><span class="lesson-check"></span>Lire CSV, JSON, Excel, Parquet</a></li>
+      <li><a href="#m3-l2" data-lesson="m3-l2"><span class="lesson-check"></span>Inspection initiale du dataset</a></li>
+      <li><a href="#m3-l3" data-lesson="m3-l3"><span class="lesson-check"></span>Sélection : loc, iloc, [], at, iat</a></li>
+      <li><a href="#m3-l4" data-lesson="m3-l4"><span class="lesson-check"></span>Filtrage booléen et query()</a></li>
+    </ul>
+  </div>
+
+  <!-- MODULE 4 -->
+  <div class="module-group">
+    <div class="module-title" onclick="toggleModule(this)">
+      <span class="module-badge">4</span> Transformation &amp; Nettoyage
+      <span class="chevron">▾</span>
+    </div>
+    <ul class="lesson-list">
+      <li><a href="#m4-l1" data-lesson="m4-l1"><span class="lesson-check"></span>apply, map et transformations</a></li>
+      <li><a href="#m4-l2" data-lesson="m4-l2"><span class="lesson-check"></span>groupby : split-apply-combine</a></li>
+      <li><a href="#m4-l3" data-lesson="m4-l3"><span class="lesson-check"></span>Valeurs manquantes</a></li>
+      <li><a href="#m4-l4" data-lesson="m4-l4"><span class="lesson-check"></span>Merge, join et concat</a></li>
+      <li><a href="#m4-l5" data-lesson="m4-l5"><span class="lesson-check"></span>Tri, déduplication et reset_index</a></li>
+    </ul>
+  </div>
+
+  <!-- MODULE 5 -->
+  <div class="module-group">
+    <div class="module-title" onclick="toggleModule(this)">
+      <span class="module-badge">5</span> Manipulation Avancée
+      <span class="chevron">▾</span>
+    </div>
+    <ul class="lesson-list">
+      <li><a href="#m5-l1" data-lesson="m5-l1"><span class="lesson-check"></span>pivot_table et melt</a></li>
+      <li><a href="#m5-l2" data-lesson="m5-l2"><span class="lesson-check"></span>Window functions : rolling, expanding</a></li>
+      <li><a href="#m5-l3" data-lesson="m5-l3"><span class="lesson-check"></span>String operations avec .str</a></li>
+      <li><a href="#m5-l4" data-lesson="m5-l4"><span class="lesson-check"></span>Datetime operations avec .dt</a></li>
+    </ul>
+  </div>
+
+  <!-- MODULE 6 -->
+  <div class="module-group">
+    <div class="module-title" onclick="toggleModule(this)">
+      <span class="module-badge">6</span> Profiling de Datasets
+      <span class="chevron">▾</span>
+    </div>
+    <ul class="lesson-list">
+      <li><a href="#m6-l1" data-lesson="m6-l1"><span class="lesson-check"></span>ydata-profiling en profondeur</a></li>
+      <li><a href="#m6-l2" data-lesson="m6-l2"><span class="lesson-check"></span>sweetviz et comparaison de datasets</a></li>
+      <li><a href="#m6-l3" data-lesson="m6-l3"><span class="lesson-check"></span>Profiling manuel avec Pandas</a></li>
+      <li><a href="#m6-l4" data-lesson="m6-l4"><span class="lesson-check"></span>Documenter les problèmes qualité</a></li>
+    </ul>
+  </div>
+
+  <!-- MODULE 7 -->
+  <div class="module-group">
+    <div class="module-title" onclick="toggleModule(this)">
+      <span class="module-badge">7</span> Performance &amp; Bonnes Pratiques
+      <span class="chevron">▾</span>
+    </div>
+    <ul class="lesson-list">
+      <li><a href="#m7-l1" data-lesson="m7-l1"><span class="lesson-check"></span>Optimisation mémoire : downcasting</a></li>
+      <li><a href="#m7-l2" data-lesson="m7-l2"><span class="lesson-check"></span>Vectorisation vs apply vs boucles</a></li>
+      <li><a href="#m7-l3" data-lesson="m7-l3"><span class="lesson-check"></span>Chunksize et gros fichiers</a></li>
+      <li><a href="#m7-l4" data-lesson="m7-l4"><span class="lesson-check"></span>Pandas 2.0 : CoW et Arrow</a></li>
+    </ul>
+  </div>
+</nav>
+
+<!-- ════════════════════════════════════
+     CONTENU
+════════════════════════════════════ -->
+<main class="content">
+
+  <!-- HERO -->
+  <div class="course-hero">
+    <div class="hero-tag">▸ Formation Data Science · Python</div>
+    <h1>Python pour la Data<br>Pandas, NumPy &amp; Profiling</h1>
+    <p>De la manipulation d'arrays NumPy au profiling automatisé de datasets, maîtrisez les outils fondamentaux du pipeline data en Python — avec les pièges à éviter et les bonnes pratiques de performance.</p>
+    <div class="hero-stats">
+      <div class="hero-stat"><span class="stat-value">7</span><span class="stat-label">Modules</span></div>
+      <div class="hero-stat"><span class="stat-value">30</span><span class="stat-label">Leçons</span></div>
+      <div class="hero-stat"><span class="stat-value">∞</span><span class="stat-label">Exemples</span></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       MODULE 1 — NumPy Fondations
+  ══════════════════════════════════ -->
+  <div class="module-section-header">
+    <span class="mod-badge">Module 1</span>
+    <h2>NumPy — Fondations du calcul scientifique</h2>
+  </div>
+
+  <!-- M1-L1 -->
+  <section class="lesson-section" id="m1-l1">
+    <div class="lesson-header">
+      <span class="lesson-num">1.1</span>
+      <h2>Arrays NumPy vs listes Python : pourquoi le ndarray</h2>
+    </div>
+
+    <p>Avant d'écrire une seule ligne de Pandas, il faut comprendre NumPy — car Pandas est entièrement construit dessus. Le <code>ndarray</code> (N-dimensional array) est l'objet central de NumPy. Comprendre pourquoi il existe, et en quoi il diffère d'une liste Python, est essentiel pour écrire du code data efficace.</p>
+
+    <h3>Le problème avec les listes Python</h3>
+    <p>Une liste Python est une structure générique : chaque élément est un objet Python indépendant, stocké en mémoire avec ses propres métadonnées (type, compteur de référence, etc.). Pour stocker 10 millions d'entiers, Python crée 10 millions d'objets <code>int</code> et une liste de 10 millions de pointeurs vers ces objets. C'est extrêmement coûteux en mémoire et en CPU.</p>
+
+<pre><code class="language-python">import sys
+
+# Comparaison mémoire : liste Python vs array NumPy
+import numpy as np
+
+n = 1_000_000
+liste_python = list(range(n))
+array_numpy  = np.arange(n, dtype=np.int64)
+
+print(f"Liste Python  : {sys.getsizeof(liste_python) / 1e6:.1f} MB")
+# → ~8.6 MB rien que pour les pointeurs, + ~28 MB pour les objets int
+print(f"Array NumPy   : {array_numpy.nbytes / 1e6:.1f} MB")
+# → ~8.0 MB exactement (1M × 8 octets par int64)
+
+# Comparaison vitesse : somme
+import timeit
+
+t_list = timeit.timeit(lambda: sum(liste_python), number=10) / 10
+t_np   = timeit.timeit(lambda: array_numpy.sum(), number=10) / 10
+
+print(f"sum() liste   : {t_list*1000:.1f} ms")  # ~60 ms
+print(f".sum() NumPy  : {t_np*1000:.1f} ms")    # ~1 ms → ×60 plus rapide</code></pre>
+
+    <h3>Pourquoi NumPy est si rapide</h3>
+    <p>Un <code>ndarray</code> est un bloc de mémoire contiguë, typé de façon homogène. Quand vous créez <code>np.array([1, 2, 3], dtype=np.float64)</code>, NumPy alloue exactement <code>3 × 8 = 24</code> octets contigus en mémoire. Aucun surcoût d'objet Python. Les opérations sur cet array sont compilées en C (ou Fortran) et peuvent exploiter les instructions SIMD du processeur (vectorisation matérielle).</p>
+    <p>C'est ce qu'on appelle la <strong>vectorisation</strong> : au lieu d'une boucle Python élément par élément, une seule instruction C traite des blocs de données en une passe.</p>
+
+<pre><code class="language-python">import numpy as np
+
+# Créer des arrays de différentes façons
+a = np.array([1.0, 2.0, 3.0, 4.0])          # depuis une liste Python
+b = np.zeros(5)                               # tableau de zéros
+c = np.ones((3, 3))                           # matrice 3x3 de uns
+d = np.arange(0, 10, 2)                      # [0, 2, 4, 6, 8]
+e = np.linspace(0, 1, 5)                     # 5 points entre 0 et 1
+f = np.full((2, 3), fill_value=7)            # matrice 2x3 remplie de 7
+g = np.eye(4)                                 # matrice identité 4x4
+h = np.random.default_rng(42).normal(0, 1, (100, 50))  # valeurs aléatoires
+
+# Attributs importants d'un ndarray
+print(h.shape)   # (100, 50) — dimensions
+print(h.ndim)    # 2 — nombre de dimensions
+print(h.dtype)   # float64 — type des données
+print(h.nbytes)  # 40000 — taille mémoire en octets
+print(h.size)    # 5000 — nombre total d'éléments</code></pre>
+
+    <h3>Dtype : le choix du type de données</h3>
+    <p>Le <code>dtype</code> est l'une des décisions les plus importantes en NumPy. Il détermine la mémoire consommée, la précision des calculs, et les opérations disponibles.</p>
+
+    <table class="data-table">
+      <thead><tr><th>Dtype</th><th>Taille</th><th>Plage / Précision</th><th>Usage typique</th></tr></thead>
+      <tbody>
+        <tr><td><code>int8</code></td><td>1 octet</td><td>-128 à 127</td><td>Petits entiers, économie mémoire</td></tr>
+        <tr><td><code>int32</code></td><td>4 octets</td><td>±2.1 milliards</td><td>Entiers courants</td></tr>
+        <tr><td><code>int64</code></td><td>8 octets</td><td>±9.2×10¹⁸</td><td>Grands entiers, défaut Python</td></tr>
+        <tr><td><code>float32</code></td><td>4 octets</td><td>~7 décimales</td><td>Machine learning (GPU)</td></tr>
+        <tr><td><code>float64</code></td><td>8 octets</td><td>~15 décimales</td><td>Calculs scientifiques, défaut NumPy</td></tr>
+        <tr><td><code>bool</code></td><td>1 octet</td><td>True / False</td><td>Masques booléens</td></tr>
+        <tr><td><code>complex128</code></td><td>16 octets</td><td>Double précision</td><td>Signaux, FFT</td></tr>
+      </tbody>
+    </table>
+
+<pre><code class="language-python"># Spécifier le dtype à la création
+a = np.array([1, 2, 3], dtype=np.float32)   # force float32
+b = np.array([True, False, True])            # dtype=bool automatique
+
+# Conversion de dtype
+c = a.astype(np.int16)   # convertit float32 → int16
+
+# Piège : overflow silencieux
+x = np.array([200], dtype=np.int8)  # int8 : max = 127
+print(x + 100)  # → [-44]  (overflow silencieux ! pas d'exception)
+
+# Bonne pratique : vérifier avant de choisir un dtype restrictif
+data = np.array([1, 2, 300])
+print(np.iinfo(np.int8).max)   # 127 — trop petit pour 300 !</code></pre>
+
+    <div class="callout pitfall">
+      <div class="callout-header">⚠ Piège courant</div>
+      <p>NumPy ne lève pas d'exception en cas d'overflow. <code>np.array([200], dtype=np.int8) + 100</code> retourne <code>[-44]</code> sans avertissement. Avant de réduire un dtype pour économiser de la mémoire, vérifiez toujours les valeurs min/max avec <code>np.iinfo()</code> ou <code>np.finfo()</code>.</p>
+    </div>
+
+    <div class="callout exercise">
+      <div class="callout-header">✦ Exercice</div>
+      <p>Créez un array NumPy contenant les carrés des entiers de 0 à 999. Comparez (1) la mémoire utilisée par cet array en <code>int64</code> vs <code>int32</code>, et (2) le temps d'exécution d'une somme sur cet array vs une list comprehension Python. Utilisez <code>timeit</code> et <code>.nbytes</code>.</p>
+    </div>
+  </section>
+
+  <!-- M1-L2 -->
+  <section class="lesson-section" id="m1-l2">
+    <div class="lesson-header">
+      <span class="lesson-num">1.2</span>
+      <h2>Indexing, Slicing et masques booléens</h2>
+    </div>
+
+    <p>L'accès aux données d'un ndarray est un sujet à part entière. NumPy offre plusieurs mécanismes : l'indexing classique (par position), le slicing (par plage), le fancy indexing (par tableau d'indices), et le boolean masking (par condition). Chacun a des subtilités importantes, notamment sur la question <strong>vue vs copie</strong>.</p>
+
+    <h3>Indexing de base</h3>
+
+<pre><code class="language-python">import numpy as np
+
+a = np.array([10, 20, 30, 40, 50])
+
+# Indexing simple
+print(a[0])    # 10   (premier élément)
+print(a[-1])   # 50   (dernier élément)
+print(a[-2])   # 40
+
+# Slicing : a[start:stop:step]
+print(a[1:4])   # [20 30 40]  — stop exclu
+print(a[::2])   # [10 30 50]  — un sur deux
+print(a[::-1])  # [50 40 30 20 10]  — inversé
+
+# Tableau 2D
+m = np.array([[1, 2, 3],
+              [4, 5, 6],
+              [7, 8, 9]])
+
+print(m[1, 2])    # 6  — ligne 1, colonne 2
+print(m[0])       # [1 2 3]  — ligne entière
+print(m[:, 1])    # [2 5 8]  — colonne entière
+print(m[1:, 1:])  # sous-matrice 2x2 en bas à droite</code></pre>
+
+    <h3>Vue vs Copie : le piège fondamental</h3>
+    <p>En NumPy, un slice retourne une <strong>vue</strong> — pas une copie. La vue partage la mémoire avec l'array original. Modifier la vue modifie l'original.</p>
+
+<pre><code class="language-python">a = np.array([1, 2, 3, 4, 5])
+
+# Slice → VUE (partage la mémoire)
+b = a[1:4]
+b[0] = 99
+print(a)  # [  1  99   3   4   5]  — a est modifié !
+
+# Pour éviter ça : .copy()
+c = a[1:4].copy()
+c[0] = 0
+print(a)  # inchangé
+
+# Vérifier si deux arrays partagent la mémoire
+print(np.shares_memory(a, b))  # True
+print(np.shares_memory(a, c))  # False
+
+# Le fancy indexing retourne TOUJOURS une copie
+idx = np.array([0, 2, 4])
+d = a[idx]   # copie
+d[0] = 999
+print(a)     # inchangé</code></pre>
+
+    <h3>Boolean masking</h3>
+    <p>Le masque booléen est l'outil le plus puissant pour filtrer des données. On crée d'abord un array de booléens (le masque), puis on l'utilise comme index. C'est la base du filtrage conditionnel en Pandas.</p>
+
+<pre><code class="language-python">data = np.array([15, -3, 42, -7, 0, 28, -1, 100])
+
+# Créer un masque
+masque = data > 0
+print(masque)
+# [True False True False False True False True]
+
+# Appliquer le masque → sélectionne les vrais
+positifs = data[masque]
+print(positifs)  # [15 42 28 100]
+
+# En une ligne (idiome courant)
+print(data[data > 0])    # [15 42 28 100]
+print(data[data < 0])    # [-3 -7 -1]
+print(data[(data > 0) & (data < 50)])  # [15 42 28]  — ET logique
+print(data[(data < 0) | (data > 90)])  # [-3 -7 -1 100]  — OU logique
+
+# Modifier via masque
+data[data < 0] = 0   # remplace les négatifs par 0
+print(data)  # [15  0 42  0  0 28  0 100]
+
+# np.where : version vectorisée du if/else
+resultat = np.where(data > 50, "grand", "petit")
+print(resultat)  # ['petit' 'petit' 'petit' ... 'grand']</code></pre>
+
+    <h3>Fancy indexing</h3>
+
+<pre><code class="language-python">a = np.array([10, 20, 30, 40, 50, 60])
+
+# Indices dans un tableau
+indices = np.array([0, 2, 4])
+print(a[indices])   # [10 30 50]
+
+# Ordre quelconque, répétition possible
+print(a[[4, 1, 4, 0]])  # [50 20 50 10]
+
+# Sur une matrice : sélectionner des lignes spécifiques
+m = np.arange(20).reshape(4, 5)
+rows = [0, 2, 3]
+print(m[rows])  # lignes 0, 2 et 3
+
+# Combinaison ligne + colonne
+row_idx = np.array([0, 1, 2])
+col_idx = np.array([2, 0, 4])
+print(m[row_idx, col_idx])  # éléments (0,2), (1,0), (2,4)</code></pre>
+
+    <div class="callout pitfall">
+      <div class="callout-header">⚠ Piège courant</div>
+      <p>Attention aux opérateurs logiques : <code>and</code> et <code>or</code> ne fonctionnent PAS sur les arrays NumPy. Utilisez <code>&</code> (ET), <code>|</code> (OU) et <code>~</code> (NON). Et toujours parenthéser les conditions : <code>(a > 0) & (a &lt; 10)</code> et non <code>a > 0 & a &lt; 10</code> (priorité des opérateurs).</p>
+    </div>
+
+    <div class="callout exercise">
+      <div class="callout-header">✦ Exercice</div>
+      <p>Générez un array 2D de 100 × 5 avec des valeurs aléatoires entre -100 et 100 (<code>np.random.randint</code>). (1) Extrayez toutes les lignes dont la somme est positive. (2) Remplacez toutes les valeurs comprises entre -10 et 10 par 0. (3) Vérifiez que la modification en place n'a pas créé de copie.</p>
+    </div>
+  </section>
+
+  <!-- M1-L3 -->
+  <section class="lesson-section" id="m1-l3">
+    <div class="lesson-header">
+      <span class="lesson-num">1.3</span>
+      <h2>Broadcasting : la règle d'or</h2>
+    </div>
+
+    <p>Le broadcasting est probablement le concept NumPy le plus déroutant pour les débutants — et le plus puissant une fois maîtrisé. Il permet d'effectuer des opérations arithmétiques entre arrays de <em>shapes différentes</em> sans créer de copies en mémoire. NumPy "étire" virtuellement les dimensions manquantes.</p>
+
+    <h3>Pourquoi le broadcasting existe</h3>
+    <p>Sans broadcasting, pour ajouter un scalaire à chaque élément d'un array, il faudrait créer un second array de même taille rempli de ce scalaire. Le broadcasting évite cette allocation : NumPy sait qu'il doit répéter l'opération sur chaque élément sans jamais créer l'array intermédiaire.</p>
+
+<pre><code class="language-python">import numpy as np
+
+# Cas 1 : scalaire + array (broadcasting trivial)
+a = np.array([1, 2, 3, 4])
+print(a + 10)    # [11 12 13 14]  — 10 "étiré" sur tout l'array
+print(a * 2)     # [ 2  4  6  8]
+print(a ** 2)    # [ 1  4  9 16]
+
+# Cas 2 : array 1D + array 2D
+m = np.ones((3, 4))   # shape (3, 4)
+v = np.array([1, 2, 3, 4])  # shape (4,)
+print((m + v).shape)  # (3, 4) — v "étiré" sur les 3 lignes
+print(m + v)
+# [[2. 3. 4. 5.]
+#  [2. 3. 4. 5.]
+#  [2. 3. 4. 5.]]</code></pre>
+
+    <h3>Les règles de broadcasting</h3>
+    <p>NumPy applique des règles précises pour déterminer si deux arrays sont compatibles :</p>
+    <ol>
+      <li>Les shapes sont alignées depuis la <strong>droite</strong>.</li>
+      <li>Les dimensions sont compatibles si elles sont <strong>égales</strong>, ou si l'une d'elles est <strong>1</strong>.</li>
+      <li>Si une dimension est 1, elle est "étirée" pour correspondre à l'autre.</li>
+    </ol>
+
+<pre><code class="language-python">import numpy as np
+
+# Exemple pédagogique : shapes (3, 1) et (1, 4) → résultat (3, 4)
+col = np.array([[10], [20], [30]])    # shape (3, 1)
+row = np.array([[1, 2, 3, 4]])        # shape (1, 4)
+
+result = col + row
+print(result.shape)   # (3, 4)
+print(result)
+# [[11 12 13 14]
+#  [21 22 23 24]
+#  [31 32 33 34]]
+
+# Cas d'usage réel : normalisation par colonne (mean centering)
+data = np.random.rand(1000, 50)   # 1000 observations, 50 features
+mean = data.mean(axis=0)          # shape (50,)
+std  = data.std(axis=0)           # shape (50,)
+normalized = (data - mean) / std  # broadcasting sur (1000, 50)
+# Pas de boucle, pas de copie intermédiaire !
+
+# Shapes incompatibles
+a = np.ones((3, 4))
+b = np.ones((3, 3))
+# a + b  → ValueError: operands could not be broadcast together with shapes (3,4) (3,3)</code></pre>
+
+    <h3>Broadcasting pour créer des grilles</h3>
+
+<pre><code class="language-python">import numpy as np
+
+# Table de multiplication sans boucle
+x = np.arange(1, 11)         # [1, 2, ..., 10]
+table = x.reshape(-1, 1) * x  # (10, 1) × (10,) → (10, 10)
+print(table[:3, :3])
+# [[ 1  2  3]
+#  [ 2  4  6]
+#  [ 3  6  9]]
+
+# Distance euclidienne entre N points (pattern avancé)
+points = np.random.rand(100, 2)   # 100 points en 2D
+# diff[i, j] = points[i] - points[j]  → shape (100, 100, 2)
+diff = points[:, np.newaxis, :] - points[np.newaxis, :, :]
+dist = np.sqrt((diff**2).sum(axis=-1))   # shape (100, 100)
+# Plus proche voisin de chaque point :
+np.fill_diagonal(dist, np.inf)  # éviter distance avec soi-même
+nearest = dist.argmin(axis=1)   # index du voisin le plus proche</code></pre>
+
+    <div class="callout info">
+      <div class="callout-header">ℹ Note</div>
+      <p><code>np.newaxis</code> est un alias pour <code>None</code> et permet d'ajouter une dimension. <code>a[:, np.newaxis]</code> transforme un array de shape <code>(N,)</code> en <code>(N, 1)</code>, ce qui permet le broadcasting avec un array <code>(M,)</code> pour obtenir un résultat <code>(N, M)</code>.</p>
+    </div>
+
+    <div class="callout pitfall">
+      <div class="callout-header">⚠ Piège courant</div>
+      <p>Ne confondez pas <code>(N,)</code> et <code>(N, 1)</code>. Un vecteur 1D de shape <code>(3,)</code> n'est pas la même chose qu'une colonne de shape <code>(3, 1)</code>. Pour éviter les ambiguïtés, adoptez la règle de toujours travailler avec des arrays 2D explicites dans les calculs matriciels : <code>v.reshape(-1, 1)</code>.</p>
+    </div>
+
+    <div class="callout exercise">
+      <div class="callout-header">✦ Exercice</div>
+      <p>Sans utiliser de boucle, calculez une matrice de chaleur (heatmap) 50×50 où la valeur en (i,j) est la distance euclidienne entre le point (i, 0) et (0, j). Utilisez le broadcasting avec <code>np.newaxis</code>. Vérifiez que la diagonale contient les valeurs <code>0, √2, √8, ...</code></p>
+    </div>
+  </section>
+
+  <!-- M1-L4 -->
+  <section class="lesson-section" id="m1-l4">
+    <div class="lesson-header">
+      <span class="lesson-num">1.4</span>
+      <h2>Reshape, Transpose et stacking</h2>
+    </div>
+
+    <p>Manipuler la forme d'un array — sans en modifier les données — est une opération fondamentale en data science. C'est indispensable pour préparer des données pour des modèles ML, assembler des tableaux, ou réorganiser des résultats.</p>
+
+    <h3>reshape et ravel</h3>
+
+<pre><code class="language-python">import numpy as np
+
+a = np.arange(12)   # [0, 1, 2, ..., 11]
+
+# reshape : changer la forme
+b = a.reshape(3, 4)    # (12,) → (3, 4)
+c = a.reshape(2, 6)    # (12,) → (2, 6)
+d = a.reshape(2, 2, 3) # (12,) → (2, 2, 3) — 3D
+
+# -1 : "déduis cette dimension automatiquement"
+e = a.reshape(4, -1)   # (4, 3) — NumPy calcule 12/4=3
+f = a.reshape(-1, 3)   # (4, 3)
+
+# reshape retourne une VUE si possible (même mémoire)
+b[0, 0] = 99
+print(a[0])   # 99 — oui, vue partagée !
+
+# ravel : aplatir en 1D (vue si possible)
+m = np.array([[1, 2], [3, 4]])
+print(m.ravel())   # [1 2 3 4] — ordre C (ligne par ligne)
+print(m.ravel(order='F'))  # [1 3 2 4] — ordre Fortran (colonne par colonne)
+
+# flatten : aplatir en 1D (toujours une copie)
+f = m.flatten()
+f[0] = 99
+print(m)   # inchangé — c'est une copie</code></pre>
+
+    <h3>Transpose</h3>
+
+<pre><code class="language-python">import numpy as np
+
+m = np.array([[1, 2, 3],
+              [4, 5, 6]])   # shape (2, 3)
+
+t = m.T          # transpose → shape (3, 2)
+t2 = m.transpose()   # identique
+print(t)
+# [[1 4]
+#  [2 5]
+#  [3 6]]
+
+# Transpose pour tableau 3D : spécifier l'ordre des axes
+tensor = np.arange(24).reshape(2, 3, 4)  # shape (2, 3, 4)
+perm = tensor.transpose(1, 0, 2)         # shape (3, 2, 4)
+# Équivalent à np.moveaxis(tensor, 0, 1)
+
+# Produit matriciel
+a = np.random.rand(100, 10)
+cov = a.T @ a  # shape (10, 10) — matrice de covariance (non normalisée)
+# @ est l'opérateur de produit matriciel (depuis Python 3.5)</code></pre>
+
+    <h3>Assembler des arrays : stack, concatenate, hstack, vstack</h3>
+
+<pre><code class="language-python">import numpy as np
+
+a = np.array([1, 2, 3])
+b = np.array([4, 5, 6])
+
+# concatenate : coller le long d'un axe existant
+print(np.concatenate([a, b]))             # [1 2 3 4 5 6]
+print(np.concatenate([a.reshape(1,-1),
+                       b.reshape(1,-1)], axis=0))  # (2, 3)
+
+# hstack / vstack : raccourcis lisibles
+print(np.hstack([a, b]))   # [1 2 3 4 5 6]  — horizontal (axis=1 pour 2D)
+print(np.vstack([a, b]))   # [[1 2 3]        — vertical (axis=0)
+                            #  [4 5 6]]
+
+# stack : CRÉE une nouvelle dimension
+s = np.stack([a, b])       # shape (2, 3) — nouvelle dim en axis=0
+s2 = np.stack([a, b], axis=1)  # shape (3, 2) — nouvelle dim en axis=1
+
+# Exemple pratique : assembler des résultats de boucle
+# ❌ Mauvaise pratique (très lent) :
+results = []
+for i in range(100):
+    results.append(np.random.rand(50))
+array_final = np.vstack(results)   # (100, 50)
+
+# ✅ Bonne pratique : pré-allouer
+array_final = np.empty((100, 50))
+for i in range(100):
+    array_final[i] = np.random.rand(50)</code></pre>
+
+    <div class="callout pitfall">
+      <div class="callout-header">⚠ Piège courant</div>
+      <p>Empiler des arrays dans une boucle avec <code>np.vstack()</code> à chaque itération est un anti-pattern classique : chaque appel alloue un nouveau tableau et copie tout. La bonne pratique est de collecter dans une liste Python, puis d'appeler <code>np.vstack()</code> une seule fois à la fin — ou mieux encore, de pré-allouer avec <code>np.empty()</code>.</p>
+    </div>
+
+    <div class="callout exercise">
+      <div class="callout-header">✦ Exercice</div>
+      <p>Vous avez une matrice de notes <code>notes = np.array([[14, 12, 18], [9, 15, 11], [17, 8, 13]])</code> (3 étudiants, 3 matières). (1) Transposez-la pour obtenir une vue "par matière". (2) Ajoutez une 4e matière (colonne) avec les notes <code>[16, 10, 14]</code> en utilisant <code>np.hstack</code>. (3) Calculez la moyenne par étudiant en une ligne.</p>
+    </div>
+  </section>
+
+  <!-- M1-L5 -->
+  <section class="lesson-section" id="m1-l5">
+    <div class="lesson-header">
+      <span class="lesson-num">1.5</span>
+      <h2>ufuncs, performance et mémoire</h2>
+    </div>
+
+    <p>Les <strong>ufuncs</strong> (universal functions) sont les fonctions vectorisées de NumPy. Elles opèrent élément par élément sur des arrays, exploitent le broadcasting automatiquement, et sont implémentées en C compilé. C'est avec elles que NumPy atteint ses performances maximales.</p>
+
+    <h3>Les ufuncs essentielles</h3>
+
+<pre><code class="language-python">import numpy as np
+
+a = np.array([1.0, 4.0, 9.0, 16.0, 25.0])
+b = np.array([2.0, 3.0, 1.0, 0.5, 4.0])
+
+# Arithmétiques (équivalentes aux opérateurs +, -, *, /)
+np.add(a, b)         # identique à a + b
+np.subtract(a, b)    # a - b
+np.multiply(a, b)    # a * b
+np.divide(a, b)      # a / b
+np.power(a, 2)       # a ** 2
+np.mod(a, 3)         # a % 3
+
+# Mathématiques
+np.sqrt(a)           # racine carrée
+np.exp(a)            # e^a
+np.log(a)            # logarithme naturel
+np.log2(a)           # log base 2
+np.log10(a)          # log base 10
+np.sin(a); np.cos(a); np.tan(a)
+np.abs(a)            # valeur absolue
+
+# Agrégations avec axis
+m = np.arange(12).reshape(3, 4)
+np.sum(m)            # somme de tout : 66
+np.sum(m, axis=0)    # somme par colonne : [12 15 18 21]
+np.sum(m, axis=1)    # somme par ligne : [6 22 38]
+np.mean(m, axis=0)   # moyenne par colonne
+np.max(m, axis=1)    # max par ligne
+np.argmax(m, axis=1) # index du max par ligne
+
+# Comparaison
+np.maximum(a, b)     # max élément par élément
+np.minimum(a, b)     # min élément par élément
+np.clip(a, 2, 10)    # force les valeurs dans [2, 10]</code></pre>
+
+    <h3>Opérations "out" : écrire le résultat sans allocation</h3>
+
+<pre><code class="language-python">import numpy as np
+
+# Pour de très grands arrays, éviter l'allocation intermédiaire
+x = np.random.rand(10_000_000)
+out = np.empty_like(x)
+
+# Sans "out" : crée un nouvel array en mémoire
+y = np.sqrt(x)
+
+# Avec "out" : écrit directement dans out, sans allocation
+np.sqrt(x, out=out)   # 0 allocation supplémentaire
+
+# Utile dans une boucle de traitement par chunks
+buffer = np.empty(1_000_000)
+for chunk_data in ...:  # imagine des chunks de données
+    np.log1p(chunk_data, out=buffer)  # réutilise le même buffer</code></pre>
+
+    <h3>Profil mémoire et gestion des grands arrays</h3>
+
+<pre><code class="language-python">import numpy as np
+
+# Calculer l'empreinte mémoire
+def mem_mb(arr):
+    return arr.nbytes / 1e6
+
+# Comparaison d'empreinte selon le dtype
+n = 10_000_000
+for dtype in [np.float64, np.float32, np.float16, np.int32, np.int16, np.int8]:
+    a = np.empty(n, dtype=dtype)
+    print(f"{str(dtype):12s}: {mem_mb(a):.1f} MB")
+# float64   : 80.0 MB
+# float32   : 40.0 MB
+# float16   : 20.0 MB
+# int32     : 40.0 MB
+# int16     : 20.0 MB
+# int8      :  10.0 MB
+
+# memory-mapped arrays : accéder à des fichiers trop grands pour la RAM
+# Écrire
+data = np.random.rand(1_000_000, 100).astype(np.float32)
+fp = np.memmap('/tmp/big_array.npy', dtype='float32', mode='w+', shape=(1_000_000, 100))
+fp[:] = data[:]
+del fp   # flush et ferme
+
+# Lire (pas chargé en RAM, accès à la demande)
+fp = np.memmap('/tmp/big_array.npy', dtype='float32', mode='r', shape=(1_000_000, 100))
+print(fp[0])   # charge seulement la première ligne</code></pre>
+
+    <h3>Comparaison de vitesse : boucle vs vectorisation</h3>
+
+<pre><code class="language-python">import numpy as np
+import timeit
+
+n = 1_000_000
+data = np.random.rand(n)
+
+# Approche 1 : boucle Python pure
+def loop_python(arr):
+    result = np.empty(len(arr))
+    for i in range(len(arr)):
+        result[i] = arr[i] ** 2 + 2 * arr[i] + 1
+    return result
+
+# Approche 2 : vectorisée NumPy
+def vectorized(arr):
+    return arr**2 + 2*arr + 1
+
+t_loop = timeit.timeit(lambda: loop_python(data), number=1)
+t_vec  = timeit.timeit(lambda: vectorized(data), number=100) / 100
+
+print(f"Boucle Python : {t_loop*1000:.0f} ms")   # ~2000 ms
+print(f"NumPy vect.   : {t_vec*1000:.1f} ms")    # ~3 ms — ×700 plus rapide</code></pre>
+
+    <div class="callout tip">
+      <div class="callout-header">✦ Bonne pratique</div>
+      <p>La règle d'or : <strong>toujours trouver l'opération NumPy qui fait ce que votre boucle ferait</strong>. Si vous avez une boucle Python sur un array NumPy, c'est presque toujours un signe qu'une ufunc ou une combinaison d'opérations vectorisées peut la remplacer. Le gain de performance est typiquement de ×50 à ×1000.</p>
+    </div>
+
+    <div class="callout exercise">
+      <div class="callout-header">✦ Exercice</div>
+      <p>Implémentez la normalisation min-max d'un array <code>x</code> en une seule expression NumPy vectorisée : <code>(x - x.min()) / (x.max() - x.min())</code>. Ensuite, faites la même chose colonne par colonne pour une matrice 10000×20. Vérifiez avec <code>timeit</code> que la version vectorisée est au moins 100× plus rapide qu'une boucle Python équivalente.</p>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════
+       MODULE 2 — Pandas Structures
+  ══════════════════════════════════ -->
+  <div class="module-section-header">
+    <span class="mod-badge">Module 2</span>
+    <h2>Pandas — Structures de données</h2>
+  </div>
+
+  <!-- M2-L1 -->
+  <section class="lesson-section" id="m2-l1">
+    <div class="lesson-header">
+      <span class="lesson-num">2.1</span>
+      <h2>Series : l'array étiqueté</h2>
+    </div>
+
+    <p>Une <code>Series</code> Pandas est un tableau 1D avec un index. C'est l'équivalent d'un dictionnaire ordonné, ou d'une colonne unique d'un tableur. Sous le capot, une Series est un wrapper autour d'un <code>ndarray</code> NumPy — mais avec des fonctionnalités supplémentaires : alignement automatique sur l'index, gestion native des valeurs manquantes, et un ensemble de méthodes orientées données.</p>
+
+    <h3>Créer une Series</h3>
+
+<pre><code class="language-python">import pandas as pd
+import numpy as np
+
+# Depuis une liste (index RangeIndex automatique)
+s1 = pd.Series([10, 20, 30, 40])
+# 0    10
+# 1    20
+# 2    30
+# 3    40
+# dtype: int64
+
+# Avec un index explicite
+s2 = pd.Series([10, 20, 30], index=['a', 'b', 'c'])
+# a    10
+# b    20
+# c    30
+
+# Depuis un dictionnaire (les clés deviennent l'index)
+s3 = pd.Series({'Paris': 2161000, 'Lyon': 522000, 'Marseille': 861000})
+
+# Depuis un scalaire (broadcast sur l'index)
+s4 = pd.Series(0, index=range(5))  # [0, 0, 0, 0, 0]
+
+# Depuis un array NumPy
+arr = np.arange(100, 110)
+s5 = pd.Series(arr, index=pd.date_range('2024-01', periods=10, freq='ME'))</code></pre>
+
+    <h3>Accès aux données</h3>
+
+<pre><code class="language-python">s = pd.Series({'Paris': 2161000, 'Lyon': 522000, 'Marseille': 861000, 'Nice': 342000})
+
+# Par label (index)
+print(s['Paris'])     # 2161000
+print(s[['Paris', 'Nice']])  # sous-Series
+
+# Par position (comme NumPy)
+print(s.iloc[0])      # 2161000 — première valeur
+print(s.iloc[-1])     # 342000  — dernière valeur
+
+# .loc (label) vs .iloc (position entière)
+print(s.loc['Lyon'])   # 522000
+print(s.iloc[1])       # 522000  — même résultat ici
+
+# Slicing par label (INCLUT le stop !)
+print(s.loc['Paris':'Lyon'])   # inclut 'Lyon'
+
+# Boolean masking
+print(s[s > 500000])   # villes de + de 500 000 hab
+print(s.where(s > 500000))  # garde les autres avec NaN</code></pre>
+
+    <h3>Opérations et alignement sur l'index</h3>
+    <p>L'une des fonctionnalités les plus importantes de Pandas : quand vous effectuez une opération entre deux Series, Pandas aligne automatiquement les valeurs sur leurs labels — même si les index ne sont pas dans le même ordre. Les labels manquants produisent <code>NaN</code>.</p>
+
+<pre><code class="language-python">import pandas as pd
+
+s1 = pd.Series({'a': 1, 'b': 2, 'c': 3})
+s2 = pd.Series({'b': 10, 'c': 20, 'd': 30})
+
+print(s1 + s2)
+# a     NaN   ← 'a' absent de s2
+# b    12.0   ← 2 + 10
+# c    23.0   ← 3 + 20
+# d     NaN   ← 'd' absent de s1
+
+# Éviter les NaN avec fill_value
+print(s1.add(s2, fill_value=0))
+# a     1.0
+# b    12.0
+# c    23.0
+# d    30.0
+
+# Vérifier l'index
+print(s1.index)    # Index(['a', 'b', 'c'], dtype='object')
+print(s1.values)   # array([1, 2, 3]) — array NumPy sous-jacent
+print(s1.to_numpy())  # idem, mais plus explicite (Pandas 0.24+)</code></pre>
+
+    <h3>Méthodes utiles sur Series</h3>
+
+<pre><code class="language-python">s = pd.Series([3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5])
+
+# Statistiques
+print(s.describe())   # count, mean, std, min, quartiles, max
+print(s.mean())       # 4.0
+print(s.median())     # 4.0
+print(s.std())        # 2.28...
+print(s.value_counts())  # fréquence de chaque valeur
+
+# Tri
+print(s.sort_values())             # trié par valeur
+print(s.sort_values(ascending=False))
+print(s.sort_index())              # trié par index
+
+# Transformation
+print(s.map(lambda x: x**2))      # applique une fonction
+print(s.apply(np.sqrt))           # identique pour Series
+print(s.replace({1: -1, 5: 50}))  # remplacer des valeurs
+
+# Valeurs uniques
+print(s.unique())        # array des valeurs uniques
+print(s.nunique())       # nombre de valeurs uniques
+print(s.is_unique)       # True si toutes les valeurs sont distinctes
+
+# Rang
+print(s.rank())          # rang de chaque valeur (float)
+print(s.rank(method='min'))  # 'min', 'max', 'first', 'dense'</code></pre>
+
+    <div class="callout pitfall">
+      <div class="callout-header">⚠ Piège courant</div>
+      <p>Tester si une Series est vide avec <code>if series:</code> lève un <code>ValueError</code> ambiguïté. Utilisez <code>series.empty</code> ou <code>len(series) == 0</code>. De même, comparer une Series avec <code>== None</code> ne fonctionne pas : utilisez <code>series.isna()</code>.</p>
+    </div>
+
+    <div class="callout exercise">
+      <div class="callout-header">✦ Exercice</div>
+      <p>Créez une Series des températures moyennes mensuelles de Paris (Jan à Déc : <code>[5, 6, 9, 12, 16, 19, 21, 21, 18, 13, 8, 5]</code>) avec un DatetimeIndex mensuel. (1) Filtrez les mois avec une température &gt; 15°C. (2) Calculez l'écart à la moyenne annuelle pour chaque mois. (3) Quel mois est le plus éloigné de la moyenne ?</p>
+    </div>
+  </section>
+
+  <!-- M2-L2 -->
+  <section class="lesson-section" id="m2-l2">
+    <div class="lesson-header">
+      <span class="lesson-num">2.2</span>
+      <h2>DataFrame : anatomie et création</h2>
+    </div>
+
+    <p>Un <code>DataFrame</code> est la structure centrale de Pandas : un tableau 2D avec des labels sur les lignes (index) et les colonnes. Conceptuellement, c'est un dictionnaire ordonné de Series partageant le même index. Chaque colonne est une Series, et le DataFrame est leur "conteneur" avec un index commun.</p>
+
+    <h3>Créer un DataFrame</h3>
+
+<pre><code class="language-python">import pandas as pd
+import numpy as np
+
+# Depuis un dictionnaire de listes (le plus courant)
+df = pd.DataFrame({
+    'nom':     ['Alice', 'Bob', 'Charlie', 'Diana'],
+    'age':     [28, 35, 22, 41],
+    'salaire': [45000, 62000, 38000, 71000],
+    'ville':   ['Paris', 'Lyon', 'Paris', 'Marseille']
+})
+
+# Depuis une liste de dictionnaires (format JSON-like)
+records = [
+    {'produit': 'A', 'prix': 10.5, 'stock': 100},
+    {'produit': 'B', 'prix': 25.0, 'stock': 50},
+    {'produit': 'C', 'prix': 7.99},  # 'stock' manquant → NaN
+]
+df2 = pd.DataFrame(records)
+
+# Depuis un array NumPy
+arr = np.random.rand(5, 3)
+df3 = pd.DataFrame(arr, columns=['x', 'y', 'z'])
+
+# Depuis un fichier (voir module 3)
+# df4 = pd.read_csv('fichier.csv')
+
+# Avec un index personnalisé
+df4 = pd.DataFrame(
+    {'valeur': [10, 20, 30]},
+    index=['premier', 'deuxième', 'troisième']
+)
+
+# DataFrame vide puis peuplé
+df5 = pd.DataFrame(columns=['a', 'b', 'c'])
+df5.loc[0] = [1, 2, 3]</code></pre>
+
+    <h3>Anatomie : index, columns, values</h3>
+
+<pre><code class="language-python">df = pd.DataFrame({
+    'nom': ['Alice', 'Bob', 'Charlie'],
+    'age': [28, 35, 22],
+    'score': [89.5, 72.0, 95.3]
+})
+
+# Structure interne
+print(df.index)    # RangeIndex(start=0, stop=3, step=1)
+print(df.columns)  # Index(['nom', 'age', 'score'], dtype='object')
+print(df.dtypes)
+# nom       object
+# age        int64
+# score    float64
+
+print(df.shape)    # (3, 3) — (lignes, colonnes)
+print(df.ndim)     # 2
+print(df.size)     # 9 — total d'éléments
+
+# Accéder aux données brutes
+print(df.values)   # ndarray NumPy 2D (perd les types si mixte !)
+print(df.to_numpy())  # identique
+
+# Accéder aux colonnes
+print(df['age'])        # Series — accès dict
+print(df.age)           # Series — accès attribut (éviter si nom = méthode Pandas)
+print(df[['age', 'score']])  # DataFrame — sélection de colonnes multiples</code></pre>
+
+    <h3>Ajouter, renommer et supprimer des colonnes</h3>
+
+<pre><code class="language-python">df = pd.DataFrame({'a': [1, 2, 3], 'b': [4, 5, 6]})
+
+# Ajouter une colonne
+df['c'] = df['a'] + df['b']           # opération vectorisée
+df['d'] = [10, 20, 30]                # depuis une liste
+df['e'] = np.sqrt(df['a'])            # avec NumPy
+df.insert(1, 'x', 0)                  # insérer à la position 1
+
+# Renommer des colonnes
+df_renamed = df.rename(columns={'a': 'alpha', 'b': 'beta'})
+df.columns = ['col' + str(i) for i in range(len(df.columns))]  # renommage en masse
+
+# Supprimer des colonnes
+df_clean = df.drop(columns=['d', 'e'])  # retourne une copie
+df.drop(columns=['x'], inplace=True)    # modifie en place (Pandas &lt; 3.0)
+
+# assign : ajouter des colonnes sans modifier l'original (style fonctionnel)
+df2 = df.assign(
+    ratio = lambda x: x['a'] / x['b'],
+    log_a = lambda x: np.log(x['a'])
+)
+
+# Réordonner les colonnes
+df = df[['b', 'a', 'c']]   # ou
+df = df.reindex(columns=['b', 'a', 'c'])</code></pre>
+
+    <div class="callout pitfall">
+      <div class="callout-header">⚠ Piège courant : Chained Assignment</div>
+      <p>Ne faites jamais <code>df['col1']['col2'] = valeur</code>. Pandas peut créer une copie intermédiaire, et l'assignation écrit sur cette copie, pas sur <code>df</code>. Vous obtenez un <code>SettingWithCopyWarning</code>. Utilisez toujours <code>df.loc[masque, 'colonne'] = valeur</code> pour les modifications conditionnelles.</p>
+    </div>
+
+    <div class="callout exercise">
+      <div class="callout-header">✦ Exercice</div>
+      <p>Créez un DataFrame de 50 lignes représentant des transactions (colonnes : <code>date</code>, <code>montant</code>, <code>categorie</code>, <code>statut</code>) avec des données aléatoires réalistes. (1) Ajoutez une colonne <code>tva</code> = 20% du montant. (2) Ajoutez une colonne <code>montant_ttc</code> = montant + tva. (3) Faites-le en une seule chaîne <code>.assign()</code>.</p>
+    </div>
+  </section>
+
+  <!-- M2-L3 -->
+  <section class="lesson-section" id="m2-l3">
+    <div class="lesson-header">
+      <span class="lesson-num">2.3</span>
+      <h2>Index : RangeIndex, MultiIndex, DatetimeIndex</h2>
+    </div>
+
+    <p>L'index d'un DataFrame est souvent ignoré par les débutants — à tort. C'est un objet de première classe qui détermine comment Pandas aligne les données lors des opérations, comment les jointures fonctionnent, et comment les sélections de lignes s'effectuent. Mal gérer l'index est l'une des sources les plus fréquentes de bugs en Pandas.</p>
+
+    <h3>RangeIndex : l'index par défaut</h3>
+
+<pre><code class="language-python">import pandas as pd
+
+df = pd.DataFrame({'a': [1, 2, 3]})
+print(df.index)   # RangeIndex(start=0, stop=3, step=1)
+# Équivalent à range(3) — ne stocke pas les valeurs en mémoire
+
+# Définir un index custom
+df.index = ['premier', 'deuxième', 'troisième']
+# ou à la création :
+df = pd.DataFrame({'a': [1, 2, 3]}, index=['x', 'y', 'z'])
+
+# set_index : utiliser une colonne comme index
+df = pd.DataFrame({'code': ['A01', 'B02', 'C03'], 'valeur': [10, 20, 30]})
+df_indexed = df.set_index('code')
+print(df_indexed.loc['B02'])   # valeur    20
+
+# reset_index : remettre l'index en colonne
+df_reset = df_indexed.reset_index()  # 'code' redevient une colonne
+df_reset2 = df_indexed.reset_index(drop=True)  # index supprimé définitivement
+
+# Trier par index
+df_sorted = df_indexed.sort_index()
+df_sorted_desc = df_indexed.sort_index(ascending=False)</code></pre>
+
+    <h3>MultiIndex : index hiérarchique</h3>
+    <p>Le MultiIndex permet d'indexer un DataFrame sur plusieurs niveaux — parfait pour des données avec une structure hiérarchique naturelle (pays/ville, année/mois, produit/variante).</p>
+
+<pre><code class="language-python">import pandas as pd
+
+# Créer un MultiIndex
+index = pd.MultiIndex.from_tuples([
+    ('France', 'Paris'),
+    ('France', 'Lyon'),
+    ('Espagne', 'Madrid'),
+    ('Espagne', 'Barcelone'),
+], names=['pays', 'ville'])
+
+df = pd.DataFrame({'population': [2161000, 522000, 3223000, 1636000]}, index=index)
+
+# Accès avec MultiIndex
+print(df.loc['France'])            # toutes les villes françaises
+print(df.loc[('France', 'Lyon')]) # Lyon spécifiquement
+print(df.loc['France', 'Paris'])  # idem, syntaxe courte
+
+# Sélection cross-level avec pd.IndexSlice
+idx = pd.IndexSlice
+print(df.loc[idx['France', :]])   # toute la France
+
+# Depuis un groupby (cas le plus fréquent en pratique)
+data = pd.DataFrame({
+    'pays': ['FR', 'FR', 'ES', 'ES', 'FR'],
+    'cat':  ['A', 'B', 'A', 'B', 'A'],
+    'val':  [10, 20, 30, 40, 50]
+})
+# groupby crée automatiquement un MultiIndex
+result = data.groupby(['pays', 'cat'])['val'].sum()
+print(result)
+# pays  cat
+# ES    B      40
+# FR    A      60
+#       B      20
+
+# Remettre à plat
+result_flat = result.reset_index()  # retourne un DataFrame normal</code></pre>
+
+    <h3>DatetimeIndex : index temporel</h3>
+
+<pre><code class="language-python">import pandas as pd
+
+# Créer un DatetimeIndex
+dates = pd.date_range('2024-01-01', periods=365, freq='D')
+print(dates[:3])
+# DatetimeIndex(['2024-01-01', '2024-01-02', '2024-01-03'], dtype='datetime64[ns]', freq='D')
+
+# Fréquences utiles :
+# 'D' = jour, 'W' = semaine, 'ME' = fin de mois, 'QE' = fin de trimestre
+# 'h' = heure, 'min' = minute, 's' = seconde, 'B' = jour ouvrable
+
+# Créer une Series temporelle
+ts = pd.Series(range(365), index=dates)
+
+# Sélection par date (très puissant)
+print(ts['2024-03'])              # tout mars 2024
+print(ts['2024-Q1'])              # tout le premier trimestre
+print(ts['2024-01-01':'2024-03-31'])  # plage de dates
+
+# Attributs du DatetimeIndex via .dt
+df = pd.DataFrame({'date': pd.date_range('2024-01-01', periods=10, freq='D'),
+                   'val': range(10)})
+df['annee']    = df['date'].dt.year
+df['mois']     = df['date'].dt.month
+df['jour']     = df['date'].dt.day
+df['semaine']  = df['date'].dt.isocalendar().week
+df['jour_sem'] = df['date'].dt.day_name()  # 'Monday', 'Tuesday'...
+df['week_end'] = df['date'].dt.dayofweek >= 5  # True si samedi/dimanche
+
+# Resampling : agréger par période temporelle
+ts_heures = pd.Series(
+    range(24*30),
+    index=pd.date_range('2024-01-01', periods=24*30, freq='h')
+)
+ts_jours   = ts_heures.resample('D').sum()    # somme par jour
+ts_semaine = ts_heures.resample('W').mean()   # moyenne par semaine</code></pre>
+
+    <div class="callout pitfall">
+      <div class="callout-header">⚠ Piège courant</div>
+      <p>Après un <code>groupby().agg()</code> ou un <code>pivot()</code>, l'index résultant n'est pas un RangeIndex mais un index multi-niveaux ou catégoriel. Si vous oubliez de faire <code>reset_index()</code>, les opérations suivantes (merge, to_csv, etc.) peuvent produire des résultats inattendus. Prenez l'habitude de toujours vérifier <code>df.index</code> après une transformation.</p>
+    </div>
+
+    <div class="callout exercise">
+      <div class="callout-header">✦ Exercice</div>
+      <p>Créez un DataFrame avec un DatetimeIndex couvrant toute l'année 2024 à la fréquence journalière, et une colonne <code>ventes</code> aléatoire (entiers entre 0 et 1000). (1) Calculez le total des ventes par mois avec <code>resample</code>. (2) Calculez la moyenne glissante sur 7 jours. (3) Filtrez les jours où les ventes dépassent la moyenne du mois correspondant.</p>
+    </div>
+  </section>
+
+  <!-- M2-L4 -->
+  <section class="lesson-section" id="m2-l4">
+    <div class="lesson-header">
+      <span class="lesson-num">2.4</span>
+      <h2>Dtypes Pandas et empreinte mémoire</h2>
+    </div>
+
+    <p>Le type de données de chaque colonne (<code>dtype</code>) a un impact direct sur la mémoire consommée et les opérations disponibles. Pandas ajoute ses propres types au-dessus de NumPy, notamment <code>object</code> pour les chaînes et <code>category</code> pour les variables catégorielles — chacun avec des implications importantes.</p>
+
+    <h3>Les dtypes Pandas</h3>
+
+    <table class="data-table">
+      <thead><tr><th>Dtype</th><th>Stockage</th><th>Cas d'usage</th><th>Mémoire (1M lignes)</th></tr></thead>
+      <tbody>
+        <tr><td><code>int64</code></td><td>NumPy int64</td><td>Entiers, défaut</td><td>~8 MB</td></tr>
+        <tr><td><code>Int64</code></td><td>Pandas nullable</td><td>Entiers avec NaN</td><td>~9 MB</td></tr>
+        <tr><td><code>float64</code></td><td>NumPy float64</td><td>Décimaux, défaut</td><td>~8 MB</td></tr>
+        <tr><td><code>object</code></td><td>Python str (pointeurs)</td><td>Texte, mixte</td><td>~50-500 MB</td></tr>
+        <tr><td><code>string</code></td><td>Pandas StringDtype</td><td>Texte (Arrow-backed)</td><td>~10-20 MB</td></tr>
+        <tr><td><code>category</code></td><td>Codes int + catégories</td><td>Variables catégorielles</td><td>~1-5 MB</td></tr>
+        <tr><td><code>bool</code></td><td>NumPy bool</td><td>Booléens sans NaN</td><td>~1 MB</td></tr>
+        <tr><td><code>boolean</code></td><td>Pandas nullable</td><td>Booléens avec NaN</td><td>~1 MB</td></tr>
+        <tr><td><code>datetime64[ns]</code></td><td>NumPy int64</td><td>Timestamps</td><td>~8 MB</td></tr>
+      </tbody>
+    </table>
+
+<pre><code class="language-python">import pandas as pd
+import numpy as np
+
+# Inspecter les dtypes
+df = pd.read_csv('data.csv')
+print(df.dtypes)
+print(df.memory_usage(deep=True))  # mémoire réelle par colonne (en octets)
+print(df.memory_usage(deep=True).sum() / 1e6, 'MB')
+
+# Convertir les dtypes
+df['age'] = df['age'].astype('int32')         # de int64 → int32 (4 MB → 2 MB)
+df['score'] = df['score'].astype('float32')   # float64 → float32
+df['ville'] = df['ville'].astype('category')  # object → category
+
+# Le dtype 'object' en Pandas
+# Quand Pandas lit du texte, il utilise dtype='object'
+# Chaque cellule est un objet Python str independant — très coûteux !
+s_obj = pd.Series(['Paris', 'Lyon', 'Paris', 'Marseille'] * 250000)
+s_cat = s_obj.astype('category')
+
+print(f"object   : {s_obj.memory_usage(deep=True) / 1e6:.1f} MB")
+print(f"category : {s_cat.memory_usage(deep=True) / 1e6:.1f} MB")
+# object   : ~50 MB
+# category : ~1  MB  — ×50 d'économie !</code></pre>
+
+    <h3>Le type category en détail</h3>
+    <p>Le dtype <code>category</code> stocke les valeurs uniques une seule fois, puis représente chaque ligne par un code entier (indice dans le tableau des catégories). C'est l'équivalent d'un "enum" en base de données.</p>
+
+<pre><code class="language-python">import pandas as pd
+
+s = pd.Series(['rouge', 'bleu', 'rouge', 'vert', 'bleu', 'rouge'])
+cat = s.astype('category')
+
+print(cat.cat.categories)    # Index(['bleu', 'rouge', 'vert'], dtype='object')
+print(cat.cat.codes)         # [1, 0, 1, 2, 0, 1] — codes entiers sous-jacents
+
+# Catégories ordonnées
+tailles = pd.Categorical(
+    ['S', 'XL', 'M', 'L', 'S', 'M'],
+    categories=['S', 'M', 'L', 'XL'],
+    ordered=True
+)
+s_taille = pd.Series(tailles)
+print(s_taille > 'M')   # [False, True, False, True, False, False]
+
+# Méthodes .cat
+cat.cat.add_categories(['jaune'])   # ajouter une catégorie
+cat.cat.remove_unused_categories()  # nettoyer les catégories non utilisées
+cat.cat.rename_categories({'rouge': 'red', 'bleu': 'blue', 'vert': 'green'})</code></pre>
+
+    <h3>Pandas nullable dtypes (depuis Pandas 1.0)</h3>
+
+<pre><code class="language-python">import pandas as pd
+
+# Problème historique : int64 ne peut pas contenir NaN
+# (NaN est un float64 en NumPy)
+s = pd.Series([1, 2, None, 4])
+print(s.dtype)   # float64 ! (promu pour accueillir NaN)
+
+# Solution : Int64 (nullable integer)
+s_nullable = pd.Series([1, 2, None, 4], dtype='Int64')
+print(s_nullable.dtype)   # Int64
+print(s_nullable)
+# 0       1
+# 1       2
+# 2    &lt;NA&gt;    ← pd.NA, pas NaN
+# 3       4
+
+# Autres nullable dtypes
+s_bool   = pd.Series([True, None, False], dtype='boolean')
+s_str    = pd.Series(['a', None, 'b'], dtype='string')
+s_float  = pd.Series([1.5, None, 3.0], dtype='Float32')
+
+# Convertir automatiquement vers les types optimaux (Pandas 2.0+)
+df = pd.DataFrame({'a': [1, 2, 3], 'b': ['x', 'y', 'z'], 'c': [1.0, 2.0, 3.0]})
+df_opt = df.convert_dtypes()  # choisit les meilleurs types auto
+print(df_opt.dtypes)
+# a     Int64
+# b    string
+# c    Float64</code></pre>
+
+    <div class="callout pitfall">
+      <div class="callout-header">⚠ Piège courant</div>
+      <p>Quand Pandas lit un CSV avec des entiers contenant des valeurs manquantes, il les convertit silencieusement en <code>float64</code> (car NumPy int64 ne supporte pas NaN). Vous pensez avoir des entiers, mais des calculs comme <code>% 2</code> donneront des flottants. Utilisez explicitement <code>dtype='Int64'</code> dans <code>read_csv()</code> ou <code>convert_dtypes()</code> après la lecture.</p>
+    </div>
+
+    <div class="callout exercise">
+      <div class="callout-header">✦ Exercice</div>
+      <p>Générez un DataFrame de 500 000 lignes avec les colonnes : <code>id</code> (int), <code>pays</code> (50 pays différents, répétés), <code>categorie</code> (5 catégories), <code>valeur</code> (float), <code>actif</code> (bool). (1) Mesurez l'empreinte mémoire initiale. (2) Optimisez les dtypes (category pour pays et categorie, int32 pour id, float32 pour valeur). (3) Mesurez l'empreinte après optimisation. Quel est le ratio de compression ?</p>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════
+       MODULE 3 — Chargement & Inspection
+  ══════════════════════════════════ -->
+  <div class="module-section-header">
+    <span class="mod-badge">Module 3</span>
+    <h2>Chargement &amp; Inspection</h2>
+  </div>
+
+  <!-- M3-L1 -->
+  <section class="lesson-section" id="m3-l1">
+    <div class="lesson-header">
+      <span class="lesson-num">3.1</span>
+      <h2>Lire CSV, JSON, Excel, Parquet</h2>
+    </div>
+
+    <p>Pandas sait lire une douzaine de formats avec sa famille <code>read_*()</code>. Mais chaque fonction a des dizaines de paramètres, et les utiliser sans les connaître produit des DataFrames mal typés, avec des index dupliqués ou des colonnes de dates stockées comme texte. Un chargement soigné évite des heures de nettoyage ensuite.</p>
+
+    <h3>read_csv : le couteau suisse</h3>
+
+<pre><code class="language-python">import pandas as pd
+
+# Lecture simple
+df = pd.read_csv('data.csv')
+
+# Paramètres essentiels à connaître
+df = pd.read_csv(
+    'data.csv',
+    sep=';',                    # séparateur (défaut: ',') — attention aux CSV européens !
+    encoding='utf-8',           # encodage (défaut: utf-8). Sinon: 'latin-1', 'cp1252'
+    decimal=',',                # décimal européen (1.234,56 → 1234.56)
+    thousands='.',              # séparateur des milliers
+    header=0,                   # ligne d'en-tête (0 = première, None = pas d'en-tête)
+    names=['col1', 'col2'],     # nommer les colonnes manuellement
+    index_col='id',             # colonne à utiliser comme index
+    usecols=['col1', 'col3'],   # charger seulement certaines colonnes (economie mémoire)
+    dtype={'age': 'int32', 'code': 'str'},  # forcer les types
+    parse_dates=['date_achat'],  # convertir en datetime
+    na_values=['N/A', '--', 'n/a', ''],  # valeurs à interpréter comme NaN
+    nrows=1000,                 # lire seulement les N premières lignes
+    skiprows=[0, 2],            # sauter des lignes spécifiques
+    chunksize=10_000,           # retourne un itérateur (pour les gros fichiers)
+    low_memory=False,           # désactiver l'inférence de type ligne par ligne
+)
+
+# Lire depuis une URL
+df_url = pd.read_csv('https://example.com/data.csv')
+
+# Détecter l'encodage automatiquement
+import chardet
+with open('data.csv', 'rb') as f:
+    result = chardet.detect(f.read(10000))
+print(result['encoding'])  # ex: 'ISO-8859-1'
+df = pd.read_csv('data.csv', encoding=result['encoding'])</code></pre>
+
+    <h3>read_json</h3>
+
+<pre><code class="language-python">import pandas as pd
+
+# JSON orienté records (le plus courant, format d'API)
+# [{"id": 1, "nom": "Alice"}, {"id": 2, "nom": "Bob"}]
+df = pd.read_json('data.json', orient='records')
+
+# JSON orienté colonnes
+# {"id": [1, 2], "nom": ["Alice", "Bob"]}
+df = pd.read_json('data.json', orient='columns')
+
+# JSON lignes (JSONL — une ligne JSON par ligne)
+df = pd.read_json('data.jsonl', lines=True)
+
+# Depuis une chaîne JSON
+import json
+json_str = '[{"a": 1}, {"a": 2}]'
+df = pd.read_json(json_str)
+
+# JSON imbriqué → pd.json_normalize
+data = [
+    {"id": 1, "user": {"name": "Alice", "city": "Paris"}},
+    {"id": 2, "user": {"name": "Bob",   "city": "Lyon"}},
+]
+df = pd.json_normalize(data, sep='_')
+# Colonnes : id, user_name, user_city</code></pre>
+
+    <h3>read_excel</h3>
+
+<pre><code class="language-python">import pandas as pd
+
+# Lecture d'Excel (nécessite openpyxl ou xlrd)
+# pip install openpyxl
+df = pd.read_excel('rapport.xlsx')
+
+# Choisir une feuille
+df = pd.read_excel('rapport.xlsx', sheet_name='Ventes 2024')
+df = pd.read_excel('rapport.xlsx', sheet_name=0)  # première feuille
+
+# Toutes les feuilles en une fois
+all_sheets = pd.read_excel('rapport.xlsx', sheet_name=None)
+# Retourne un dict {nom_feuille: DataFrame}
+df_complet = pd.concat(all_sheets.values(), ignore_index=True)
+
+# Paramètres utiles
+df = pd.read_excel(
+    'rapport.xlsx',
+    header=2,           # l'en-tête est à la 3e ligne
+    skiprows=[3, 4],    # sauter des lignes après l'en-tête
+    usecols='A:D',      # colonnes A à D seulement
+    nrows=100           # les 100 premières lignes de données
+)</code></pre>
+
+    <h3>Parquet : le format recommandé pour la data</h3>
+    <p>Parquet est un format binaire columnar. Contrairement au CSV, il préserve les types de données, compresse efficacement, et permet la lecture sélective de colonnes sans scanner tout le fichier. C'est le standard de facto pour stocker des datasets intermédiaires dans un pipeline data.</p>
+
+<pre><code class="language-python">import pandas as pd
+
+# Lire (nécessite pyarrow ou fastparquet)
+# pip install pyarrow
+df = pd.read_parquet('data.parquet')
+
+# Lire seulement certaines colonnes (très efficace — pas chargé en mémoire)
+df = pd.read_parquet('data.parquet', columns=['id', 'date', 'montant'])
+
+# Lire un répertoire de fichiers partitionnés (format Hive)
+df = pd.read_parquet('data/year=2024/')
+
+# Écrire
+df.to_parquet('output.parquet', index=False, compression='snappy')
+df.to_parquet('output.parquet', compression='gzip')  # meilleure compression
+
+# Comparaison taille fichier : CSV vs Parquet
+df_large = pd.DataFrame({'a': range(1_000_000), 'b': ['texte'] * 1_000_000})
+df_large.to_csv('/tmp/test.csv', index=False)
+df_large.to_parquet('/tmp/test.parquet', index=False)
+
+import os
+print(f"CSV     : {os.path.getsize('/tmp/test.csv') / 1e6:.1f} MB")       # ~14 MB
+print(f"Parquet : {os.path.getsize('/tmp/test.parquet') / 1e6:.1f} MB")   # ~3 MB</code></pre>
+
+    <div class="callout pitfall">
+      <div class="callout-header">⚠ Piège courant</div>
+      <p>Avec <code>read_csv()</code>, ne pas spécifier <code>dtype</code> force Pandas à inférer les types colonne par colonne. Pour une colonne avec 1M de lignes, Pandas lit souvent les premières lignes, divine le type, puis peut se tromper si les premières valeurs d'une colonne <code>int</code> sont absentes (NaN). Résultat : une colonne numérique se retrouve en <code>object</code>. Toujours valider avec <code>df.dtypes</code> après lecture.</p>
+    </div>
+
+    <div class="callout exercise">
+      <div class="callout-header">✦ Exercice</div>
+      <p>Générez un DataFrame de 100 000 lignes avec des colonnes de types variés (int, float, str catégorielle, datetime, bool). (1) Sauvegardez-le en CSV et en Parquet. (2) Comparez les tailles de fichier. (3) Mesurez le temps de relecture de chaque format avec <code>%timeit</code> ou <code>timeit</code>. (4) Vérifiez que le CSV perd les types originaux tandis que Parquet les préserve.</p>
+    </div>
+  </section>
+
+  <!-- M3-L2 -->
+  <section class="lesson-section" id="m3-l2">
+    <div class="lesson-header">
+      <span class="lesson-num">3.2</span>
+      <h2>Inspection initiale du dataset</h2>
+    </div>
+
+    <p>Les 5 premières minutes passées à explorer un dataset avec les bonnes commandes vous évitent des heures de bugs. Il existe une séquence d'inspection à systématiser : dimensions, types, valeurs manquantes, distribution, doublons.</p>
+
+    <h3>Le protocole d'inspection standard</h3>
+
+<pre><code class="language-python">import pandas as pd
+import numpy as np
+
+df = pd.read_csv('dataset.csv')
+
+# ─── ÉTAPE 1 : Vue d'ensemble ─────────────────────────
+print(df.shape)          # (N_lignes, N_colonnes)
+print(df.columns.tolist())  # liste des colonnes
+df.head(5)               # 5 premières lignes
+df.tail(3)               # 3 dernières lignes
+df.sample(10, random_state=42)  # 10 lignes aléatoires (reproductible)
+
+# ─── ÉTAPE 2 : Types et mémoire ──────────────────────
+df.info()
+# Affiche :
+# <class 'pandas.core.frame.DataFrame'>
+# RangeIndex: 50000 entries, 0 to 49999
+# Data columns (total 8 columns):
+#  #   Column    Non-Null Count  Dtype
+# ---  ------    --------------  -----
+#  0   id        50000 non-null  int64
+#  1   date      50000 non-null  object   ← attention : 'object' pour une date !
+#  2   montant   49823 non-null  float64  ← 177 valeurs manquantes
+# ...
+
+df.dtypes           # types par colonne
+df.memory_usage(deep=True)  # mémoire par colonne en octets
+
+# ─── ÉTAPE 3 : Statistiques descriptives ─────────────
+df.describe()
+# count, mean, std, min, 25%, 50%, 75%, max pour les colonnes numériques
+
+df.describe(include='object')   # colonnes texte : count, unique, top, freq
+df.describe(include='all')      # tout
+
+# Valeurs uniques par colonne
+for col in df.select_dtypes(include='object').columns:
+    n = df[col].nunique()
+    print(f"{col:20s}: {n:6d} valeurs uniques")
+    if n &lt;= 10:
+        print(f"  → {df[col].value_counts().to_dict()}")</code></pre>
+
+    <h3>Valeurs manquantes : diagnostic complet</h3>
+
+<pre><code class="language-python">import pandas as pd
+
+# Comptage des NaN par colonne
+missing = df.isnull().sum()
+missing_pct = (missing / len(df) * 100).round(2)
+missing_df = pd.DataFrame({'count': missing, 'pct': missing_pct})
+print(missing_df[missing_df['count'] > 0].sort_values('pct', ascending=False))
+
+# Visualiser les patterns de valeurs manquantes
+# (avec missingno : pip install missingno)
+import missingno as msno
+msno.matrix(df)     # matrice de présence/absence
+msno.bar(df)        # barre de complétude par colonne
+msno.heatmap(df)    # corrélation entre les manques
+
+# Lignes avec au moins un NaN
+df_incomplet = df[df.isnull().any(axis=1)]
+print(f"{len(df_incomplet)} lignes incomplètes ({len(df_incomplet)/len(df)*100:.1f}%)")
+
+# Lignes entièrement NaN
+df_vides = df[df.isnull().all(axis=1)]</code></pre>
+
+    <h3>Doublons et cohérence</h3>
+
+<pre><code class="language-python">import pandas as pd
+
+# Doublons exacts (toutes colonnes identiques)
+n_dupes = df.duplicated().sum()
+print(f"{n_dupes} doublons exacts ({n_dupes/len(df)*100:.1f}%)")
+
+# Doublons sur colonnes spécifiques
+dupes_id = df.duplicated(subset=['id'])  # doublons d'identifiant
+df_dupes = df[df.duplicated(subset=['id'], keep=False)]  # toutes les lignes impliquées
+
+# Vérifier la cohérence des valeurs
+print(df['statut'].value_counts())          # quelles valeurs existent ?
+print(df['montant'].describe())             # plage plausible ?
+print(df['age'].between(0, 120).all())      # toutes les ages dans [0, 120] ?
+print((df['date_fin'] >= df['date_debut']).all())  # dates cohérentes ?
+
+# Détecter les valeurs aberrantes rapidement (méthode IQR)
+Q1 = df['montant'].quantile(0.25)
+Q3 = df['montant'].quantile(0.75)
+IQR = Q3 - Q1
+outliers = df[(df['montant'] &lt; Q1 - 1.5*IQR) | (df['montant'] > Q3 + 1.5*IQR)]
+print(f"{len(outliers)} outliers détectés")</code></pre>
+
+    <div class="callout tip">
+      <div class="callout-header">✦ Bonne pratique</div>
+      <p>Systématisez votre inspection en créant une fonction <code>quick_eda(df)</code> que vous appelez à chaque nouveau dataset. Elle doit afficher : shape, dtypes, missing, value_counts des catégorielles et describe des numériques. Ce "réflexe EDA" vous fera gagner du temps sur chaque projet.</p>
+    </div>
+
+    <div class="callout exercise">
+      <div class="callout-header">✦ Exercice</div>
+      <p>Créez une fonction <code>audit_dataset(df)</code> qui retourne un DataFrame récapitulatif avec, pour chaque colonne : dtype, nombre de valeurs manquantes (count et %), nombre de valeurs uniques, et les 3 valeurs les plus fréquentes. Testez-la sur un CSV de votre choix (ou généré).</p>
+    </div>
+  </section>
+
+  <!-- M3-L3 -->
+  <section class="lesson-section" id="m3-l3">
+    <div class="lesson-header">
+      <span class="lesson-num">3.3</span>
+      <h2>Sélection : loc, iloc, [], at, iat</h2>
+    </div>
+
+    <p>Sélectionner des données dans un DataFrame est une opération que vous ferez des milliers de fois — et c'est aussi l'une des plus déroutantes en Pandas. Il existe cinq mécanismes principaux, chacun avec un comportement distinct. Les confondre provoque des bugs silencieux (mauvaise sélection) ou bruyants (<code>KeyError</code>, <code>SettingWithCopyWarning</code>).</p>
+
+    <h3>[] : accès simple aux colonnes</h3>
+
+<pre><code class="language-python">import pandas as pd
+
+df = pd.DataFrame({
+    'nom': ['Alice', 'Bob', 'Charlie', 'Diana'],
+    'age': [28, 35, 22, 41],
+    'ville': ['Paris', 'Lyon', 'Paris', 'Marseille'],
+    'salaire': [45000, 62000, 38000, 71000]
+}, index=[10, 20, 30, 40])
+
+# [] avec string → une colonne (Series)
+print(df['nom'])       # Series
+print(type(df['nom'])) # &lt;class 'pandas.core.series.Series'&gt;
+
+# [] avec liste de strings → plusieurs colonnes (DataFrame)
+print(df[['nom', 'salaire']])   # DataFrame
+
+# [] avec slice d'entiers → sélection de LIGNES (par position)
+print(df[1:3])   # lignes d'index position 1 et 2 (NE PAS utiliser pour la sélection de lignes !)
+
+# [] avec masque booléen → filtrage de lignes
+print(df[df['age'] > 30])</code></pre>
+
+    <h3>.loc : sélection par label</h3>
+    <p><code>.loc</code> est la méthode recommandée pour sélectionner par <strong>label</strong> (valeur de l'index), pas par position. Le stop est inclus dans les slices.</p>
+
+<pre><code class="language-python"># Sélection d'une ligne par label
+print(df.loc[10])          # ligne avec index=10
+
+# Plage de labels (INCLUSIF des deux côtés)
+print(df.loc[10:30])       # lignes 10, 20, 30
+
+# Ligne + colonne
+print(df.loc[10, 'nom'])   # 'Alice'
+print(df.loc[10:30, 'nom':'ville'])  # sous-tableau
+
+# Masque booléen avec .loc
+print(df.loc[df['age'] > 30, 'nom'])   # noms des gens de plus de 30 ans
+print(df.loc[df['ville'] == 'Paris', ['nom', 'salaire']])
+
+# MODIFICATION avec .loc (la bonne façon)
+df.loc[df['age'] > 30, 'salaire'] += 5000  # augmentation ciblée
+df.loc[10, 'ville'] = 'Bordeaux'            # modifier une cellule</code></pre>
+
+    <h3>.iloc : sélection par position entière</h3>
+    <p><code>.iloc</code> sélectionne par <strong>position</strong> (0-based), comme le slicing NumPy. Le stop est exclu.</p>
+
+<pre><code class="language-python"># Ligne par position
+print(df.iloc[0])      # première ligne
+print(df.iloc[-1])     # dernière ligne
+
+# Plage de positions (stop EXCLU)
+print(df.iloc[1:3])    # lignes position 1 et 2
+
+# Ligne + colonne par position
+print(df.iloc[0, 1])   # ligne 0, colonne 1 → 28 (age d'Alice)
+print(df.iloc[:, 2])   # toute la colonne 2 (ville)
+print(df.iloc[0:2, 1:3])  # sous-matrice
+
+# Fancy indexing avec iloc
+print(df.iloc[[0, 2, 3]])     # lignes 0, 2 et 3
+print(df.iloc[[0, 2], [1, 3]])  # intersection spécifique</code></pre>
+
+    <h3>.at et .iat : accès à une cellule unique</h3>
+
+<pre><code class="language-python"># .at : accès par label (ultra-rapide pour une cellule)
+print(df.at[10, 'nom'])    # 'Alice' — plus rapide que df.loc[10, 'nom']
+df.at[10, 'nom'] = 'Alicia'  # modification
+
+# .iat : accès par position (ultra-rapide pour une cellule)
+print(df.iat[0, 0])    # valeur en (0, 0)
+df.iat[0, 0] = 'Alicia'
+
+# Pourquoi at/iat ? Performance dans des boucles
+import timeit
+n = 10000
+t_loc = timeit.timeit(lambda: df.loc[10, 'salaire'], number=n)
+t_at  = timeit.timeit(lambda: df.at[10, 'salaire'], number=n)
+print(f"loc : {t_loc:.3f}s")  # ~0.15s
+print(f"at  : {t_at:.3f}s")   # ~0.04s — ×3 plus rapide</code></pre>
+
+    <table class="data-table">
+      <thead><tr><th>Méthode</th><th>Sélectionne par</th><th>Retourne</th><th>Usage principal</th></tr></thead>
+      <tbody>
+        <tr><td><code>df['col']</code></td><td>Label de colonne</td><td>Series</td><td>Accès colonne</td></tr>
+        <tr><td><code>df[['c1','c2']]</code></td><td>Labels colonnes</td><td>DataFrame</td><td>Sous-tableau colonnes</td></tr>
+        <tr><td><code>df.loc[lab]</code></td><td>Label index</td><td>Series/DataFrame</td><td>Sélection labels + modif</td></tr>
+        <tr><td><code>df.iloc[pos]</code></td><td>Position entière</td><td>Series/DataFrame</td><td>Sélection positionnelle</td></tr>
+        <tr><td><code>df.at[r,c]</code></td><td>Label (cellule)</td><td>Scalaire</td><td>Lecture/écriture rapide</td></tr>
+        <tr><td><code>df.iat[r,c]</code></td><td>Position (cellule)</td><td>Scalaire</td><td>Lecture/écriture rapide</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout pitfall">
+      <div class="callout-header">⚠ Piège courant</div>
+      <p>Si l'index d'un DataFrame est un RangeIndex <code>[0, 1, 2, ...]</code>, <code>df.loc[2]</code> et <code>df.iloc[2]</code> donnent le même résultat — et on croit qu'ils sont interchangeables. Mais dès que l'index est réordonné ou que les labels ne sont pas des entiers continus, ils divergent. Prenez l'habitude d'utiliser explicitement <code>loc</code> ou <code>iloc</code> plutôt que de supposer qu'ils font la même chose.</p>
+    </div>
+
+    <div class="callout exercise">
+      <div class="callout-header">✦ Exercice</div>
+      <p>Créez un DataFrame de 20 lignes avec un index de lettres ('a' à 't') et 5 colonnes numériques. (1) Sélectionnez les lignes 'c' à 'g' et les colonnes 2 à 4 avec <code>.loc</code>. (2) Faites la même sélection avec <code>.iloc</code>. (3) Modifiez toutes les valeurs négatives de la colonne 3 à 0 en une seule opération <code>.loc</code>.</p>
+    </div>
+  </section>
+
+  <!-- M3-L4 -->
+  <section class="lesson-section" id="m3-l4">
+    <div class="lesson-header">
+      <span class="lesson-num">3.4</span>
+      <h2>Filtrage booléen et query()</h2>
+    </div>
+
+    <p>Filtrer les lignes d'un DataFrame selon des conditions est l'opération la plus courante en analyse de données. Pandas offre deux syntaxes : le filtrage booléen classique (verbeux mais puissant) et <code>.query()</code> (concis et lisible). Les deux ont des cas d'usage distincts.</p>
+
+    <h3>Filtrage booléen : la syntaxe fondamentale</h3>
+
+<pre><code class="language-python">import pandas as pd
+import numpy as np
+
+df = pd.DataFrame({
+    'nom':     ['Alice', 'Bob', 'Charlie', 'Diana', 'Eve'],
+    'age':     [28, 35, 22, 41, 31],
+    'salaire': [45000, 62000, 38000, 71000, 55000],
+    'ville':   ['Paris', 'Lyon', 'Paris', 'Marseille', 'Lyon'],
+    'actif':   [True, True, False, True, False]
+})
+
+# Condition simple
+print(df[df['age'] > 30])
+
+# Conditions multiples — OBLIGATOIRE de parenthéser chaque condition
+print(df[(df['age'] > 25) &amp; (df['salaire'] > 50000)])   # ET
+print(df[(df['ville'] == 'Paris') | (df['ville'] == 'Lyon')])  # OU
+print(df[~df['actif']])  # NON
+
+# Méthodes de filtrage spéciales
+print(df[df['ville'].isin(['Paris', 'Lyon'])])        # isin : remplace l'OU long
+print(df[~df['ville'].isin(['Marseille'])])           # exclusion
+
+# between : plage de valeurs (inclusif)
+print(df[df['age'].between(25, 35)])                  # [25, 35]
+print(df[df['salaire'].between(40000, 65000)])
+
+# Filtrer sur NaN
+df2 = df.copy()
+df2.loc[0, 'salaire'] = np.nan
+print(df2[df2['salaire'].isna()])   # lignes avec NaN
+print(df2[df2['salaire'].notna()])  # lignes sans NaN
+
+# Filtrage sur texte avec .str
+print(df[df['nom'].str.startswith('A')])
+print(df[df['nom'].str.contains('a', case=False)])  # insensible à la casse
+print(df[df['ville'].str.len() > 5])</code></pre>
+
+    <h3>query() : syntaxe expressive</h3>
+
+<pre><code class="language-python">import pandas as pd
+
+df = pd.DataFrame({
+    'age': [28, 35, 22, 41, 31],
+    'salaire': [45000, 62000, 38000, 71000, 55000],
+    'ville': ['Paris', 'Lyon', 'Paris', 'Marseille', 'Lyon']
+})
+
+# query() utilise une syntaxe proche du SQL
+print(df.query('age > 30'))
+print(df.query('age > 30 and salaire > 50000'))
+print(df.query('ville == "Paris" or ville == "Lyon"'))
+print(df.query('ville in ["Paris", "Lyon"]'))
+print(df.query('25 &lt;= age &lt;= 35'))  # chaînage de comparaisons Python
+
+# Référencer une variable externe avec @
+seuil_age = 30
+villes_cibles = ['Paris', 'Lyon']
+print(df.query('age > @seuil_age'))
+print(df.query('ville in @villes_cibles'))
+
+# Colonnes avec espaces : entourer de backticks
+df2 = pd.DataFrame({'chiffre d affaires': [100, 200, 300], 'coût total': [50, 80, 120]})
+print(df2.query('`chiffre d affaires` > 150'))
+
+# Combiner filtrage et sélection
+result = (df
+    .query('age > 25 and salaire > 40000')
+    [['ville', 'salaire']]
+    .sort_values('salaire', ascending=False)
+)</code></pre>
+
+    <h3>Comparaison des deux approches</h3>
+
+    <table class="data-table">
+      <thead><tr><th>Critère</th><th>Filtrage booléen</th><th>query()</th></tr></thead>
+      <tbody>
+        <tr><td>Lisibilité conditions simples</td><td>Verbeux</td><td>Concis ✓</td></tr>
+        <tr><td>Variables dynamiques</td><td>Direct ✓</td><td>Avec @var ✓</td></tr>
+        <tr><td>Colonnes avec espaces</td><td>Direct ✓</td><td>Backticks requis</td></tr>
+        <tr><td>NaN filtering</td><td>isna() ✓</td><td>Limité</td></tr>
+        <tr><td>Performance (grands datasets)</td><td>Standard</td><td>Légèrement plus rapide</td></tr>
+        <tr><td>Debuggabilité</td><td>Masque intermédiaire ✓</td><td>Moins transparent</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout pitfall">
+      <div class="callout-header">⚠ Piège courant</div>
+      <p>Le filtrage booléen retourne un vue ou une copie selon le contexte — ce qui n'est pas déterministe. Si vous modifiez le résultat d'un filtre, utilisez toujours <code>.copy()</code> explicitement pour éviter le <code>SettingWithCopyWarning</code> : <code>df_filtre = df[df['age'] > 30].copy()</code>. Avec Pandas 2.x et Copy-on-Write activé, ce problème est largement résolu automatiquement.</p>
+    </div>
+
+    <div class="callout exercise">
+      <div class="callout-header">✦ Exercice</div>
+      <p>Avec un DataFrame de 1000 transactions (montant, date, catégorie, statut), écrivez les filtres suivants des deux façons (booléen et query) : (1) transactions entre 100€ et 500€ avec statut "validé", (2) transactions du mois de mars ou avril, (3) transactions dont la catégorie contient "tech". Mesurez la performance avec <code>%timeit</code> sur 10 000 répétitions.</p>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════
+       MODULE 4 — Transformation & Nettoyage
+  ══════════════════════════════════ -->
+  <div class="module-section-header">
+    <span class="mod-badge">Module 4</span>
+    <h2>Transformation &amp; Nettoyage</h2>
+  </div>
+
+  <!-- M4-L1 -->
+  <section class="lesson-section" id="m4-l1">
+    <div class="lesson-header">
+      <span class="lesson-num">4.1</span>
+      <h2>apply, map et transformations</h2>
+    </div>
+
+    <p>Transformer des données colonne par colonne est une tâche quotidienne. Pandas propose trois mécanismes principaux : les opérations vectorisées directes (les plus rapides), <code>.map()</code> sur Series, et <code>.apply()</code> sur Series ou DataFrame. Chacun a un contexte d'usage optimal.</p>
+
+    <h3>Opérations vectorisées : toujours en premier</h3>
+
+<pre><code class="language-python">import pandas as pd
+import numpy as np
+
+df = pd.DataFrame({
+    'prix_ht':  [100.0, 250.5, 75.0, 499.9],
+    'quantite': [3, 1, 10, 2],
+    'nom':      ['Laptop', 'Écran', 'Souris', 'Clavier']
+})
+
+# Opérations arithmétiques vectorisées (ultra-rapides)
+df['tva']       = df['prix_ht'] * 0.2
+df['prix_ttc']  = df['prix_ht'] * 1.2
+df['total']     = df['prix_ht'] * df['quantite']
+df['log_prix']  = np.log1p(df['prix_ht'])  # log(1 + x)
+
+# Opérations conditionnelles vectorisées
+df['categorie'] = np.where(df['prix_ht'] > 200, 'premium', 'standard')
+
+# np.select : if/elif/else vectorisé
+conditions = [
+    df['prix_ht'] &lt; 100,
+    df['prix_ht'] &lt; 300,
+]
+choices = ['économique', 'mid-range']
+df['gamme'] = np.select(conditions, choices, default='premium')</code></pre>
+
+    <h3>map() sur Series : transformation élément par élément</h3>
+
+<pre><code class="language-python">import pandas as pd
+
+s = pd.Series(['France', 'Allemagne', 'Espagne', 'France', 'Italie'])
+
+# map() avec un dictionnaire (lookup)
+codes = {'France': 'FR', 'Allemagne': 'DE', 'Espagne': 'ES', 'Italie': 'IT'}
+print(s.map(codes))
+# 0      FR
+# 1      DE
+# 2      ES
+# 3      FR
+# 4      IT
+# Les valeurs absentes du dict → NaN
+
+# map() avec une fonction
+print(s.map(str.lower))   # france, allemagne, ...
+print(s.map(lambda x: x[:2].upper()))  # FR, AL, ES, FR, IT
+
+# Sur DataFrame : utiliser map() colonne par colonne (Pandas 2.1+)
+# (anciennement applymap() — deprecated depuis 2.1)
+df = pd.DataFrame({'a': [1, 2, 3], 'b': [4, 5, 6]})
+print(df.map(lambda x: x**2))  # carré de chaque élément</code></pre>
+
+    <h3>apply() : la puissance au prix de la performance</h3>
+
+<pre><code class="language-python">import pandas as pd
+import numpy as np
+
+df = pd.DataFrame({
+    'notes': [[15, 12, 18], [9, 14, 11], [17, 8, 13]],  # listes
+    'nom':   ['Alice', 'Bob', 'Charlie']
+})
+
+# apply() sur une colonne (Series)
+# Utile pour des logiques complexes non vectorisables
+s = pd.Series([1, 2, 3, 4, 5, None])
+print(s.apply(lambda x: np.sqrt(x) if pd.notna(x) else 0))
+
+# apply() sur un DataFrame avec axis=0 (colonne) ou axis=1 (ligne)
+df2 = pd.DataFrame({'a': [1, 2, 3], 'b': [4, 5, 6], 'c': [7, 8, 9]})
+
+# Par colonne (axis=0, défaut)
+print(df2.apply(np.sum, axis=0))     # somme de chaque colonne
+
+# Par ligne (axis=1) — LENT sur de grands DataFrames
+print(df2.apply(np.sum, axis=1))     # somme de chaque ligne
+print(df2.apply(lambda row: row['a'] * row['b'] + row['c'], axis=1))
+
+# apply() retournant plusieurs valeurs
+def stats_ligne(row):
+    return pd.Series({
+        'min': row.min(),
+        'max': row.max(),
+        'range': row.max() - row.min()
+    })
+
+print(df2.apply(stats_ligne, axis=1))  # DataFrame avec colonnes min, max, range
+
+# apply() sur des listes imbriquées
+df['moyenne'] = df['notes'].apply(lambda lst: np.mean(lst))
+df['max_note'] = df['notes'].apply(max)</code></pre>
+
+    <h3>Choisir la bonne méthode</h3>
+
+    <table class="data-table">
+      <thead><tr><th>Méthode</th><th>Vitesse</th><th>Cas d'usage</th></tr></thead>
+      <tbody>
+        <tr><td>Opération vectorisée</td><td>⚡⚡⚡⚡</td><td>Arithmétique, comparaisons, NumPy ufuncs</td></tr>
+        <tr><td><code>.str.*</code> / <code>.dt.*</code></td><td>⚡⚡⚡</td><td>Texte et dates — voir module 5</td></tr>
+        <tr><td><code>.map(dict)</code></td><td>⚡⚡⚡</td><td>Lookup/remplacement par dictionnaire</td></tr>
+        <tr><td><code>.map(func)</code></td><td>⚡⚡</td><td>Transformation simple non vectorisable</td></tr>
+        <tr><td><code>.apply(axis=0)</code></td><td>⚡⚡</td><td>Agrégation personnalisée par colonne</td></tr>
+        <tr><td><code>.apply(axis=1)</code></td><td>⚡</td><td>Logique multi-colonnes complexe — à éviter sur grandes données</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout pitfall">
+      <div class="callout-header">⚠ Piège courant</div>
+      <p><code>df.apply(lambda row: ..., axis=1)</code> est une boucle Python déguisée. Sur 1M de lignes, elle peut prendre 30 secondes là où une opération vectorisée prendrait 50ms. Avant d'utiliser <code>apply(axis=1)</code>, demandez-vous : "Est-ce que je peux exprimer ça avec des opérations sur des colonnes entières ?" La réponse est oui dans 90% des cas.</p>
+    </div>
+
+    <div class="callout exercise">
+      <div class="callout-header">✦ Exercice</div>
+      <p>Vous avez une colonne <code>telephone</code> avec des numéros dans des formats variés : "06 12 34 56 78", "+33612345678", "0612345678", "06-12-34-56-78". (1) Nettoyez-la en une expression vectorisée pour obtenir le format "0612345678". (2) Faites-le avec <code>apply(lambda)</code>. (3) Comparez les performances avec <code>timeit</code> sur 100 000 lignes.</p>
+    </div>
+  </section>
+
+  <!-- M4-L2 -->
+  <section class="lesson-section" id="m4-l2">
+    <div class="lesson-header">
+      <span class="lesson-num">4.2</span>
+      <h2>groupby : split-apply-combine</h2>
+    </div>
+
+    <p>Le <code>groupby</code> est le couteau suisse de l'agrégation en Pandas. Il implémente le pattern "split-apply-combine" : découper le DataFrame en groupes, appliquer une fonction à chaque groupe, puis recombiner les résultats. C'est l'équivalent du <code>GROUP BY</code> SQL — mais en plus puissant.</p>
+
+    <h3>groupby de base</h3>
+
+<pre><code class="language-python">import pandas as pd
+import numpy as np
+
+df = pd.DataFrame({
+    'region':   ['Nord', 'Sud', 'Nord', 'Sud', 'Est', 'Nord', 'Sud', 'Est'],
+    'produit':  ['A', 'A', 'B', 'B', 'A', 'A', 'B', 'B'],
+    'ventes':   [100, 150, 200, 80, 120, 90, 170, 60],
+    'charges':  [30, 50, 80, 25, 40, 35, 60, 20]
+})
+
+# Grouper par une colonne + une agrégation
+g = df.groupby('region')['ventes'].sum()
+print(g)
+# region
+# Est     180
+# Nord    390
+# Sud     400
+
+# Plusieurs agrégations en une fois
+print(df.groupby('region')['ventes'].agg(['sum', 'mean', 'count', 'std']))
+
+# agg() avec des fonctions nommées (résultats avec noms clairs)
+result = df.groupby('region').agg(
+    total_ventes = ('ventes', 'sum'),
+    ventes_moy   = ('ventes', 'mean'),
+    max_charges  = ('charges', 'max'),
+    nb_lignes    = ('ventes', 'count')
+)
+print(result)
+
+# Grouper par plusieurs colonnes
+print(df.groupby(['region', 'produit'])['ventes'].sum())</code></pre>
+
+    <h3>Fonctions d'agrégation</h3>
+
+<pre><code class="language-python">import pandas as pd
+
+df = pd.DataFrame({
+    'groupe': ['A', 'A', 'A', 'B', 'B', 'B'],
+    'val':    [1, 2, 3, 10, 20, 30],
+    'score':  [5.0, None, 7.0, 8.0, 6.0, None]
+})
+
+g = df.groupby('groupe')
+
+# Fonctions built-in (rapides)
+g['val'].sum()       # somme
+g['val'].mean()      # moyenne
+g['val'].median()    # médiane
+g['val'].std()       # écart-type
+g['val'].var()       # variance
+g['val'].min()       # minimum
+g['val'].max()       # maximum
+g['val'].count()     # nombre de non-NaN
+g['val'].size()      # nombre total de lignes (inclut NaN)
+g['val'].first()     # première valeur
+g['val'].last()      # dernière valeur
+g['val'].nunique()   # nombre de valeurs uniques
+
+# Fonction custom avec agg
+g['val'].agg(lambda x: x.quantile(0.75) - x.quantile(0.25))  # IQR
+
+# Plusieurs colonnes + plusieurs fonctions
+result = df.groupby('groupe').agg({
+    'val':   ['sum', 'mean', 'std'],
+    'score': ['mean', 'count']
+})
+# Aplatir le MultiIndex de colonnes
+result.columns = ['_'.join(col) for col in result.columns]</code></pre>
+
+    <h3>transform : garder la forme originale</h3>
+    <p><code>transform</code> est une variante de <code>apply</code> qui retourne une Series de même taille que le DataFrame original — parfait pour ajouter des colonnes d'agrégation groupée.</p>
+
+<pre><code class="language-python">import pandas as pd
+
+df = pd.DataFrame({
+    'region': ['Nord', 'Sud', 'Nord', 'Sud', 'Est'],
+    'ventes': [100, 150, 200, 80, 120]
+})
+
+# Ajouter la moyenne de la région sur chaque ligne
+df['moy_region'] = df.groupby('region')['ventes'].transform('mean')
+df['rang_region'] = df.groupby('region')['ventes'].transform('rank', ascending=False)
+df['part_region'] = df['ventes'] / df.groupby('region')['ventes'].transform('sum')
+
+print(df)
+#   region  ventes  moy_region  rang_region  part_region
+# 0   Nord     100       150.0          2.0     0.333
+# 1    Sud     115       115.0          1.0     0.652
+# 2   Nord     200       150.0          1.0     0.667
+# 3    Sud      80       115.0          2.0     0.348
+# 4    Est     120       120.0          1.0     1.000
+
+# Z-score par groupe (normalisation relative au groupe)
+df['zscore'] = df.groupby('region')['ventes'].transform(
+    lambda x: (x - x.mean()) / x.std()
+)</code></pre>
+
+    <h3>filter : garder/exclure des groupes entiers</h3>
+
+<pre><code class="language-python">import pandas as pd
+
+df = pd.DataFrame({
+    'region': ['Nord', 'Sud', 'Nord', 'Sud', 'Est'],
+    'ventes': [100, 150, 200, 80, 120]
+})
+
+# Garder seulement les groupes avec plus d'une ligne
+df_filtre = df.groupby('region').filter(lambda x: len(x) > 1)
+# Est (1 ligne) est exclu
+
+# Garder les groupes dont la somme dépasse un seuil
+df_filtre2 = df.groupby('region').filter(lambda x: x['ventes'].sum() > 200)</code></pre>
+
+    <div class="callout pitfall">
+      <div class="callout-header">⚠ Piège courant</div>
+      <p>Après <code>groupby().agg()</code>, l'index du résultat est formé des clés de groupe. Si vous enchaînez une opération avec <code>merge</code> ou <code>to_csv</code>, l'index hiérarchique peut causer des problèmes. Prenez l'habitude de toujours terminer une chaîne groupby par <code>.reset_index()</code> pour retrouver un RangeIndex propre.</p>
+    </div>
+
+    <div class="callout exercise">
+      <div class="callout-header">✦ Exercice</div>
+      <p>Avec un DataFrame de ventes (colonnes : <code>date</code>, <code>vendeur</code>, <code>produit</code>, <code>montant</code>), calculez en une seule chaîne : (1) le total des ventes par vendeur, (2) la part de chaque vendeur dans le total global, (3) le rang de chaque vendeur. Ajoutez ensuite une colonne indiquant si le vendeur fait partie du top 3.</p>
+    </div>
+  </section>
+
+  <!-- M4-L3 -->
+  <section class="lesson-section" id="m4-l3">
+    <div class="lesson-header">
+      <span class="lesson-num">4.3</span>
+      <h2>Valeurs manquantes : détection et traitement</h2>
+    </div>
+
+    <p>Toute donnée réelle contient des valeurs manquantes. La façon dont vous les gérez peut invalider une analyse entière ou au contraire la rendre robuste. Il n'existe pas de solution universelle : le choix dépend du contexte métier, de la proportion de données manquantes, et du mécanisme qui les a générées (MCAR, MAR, MNAR).</p>
+
+    <h3>Détection et représentation</h3>
+
+<pre><code class="language-python">import pandas as pd
+import numpy as np
+
+df = pd.DataFrame({
+    'a': [1, 2, None, 4, np.nan],
+    'b': [1.0, np.nan, 3.0, None, 5.0],
+    'c': ['x', 'y', None, 'w', 'v'],
+    'd': pd.array([1, pd.NA, 3, 4, 5], dtype='Int64')
+})
+
+# Détecter les NaN
+print(df.isna())     # DataFrame booléen — True là où il y a NaN/None/pd.NA
+print(df.notna())    # inverse
+
+# Compter par colonne
+print(df.isna().sum())
+
+# Différence entre NaN, None, pd.NA
+# NaN     : float, vient de NumPy — contaminant : int → float
+# None    : objet Python — dans dtype object uniquement
+# pd.NA   : Pandas nullable — préservé dans Int64, string, boolean
+print(df['a'].dtype)   # float64 (None → NaN → promotion vers float)
+print(df['d'].dtype)   # Int64 (pd.NA préservé)
+
+# Détecter les chaînes vides (pas des NaN !)
+df['e'] = ['', 'valid', '  ', None, 'data']
+print(df['e'].isna())           # None → True, '' → False
+print(df['e'].str.strip() == '') # True pour '' et '  '
+# Remplacer les chaînes vides par NaN
+df['e'] = df['e'].replace('', pd.NA).str.strip().replace('', pd.NA)</code></pre>
+
+    <h3>Supprimer les valeurs manquantes</h3>
+
+<pre><code class="language-python">import pandas as pd
+import numpy as np
+
+df = pd.DataFrame({
+    'a': [1, np.nan, 3, np.nan, 5],
+    'b': [1, 2, np.nan, np.nan, 5],
+    'c': [1, 2, 3, 4, 5]
+})
+
+# Supprimer les lignes avec AU MOINS un NaN
+print(df.dropna())             # 2 lignes restent
+
+# Supprimer les lignes avec TOUS les NaN
+print(df.dropna(how='all'))    # supprime seulement les lignes 100% NaN
+
+# Supprimer si NaN dans certaines colonnes
+print(df.dropna(subset=['a', 'c']))  # seule la colonne c compte
+
+# Supprimer les colonnes avec trop de NaN
+seuil = 0.5  # supprimer les colonnes avec &gt; 50% de NaN
+df_clean = df.dropna(axis=1, thresh=int(len(df) * (1 - seuil)))</code></pre>
+
+    <h3>Imputer les valeurs manquantes</h3>
+
+<pre><code class="language-python">import pandas as pd
+import numpy as np
+
+df = pd.DataFrame({
+    'age':     [25, np.nan, 33, np.nan, 29],
+    'salaire': [45000, 62000, np.nan, 71000, np.nan],
+    'ville':   ['Paris', None, 'Lyon', 'Paris', None]
+})
+
+# fillna : remplacement simple
+df['age_filled']   = df['age'].fillna(df['age'].mean())         # par la moyenne
+df['age_median']   = df['age'].fillna(df['age'].median())       # par la médiane
+df['ville_filled'] = df['ville'].fillna(df['ville'].mode()[0])  # par le mode
+df['sal_filled']   = df['salaire'].fillna(0)                    # par une constante
+
+# Forward fill et backward fill (données temporelles)
+ts = pd.Series([1, np.nan, np.nan, 4, np.nan, 6])
+print(ts.ffill())   # [1, 1, 1, 4, 4, 6]  — propagation vers l'avant
+print(ts.bfill())   # [1, 4, 4, 4, 6, 6]  — propagation vers l'arrière
+print(ts.ffill().bfill())  # combinaison : gérer début et fin
+
+# Interpolation (pour séries ordonnées)
+print(ts.interpolate())               # interpolation linéaire
+print(ts.interpolate(method='time'))  # si index DatetimeIndex
+
+# Imputation groupée (imputer par la moyenne du groupe)
+df2 = pd.DataFrame({
+    'region': ['Nord', 'Nord', 'Sud', 'Sud', 'Nord'],
+    'revenu': [50000, np.nan, 35000, np.nan, 55000]
+})
+df2['revenu_imp'] = df2.groupby('region')['revenu'].transform(
+    lambda x: x.fillna(x.mean())
+)</code></pre>
+
+    <div class="callout info">
+      <div class="callout-header">ℹ Les mécanismes de données manquantes</div>
+      <p><strong>MCAR</strong> (Missing Completely At Random) : la donnée manque par hasard pur — suppression ou imputation simple sont valides. <strong>MAR</strong> (Missing At Random) : le manque dépend d'autres variables observées — l'imputation groupée est meilleure. <strong>MNAR</strong> (Missing Not At Random) : le manque dépend de la valeur elle-même (ex: les personnes à haut revenu ne déclarent pas leur revenu) — ni suppression ni imputation simple ne sont valides, il faut modéliser le mécanisme.</p>
+    </div>
+
+    <div class="callout exercise">
+      <div class="callout-header">✦ Exercice</div>
+      <p>Chargez (ou générez) un dataset avec &gt;10% de NaN sur plusieurs colonnes. (1) Calculez le taux de manque par colonne et par ligne. (2) Supprimez les colonnes avec &gt;50% de NaN et les lignes avec &gt;3 colonnes manquantes. (3) Imputez les numériques par la médiane de leur groupe (si groupes disponibles) et les catégorielles par le mode. (4) Vérifiez qu'il ne reste aucun NaN.</p>
+    </div>
+  </section>
+
+  <!-- M4-L4 -->
+  <section class="lesson-section" id="m4-l4">
+    <div class="lesson-header">
+      <span class="lesson-num">4.4</span>
+      <h2>Merge, join et concat</h2>
+    </div>
+
+    <p>Combiner plusieurs sources de données est au cœur de tout travail data. Pandas offre trois mécanismes : <code>pd.concat()</code> pour empiler des DataFrames, <code>pd.merge()</code> pour des jointures SQL-style, et <code>df.join()</code> pour des jointures sur l'index. Connaître les subtilités de chacun évite des erreurs silencieuses (données dupliquées, NaN inattendus, lignes perdues).</p>
+
+    <h3>pd.concat : empiler des DataFrames</h3>
+
+<pre><code class="language-python">import pandas as pd
+import numpy as np
+
+df1 = pd.DataFrame({'a': [1, 2], 'b': [3, 4]})
+df2 = pd.DataFrame({'a': [5, 6], 'b': [7, 8]})
+df3 = pd.DataFrame({'b': [9], 'c': [10]})  # colonnes différentes
+
+# Empiler verticalement (axis=0, défaut)
+print(pd.concat([df1, df2]))           # index dupliqués !
+print(pd.concat([df1, df2], ignore_index=True))  # réinitialise l'index
+
+# Colonnes différentes → NaN pour les manquantes
+print(pd.concat([df1, df3], ignore_index=True))
+#      a  b     c
+# 0  1.0  3   NaN
+# 1  2.0  4   NaN
+# 2  NaN  9  10.0
+
+# join='inner' : garder seulement les colonnes communes
+print(pd.concat([df1, df3], join='inner', ignore_index=True))
+#    b
+# 0  3
+# 1  4
+# 2  9
+
+# Empiler horizontalement (axis=1)
+print(pd.concat([df1, df2], axis=1))  # côte à côte
+
+# Assembler un grand nombre de DataFrames (pattern correct)
+dfs = [pd.read_csv(f'fichier_{i}.csv') for i in range(100)]
+df_complet = pd.concat(dfs, ignore_index=True)
+# ❌ NE PAS faire : df_final = pd.DataFrame(); for df in dfs: df_final = pd.concat([df_final, df])
+# Cela crée N copies successives — O(N²) en mémoire</code></pre>
+
+    <h3>pd.merge : jointures SQL</h3>
+
+<pre><code class="language-python">import pandas as pd
+
+clients = pd.DataFrame({
+    'client_id': [1, 2, 3, 4],
+    'nom': ['Alice', 'Bob', 'Charlie', 'Diana']
+})
+
+commandes = pd.DataFrame({
+    'commande_id': [101, 102, 103, 104, 105],
+    'client_id':   [1, 1, 2, 3, 5],   # 5 n'existe pas dans clients
+    'montant':     [100, 250, 75, 300, 50]
+})
+
+# INNER JOIN (défaut) : seulement les lignes avec correspondance des deux côtés
+inner = pd.merge(clients, commandes, on='client_id', how='inner')
+print(f"Inner: {len(inner)} lignes")   # 4 (client_id=4 et 5 exclus)
+
+# LEFT JOIN : toutes les lignes du DataFrame gauche
+left = pd.merge(clients, commandes, on='client_id', how='left')
+print(f"Left: {len(left)} lignes")     # 5 (Diana sans commandes → NaN)
+
+# RIGHT JOIN : toutes les lignes du DataFrame droit
+right = pd.merge(clients, commandes, on='client_id', how='right')
+print(f"Right: {len(right)} lignes")   # 5 (client_id=5 → NaN pour nom)
+
+# OUTER JOIN : toutes les lignes des deux côtés
+outer = pd.merge(clients, commandes, on='client_id', how='outer')
+print(f"Outer: {len(outer)} lignes")   # 6
+
+# Clés différentes dans les deux DataFrames
+df_a = pd.DataFrame({'user_id': [1, 2, 3], 'nom': ['A', 'B', 'C']})
+df_b = pd.DataFrame({'uid': [1, 2, 4], 'val': [10, 20, 30]})
+print(pd.merge(df_a, df_b, left_on='user_id', right_on='uid'))
+
+# Merge sur plusieurs colonnes
+transactions = pd.DataFrame({'annee': [2023, 2023, 2024], 'mois': [1, 2, 1], 'ventes': [100, 200, 150]})
+budgets = pd.DataFrame({'annee': [2023, 2023, 2024], 'mois': [1, 2, 1], 'budget': [120, 180, 160]})
+print(pd.merge(transactions, budgets, on=['annee', 'mois']))</code></pre>
+
+    <h3>Diagnostiquer un merge</h3>
+
+<pre><code class="language-python">import pandas as pd
+
+# validate : vérifier la cardinalité du join
+# '1:1'   — chaque clé apparaît une fois dans chaque DataFrame
+# '1:m'   — clé unique à gauche, multiple à droite
+# 'm:1'   — multiple à gauche, unique à droite
+# 'm:m'   — multiple des deux côtés (dangereux, souvent involontaire)
+try:
+    pd.merge(clients, commandes, on='client_id', how='inner', validate='1:1')
+except pd.errors.MergeError as e:
+    print(f"Erreur de cardinalité : {e}")
+
+# indicator : tracer l'origine de chaque ligne
+result = pd.merge(clients, commandes, on='client_id', how='outer', indicator=True)
+print(result['_merge'].value_counts())
+# both          4   ← présent dans les deux
+# left_only     1   ← Diana sans commande
+# right_only    1   ← commande sans client connu</code></pre>
+
+    <div class="callout pitfall">
+      <div class="callout-header">⚠ Piège courant : la duplication silencieuse</div>
+      <p>Si la colonne de jointure contient des doublons dans les <em>deux</em> DataFrames, <code>pd.merge()</code> crée un produit cartésien des lignes correspondantes — et multiplie silencieusement les lignes sans avertissement. Par exemple, 3 commandes pour un client × 2 entrées de ce client dans la table clients = 6 lignes. Utilisez toujours <code>validate='m:1'</code> ou <code>validate='1:m'</code> pour vous protéger.</p>
+    </div>
+
+    <div class="callout exercise">
+      <div class="callout-header">✦ Exercice</div>
+      <p>Créez trois DataFrames : clients (id, nom, ville), commandes (id, client_id, produit, montant) et produits (id, nom, categorie, prix_unitaire). (1) Faites un LEFT JOIN clients ↔ commandes pour voir quels clients n'ont pas commandé. (2) Enrichissez les commandes avec les infos produits. (3) Vérifiez avec <code>indicator=True</code> qu'il n'y a pas de client_id orphelin dans les commandes.</p>
+    </div>
+  </section>
+
+  <!-- M4-L5 -->
+  <section class="lesson-section" id="m4-l5">
+    <div class="lesson-header">
+      <span class="lesson-num">4.5</span>
+      <h2>Tri, déduplication et reset_index</h2>
+    </div>
+
+    <p>Trois opérations de maintenance incontournables : trier les données pour les ordonner ou les préparer pour des algorithmes, dédupliquer pour garantir l'unicité, et réinitialiser l'index après des transformations qui l'ont "cassé".</p>
+
+    <h3>Tri des données</h3>
+
+<pre><code class="language-python">import pandas as pd
+import numpy as np
+
+df = pd.DataFrame({
+    'nom':    ['Charlie', 'Alice', 'Bob', 'Diana', 'Eve'],
+    'age':    [35, 28, 35, 22, 35],
+    'salaire':[62000, 45000, 58000, 38000, 71000]
+})
+
+# sort_values : tri par valeur
+print(df.sort_values('age'))                                    # croissant
+print(df.sort_values('age', ascending=False))                   # décroissant
+print(df.sort_values(['age', 'salaire'], ascending=[True, False]))  # multi-colonnes
+# ↑ Si même âge, trie par salaire décroissant
+
+# Gérer les NaN dans le tri
+df_avec_nan = df.copy()
+df_avec_nan.loc[0, 'age'] = np.nan
+print(df_avec_nan.sort_values('age', na_position='first'))  # NaN en premier
+print(df_avec_nan.sort_values('age', na_position='last'))   # NaN en dernier (défaut)
+
+# sort_index : trier par index
+df_indexed = df.set_index('nom')
+print(df_indexed.sort_index())             # alphabétique
+print(df_indexed.sort_index(ascending=False))
+
+# Rang : ajouter une colonne de rang
+df['rang_salaire'] = df['salaire'].rank(ascending=False).astype(int)
+df['rang_dense']   = df['salaire'].rank(method='dense', ascending=False)
+# 'dense' : pas de saut dans le rang en cas d'ex-aequo</code></pre>
+
+    <h3>Déduplication</h3>
+
+<pre><code class="language-python">import pandas as pd
+
+df = pd.DataFrame({
+    'id':    [1, 2, 1, 3, 2, 4],
+    'nom':   ['Alice', 'Bob', 'Alice', 'Charlie', 'Bob', 'Diana'],
+    'score': [90, 75, 90, 80, 85, 70]   # Bob a deux scores différents !
+})
+
+# Supprimer les doublons exacts (toutes colonnes)
+df_dedup = df.drop_duplicates()
+
+# Doublons sur certaines colonnes
+df_dedup_id = df.drop_duplicates(subset=['id'])         # garder le premier
+df_dedup_last = df.drop_duplicates(subset=['id'], keep='last')   # garder le dernier
+df_dedup_none = df.drop_duplicates(subset=['id'], keep=False)    # supprimer TOUS les doublons
+
+# Identifier les doublons sans les supprimer
+print(df.duplicated())              # True pour les doublons (sauf le premier)
+print(df.duplicated(keep=False))    # True pour TOUTES les occurrences
+print(df[df.duplicated(subset=['id'], keep=False)])  # voir les lignes problématiques
+
+# Cas pratique : garder la ligne avec le score max par id
+df_best = df.sort_values('score', ascending=False).drop_duplicates(subset=['id'])
+# Alternative : groupby + idxmax
+idx = df.groupby('id')['score'].idxmax()
+df_best2 = df.loc[idx]</code></pre>
+
+    <h3>reset_index</h3>
+
+<pre><code class="language-python">import pandas as pd
+
+# Après filtrage, l'index est "troué"
+df = pd.DataFrame({'a': [10, 20, 30, 40, 50]}, index=[0, 1, 2, 3, 4])
+df_filtre = df[df['a'] > 20]
+print(df_filtre.index)  # Int64Index([2, 3, 4], dtype='int64') — trous !
+
+# reset_index : remettre un RangeIndex continu
+df_propre = df_filtre.reset_index(drop=True)
+print(df_propre.index)  # RangeIndex(start=0, stop=3, step=1)
+
+# Sans drop=True : l'ancien index devient une colonne
+df_propre2 = df_filtre.reset_index()   # colonne 'index' ajoutée
+print(df_propre2)
+
+# Cas fréquent : après groupby
+result = df.groupby(some_col)['val'].sum()  # index = clés du group
+result = result.reset_index()  # clés → colonne
+
+# set_index + reset_index : transformer et restaurer
+df_work = df.set_index('code').sort_index().reset_index()
+# Pattern courant pour trier sur l'index puis remettre le code en colonne</code></pre>
+
+    <div class="callout pitfall">
+      <div class="callout-header">⚠ Piège courant</div>
+      <p>Après un <code>df.reset_index()</code> sans <code>drop=True</code>, si l'index avait un nom (ex: résultat d'un <code>groupby</code>), il apparaît comme une colonne avec ce nom — et vous vous retrouvez avec une colonne nommée "index" ou avec le nom de votre clé de groupe. Vérifiez toujours le résultat avec <code>df.columns</code> et utilisez <code>rename()</code> si nécessaire.</p>
+    </div>
+
+    <div class="callout exercise">
+      <div class="callout-header">✦ Exercice</div>
+      <p>Vous avez un log d'événements avec des colonnes <code>user_id</code>, <code>action</code>, <code>timestamp</code>, <code>valeur</code>. Il y a des entrées dupliquées (même user_id + action + timestamp). (1) Comptez les doublons. (2) Pour chaque user_id, gardez seulement l'entrée avec la valeur la plus élevée. (3) Triez par timestamp décroissant et réinitialisez l'index. (4) Vérifiez qu'aucun user_id n'apparaît deux fois avec la même action.</p>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════
+       MODULE 5 — Manipulation Avancée
+  ══════════════════════════════════ -->
+  <div class="module-section-header">
+    <span class="mod-badge">Module 5</span>
+    <h2>Manipulation Avancée</h2>
+  </div>
+
+  <!-- M5-L1 -->
+  <section class="lesson-section" id="m5-l1">
+    <div class="lesson-header">
+      <span class="lesson-num">5.1</span>
+      <h2>pivot_table et melt</h2>
+    </div>
+
+    <p>Pivoter et "fondre" un DataFrame sont des transformations de <em>forme</em> qui changent l'organisation des données sans en modifier le contenu. <code>pivot_table</code> passe du format "long" (une ligne par observation) au format "large" (une ligne par entité, une colonne par variable). <code>melt</code> fait l'inverse.</p>
+
+    <h3>pivot_table : format long → large</h3>
+
+<pre><code class="language-python">import pandas as pd
+import numpy as np
+
+# Données en format long (typique après read_csv)
+ventes = pd.DataFrame({
+    'region':  ['Nord', 'Nord', 'Sud', 'Sud', 'Est', 'Est',
+                'Nord', 'Nord', 'Sud', 'Sud', 'Est', 'Est'],
+    'produit': ['A', 'B'] * 6,
+    'trimestre': ['Q1', 'Q1', 'Q1', 'Q1', 'Q1', 'Q1',
+                  'Q2', 'Q2', 'Q2', 'Q2', 'Q2', 'Q2'],
+    'chiffre_affaires': [100, 80, 150, 60, 90, 70, 110, 95, 140, 75, 100, 85]
+})
+
+# pivot_table : synthèse croisée
+pivot = pd.pivot_table(
+    ventes,
+    values='chiffre_affaires',
+    index='region',            # lignes
+    columns='produit',         # colonnes
+    aggfunc='sum',             # fonction d'agrégation
+    fill_value=0               # remplacer les NaN par 0
+)
+print(pivot)
+# produit     A    B
+# region
+# Est       190  155
+# Nord      210  175
+# Sud       290  135
+
+# Plusieurs valeurs et fonctions d'agrégation
+pivot2 = pd.pivot_table(
+    ventes,
+    values='chiffre_affaires',
+    index=['region', 'trimestre'],   # MultiIndex en ligne
+    columns='produit',
+    aggfunc=['sum', 'mean'],
+    margins=True,                     # ajouter les totaux (ligne/colonne "All")
+    margins_name='Total'
+)
+
+# pivot() : version sans agrégation (erreur si doublons)
+# Pour les cas simples sans duplication
+df = pd.DataFrame({'date': ['2024-01', '2024-01', '2024-02'],
+                   'ville': ['Paris', 'Lyon', 'Paris'],
+                   'temp': [5, 6, 8]})
+df.pivot(index='date', columns='ville', values='temp')</code></pre>
+
+    <h3>melt : format large → long</h3>
+
+<pre><code class="language-python">import pandas as pd
+
+# Données en format large (typique d'un export tableur)
+df_large = pd.DataFrame({
+    'region':   ['Nord', 'Sud', 'Est'],
+    'Jan_2024': [100, 150, 90],
+    'Feb_2024': [110, 140, 95],
+    'Mar_2024': [120, 160, 100]
+})
+
+# melt : fondre les colonnes de valeurs en lignes
+df_long = pd.melt(
+    df_large,
+    id_vars='region',           # colonne(s) à garder comme identifiants
+    value_vars=['Jan_2024', 'Feb_2024', 'Mar_2024'],  # colonnes à "fondre"
+    var_name='mois',            # nom de la nouvelle colonne "variable"
+    value_name='ventes'         # nom de la nouvelle colonne "valeur"
+)
+print(df_long)
+#   region      mois  ventes
+# 0   Nord  Jan_2024     100
+# 1    Sud  Jan_2024     150
+# 2    Est  Jan_2024      90
+# 3   Nord  Feb_2024     110
+# ...
+
+# Aller-retour : melt puis pivot
+df_reconstitue = df_long.pivot(index='region', columns='mois', values='ventes')
+df_reconstitue.columns.name = None  # nettoyer le nom de l'axe colonne
+
+# stack() / unstack() : versions alternatives sur MultiIndex
+stacked = pivot.stack()    # colonnes → lignes
+unstacked = stacked.unstack()  # lignes → colonnes (inverse)</code></pre>
+
+    <div class="callout pitfall">
+      <div class="callout-header">⚠ Piège courant</div>
+      <p>Après <code>pivot_table()</code>, les colonnes peuvent former un <code>MultiIndex</code> si vous avez utilisé plusieurs <code>aggfunc</code> ou plusieurs <code>values</code>. Pour aplatir le MultiIndex en colonnes lisibles, utilisez : <code>df.columns = ['_'.join(col).strip() for col in df.columns]</code>. Et <code>df.columns.name = None</code> pour supprimer le nom du niveau de colonnes.</p>
+    </div>
+
+    <div class="callout exercise">
+      <div class="callout-header">✦ Exercice</div>
+      <p>Vous avez un DataFrame de températures journalières par ville sur 3 mois, en format long (colonnes : <code>date</code>, <code>ville</code>, <code>temperature</code>). (1) Créez un pivot_table avec les villes en colonnes et les mois en lignes, affichant la température moyenne. (2) Ajoutez les marges (Total). (3) Refaites la transformation inverse avec <code>melt</code> et vérifiez que vous retrouvez les données d'origine.</p>
+    </div>
+  </section>
+
+  <!-- M5-L2 -->
+  <section class="lesson-section" id="m5-l2">
+    <div class="lesson-header">
+      <span class="lesson-num">5.2</span>
+      <h2>Window functions : rolling, expanding, ewm</h2>
+    </div>
+
+    <p>Les fonctions fenêtrées (<em>window functions</em>) calculent des agrégations sur une "fenêtre glissante" autour de chaque point de données. Elles sont indispensables pour les séries temporelles : moyennes mobiles, lissage exponentiel, cumuls, rangs glissants.</p>
+
+    <h3>rolling : fenêtre glissante fixe</h3>
+
+<pre><code class="language-python">import pandas as pd
+import numpy as np
+
+ts = pd.Series(
+    [120, 135, 118, 142, 155, 130, 148, 161, 138, 175, 162, 180],
+    index=pd.date_range('2024-01-01', periods=12, freq='ME'),
+    name='ventes'
+)
+
+# Moyenne mobile sur 3 périodes
+ma3 = ts.rolling(window=3).mean()
+# Les 2 premières valeurs sont NaN (pas assez de données)
+
+# Paramètres importants
+ts.rolling(window=3, min_periods=1).mean()  # commence dès 1 valeur (pas de NaN)
+ts.rolling(window=3, center=True).mean()    # fenêtre centrée (N/2 avant, N/2 après)
+
+# Autres agrégations sur fenêtre
+ts.rolling(3).sum()
+ts.rolling(3).std()
+ts.rolling(3).min()
+ts.rolling(3).max()
+
+# Fenêtre basée sur le temps (plutôt que N périodes)
+ts.rolling('30D').mean()   # 30 jours glissants (si DatetimeIndex)
+ts.rolling('7D').sum()     # 7 jours glissants
+
+# Fonction custom sur fenêtre
+ts.rolling(3).apply(lambda x: x[-1] / x[0] - 1)  # taux de variation 3 mois
+
+# Assembler toutes les métriques
+df_indicateurs = pd.DataFrame({
+    'ventes':   ts,
+    'ma3':      ts.rolling(3).mean(),
+    'ma6':      ts.rolling(6).mean(),
+    'std3':     ts.rolling(3).std(),
+    'max3':     ts.rolling(3).max(),
+})
+print(df_indicateurs)</code></pre>
+
+    <h3>expanding : fenêtre cumulée depuis le début</h3>
+
+<pre><code class="language-python">import pandas as pd
+
+ts = pd.Series([10, 20, 15, 30, 25])
+
+# expanding : utilise toutes les données depuis le début jusqu'à i
+print(ts.expanding().mean())
+# 0    10.0   (moyenne de [10])
+# 1    15.0   (moyenne de [10, 20])
+# 2    15.0   (moyenne de [10, 20, 15])
+# 3    18.75  (moyenne de [10, 20, 15, 30])
+# 4    20.0   (moyenne de [10, 20, 15, 30, 25])
+
+print(ts.expanding().sum())     # cumsum équivalent
+print(ts.cumsum())              # version courte de expanding().sum()
+print(ts.cumprod())             # produit cumulé
+print(ts.cummax())              # maximum cumulé
+print(ts.cummin())              # minimum cumulé</code></pre>
+
+    <h3>ewm : lissage exponentiel</h3>
+    <p>La moyenne mobile exponentielle (<em>EWM — Exponentially Weighted Mean</em>) donne plus de poids aux valeurs récentes. Elle réagit plus vite aux changements que la moyenne mobile simple.</p>
+
+<pre><code class="language-python">import pandas as pd
+import numpy as np
+
+ts = pd.Series([10, 12, 9, 14, 11, 16, 13, 18, 15, 20])
+
+# ewm avec span (equivalent à une MA sur N périodes)
+ema_3 = ts.ewm(span=3, adjust=False).mean()
+ema_6 = ts.ewm(span=6, adjust=False).mean()
+
+# ewm avec alpha directement (poids de la valeur actuelle)
+# alpha=0.1 → réactif lentement (lissage fort)
+# alpha=0.9 → réactif rapidement (peu de lissage)
+ema_alpha = ts.ewm(alpha=0.3, adjust=False).mean()
+
+# ewm() autres statistiques
+ts.ewm(span=5).std()   # écart-type exponentiel
+ts.ewm(span=5).var()   # variance
+
+# Comparer les trois types de window functions
+df = pd.DataFrame({
+    'brut':      ts,
+    'rolling3':  ts.rolling(3, min_periods=1).mean(),
+    'expanding': ts.expanding().mean(),
+    'ewm_3':     ts.ewm(span=3, adjust=False).mean()
+})
+print(df)</code></pre>
+
+    <div class="callout pitfall">
+      <div class="callout-header">⚠ Piège courant</div>
+      <p><code>rolling(window=N)</code> produit des NaN pour les N-1 premières lignes. Si vous enchaînez avec <code>dropna()</code>, vous perdez le début de votre série temporelle — ce qui peut biaiser les analyses. Préférez <code>rolling(N, min_periods=1)</code> pour calculer la moyenne sur les données disponibles depuis le début, ou documentez explicitement la perte de N-1 observations.</p>
+    </div>
+
+    <div class="callout exercise">
+      <div class="callout-header">✦ Exercice</div>
+      <p>Générez une série temporelle quotidienne de 2 ans de données de ventes avec du bruit. (1) Calculez MA-7, MA-30, MA-90. (2) Calculez le z-score glissant sur 30 jours pour détecter les anomalies (z &gt; 2). (3) Comparez MA-30 et EWM(span=30) visuellement (print ou export CSV).</p>
+    </div>
+  </section>
+
+  <!-- M5-L3 -->
+  <section class="lesson-section" id="m5-l3">
+    <div class="lesson-header">
+      <span class="lesson-num">5.3</span>
+      <h2>String operations avec .str</h2>
+    </div>
+
+    <p>Le sous-accesseur <code>.str</code> expose des méthodes de traitement de texte vectorisées sur une Series de dtype <code>object</code> ou <code>string</code>. C'est l'équivalent des méthodes Python <code>str</code> ordinaires, mais appliquées à toute une colonne en une fois — et gèrent automatiquement les NaN.</p>
+
+    <h3>Méthodes de base</h3>
+
+<pre><code class="language-python">import pandas as pd
+
+noms = pd.Series(['  Alice Dupont  ', 'BOB MARTIN', 'charlie durand', None, 'Diana Petit'])
+
+# Casse
+print(noms.str.lower())    # tout en minuscules
+print(noms.str.upper())    # tout en majuscules
+print(noms.str.title())    # Première lettre de chaque mot en majuscule
+print(noms.str.capitalize()) # Première lettre du string
+
+# Nettoyage d'espaces
+print(noms.str.strip())    # supprimer espaces en début et fin
+print(noms.str.lstrip())   # seulement à gauche
+print(noms.str.rstrip())   # seulement à droite
+
+# Longueur
+print(noms.str.len())      # longueur de chaque string (NaN → NaN, pas 0 !)
+
+# Tester le contenu
+print(noms.str.startswith('A'))    # commence par 'A'
+print(noms.str.endswith('t'))      # termine par 't'
+print(noms.str.contains('du', case=False, na=False))  # contient 'du'
+print(noms.str.isalpha())          # seulement des lettres
+print(noms.str.isnumeric())        # seulement des chiffres</code></pre>
+
+    <h3>Extraction et remplacement</h3>
+
+<pre><code class="language-python">import pandas as pd
+
+emails = pd.Series(['alice@example.com', 'bob@test.org', 'charlie@example.com', None])
+textes = pd.Series(['Prix : 1 234,50 €', 'Total : 89,00 €', 'Remise : -15,00 €'])
+
+# split : découper en parties
+parts = emails.str.split('@')
+print(parts)
+# 0    [alice, example.com]
+# 1    [bob, test.org]
+# ...
+
+# expand=True : séparer en colonnes directement
+df_email = emails.str.split('@', expand=True)
+df_email.columns = ['utilisateur', 'domaine']
+
+# Extraire le domaine
+df_email['domaine_ext'] = df_email['domaine'].str.split('.').str[-1]
+
+# get : accéder à un élément après split
+print(emails.str.split('@').str[0])    # partie avant @
+print(emails.str.split('@').str[-1])   # partie après @
+
+# replace : remplacement simple et regex
+print(textes.str.replace('€', 'EUR'))
+print(textes.str.replace(r'[^0-9,.-]', '', regex=True))  # garder seulement les chiffres
+
+# extract : extraction avec capture regex
+montants = textes.str.extract(r'(-?[\d\s]+,\d{2})')
+# ou nommé
+montants2 = textes.str.extract(r'(?P&lt;montant&gt;-?[\d\s]+,\d{2})')
+
+# extractall : plusieurs occurrences
+code = pd.Series(['ref A01 et B02', 'ref C03', 'rien'])
+print(code.str.extractall(r'([A-Z]\d{2})'))</code></pre>
+
+    <h3>Opérations avancées</h3>
+
+<pre><code class="language-python">import pandas as pd
+
+# Padding et justification
+codes = pd.Series(['1', '12', '123', '1234'])
+print(codes.str.zfill(6))     # '000001', '000012', ...
+print(codes.str.pad(6, side='left', fillchar='0'))   # idem
+print(codes.str.center(10, '-'))  # '----1-----'
+
+# Concaténation de colonnes texte
+df = pd.DataFrame({'prenom': ['Alice', 'Bob'], 'nom': ['Dupont', 'Martin']})
+df['nom_complet'] = df['prenom'].str.cat(df['nom'], sep=' ')
+# ou vectorisé :
+df['nom_complet'] = df['prenom'] + ' ' + df['nom']
+
+# count : compter les occurrences
+textes = pd.Series(['aabba', 'abc', 'aaaa'])
+print(textes.str.count('a'))   # [3, 1, 4]
+
+# find/index : position d'une sous-chaîne
+print(textes.str.find('b'))    # [-1 si absent, sinon position 0-based]
+
+# slice : extraire une sous-chaîne par position
+codes2 = pd.Series(['FR-75001', 'FR-69001', 'ES-28001'])
+print(codes2.str[:2])      # ['FR', 'FR', 'ES']
+print(codes2.str[3:])      # ['75001', '69001', '28001']
+print(codes2.str.slice(3)) # idem</code></pre>
+
+    <div class="callout pitfall">
+      <div class="callout-header">⚠ Piège courant</div>
+      <p><code>.str</code> retourne <code>NaN</code> (pas <code>False</code> ou <code>0</code>) quand la valeur d'entrée est <code>NaN</code>. Donc <code>series.str.contains('abc')</code> retourne un masque avec des <code>NaN</code> là où les valeurs d'entrée sont <code>NaN</code> — ce qui peut causer des problèmes dans les filtres booléens. Utilisez toujours <code>str.contains('abc', na=False)</code> pour convertir les NaN en <code>False</code>.</p>
+    </div>
+
+    <div class="callout exercise">
+      <div class="callout-header">✦ Exercice</div>
+      <p>Vous avez une colonne <code>adresse</code> contenant des chaînes du type "12 Rue de la Paix, 75002 Paris, France". (1) Extrayez le code postal (5 chiffres consécutifs) dans une nouvelle colonne. (2) Extrayez la ville (après le code postal, avant la virgule). (3) Normalisez les noms de rues en minuscules sans espaces multiples. (4) Comptez le nombre d'adresses de chaque département (2 premiers chiffres du code postal).</p>
+    </div>
+  </section>
+
+  <!-- M5-L4 -->
+  <section class="lesson-section" id="m5-l4">
+    <div class="lesson-header">
+      <span class="lesson-num">5.4</span>
+      <h2>Datetime operations avec .dt</h2>
+    </div>
+
+    <p>Le sous-accesseur <code>.dt</code> expose des propriétés et méthodes de manipulation des dates sur une Series de dtype <code>datetime64</code>. Sans lui, manipuler des dates nécessiterait <code>apply(lambda)</code> sur chaque cellule — lent et verbeux. Avec <code>.dt</code>, toutes les opérations sont vectorisées.</p>
+
+    <h3>Convertir et accéder aux composantes</h3>
+
+<pre><code class="language-python">import pandas as pd
+
+# Convertir des strings en datetime (obligatoire avant d'utiliser .dt)
+df = pd.DataFrame({
+    'date_str': ['2024-01-15', '2024-03-22', '2024-07-04', '2024-12-31'],
+    'heure_str': ['09:30:00', '14:45:15', '08:00:00', '23:59:59']
+})
+
+# Conversion
+df['date'] = pd.to_datetime(df['date_str'])
+df['heure'] = pd.to_datetime(df['heure_str'], format='%H:%M:%S')
+df['datetime_complet'] = pd.to_datetime(df['date_str'] + ' ' + df['heure_str'])
+
+# Formats courants (pour accélérer la conversion)
+pd.to_datetime('15/01/2024', format='%d/%m/%Y')
+pd.to_datetime('Jan 15, 2024', format='%b %d, %Y')
+pd.to_datetime('2024-01-15T09:30:00Z')   # ISO 8601 avec timezone
+
+# Accéder aux composantes via .dt
+print(df['date'].dt.year)          # [2024, 2024, 2024, 2024]
+print(df['date'].dt.month)         # [1, 3, 7, 12]
+print(df['date'].dt.day)           # [15, 22, 4, 31]
+print(df['date'].dt.day_of_week)   # [0=Lundi ... 6=Dimanche]
+print(df['date'].dt.day_name())    # ['Monday', 'Friday', ...]
+print(df['date'].dt.month_name())  # ['January', 'March', ...]
+print(df['date'].dt.quarter)       # [1, 1, 3, 4]
+print(df['date'].dt.is_month_end)  # [False, ..., True]
+print(df['date'].dt.is_leap_year)  # [True, True, True, True] (2024)
+print(df['date'].dt.day_of_year)   # [15, 82, 186, 366]
+print(df['datetime_complet'].dt.hour)   # heures
+print(df['datetime_complet'].dt.minute) # minutes</code></pre>
+
+    <h3>Calculs avec les dates</h3>
+
+<pre><code class="language-python">import pandas as pd
+
+df = pd.DataFrame({
+    'commande':  pd.to_datetime(['2024-01-10', '2024-02-20', '2024-03-05']),
+    'livraison': pd.to_datetime(['2024-01-14', '2024-02-22', '2024-03-10'])
+})
+
+# Différence entre dates → Timedelta
+df['delai_livraison'] = df['livraison'] - df['commande']
+print(df['delai_livraison'])
+# 0   4 days
+# 1   2 days
+# 2   5 days
+
+# Extraire les jours depuis un Timedelta
+df['delai_jours'] = df['delai_livraison'].dt.days
+
+# Ajouter des durées avec pd.Timedelta ou pd.DateOffset
+df['livraison_estim'] = df['commande'] + pd.Timedelta(days=3)
+df['mois_suivant'] = df['commande'] + pd.DateOffset(months=1)
+
+# Date "il y a N jours"
+from datetime import datetime
+aujourd_hui = pd.Timestamp.now()
+df['jours_depuis_commande'] = (aujourd_hui - df['commande']).dt.days
+
+# Tronquer à une période
+df['mois_commande'] = df['commande'].dt.to_period('M')  # '2024-01', etc.
+df['semaine_commande'] = df['commande'].dt.to_period('W')
+
+# Conversion de timezone
+ts = pd.Timestamp('2024-06-15 12:00:00')
+ts_utc  = ts.tz_localize('UTC')
+ts_paris = ts_utc.tz_convert('Europe/Paris')
+
+df['date_utc'] = df['commande'].dt.tz_localize('UTC')
+df['date_paris'] = df['date_utc'].dt.tz_convert('Europe/Paris')</code></pre>
+
+    <h3>Gérer les formats ambigus et les erreurs</h3>
+
+<pre><code class="language-python">import pandas as pd
+
+# Formats mixtes dans une colonne (fréquent en pratique)
+dates_mixtes = pd.Series(['2024-01-15', '15/01/2024', '01-15-2024', 'invalid'])
+
+# errors='coerce' : valeurs invalides → NaT (Not a Time)
+parsed = pd.to_datetime(dates_mixtes, errors='coerce', dayfirst=True)
+print(parsed.isna().sum())   # 2 dates non parsées → NaT
+
+# errors='ignore' : garder les valeurs originales pour les invalides
+# errors='raise'  : lever une exception (défaut)
+
+# Détecter les NaT
+print(parsed.isna())  # True pour les dates non parsées
+print(parsed.notna())
+
+# Gérer le format day-first vs month-first
+# '01/02/2024' = 1 février (EU) ou 2 janvier (US) ?
+pd.to_datetime('01/02/2024', dayfirst=True)   # 1er février (interprétation EU)
+pd.to_datetime('01/02/2024', dayfirst=False)  # 2 janvier (interprétation US)</code></pre>
+
+    <div class="callout pitfall">
+      <div class="callout-header">⚠ Piège courant</div>
+      <p><code>pd.to_datetime()</code> sans format explicite doit "deviner" le format — ce qui est lent sur de grandes Series et peut se tromper (notamment pour les formats ambigus DD/MM vs MM/DD). Sur un million de lignes, spécifier <code>format='%Y-%m-%d'</code> peut être 20× plus rapide que la détection automatique. Ajoutez <code>format=</code> dès que vous connaissez le format de vos dates.</p>
+    </div>
+
+    <div class="callout exercise">
+      <div class="callout-header">✦ Exercice</div>
+      <p>Vous avez un log de connexions avec colonnes <code>user_id</code>, <code>login_time</code> (string ISO), <code>logout_time</code> (string ISO). (1) Convertissez les colonnes en datetime. (2) Calculez la durée de session en minutes. (3) Créez des colonnes <code>heure_connexion</code>, <code>jour_semaine</code>, <code>est_week_end</code>. (4) Calculez le nombre moyen de connexions par jour de la semaine.</p>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════
+       MODULE 6 — Profiling de Datasets
+  ══════════════════════════════════ -->
+  <div class="module-section-header">
+    <span class="mod-badge">Module 6</span>
+    <h2>Profiling de Datasets</h2>
+  </div>
+
+  <!-- M6-L1 -->
+  <section class="lesson-section" id="m6-l1">
+    <div class="lesson-header">
+      <span class="lesson-num">6.1</span>
+      <h2>ydata-profiling en profondeur</h2>
+    </div>
+
+    <p><code>ydata-profiling</code> (anciennement <code>pandas-profiling</code>) génère automatiquement un rapport HTML complet sur un dataset en une seule ligne de code. Il analyse les distributions, les corrélations, les valeurs manquantes et les doublons — et produit un rapport interactif. C'est l'outil de référence pour l'EDA (Exploratory Data Analysis) rapide.</p>
+
+    <h3>Installation et utilisation de base</h3>
+
+<pre><code class="language-python"># Installation
+# pip install ydata-profiling
+
+import pandas as pd
+from ydata_profiling import ProfileReport
+
+# Charger un dataset
+df = pd.read_csv('dataset.csv')
+
+# Rapport basique (génération ~30s sur un dataset moyen)
+profile = ProfileReport(df, title="Analyse du dataset")
+
+# Afficher dans Jupyter/JupyterLab
+profile.to_notebook_iframe()
+
+# Exporter en HTML autonome
+profile.to_file("rapport_profiling.html")
+
+# Exporter en JSON (pour traitement programmatique)
+profile.to_json("rapport_profiling.json")</code></pre>
+
+    <h3>Configuration avancée</h3>
+
+<pre><code class="language-python">import pandas as pd
+from ydata_profiling import ProfileReport
+
+df = pd.read_csv('dataset.csv')
+
+# Mode exploratoire (plus détaillé mais plus lent)
+profile = ProfileReport(
+    df,
+    title="Analyse Complète",
+    explorative=True,           # analyse plus approfondie
+    correlations={
+        "auto": {"calculate": True},
+        "pearson": {"calculate": True},
+        "spearman": {"calculate": True},
+        "kendall": {"calculate": False},  # lent sur grands datasets
+        "phi_k": {"calculate": True},
+        "cramers": {"calculate": True},   # corrélation entre catégorielles
+    },
+    missing_diagrams={
+        "heatmap": True,
+        "dendrogram": True,  # clustering des patterns de manque
+    },
+    duplicates={"head": 10},   # afficher 10 exemples de doublons
+    interactions={
+        "continuous": True,   # graphiques d'interaction entre variables
+    }
+)
+
+# Mode minimal (rapide sur très grands datasets)
+profile_minimal = ProfileReport(
+    df,
+    minimal=True,    # désactive les analyses coûteuses
+    title="Rapport Rapide"
+)
+
+# Configurer via YAML
+config_overrides = {
+    "n_freq_table_max": 20,  # max 20 valeurs dans les tableaux de fréquence
+    "plot": {
+        "histogram": {"bayesian_blocks_bins": False},
+        "scatter_threshold": 1000  # pas de scatter si N > 1000
+    }
+}
+profile = ProfileReport(df, config_overrides=config_overrides)</code></pre>
+
+    <h3>Lire et interpréter le rapport</h3>
+    <p>Le rapport ydata-profiling contient plusieurs sections à lire méthodiquement :</p>
+
+<pre><code class="language-python">import pandas as pd
+from ydata_profiling import ProfileReport
+
+df = pd.read_csv('dataset.csv')
+profile = ProfileReport(df, minimal=True)
+
+# Accéder aux données du profil programmatiquement
+description = profile.get_description()
+
+# Informations globales
+overview = description.analysis
+print(f"Lignes : {description.table['n']}")
+print(f"Colonnes : {description.table['n_var']}")
+print(f"Doublons : {description.table['n_duplicates']}")
+print(f"% manquant : {description.table['p_cells_missing']:.1%}")
+
+# Informations par variable
+for col, stats in description.variables.items():
+    print(f"\n{col} ({stats['type']}):")
+    print(f"  Manquant  : {stats.get('p_missing', 0):.1%}")
+    print(f"  Uniques   : {stats.get('n_unique', '?')}")
+    if stats['type'] == 'Numeric':
+        print(f"  Moyenne   : {stats.get('mean', '?'):.2f}")
+        print(f"  Std       : {stats.get('std', '?'):.2f}")
+
+# Alertes automatiques (anomalies détectées)
+# Le rapport marque des alertes : High Cardinality, Imbalanced, Zeros, etc.
+# → Section "Alerts" du rapport HTML</code></pre>
+
+    <h3>Ce que le rapport signale et comment agir</h3>
+
+    <table class="data-table">
+      <thead><tr><th>Alerte</th><th>Signification</th><th>Action recommandée</th></tr></thead>
+      <tbody>
+        <tr><td>High Cardinality</td><td>Variable catégorielle avec beaucoup de valeurs uniques</td><td>Vérifier si c'est un ID (ne pas utiliser comme feature), ou regrouper les catégories rares</td></tr>
+        <tr><td>Imbalanced</td><td>Distribution très asymétrique (une valeur domine)</td><td>Vérifier si c'est attendu, envisager un rééchantillonnage pour ML</td></tr>
+        <tr><td>High Correlation</td><td>Deux variables corrélées à &gt;0.9</td><td>Considérer la redondance, risque de multicolinéarité en régression</td></tr>
+        <tr><td>Missing</td><td>Valeurs manquantes &gt; seuil</td><td>Analyser le mécanisme (MCAR/MAR/MNAR), décider imputation ou suppression</td></tr>
+        <tr><td>Zeros</td><td>Beaucoup de valeurs à 0</td><td>Distinguer "absence" de "zéro réel", envisager une variable binaire séparée</td></tr>
+        <tr><td>Unique</td><td>Toutes les valeurs sont uniques</td><td>Probablement un identifiant — ne pas utiliser comme feature</td></tr>
+        <tr><td>Constant</td><td>Variable à valeur unique</td><td>Supprimer la colonne — aucune information</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout pitfall">
+      <div class="callout-header">⚠ Piège courant</div>
+      <p>Sur un dataset de &gt;100 000 lignes, <code>ProfileReport(df)</code> sans options peut prendre 5 à 15 minutes et générer un fichier HTML de 50 MB. Utilisez <code>minimal=True</code> ou travaillez sur un échantillon représentatif (<code>df.sample(10000)</code>) pour l'exploration initiale. Gardez le rapport complet pour la phase de validation finale.</p>
+    </div>
+
+    <div class="callout exercise">
+      <div class="callout-header">✦ Exercice</div>
+      <p>Générez un dataset de 10 000 lignes avec des colonnes de différents types, incluant des NaN, des doublons, une variable à forte cardinalité et une variable constante. (1) Générez un profil minimal. (2) Listez toutes les alertes programmatiquement. (3) Agissez sur les alertes : supprimez la colonne constante, encodez la variable à forte cardinalité, imputez les NaN.</p>
+    </div>
+  </section>
+
+  <!-- M6-L2 -->
+  <section class="lesson-section" id="m6-l2">
+    <div class="lesson-header">
+      <span class="lesson-num">6.2</span>
+      <h2>sweetviz et comparaison de datasets</h2>
+    </div>
+
+    <p><code>sweetviz</code> est une alternative à ydata-profiling, spécialisée dans la <em>comparaison</em> de deux datasets. C'est son point fort : comparer un ensemble d'entraînement et un ensemble de test, ou comparer des données avant et après nettoyage. Le rapport est visuellement plus soigné et plus rapide à générer.</p>
+
+    <h3>Analyse simple</h3>
+
+<pre><code class="language-python"># pip install sweetviz
+
+import pandas as pd
+import sweetviz as sv
+
+df = pd.read_csv('dataset.csv')
+
+# Rapport simple
+report = sv.analyze(df)
+report.show_html('sweetviz_report.html')
+
+# Avec une variable cible (pour ML)
+report_target = sv.analyze(df, target_feat='churn')  # variable à prédire
+report_target.show_html('sweetviz_target.html')
+
+# Spécifier le type d'une feature manuellement
+feat_cfg = sv.FeatureConfig(force_cat=['code_postal'], force_num=['age_num'])
+report = sv.analyze(df, feat_cfg=feat_cfg)</code></pre>
+
+    <h3>Comparaison train / test — le cas d'usage principal</h3>
+
+<pre><code class="language-python">import pandas as pd
+import sweetviz as sv
+from sklearn.model_selection import train_test_split
+
+df = pd.read_csv('dataset.csv')
+train, test = train_test_split(df, test_size=0.2, random_state=42)
+
+# Comparer train et test
+report_compare = sv.compare([train, "Train"], [test, "Test"])
+report_compare.show_html('compare_train_test.html')
+
+# Ce que le rapport révèle :
+# - Distribution de chaque variable dans train vs test
+# - Alerte si les distributions divergent (data leakage, sampling bias)
+# - Statistiques côte à côte pour chaque colonne
+
+# Comparer avant/après nettoyage
+df_brut = pd.read_csv('data_brut.csv')
+df_propre = df_brut.dropna().drop_duplicates()  # nettoyage minimal
+
+report_avant_apres = sv.compare([df_brut, "Brut"], [df_propre, "Nettoyé"])
+report_avant_apres.show_html('avant_apres_nettoyage.html')
+
+# Comparer deux sous-populations
+hommes = df[df['sexe'] == 'M']
+femmes = df[df['sexe'] == 'F']
+sv.compare([hommes, "Hommes"], [femmes, "Femmes"]).show_html('genre_compare.html')</code></pre>
+
+    <div class="callout info">
+      <div class="callout-header">ℹ sweetviz vs ydata-profiling : quand choisir quoi ?</div>
+      <p><strong>ydata-profiling</strong> : exploration initiale approfondie d'un seul dataset, analyse des corrélations, alertes automatiques détaillées. <strong>sweetviz</strong> : comparaison visuelle rapide de deux datasets, idéal pour valider la qualité d'un train/test split ou mesurer l'impact d'un nettoyage. Les deux sont complémentaires — commencez par ydata-profiling pour explorer, puis sweetviz pour comparer.</p>
+    </div>
+
+    <div class="callout exercise">
+      <div class="callout-header">✦ Exercice</div>
+      <p>Prenez un dataset, faites un train/test split 80/20. (1) Analysez le dataset complet avec sweetviz (avec une variable cible de votre choix). (2) Comparez train et test — y a-t-il des distributions significativement différentes ? (3) Simulez un biais de sampling (sélectionnez le test avec un filtre non aléatoire) et montrez que sweetviz le détecte.</p>
+    </div>
+  </section>
+
+  <!-- M6-L3 -->
+  <section class="lesson-section" id="m6-l3">
+    <div class="lesson-header">
+      <span class="lesson-num">6.3</span>
+      <h2>Profiling manuel avec Pandas</h2>
+    </div>
+
+    <p>Parfois les outils automatiques sont trop lents, trop lourds, ou pas disponibles. Savoir construire son propre profil en quelques lignes de Pandas pur est une compétence essentielle — et permet de cibler exactement les métriques dont vous avez besoin.</p>
+
+    <h3>Construire un rapport de qualité personnalisé</h3>
+
+<pre><code class="language-python">import pandas as pd
+import numpy as np
+
+def profiler_dataset(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Retourne un DataFrame récapitulatif avec les métriques essentielles
+    de chaque colonne.
+    """
+    records = []
+    for col in df.columns:
+        s = df[col]
+        rec = {
+            'colonne':     col,
+            'dtype':       str(s.dtype),
+            'nb_lignes':   len(s),
+            'nb_non_null': s.notna().sum(),
+            'nb_null':     s.isna().sum(),
+            'pct_null':    round(s.isna().mean() * 100, 2),
+            'nb_unique':   s.nunique(),
+            'pct_unique':  round(s.nunique() / len(s) * 100, 2),
+        }
+
+        if pd.api.types.is_numeric_dtype(s):
+            rec.update({
+                'min':    s.min(),
+                'max':    s.max(),
+                'mean':   round(s.mean(), 4),
+                'median': s.median(),
+                'std':    round(s.std(), 4),
+                'skew':   round(s.skew(), 4),
+                'kurt':   round(s.kurtosis(), 4),
+                'nb_zero': (s == 0).sum(),
+                'nb_neg':  (s &lt; 0).sum(),
+                'top3':   None
+            })
+        else:
+            top3 = s.value_counts().head(3).to_dict()
+            rec.update({
+                'min': None, 'max': None, 'mean': None,
+                'median': None, 'std': None, 'skew': None,
+                'kurt': None, 'nb_zero': None, 'nb_neg': None,
+                'top3': str(top3)
+            })
+
+        records.append(rec)
+
+    return pd.DataFrame(records).set_index('colonne')
+
+
+# Utilisation
+df = pd.read_csv('dataset.csv')
+rapport = profiler_dataset(df)
+print(rapport.to_string())
+
+# Export vers Excel avec mise en forme
+with pd.ExcelWriter('profil_dataset.xlsx', engine='openpyxl') as writer:
+    rapport.to_excel(writer, sheet_name='Profil')
+    df.describe(include='all').T.to_excel(writer, sheet_name='Describe')</code></pre>
+
+    <h3>Analyser les distributions et outliers</h3>
+
+<pre><code class="language-python">import pandas as pd
+import numpy as np
+
+def analyser_outliers(df: pd.DataFrame, methode: str = 'iqr') -> pd.DataFrame:
+    """Détecte les outliers dans les colonnes numériques."""
+    records = []
+    numeriques = df.select_dtypes(include='number').columns
+
+    for col in numeriques:
+        s = df[col].dropna()
+
+        if methode == 'iqr':
+            Q1, Q3 = s.quantile(0.25), s.quantile(0.75)
+            IQR = Q3 - Q1
+            borne_inf = Q1 - 1.5 * IQR
+            borne_sup = Q3 + 1.5 * IQR
+        elif methode == 'zscore':
+            borne_inf = s.mean() - 3 * s.std()
+            borne_sup = s.mean() + 3 * s.std()
+
+        outliers = s[(s &lt; borne_inf) | (s > borne_sup)]
+        records.append({
+            'colonne':    col,
+            'nb_outliers': len(outliers),
+            'pct_outliers': round(len(outliers) / len(s) * 100, 2),
+            'borne_inf':  borne_inf,
+            'borne_sup':  borne_sup,
+            'val_min':    s.min(),
+            'val_max':    s.max(),
+        })
+
+    return pd.DataFrame(records).set_index('colonne')
+
+
+def analyser_correlations(df: pd.DataFrame, seuil: float = 0.8) -> pd.DataFrame:
+    """Identifie les paires de colonnes fortement corrélées."""
+    corr = df.select_dtypes(include='number').corr().abs()
+    # Masque le triangle supérieur (éviter les doublons)
+    mask = np.triu(np.ones_like(corr, dtype=bool))
+    corr_masked = corr.mask(mask)
+    # Paires avec corrélation > seuil
+    paires = (corr_masked
+              .stack()
+              .reset_index()
+              .rename(columns={'level_0': 'var1', 'level_1': 'var2', 0: 'correlation'})
+              .query(f'correlation > {seuil}')
+              .sort_values('correlation', ascending=False))
+    return paires</code></pre>
+
+    <div class="callout exercise">
+      <div class="callout-header">✦ Exercice</div>
+      <p>Enrichissez la fonction <code>profiler_dataset()</code> pour qu'elle ajoute : (1) une colonne <code>alerte</code> qui signale les problèmes ("Trop de NaN", "Constante", "Haute cardinalité", "Possible ID"). (2) Une colonne <code>recommandation</code> avec une action suggérée pour chaque alerte. Définissez vos seuils : NaN &gt; 30%, unique &gt; 95%, unique == 1.</p>
+    </div>
+  </section>
+
+  <!-- M6-L4 -->
+  <section class="lesson-section" id="m6-l4">
+    <div class="lesson-header">
+      <span class="lesson-num">6.4</span>
+      <h2>Documenter les problèmes qualité</h2>
+    </div>
+
+    <p>La découverte de problèmes qualité n'a de valeur que si elle est documentée et tracée. Un pipeline data professionnel inclut systématiquement une étape de "data quality report" — un artefact qui enregistre les métriques de qualité à chaque exécution et alerte si elles se dégradent.</p>
+
+    <h3>Construire un data quality report</h3>
+
+<pre><code class="language-python">import pandas as pd
+import numpy as np
+import json
+from datetime import datetime
+
+def generer_quality_report(df: pd.DataFrame, nom_dataset: str) -> dict:
+    """
+    Génère un rapport de qualité au format dict/JSON.
+    Peut être sauvegardé et comparé entre deux exécutions.
+    """
+    rapport = {
+        'metadata': {
+            'nom_dataset': nom_dataset,
+            'timestamp': datetime.now().isoformat(),
+            'nb_lignes': len(df),
+            'nb_colonnes': len(df.columns),
+        },
+        'global': {
+            'pct_cellules_manquantes': round(df.isna().mean().mean() * 100, 2),
+            'nb_doublons_exacts': int(df.duplicated().sum()),
+            'pct_doublons': round(df.duplicated().mean() * 100, 2),
+        },
+        'par_colonne': {},
+        'alertes': []
+    }
+
+    for col in df.columns:
+        s = df[col]
+        pct_null = s.isna().mean()
+        n_unique = s.nunique()
+        col_info = {
+            'dtype': str(s.dtype),
+            'pct_null': round(pct_null * 100, 2),
+            'nb_unique': int(n_unique),
+            'pct_unique': round(n_unique / len(s) * 100, 2),
+        }
+
+        if pd.api.types.is_numeric_dtype(s):
+            col_info['min'] = float(s.min()) if s.notna().any() else None
+            col_info['max'] = float(s.max()) if s.notna().any() else None
+            col_info['mean'] = float(s.mean()) if s.notna().any() else None
+
+        rapport['par_colonne'][col] = col_info
+
+        # Génération d'alertes
+        if pct_null > 0.3:
+            rapport['alertes'].append({
+                'colonne': col, 'type': 'HIGH_MISSING',
+                'message': f"{col}: {pct_null:.0%} de valeurs manquantes",
+                'severite': 'CRITIQUE' if pct_null > 0.5 else 'AVERTISSEMENT'
+            })
+        if n_unique == 1:
+            rapport['alertes'].append({
+                'colonne': col, 'type': 'CONSTANT',
+                'message': f"{col}: colonne constante (valeur unique)",
+                'severite': 'CRITIQUE'
+            })
+        if n_unique / len(s) > 0.95 and not pd.api.types.is_numeric_dtype(s):
+            rapport['alertes'].append({
+                'colonne': col, 'type': 'HIGH_CARDINALITY',
+                'message': f"{col}: {pct_unique:.0%} de valeurs uniques (possible ID)",
+                'severite': 'INFO'
+            })
+
+    return rapport
+
+
+# Sauvegarder le rapport
+df = pd.read_csv('dataset.csv')
+rapport = generer_quality_report(df, 'ventes_2024')
+
+with open('quality_report.json', 'w', encoding='utf-8') as f:
+    json.dump(rapport, f, ensure_ascii=False, indent=2)
+
+print(f"Alertes : {len(rapport['alertes'])}")
+for alerte in rapport['alertes']:
+    print(f"  [{alerte['severite']}] {alerte['message']}")</code></pre>
+
+    <h3>Comparer deux rapports dans le temps</h3>
+
+<pre><code class="language-python">import json
+import pandas as pd
+
+def comparer_quality_reports(rapport1: dict, rapport2: dict) -> pd.DataFrame:
+    """
+    Compare deux rapports de qualité pour détecter une dégradation.
+    """
+    records = []
+    for col in rapport1['par_colonne']:
+        if col not in rapport2['par_colonne']:
+            continue
+
+        r1 = rapport1['par_colonne'][col]
+        r2 = rapport2['par_colonne'][col]
+
+        delta_null = r2['pct_null'] - r1['pct_null']
+        records.append({
+            'colonne': col,
+            'pct_null_avant':  r1['pct_null'],
+            'pct_null_apres':  r2['pct_null'],
+            'delta_null':      round(delta_null, 2),
+            'unique_avant':    r1['nb_unique'],
+            'unique_apres':    r2['nb_unique'],
+            'alerte': '⚠ DÉGRADATION' if delta_null > 5 else '✓ OK'
+        })
+
+    return pd.DataFrame(records).set_index('colonne')
+
+
+# Usage
+with open('quality_report_jan.json') as f:
+    rapport_jan = json.load(f)
+with open('quality_report_fev.json') as f:
+    rapport_fev = json.load(f)
+
+comparaison = comparer_quality_reports(rapport_jan, rapport_fev)
+print(comparaison[comparaison['alerte'].str.contains('DÉGRADATION')])</code></pre>
+
+    <div class="callout tip">
+      <div class="callout-header">✦ Bonne pratique</div>
+      <p>Intégrez la génération de quality report dans votre pipeline de données : sauvegardez le JSON à chaque exécution avec un timestamp, et comparez automatiquement avec le rapport précédent. Si le pourcentage de NaN d'une colonne critique passe de 2% à 25% d'un jour à l'autre, vous voulez être alerté — pas découvrir le problème trois semaines plus tard lors d'une analyse.</p>
+    </div>
+
+    <div class="callout exercise">
+      <div class="callout-header">✦ Exercice</div>
+      <p>Créez un pipeline complet : (1) chargez un dataset, (2) générez un quality report, (3) appliquez des règles de nettoyage basées sur les alertes, (4) régénérez le rapport après nettoyage, (5) comparez les deux rapports et calculez le "score qualité global" (ex: pourcentage de cellules non-nulles × (1 - pct doublons)). Affichez un tableau avant/après.</p>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════
+       MODULE 7 — Performance & Bonnes Pratiques
+  ══════════════════════════════════ -->
+  <div class="module-section-header">
+    <span class="mod-badge">Module 7</span>
+    <h2>Performance &amp; Bonnes Pratiques</h2>
+  </div>
+
+  <!-- M7-L1 -->
+  <section class="lesson-section" id="m7-l1">
+    <div class="lesson-header">
+      <span class="lesson-num">7.1</span>
+      <h2>Optimisation mémoire : downcasting et Categorical</h2>
+    </div>
+
+    <p>Réduire l'empreinte mémoire d'un DataFrame n'est pas qu'une question de performance — c'est souvent une nécessité pour traiter des datasets qui dépassent la RAM disponible. Deux techniques combinées permettent généralement de diviser la mémoire par 5 à 10 : le downcasting des numériques et la conversion en Categorical.</p>
+
+    <h3>Stratégie d'optimisation systématique</h3>
+
+<pre><code class="language-python">import pandas as pd
+import numpy as np
+
+def optimiser_memoire(df: pd.DataFrame, verbose: bool = True) -> pd.DataFrame:
+    """
+    Optimise automatiquement les dtypes d'un DataFrame.
+    Réduit typiquement la mémoire de 50% à 80%.
+    """
+    mem_avant = df.memory_usage(deep=True).sum() / 1e6
+    df = df.copy()
+
+    for col in df.columns:
+        col_type = df[col].dtype
+
+        # Colonnes objet (texte)
+        if col_type == 'object':
+            # Si peu de valeurs uniques : Categorical
+            n_unique = df[col].nunique()
+            n_total  = df[col].notna().sum()
+            if n_unique / n_total &lt; 0.5:   # &lt; 50% de cardinalité
+                df[col] = df[col].astype('category')
+
+        # Colonnes entières
+        elif pd.api.types.is_integer_dtype(col_type):
+            col_min = df[col].min()
+            col_max = df[col].max()
+
+            if col_min >= 0:  # entiers non-signés
+                if col_max &lt; 255:
+                    df[col] = df[col].astype(np.uint8)
+                elif col_max &lt; 65535:
+                    df[col] = df[col].astype(np.uint16)
+                elif col_max &lt; 4294967295:
+                    df[col] = df[col].astype(np.uint32)
+            else:  # entiers signés
+                if col_min >= -128 and col_max &lt; 128:
+                    df[col] = df[col].astype(np.int8)
+                elif col_min >= -32768 and col_max &lt; 32768:
+                    df[col] = df[col].astype(np.int16)
+                elif col_min >= -2147483648 and col_max &lt; 2147483648:
+                    df[col] = df[col].astype(np.int32)
+
+        # Colonnes float
+        elif pd.api.types.is_float_dtype(col_type):
+            df[col] = pd.to_numeric(df[col], downcast='float')  # float32 si possible
+
+    mem_apres = df.memory_usage(deep=True).sum() / 1e6
+    if verbose:
+        print(f"Mémoire avant : {mem_avant:.2f} MB")
+        print(f"Mémoire après : {mem_apres:.2f} MB")
+        print(f"Réduction     : {(1 - mem_apres/mem_avant)*100:.1f}%")
+
+    return df
+
+
+# Utilisation
+df = pd.read_csv('gros_dataset.csv')
+df_opt = optimiser_memoire(df)</code></pre>
+
+    <h3>Spécifier les types dès le chargement</h3>
+
+<pre><code class="language-python">import pandas as pd
+import numpy as np
+
+# La meilleure optimisation : spécifier les types AVANT de charger
+# Évite l'allocation en int64/float64 puis la reconversion
+dtype_map = {
+    'user_id':    np.int32,
+    'age':        np.uint8,
+    'score':      np.float32,
+    'pays':       'category',
+    'actif':      bool,
+    'ref_produit': 'string',  # StringDtype Arrow — plus efficace que object
+}
+
+df = pd.read_csv(
+    'dataset.csv',
+    dtype=dtype_map,
+    parse_dates=['date_creation']
+)
+
+print(df.memory_usage(deep=True).sum() / 1e6, 'MB')
+
+# Inférence automatique avec convert_dtypes() (Pandas 1.0+)
+# Choisit les types optimaux selon le contenu
+df_auto = pd.read_csv('dataset.csv').convert_dtypes()
+print(df_auto.dtypes)</code></pre>
+
+    <div class="callout pitfall">
+      <div class="callout-header">⚠ Piège courant</div>
+      <p>Après avoir casté une colonne en <code>int32</code>, si vous faites une opération arithmétique avec une valeur <code>float</code>, Pandas peut silencieusement la promouvoir en <code>float64</code> — annulant votre optimisation. Surveillez les dtypes après chaque transformation avec <code>df.dtypes</code>, surtout après les merges et les groupby.</p>
+    </div>
+
+    <div class="callout exercise">
+      <div class="callout-header">✦ Exercice</div>
+      <p>Générez un DataFrame de 2 millions de lignes (âge, pays parmi 50, score entre 0 et 100, identifiant, date). (1) Mesurez la mémoire initiale. (2) Appliquez la fonction <code>optimiser_memoire()</code>. (3) Vérifiez qu'aucune valeur n'a été altérée par le downcasting (comparez les sommes/means avant et après). (4) Mesurez le gain en temps de lecture d'un fichier Parquet avec ces types vs les types par défaut.</p>
+    </div>
+  </section>
+
+  <!-- M7-L2 -->
+  <section class="lesson-section" id="m7-l2">
+    <div class="lesson-header">
+      <span class="lesson-num">7.2</span>
+      <h2>Vectorisation vs apply vs boucles Python</h2>
+    </div>
+
+    <p>Le choix entre une boucle Python, <code>apply()</code> et une opération vectorisée est la décision de performance la plus importante en Pandas. La différence peut atteindre ×1000 sur de grands datasets. Comprendre pourquoi permet de faire le bon choix systématiquement.</p>
+
+    <h3>Benchmark : 4 approches pour le même calcul</h3>
+
+<pre><code class="language-python">import pandas as pd
+import numpy as np
+import timeit
+
+N = 1_000_000
+df = pd.DataFrame({
+    'a': np.random.rand(N),
+    'b': np.random.rand(N),
+    'c': np.random.randint(1, 100, N)
+})
+
+# Objectif : calculer (a * b + c) / (a + b) pour chaque ligne
+
+# ──────────────────────────────────────────────
+# Approche 1 : boucle Python pure — JAMAIS
+# ──────────────────────────────────────────────
+def boucle_pure(df):
+    results = []
+    for i in range(len(df)):
+        a, b, c = df.iloc[i]['a'], df.iloc[i]['b'], df.iloc[i]['c']
+        results.append((a * b + c) / (a + b))
+    return results
+# Estimé : ~300 secondes sur 1M lignes — inutilisable
+
+# ──────────────────────────────────────────────
+# Approche 2 : iterrows — LENT
+# ──────────────────────────────────────────────
+def via_iterrows(df):
+    results = []
+    for _, row in df.iterrows():
+        results.append((row['a'] * row['b'] + row['c']) / (row['a'] + row['b']))
+    return results
+# Estimé : ~60-90 secondes — trop lent
+
+# ──────────────────────────────────────────────
+# Approche 3 : apply(axis=1) — ACCEPTABLE sur petits datasets
+# ──────────────────────────────────────────────
+def via_apply(df):
+    return df.apply(
+        lambda row: (row['a'] * row['b'] + row['c']) / (row['a'] + row['b']),
+        axis=1
+    )
+# Estimé : ~5-10 secondes
+
+# ──────────────────────────────────────────────
+# Approche 4 : vectorisée NumPy — TOUJOURS
+# ──────────────────────────────────────────────
+def vectorisee(df):
+    return (df['a'] * df['b'] + df['c']) / (df['a'] + df['b'])
+# Estimé : ~0.01 seconde — ×1000 vs apply
+
+# Benchmark réel
+t_apply = timeit.timeit(lambda: via_apply(df.head(10000)), number=3) / 3
+t_vec   = timeit.timeit(lambda: vectorisee(df.head(10000)), number=100) / 100
+print(f"apply    : {t_apply*1000:.1f} ms")
+print(f"vectorisé: {t_vec*1000:.1f} ms")
+print(f"Ratio    : ×{t_apply/t_vec:.0f}")</code></pre>
+
+    <h3>Remplacer apply(axis=1) par des opérations vectorisées</h3>
+
+<pre><code class="language-python">import pandas as pd
+import numpy as np
+
+df = pd.DataFrame({
+    'prix':       [10, 25, 5, 100, 50],
+    'quantite':   [3, 1, 10, 2, 5],
+    'remise_pct': [0, 10, 5, 20, 15],
+    'pays':       ['FR', 'US', 'FR', 'GB', 'US']
+})
+
+# ❌ apply(axis=1) — lent
+def calc_lent(row):
+    total = row['prix'] * row['quantite']
+    remise = total * row['remise_pct'] / 100
+    if row['pays'] == 'FR':
+        tva = (total - remise) * 0.2
+    elif row['pays'] == 'GB':
+        tva = (total - remise) * 0.2
+    else:
+        tva = 0
+    return total - remise + tva
+
+df['total_lent'] = df.apply(calc_lent, axis=1)
+
+# ✅ vectorisé — rapide
+total  = df['prix'] * df['quantite']
+remise = total * df['remise_pct'] / 100
+net    = total - remise
+tva_rate = np.where(df['pays'].isin(['FR', 'GB']), 0.20, 0.0)
+df['total_vect'] = net * (1 + tva_rate)
+
+# Vérification
+assert (df['total_lent'].round(6) == df['total_vect'].round(6)).all()
+
+# Quand apply(axis=1) est inévitable :
+# → Logique très complexe avec branchements imbriqués
+# → Appels à des fonctions externes non vectorisables
+# → Dans ces cas, numba ou Cython peuvent aider
+
+# numba : compilation JIT pour les boucles Python
+from numba import njit
+
+@njit
+def calcul_numba(prix, quantite, remise_pct, pays_code):
+    n = len(prix)
+    result = np.empty(n)
+    for i in range(n):
+        total  = prix[i] * quantite[i]
+        remise = total * remise_pct[i] / 100
+        net    = total - remise
+        result[i] = net * (1.2 if pays_code[i] &lt;= 1 else 1.0)
+    return result</code></pre>
+
+    <div class="callout pitfall">
+      <div class="callout-header">⚠ Piège courant</div>
+      <p><code>df.iterrows()</code> est la pire façon d'itérer sur un DataFrame : chaque appel crée une nouvelle Series et copie les données. Sur 1M de lignes, c'est ×6000 plus lent qu'une opération vectorisée. Si vous avez absolument besoin d'itérer, utilisez <code>df.itertuples()</code> (namedtuples, ×10 plus rapide qu'iterrows) ou mieux encore, travaillez sur les arrays NumPy sous-jacents via <code>df['col'].to_numpy()</code>.</p>
+    </div>
+
+    <div class="callout exercise">
+      <div class="callout-header">✦ Exercice</div>
+      <p>Vous avez une fonction de scoring métier complexe qui prend une ligne et retourne un score (0-100) basé sur 5 colonnes numériques avec des règles conditionnelles. (1) Implémentez-la avec <code>apply(axis=1)</code>. (2) Réécrivez-la en version 100% vectorisée (np.where + opérations sur colonnes). (3) Benchmarkez les deux sur 500 000 lignes. Cibles : apply &lt; 30s, vectorisée &lt; 0.5s.</p>
+    </div>
+  </section>
+
+  <!-- M7-L3 -->
+  <section class="lesson-section" id="m7-l3">
+    <div class="lesson-header">
+      <span class="lesson-num">7.3</span>
+      <h2>Chunksize et traitement de gros fichiers</h2>
+    </div>
+
+    <p>Quand un fichier CSV dépasse la RAM disponible, le chargement en une seule fois est impossible. Pandas offre le paramètre <code>chunksize</code> pour lire le fichier par blocs, et Parquet permet la lecture sélective de colonnes. Ces patterns permettent de traiter des fichiers de plusieurs dizaines de Go sur une machine ordinaire.</p>
+
+    <h3>Lire par chunks</h3>
+
+<pre><code class="language-python">import pandas as pd
+import numpy as np
+
+# chunksize retourne un TextFileReader (itérateur)
+reader = pd.read_csv('gros_fichier.csv', chunksize=100_000)
+
+# Pattern 1 : agréger au fil de la lecture
+total_ventes = 0
+nb_lignes    = 0
+
+for chunk in reader:
+    total_ventes += chunk['montant'].sum()
+    nb_lignes    += len(chunk)
+
+print(f"Total : {total_ventes:,.2f} ({nb_lignes:,} lignes)")
+
+# Pattern 2 : filtrer et assembler
+resultats = []
+for chunk in pd.read_csv('gros_fichier.csv', chunksize=100_000):
+    # Filtrer avant d'accumuler → mémoire maîtrisée
+    filtre = chunk[chunk['statut'] == 'validé']
+    filtre = filtre[filtre['montant'] > 100]
+    resultats.append(filtre[['id', 'montant', 'date']])
+
+df_final = pd.concat(resultats, ignore_index=True)
+
+# Pattern 3 : écriture en streaming vers Parquet
+for i, chunk in enumerate(pd.read_csv('gros_fichier.csv', chunksize=100_000)):
+    chunk_propre = chunk.dropna().astype({'montant': 'float32'})
+    # Écrire chaque chunk dans un fichier Parquet séparé
+    chunk_propre.to_parquet(f'/tmp/chunks/part_{i:04d}.parquet', index=False)
+
+# Puis lire tous les chunks en une fois (lecture sélective)
+df = pd.read_parquet('/tmp/chunks/', columns=['id', 'montant'])</code></pre>
+
+    <h3>Optimiser avec dtype lors du chargement</h3>
+
+<pre><code class="language-python">import pandas as pd
+import numpy as np
+
+# Première passe : inspecter les 1000 premières lignes pour connaître les plages
+sample = pd.read_csv('gros_fichier.csv', nrows=1000)
+print(sample.dtypes)
+print(sample.describe())
+
+# Définir les types optimaux basés sur l'inspection
+dtype_map = {
+    'user_id':   np.int32,        # max observé &lt; 2M → int32 suffisant
+    'age':       np.uint8,         # 0-120 → uint8
+    'montant':   np.float32,       # précision float32 suffisante
+    'categorie': 'category',       # 20 catégories → Categorical
+    'pays':      'category',       # 50 pays
+    'actif':     bool
+}
+
+# Deuxième passe : chargement optimisé
+reader = pd.read_csv(
+    'gros_fichier.csv',
+    dtype=dtype_map,
+    parse_dates=['date'],
+    chunksize=500_000
+)
+
+for chunk in reader:
+    # Traitement...
+    pass</code></pre>
+
+    <h3>Alternatives pour les très grands volumes</h3>
+
+<pre><code class="language-python"># Pour des fichiers > 10 GB, Pandas seul n'est plus suffisant.
+# Les alternatives naturelles :
+
+# 1. Polars : DataFrame library en Rust, plus rapide que Pandas
+# pip install polars
+import polars as pl
+
+# Lazy evaluation : construit un plan d'exécution avant de calculer
+df_lazy = (pl.scan_csv('gros_fichier.csv')
+             .filter(pl.col('montant') > 100)
+             .groupby('categorie')
+             .agg(pl.col('montant').sum())
+             .collect())   # exécution optimisée ici seulement
+
+# 2. DuckDB : SQL sur fichiers Parquet, ultra-rapide
+# pip install duckdb
+import duckdb
+
+result = duckdb.query("""
+    SELECT categorie, SUM(montant) as total
+    FROM read_parquet('data/*.parquet')
+    WHERE montant > 100
+    GROUP BY categorie
+    ORDER BY total DESC
+""").df()   # retourne un DataFrame Pandas
+
+# 3. Modin : accélération parallèle de Pandas (drop-in replacement)
+# pip install modin[ray]
+import modin.pandas as pd  # même API que Pandas, multi-core automatique</code></pre>
+
+    <div class="callout pitfall">
+      <div class="callout-header">⚠ Piège courant</div>
+      <p>Quand on traite par chunks, il est tentant d'accumuler tous les résultats filtrés dans une liste et de faire <code>pd.concat()</code> à la fin. Mais si le filtre est peu sélectif, la liste peut elle aussi dépasser la RAM. Dans ce cas, écrivez chaque chunk filtré directement sur disque (Parquet, CSV par append, ou base de données) plutôt que de les accumuler en mémoire.</p>
+    </div>
+
+    <div class="callout exercise">
+      <div class="callout-header">✦ Exercice</div>
+      <p>Générez un fichier CSV de 5 millions de lignes (colonnes : date, user_id, produit, montant, pays). (1) Calculez le total des ventes par pays en lisant par chunks de 500 000 lignes. (2) Filtrez et sauvegardez en Parquet uniquement les transactions &gt; 50€. (3) Comparez le temps de traitement et la mémoire max utilisée avec et sans chunksize (si votre RAM le permet).</p>
+    </div>
+  </section>
+
+  <!-- M7-L4 -->
+  <section class="lesson-section" id="m7-l4">
+    <div class="lesson-header">
+      <span class="lesson-num">7.4</span>
+      <h2>Pandas 2.0 : Copy-on-Write et backend Arrow</h2>
+    </div>
+
+    <p>Pandas 2.0 (sorti en 2023) et les versions suivantes introduisent deux changements majeurs : le <strong>Copy-on-Write</strong> (CoW) qui élimine les ambiguïtés vues/copies, et le backend <strong>Apache Arrow</strong> qui améliore massivement les performances et la cohérence des types. Ces changements modifient des comportements que vous connaissiez peut-être.</p>
+
+    <h3>Copy-on-Write (CoW)</h3>
+    <p>Avant Pandas 2.0, la question "est-ce une vue ou une copie ?" était une source constante de bugs. CoW simplifie le modèle : toute modification d'un sous-ensemble crée toujours une copie. Plus jamais de <code>SettingWithCopyWarning</code>.</p>
+
+<pre><code class="language-python">import pandas as pd
+
+# Activer CoW (activé par défaut dans Pandas 3.0, optionnel en 2.x)
+pd.options.mode.copy_on_write = True  # ou "warn" pour voir les avertissements
+
+df = pd.DataFrame({'a': [1, 2, 3], 'b': [4, 5, 6]})
+
+# Sans CoW (Pandas &lt;2.0) : comportement ambigu
+subset = df[['a']]
+subset['a'] = 99  # SettingWithCopyWarning — modifie-t-il df ?
+
+# Avec CoW (Pandas 2.0+) : comportement déterministe
+subset = df[['a']]    # vues sont CoW — aucune copie allouée ici
+subset['a'] = 99      # CoW déclenche la copie ICI, au moment de la modification
+print(df['a'])        # [1, 2, 3] — df est intact, toujours
+
+# Conséquence pratique : vous n'avez plus besoin de .copy() défensif
+# ❌ Ancien pattern défensif inutile avec CoW :
+df_clean = df[df['a'] > 1].copy()   # .copy() n'est plus nécessaire
+# ✅ Avec CoW, c'est équivalent :
+df_clean = df[df['a'] > 1]          # CoW garantit l'isolation</code></pre>
+
+    <h3>Backend Apache Arrow</h3>
+
+<pre><code class="language-python">import pandas as pd
+
+# Depuis Pandas 1.5 : types Arrow via ArrowDtype
+# Disponibles avec : pip install pyarrow
+
+# Utiliser Arrow pour le stockage en mémoire
+df = pd.DataFrame({
+    'nom':     pd.array(['Alice', 'Bob', None], dtype='string[pyarrow]'),
+    'age':     pd.array([28, 35, 22], dtype='int32[pyarrow]'),
+    'score':   pd.array([4.5, 3.8, None], dtype='float64[pyarrow]'),
+    'actif':   pd.array([True, False, True], dtype='bool[pyarrow]'),
+})
+
+# Ou via ArrowDtype
+import pyarrow as pa
+df2 = pd.DataFrame({
+    'id':  pd.array([1, 2, 3], dtype=pd.ArrowDtype(pa.int32())),
+    'tag': pd.array(['a', 'b', None], dtype=pd.ArrowDtype(pa.string())),
+})
+
+# Avantages Arrow :
+# 1. Types nullables natifs (pas de promotion int → float pour NaN)
+# 2. String Arrow → 5-10x moins de mémoire que dtype object
+# 3. Interopérabilité directe avec Parquet, Polars, DuckDB (zéro-copy)
+# 4. SIMD et compression natives sur les opérations Arrow
+
+# Conversion DataFrame existant vers Arrow
+df_arrow = df.convert_dtypes(dtype_backend='pyarrow')
+print(df_arrow.dtypes)
+# nom    string[pyarrow]
+# age    int32[pyarrow]
+# ...</code></pre>
+
+    <h3>Pandas 2.x : autres changements importants</h3>
+
+<pre><code class="language-python">import pandas as pd
+
+# 1. Fréquences de DateOffset renommées (Pandas 2.2+)
+# Ancien :  'M', 'Q', 'A', 'H', 'T', 'S'
+# Nouveau : 'ME', 'QE', 'YE', 'h', 'min', 's'
+pd.date_range('2024-01', periods=12, freq='ME')   # fin de mois
+pd.date_range('2024-01', periods=4, freq='QE')    # fin de trimestre
+
+# 2. DataFrame.applymap() deprecated → DataFrame.map()
+df = pd.DataFrame({'a': [1, 2, 3]})
+df.map(lambda x: x**2)   # remplace applymap()
+
+# 3. Index plus strict sur les opérations in-place
+# Certaines opérations qui modifiaient en place retournent maintenant des copies
+# Toujours utiliser la forme assignment : df = df.drop_duplicates()
+
+# 4. Inférence de type plus stricte
+# pd.read_csv() peut maintenant inférer de meilleurs types avec convert_dtypes=True
+df = pd.read_csv('data.csv', dtype_backend='pyarrow')
+# ou
+df = pd.read_csv('data.csv').convert_dtypes(dtype_backend='pyarrow')
+
+# Vérifier la version de Pandas
+print(pd.__version__)  # doit être >= 2.0.0</code></pre>
+
+    <div class="callout info">
+      <div class="callout-header">ℹ Migration vers Pandas 2.x</div>
+      <p>Si vous migrez un code existant vers Pandas 2.x : (1) activez <code>pd.options.mode.copy_on_write = 'warn'</code> pour identifier le code qui dépend du comportement vue/copie ; (2) remplacez les fréquences dépréciées ('M' → 'ME', 'Q' → 'QE', etc.) ; (3) remplacez <code>applymap()</code> par <code>map()</code>. La plupart du code Pandas 1.x continue de fonctionner avec des avertissements plutôt que des erreurs.</p>
+    </div>
+
+    <div class="callout exercise">
+      <div class="callout-header">✦ Exercice Final</div>
+      <p>Construisez un pipeline data complet qui : (1) charge un gros CSV par chunks avec des dtypes Arrow optimisés, (2) nettoie les données (NaN, doublons, types), (3) calcule des statistiques agrégées par groupe, (4) génère un quality report JSON, (5) sauvegarde le résultat en Parquet. Mesurez la mémoire peak et le temps total. Comparez avec une version Pandas "naïve" sans optimisation.</p>
+    </div>
+  </section>
+
+  <!-- FIN DU COURS -->
+  <div style="margin-top:5rem; padding:2rem; background:var(--bg-card); border:1px solid var(--border2); border-radius:16px; text-align:center;">
+    <div style="font-family:var(--font-mono); font-size:0.8rem; color:var(--green); margin-bottom:0.75rem; letter-spacing:0.1em;">✓ FORMATION COMPLÈTE</div>
+    <h2 style="font-family:var(--font-display); font-size:1.5rem; margin-bottom:0.75rem;">Félicitations !</h2>
+    <p style="color:var(--text-muted); max-width:500px; margin:0 auto;">Vous avez couvert l'ensemble du pipeline Python Data : des fondations NumPy jusqu'aux bonnes pratiques de performance Pandas 2.x. Marquez les leçons complétées dans la sidebar pour suivre votre progression.</p>
+    <div style="display:flex; justify-content:center; gap:2rem; margin-top:1.5rem;">
+      <div><div style="font-size:1.8rem; font-weight:700; color:var(--accent); font-family:var(--font-display);">7</div><div style="font-size:0.78rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em;">Modules</div></div>
+      <div><div style="font-size:1.8rem; font-weight:700; color:var(--purple); font-family:var(--font-display);">30</div><div style="font-size:0.78rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em;">Leçons</div></div>
+      <div><div style="font-size:1.8rem; font-weight:700; color:var(--green); font-family:var(--font-display);">30</div><div style="font-size:0.78rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em;">Exercices</div></div>
+    </div>
+  </div>
+
+</main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+hljs.highlightAll();
+
+// Toggle sidebar mobile
+const sidebar = document.getElementById('sidebar');
+document.getElementById('menuToggle').addEventListener('click', () => {
+  sidebar.classList.toggle('open');
+});
+
+// Fermer la sidebar en cliquant ailleurs sur mobile
+document.addEventListener('click', (e) => {
+  if (window.innerWidth <= 900 && sidebar.classList.contains('open')) {
+    if (!sidebar.contains(e.target) && e.target.id !== 'menuToggle') {
+      sidebar.classList.remove('open');
+    }
+  }
+});
+
+// Module toggle
+function toggleModule(titleEl) {
+  const list = titleEl.nextElementSibling;
+  titleEl.classList.toggle('collapsed');
+  list.style.display = titleEl.classList.contains('collapsed') ? 'none' : '';
+}
+
+// Progression via localStorage
+const storageKey = 'course-pandas-numpy-v1';
+const done = JSON.parse(localStorage.getItem(storageKey) || '{}');
+
+function updateProgress() {
+  const links = document.querySelectorAll('[data-lesson]');
+  const total = links.length;
+  const completed = Object.values(done).filter(Boolean).length;
+  const pct = total ? (completed / total * 100) : 0;
+  document.getElementById('progressFill').style.width = pct + '%';
+  const mini = document.getElementById('progressMini');
+  if (mini) mini.style.width = pct + '%';
+  document.getElementById('progressText').textContent = completed + ' / ' + total;
+}
+
+document.querySelectorAll('[data-lesson]').forEach(link => {
+  const id = link.dataset.lesson;
+  const check = link.querySelector('.lesson-check');
+  if (done[id]) check.classList.add('done');
+
+  link.addEventListener('click', () => {
+    done[id] = true;
+    localStorage.setItem(storageKey, JSON.stringify(done));
+    check.classList.add('done');
+    updateProgress();
+    if (window.innerWidth <= 900) sidebar.classList.remove('open');
+  });
+});
+
+updateProgress();
+
+// Highlight leçon active au scroll
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      document.querySelectorAll('[data-lesson]').forEach(l => l.classList.remove('active'));
+      const id = entry.target.id;
+      const link = document.querySelector(`[data-lesson="${id}"]`);
+      if (link) link.classList.add('active');
+    }
+  });
+}, { threshold: 0.2, rootMargin: '-10% 0px -70% 0px' });
+
+document.querySelectorAll('.lesson-section').forEach(s => observer.observe(s));
+</script>
+</body>
+</html>
