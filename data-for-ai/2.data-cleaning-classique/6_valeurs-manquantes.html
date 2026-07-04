@@ -1,0 +1,2320 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gestion des Valeurs Manquantes — Suppression, Imputation, Décision Métier</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Karla:wght@400;500;600&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<style>
+  :root {
+    --bg:         #f7f8f9;
+    --bg-alt:     #eceef0;
+    --bg-card:    #ffffff;
+    --text:       #16181b;
+    --text-muted: #62686f;
+    --border:     #dfe3e6;
+    --border2:    #cbd1d5;
+
+    --missing:      #d97706;
+    --missing-dim:  #fdf1e0;
+    --imputed:      #6d5ce8;
+    --imputed-dim:  #eeebfc;
+    --deleted:      #d1354a;
+    --deleted-dim:  #fbe4e8;
+
+    --font-display: 'Plus Jakarta Sans', sans-serif;
+    --font-body: 'Karla', sans-serif;
+    --font-mono: 'Fira Code', monospace;
+
+    --sidebar-width: 300px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font-body);
+    color: var(--text);
+    background: var(--bg);
+    line-height: 1.7;
+  }
+
+  .layout { display: flex; min-height: 100vh; }
+
+  /* ---- Sidebar ---- */
+  .sidebar {
+    width: var(--sidebar-width);
+    flex-shrink: 0;
+    background: var(--bg-card);
+    border-right: 1px solid var(--border);
+    padding: 1.75rem 1.25rem 2rem;
+    overflow-y: auto;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+  }
+
+  .sidebar-header {
+    position: relative;
+    padding-bottom: 1.25rem;
+    margin-bottom: 1.25rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-header .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--imputed);
+    display: block;
+    margin-bottom: 0.4rem;
+  }
+
+  .sidebar h1 {
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    font-weight: 800;
+    line-height: 1.35;
+  }
+
+  /* signature : mini grille trou -> comblé */
+  .gap-signature {
+    display: flex;
+    gap: 0.3rem;
+    margin-top: 0.9rem;
+  }
+  .gap-cell {
+    width: 22px; height: 22px;
+    border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+  }
+  .gap-cell.hole { border: 1.5px dashed var(--missing); color: var(--missing); background: var(--missing-dim); }
+  .gap-cell.filled { background: var(--imputed); color: white; }
+
+  .module-group { margin-bottom: 0.35rem; }
+
+  .module-title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 0.9rem;
+    padding: 0.6rem 0.5rem;
+    cursor: pointer;
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text);
+  }
+  .module-title:hover { background: var(--bg-alt); }
+  .module-num {
+    font-family: var(--font-mono);
+    color: var(--imputed);
+    font-size: 0.76rem;
+    flex-shrink: 0;
+  }
+
+  .lesson-list { list-style: none; padding-left: 0.6rem; margin-bottom: 0.5rem; }
+  .lesson-list li a {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.4rem 0.5rem;
+    border-radius: 7px;
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.86rem;
+  }
+  .lesson-list li a:hover { background: var(--bg-alt); color: var(--text); }
+  .lesson-list li a.active { color: var(--imputed); font-weight: 600; background: var(--imputed-dim); }
+
+  .lesson-check {
+    width: 13px; height: 13px; flex-shrink: 0;
+    border: 1.5px dashed var(--border2); border-radius: 3px;
+  }
+  .lesson-check.done { background: var(--imputed); border: 1.5px solid var(--imputed); }
+
+  /* ---- Barre de progression ---- */
+  .progress-bar {
+    height: 4px;
+    background: var(--border);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--missing), var(--imputed));
+    width: 0%;
+    transition: width 0.2s ease;
+  }
+
+  /* ---- Contenu principal ---- */
+  .content {
+    flex: 1;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 3rem 2rem 6rem;
+  }
+
+  .content section { margin-bottom: 4rem; }
+
+  .lesson-kicker {
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    color: var(--imputed);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.6rem;
+    display: block;
+  }
+
+  .content h2 {
+    font-family: var(--font-display);
+    font-size: 1.7rem;
+    font-weight: 800;
+    margin-bottom: 1.1rem;
+    line-height: 1.3;
+  }
+  .content h3 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.1rem;
+    margin: 1.75rem 0 0.75rem;
+    color: var(--text);
+  }
+  .content p, .content ul, .content ol { margin-bottom: 1.1rem; }
+  .content ul, .content ol { padding-left: 1.4rem; }
+  .content li { margin-bottom: 0.4rem; }
+  .content strong { color: var(--text); }
+  .content code {
+    font-family: var(--font-mono);
+    background: var(--bg-alt);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.85em;
+  }
+
+  pre {
+    border-radius: 10px;
+    padding: 1.1rem 1.2rem;
+    overflow-x: auto;
+    margin: 1.2rem 0;
+    font-size: 0.85rem;
+  }
+  pre code { background: none; padding: 0; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.2rem 0;
+    font-size: 0.9rem;
+  }
+  th, td {
+    text-align: left;
+    padding: 0.55rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+  }
+  th { font-family: var(--font-display); font-size: 0.82rem; color: var(--text-muted); }
+
+  /* Signature du cours : mini-grille trou -> comblé/supprimé */
+  .gap-row {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.8rem 1.1rem;
+    margin: 1rem 0;
+    flex-wrap: wrap;
+  }
+  .gap-row .hole-tag {
+    border: 1.5px dashed var(--missing); color: var(--missing); background: var(--missing-dim);
+    padding: 0.2rem 0.55rem; border-radius: 5px;
+  }
+  .gap-row .arrow { color: var(--text-muted); }
+  .gap-row .fill-tag {
+    background: var(--imputed); color: white; font-weight: 600;
+    padding: 0.2rem 0.55rem; border-radius: 5px;
+  }
+  .gap-row .del-tag {
+    background: var(--deleted); color: white; font-weight: 600; text-decoration: line-through;
+    padding: 0.2rem 0.55rem; border-radius: 5px;
+  }
+
+  .callout {
+    border-left: 4px solid var(--imputed);
+    background: var(--imputed-dim);
+    padding: 1rem 1.2rem;
+    border-radius: 0 10px 10px 0;
+    margin: 1.4rem 0;
+  }
+  .callout strong {
+    font-family: var(--font-display);
+    display: block;
+    margin-bottom: 0.3rem;
+    font-size: 0.9rem;
+  }
+  .callout.pitfall { border-left-color: var(--deleted); background: var(--deleted-dim); }
+  .callout.exercise { border-left-color: var(--missing); background: var(--missing-dim); }
+
+  .module-divider {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 0 0 2.5rem;
+    color: var(--text-muted);
+  }
+  .module-divider .num {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--imputed);
+    background: var(--imputed-dim);
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    flex-shrink: 0;
+  }
+  .module-divider .line { flex: 1; height: 1px; background: var(--border2); }
+
+  .menu-toggle { display: none; }
+
+  @media (max-width: 768px) {
+    .sidebar {
+      position: fixed;
+      left: -100%;
+      z-index: 20;
+      transition: left 0.2s ease;
+      box-shadow: 4px 0 12px rgba(0,0,0,0.12);
+      width: 85%;
+      max-width: 320px;
+    }
+    .sidebar.open { left: 0; }
+    .menu-toggle {
+      display: block;
+      position: fixed;
+      top: 1rem; left: 1rem;
+      z-index: 30;
+      background: var(--imputed);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 0.55rem 0.8rem;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    .content { padding: 4.5rem 1.25rem 3rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-bar-fill" id="progressFill"></div></div>
+<button class="menu-toggle" id="menuToggle">☰</button>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <span class="eyebrow">Bloc 2 · Data Cleaning Classique · Cours 2/4</span>
+      <h1>Gestion des Valeurs Manquantes</h1>
+      <div class="gap-signature">
+        <span class="gap-cell hole">?</span>
+        <span class="gap-cell hole">?</span>
+        <span class="gap-cell filled">✓</span>
+        <span class="gap-cell filled">✓</span>
+      </div>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span class="module-num">01</span> Comprendre la Nature</div>
+      <ul class="lesson-list">
+        <li><a href="#m1-l1" data-lesson="m1-l1"><span class="lesson-check"></span> Pourquoi les Données Manquent</a></li>
+        <li><a href="#m1-l2" data-lesson="m1-l2"><span class="lesson-check"></span> MCAR, MAR, MNAR</a></li>
+        <li><a href="#m1-l3" data-lesson="m1-l3"><span class="lesson-check"></span> Détecter et Quantifier</a></li>
+        <li><a href="#m1-l4" data-lesson="m1-l4"><span class="lesson-check"></span> Les Multiples Visages de l'Absence</a></li>
+        <li><a href="#m1-l5" data-lesson="m1-l5"><span class="lesson-check"></span> La Valeur Manquante Déguisée</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span class="module-num">02</span> Diagnostiquer le Mécanisme</div>
+      <ul class="lesson-list">
+        <li><a href="#m2-l1" data-lesson="m2-l1"><span class="lesson-check"></span> Visualiser les Patterns de Manquance</a></li>
+        <li><a href="#m2-l2" data-lesson="m2-l2"><span class="lesson-check"></span> Tester le MCAR : le Test de Little</a></li>
+        <li><a href="#m2-l3" data-lesson="m2-l3"><span class="lesson-check"></span> Détecter le MAR</a></li>
+        <li><a href="#m2-l4" data-lesson="m2-l4"><span class="lesson-check"></span> Suspecter le MNAR</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span class="module-num">03</span> Stratégies de Suppression</div>
+      <ul class="lesson-list">
+        <li><a href="#m3-l1" data-lesson="m3-l1"><span class="lesson-check"></span> Suppression de Lignes</a></li>
+        <li><a href="#m3-l2" data-lesson="m3-l2"><span class="lesson-check"></span> Suppression de Colonnes</a></li>
+        <li><a href="#m3-l3" data-lesson="m3-l3"><span class="lesson-check"></span> Le Coût Caché de la Suppression</a></li>
+        <li><a href="#m3-l4" data-lesson="m3-l4"><span class="lesson-check"></span> Documenter l'Arbitrage</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span class="module-num">04</span> Imputation Simple</div>
+      <ul class="lesson-list">
+        <li><a href="#m4-l1" data-lesson="m4-l1"><span class="lesson-check"></span> Imputation par une Constante</a></li>
+        <li><a href="#m4-l2" data-lesson="m4-l2"><span class="lesson-check"></span> Moyenne, Médiane, Mode</a></li>
+        <li><a href="#m4-l3" data-lesson="m4-l3"><span class="lesson-check"></span> Forward/Backward Fill</a></li>
+        <li><a href="#m4-l4" data-lesson="m4-l4"><span class="lesson-check"></span> Imputation par Groupe</a></li>
+        <li><a href="#m4-l5" data-lesson="m4-l5"><span class="lesson-check"></span> Les Limites Systémiques</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span class="module-num">05</span> Imputation Statistique</div>
+      <ul class="lesson-list">
+        <li><a href="#m5-l1" data-lesson="m5-l1"><span class="lesson-check"></span> Imputation par Régression</a></li>
+        <li><a href="#m5-l2" data-lesson="m5-l2"><span class="lesson-check"></span> Imputation par KNN</a></li>
+        <li><a href="#m5-l3" data-lesson="m5-l3"><span class="lesson-check"></span> Imputation Multiple (MICE)</a></li>
+        <li><a href="#m5-l4" data-lesson="m5-l4"><span class="lesson-check"></span> Combiner : les Règles de Rubin</a></li>
+        <li><a href="#m5-l5" data-lesson="m5-l5"><span class="lesson-check"></span> Quand la Sophistication est Justifiée</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span class="module-num">06</span> Imputation Avancée</div>
+      <ul class="lesson-list">
+        <li><a href="#m6-l1" data-lesson="m6-l1"><span class="lesson-check"></span> Random Forest (MissForest)</a></li>
+        <li><a href="#m6-l2" data-lesson="m6-l2"><span class="lesson-check"></span> Séries Temporelles : Interpolation</a></li>
+        <li><a href="#m6-l3" data-lesson="m6-l3"><span class="lesson-check"></span> Texte et Catégories</a></li>
+        <li><a href="#m6-l4" data-lesson="m6-l4"><span class="lesson-check"></span> Comparer les Méthodes Objectivement</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span class="module-num">07</span> Décision Métier</div>
+      <ul class="lesson-list">
+        <li><a href="#m7-l1" data-lesson="m7-l1"><span class="lesson-check"></span> Quand le Manquant EST l'Information</a></li>
+        <li><a href="#m7-l2" data-lesson="m7-l2"><span class="lesson-check"></span> L'Indicateur de Manquance</a></li>
+        <li><a href="#m7-l3" data-lesson="m7-l3"><span class="lesson-check"></span> Consulter les Experts Métier</a></li>
+        <li><a href="#m7-l4" data-lesson="m7-l4"><span class="lesson-check"></span> Documenter et Communiquer</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span class="module-num">08</span> Pièges et Validation</div>
+      <ul class="lesson-list">
+        <li><a href="#m8-l1" data-lesson="m8-l1"><span class="lesson-check"></span> Le Data Leakage à l'Imputation</a></li>
+        <li><a href="#m8-l2" data-lesson="m8-l2"><span class="lesson-check"></span> Valider l'Impact de l'Imputation</a></li>
+        <li><a href="#m8-l3" data-lesson="m8-l3"><span class="lesson-check"></span> Manquants après une Jointure</a></li>
+        <li><a href="#m8-l4" data-lesson="m8-l4"><span class="lesson-check"></span> Checklist Finale de Décision</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main class="content">
+    <div class="module-divider">
+      <span class="num">MODULE 01 · COMPRENDRE LA NATURE</span>
+      <span class="line"></span>
+    </div>
+
+    <section id="m1-l1">
+      <span class="lesson-kicker">Module 1 · Leçon 1</span>
+      <h2>Pourquoi les Données Manquent : les Causes Réelles</h2>
+
+      <p>Face à une colonne truffée de <code>NaN</code>, le réflexe le plus fréquent est de traiter le problème de façon purement technique — combler ou supprimer — sans jamais se demander <strong>pourquoi</strong> cette donnée manque. C'est pourtant cette question qui détermine la stratégie correcte à adopter : une valeur manquante n'est jamais un simple "trou" neutre, elle porte toujours une histoire, et cette histoire a des conséquences directes sur la validité de tout traitement statistique ultérieur.</p>
+
+      <h3>Un inventaire des causes réelles derrière un NaN</h3>
+      <ul>
+        <li><strong>Non-réponse volontaire</strong> : un utilisateur choisit délibérément de ne pas renseigner un champ sensible (revenu, âge, opinion politique dans un sondage) — la non-réponse elle-même est souvent corrélée à la valeur qui aurait été donnée.</li>
+        <li><strong>Non-applicabilité</strong> : un champ "date de divorce" n'a pas de sens pour une personne jamais mariée — ici, l'absence n'est pas un problème de qualité de données, c'est la structure logique correcte de l'information.</li>
+        <li><strong>Erreur de collecte</strong> : un capteur défaillant, un bug dans un formulaire web qui n'enregistre pas certains champs sous certaines conditions, une coupure réseau pendant une transmission.</li>
+        <li><strong>Perte lors d'une intégration</strong> : une jointure entre deux systèmes qui échoue à faire correspondre certains enregistrements (Module 8), laissant les champs de la table jointe vides pour ces lignes.</li>
+        <li><strong>Troncature temporelle</strong> : une donnée qui n'existe pas encore au moment de l'extraction (une date de fin de contrat pour un contrat toujours en cours).</li>
+      </ul>
+
+      <div class="gap-row">
+        <span class="hole-tag">revenu = ?</span>
+        <span class="arrow">cause possible :</span>
+        <span>non-réponse volontaire, corrélée au niveau de revenu réel</span>
+      </div>
+
+      <h3>Pourquoi cette question précède toute décision technique</h3>
+      <p>Ces cinq causes n'appellent pas le même traitement. Une non-applicabilité structurelle (date de divorce pour un célibataire) ne devrait presque jamais être "imputée" au sens statistique — ce n'est pas une donnée manquante à deviner, c'est une absence logique à représenter explicitement (souvent via une catégorie dédiée plutôt qu'un NaN traité comme une inconnue à combler). À l'inverse, une erreur de capteur sur une série temporelle par ailleurs continue est un candidat naturel à l'interpolation (Module 6). Confondre ces cas — traiter une non-applicabilité comme une simple lacune statistique à combler par une moyenne — produit des résultats absurdes sans jamais lever d'erreur technique.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+df = pd.DataFrame({
+    "statut_marital": ["Marié", "Célibataire", "Divorcé"],
+    "date_divorce": ["2020-05-01", None, "2022-11-15"]
+})
+# Ici, le NaN pour "Célibataire" n'est PAS une donnée manquante au sens classique --
+# c'est la valeur logiquement correcte, puisque la question ne s'applique pas à ce cas.
+# Imputer cette valeur par la date de divorce la plus fréquente serait absurde et trompeur.
+print(df)</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Appliquer une même règle de traitement des valeurs manquantes (imputation par la moyenne, par exemple) à l'ensemble d'un dataset sans distinguer les colonnes où l'absence signifie "non-applicable" de celles où elle signifie "inconnu mais existant". La première catégorie ne devrait presque jamais être imputée statistiquement ; la seconde peut légitimement l'être selon le mécanisme identifié (Module 1, leçon 2).
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Pour chacun des champs suivants d'un dataset RH, identifiez la cause la plus probable de valeur manquante parmi les cinq catégories de cette leçon : (1) "date_fin_periode_essai" pour un salarié en CDI depuis 10 ans, (2) "salaire_precedent" dans un formulaire de candidature, (3) "note_evaluation_annuelle" pour un salarié embauché il y a 2 semaines.
+      </div>
+    </section>
+
+    <section id="m1-l2">
+      <span class="lesson-kicker">Module 1 · Leçon 2</span>
+      <h2>Les Trois Mécanismes : MCAR, MAR, MNAR</h2>
+
+      <p>La statistique formalise les causes de manquance évoquées en leçon 1 en trois catégories précises, popularisées par Donald Rubin dans les années 1970 et restées depuis le cadre de référence incontournable pour raisonner sur les valeurs manquantes. Ces trois mécanismes ne sont pas un simple exercice de classification théorique : ils déterminent directement si une méthode de traitement produira des résultats biaisés ou fiables.</p>
+
+      <h3>MCAR — Missing Completely At Random</h3>
+      <p>La probabilité qu'une valeur manque est totalement indépendante de toute variable, observée ou non — y compris de la valeur manquante elle-même. Un exemple proche du MCAR : un technicien de laboratoire renverse accidentellement du café sur quelques échantillons, détruisant leur mesure au hasard, sans lien avec la nature des échantillons concernés. C'est le mécanisme le plus favorable et, en pratique, le plus rare — la plupart des données réelles ne sont pas MCAR.</p>
+
+      <h3>MAR — Missing At Random</h3>
+      <p>La probabilité qu'une valeur manque dépend d'<strong>autres variables observées</strong> dans le dataset, mais pas de la valeur manquante elle-même une fois ces autres variables prises en compte. Exemple : dans une enquête de satisfaction, les hommes répondent moins souvent à une question sur le bien-être émotionnel que les femmes — la manquance dépend du genre (observé), pas directement du niveau de bien-être lui-même une fois le genre connu. C'est le mécanisme le plus fréquent en pratique, et celui pour lequel les méthodes d'imputation statistique (Modules 4 et 5) sont conçues et valides.</p>
+
+      <h3>MNAR — Missing Not At Random</h3>
+      <p>La probabilité qu'une valeur manque dépend de la <strong>valeur manquante elle-même</strong>, même après avoir pris en compte toutes les autres variables observées. Exemple classique : les personnes à très hauts revenus déclarent moins souvent leur revenu dans un sondage — la manquance dépend directement du revenu, qui est précisément l'information manquante. C'est le mécanisme le plus problématique : aucune méthode d'imputation statistique standard ne peut le corriger correctement, car l'information nécessaire pour modéliser la manquance est, par définition, indisponible.</p>
+
+      <table>
+        <tr><th>Mécanisme</th><th>La manquance dépend de...</th><th>Risque si ignoré</th></tr>
+        <tr><td>MCAR</td><td>Rien (pur hasard)</td><td>Faible — suppression ou imputation simple généralement sans danger</td></tr>
+        <tr><td>MAR</td><td>Variables observées</td><td>Modéré — imputation statistique correcte si elle utilise les bonnes variables</td></tr>
+        <tr><td>MNAR</td><td>La valeur manquante elle-même</td><td>Élevé — biais systématique quasi impossible à corriger sans données externes</td></tr>
+      </table>
+
+      <pre><code class="language-python">import numpy as np
+import pandas as pd
+
+np.random.seed(0)
+n = 5000
+revenu_reel = np.random.lognormal(10.5, 0.6, n)
+
+# Simulation MNAR : la probabilité de non-réponse AUGMENTE avec le revenu réel lui-même
+proba_non_reponse = 1 / (1 + np.exp(-(revenu_reel - revenu_reel.mean()) / revenu_reel.std()))
+masque_manquant = np.random.random(n) &lt; proba_non_reponse * 0.4
+
+revenu_observe = revenu_reel.copy()
+revenu_observe[masque_manquant] = np.nan
+
+print(f"Revenu moyen réel (population complète) : {revenu_reel.mean():,.0f}")
+print(f"Revenu moyen observé (valeurs non manquantes seulement) : {np.nanmean(revenu_observe):,.0f}")
+# La moyenne observée est systématiquement SOUS-ESTIMÉE : les hauts revenus manquent plus souvent
+# -- aucune méthode d'imputation basée sur les données observées ne peut corriger ce biais,
+# car l'information qui explique la manquance (le revenu réel) est justement ce qui manque</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Supposer par défaut que des données sont MCAR (le cas le plus simple à traiter) sans jamais chercher à le vérifier, alors que le MCAR est en réalité le mécanisme le moins fréquent dans des données réelles. Cette supposition non vérifiée est la source la plus fréquente de biais silencieux introduits par un traitement de valeurs manquantes appliqué sans diagnostic préalable (Module 2).
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un questionnaire de satisfaction client comporte un champ "note sur 10" avec 15% de non-réponses. Vous suspectez que les clients très mécontents (qui auraient donné une note très basse) sont surreprésentés parmi les non-répondants, car ils ont abandonné le questionnaire avant la fin par frustration. À quel mécanisme cette situation correspond-elle, et pourquoi une imputation par la moyenne des notes observées serait-elle trompeuse ici ?
+      </div>
+    </section>
+
+    <section id="m1-l3">
+      <span class="lesson-kicker">Module 1 · Leçon 3</span>
+      <h2>Détecter et Quantifier les Valeurs Manquantes</h2>
+
+      <p>Avant tout diagnostic de mécanisme (Module 2) ou toute décision de traitement, la première étape strictement mécanique consiste à <strong>quantifier précisément</strong> l'ampleur du problème — combien de valeurs manquent, dans quelles colonnes, et selon quelle répartition. Cette leçon couvre l'outillage de base, indispensable avant toute analyse plus poussée.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+df = pd.read_csv("clients.csv")
+
+# Vue d'ensemble : nombre et pourcentage de valeurs manquantes par colonne
+resume_manquants = pd.DataFrame({
+    "nb_manquants": df.isna().sum(),
+    "pct_manquants": (df.isna().mean() * 100).round(1)
+}).sort_values("pct_manquants", ascending=False)
+print(resume_manquants)
+
+# Nombre de lignes complètement vides de toute valeur manquante
+print(f"Lignes complètes : {df.dropna().shape[0]} sur {df.shape[0]}")
+
+# Nombre de lignes avec AU MOINS une valeur manquante, tous champs confondus
+print(f"Lignes avec au moins un NaN : {df.isna().any(axis=1).sum()}")</code></pre>
+
+      <h3>Au-delà du simple pourcentage : la distribution du nombre de valeurs manquantes par ligne</h3>
+      <p>Un pourcentage global de valeurs manquantes par colonne masque une information importante : les valeurs manquantes sont-elles réparties uniformément sur de nombreuses lignes différentes (chaque ligne a une ou deux valeurs manquantes isolées), ou concentrées sur un sous-ensemble restreint de lignes très incomplètes (certaines lignes n'ont presque aucune valeur renseignée) ? Ces deux situations, bien que produisant le même pourcentage global, appellent des stratégies très différentes.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+nb_manquants_par_ligne = df.isna().sum(axis=1)
+print(nb_manquants_par_ligne.value_counts().sort_index())
+# Si la distribution montre un pic à "0 valeur manquante" et un second pic à "8 valeurs manquantes"
+# (sur un total de 10 colonnes), cela suggère deux populations distinctes de lignes plutôt
+# qu'une manquance uniformément distribuée -- un signal à investiguer avant tout traitement uniforme</code></pre>
+
+      <h3>Quantifier la co-occurrence de manquance entre colonnes</h3>
+      <p>Une matrice de corrélation appliquée non pas aux valeurs elles-mêmes mais à leur <strong>caractère manquant ou non</strong> (une valeur booléenne par cellule) révèle si certaines colonnes ont tendance à manquer ensemble — un signal utile pour le diagnostic de mécanisme du Module 2, et pour anticiper si la suppression d'une colonne à fort taux de manquance affecterait aussi la disponibilité d'autres colonnes.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+masque_manquant = df.isna()
+correlation_manquance = masque_manquant.corr()
+print(correlation_manquance)
+# Une forte corrélation positive entre deux colonnes de manquance indique
+# qu'elles manquent souvent ensemble sur les mêmes lignes -- souvent le signe
+# d'une cause commune (un même formulaire non rempli, une même source défaillante)</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Se limiter à un pourcentage global de valeurs manquantes par colonne pour décider d'un traitement, sans examiner la distribution par ligne ni la co-occurrence entre colonnes. Un taux global de 10% peut cacher soit une manquance bénigne et diffuse, soit 10% de lignes totalement inexploitables concentrées sur un sous-ensemble bien précis — deux réalités qui appellent des décisions radicalement différentes.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un dataset de 10 000 lignes et 15 colonnes affiche un taux global de 8% de valeurs manquantes. Décrivez les deux vérifications complémentaires de cette leçon que vous effectueriez avant de choisir une stratégie de traitement, et ce que chacune pourrait révéler.
+      </div>
+    </section>
+
+    <section id="m1-l4">
+      <span class="lesson-kicker">Module 1 · Leçon 4</span>
+      <h2>Les Multiples Visages de l'Absence : NULL, NaN, None, Chaînes Vides</h2>
+
+      <p>Une valeur "manquante" n'est pas représentée de façon unique et cohérente à travers les langages, les formats de fichiers, et les systèmes de bases de données — un même concept d'absence peut prendre au moins cinq formes distinctes selon le contexte technique, et ne pas les reconnaître toutes peut faire sous-estimer silencieusement l'ampleur réelle du problème.</p>
+
+      <table>
+        <tr><th>Représentation</th><th>Contexte typique</th><th>Piège associé</th></tr>
+        <tr><td><code>NULL</code></td><td>Bases de données SQL</td><td>Comparaisons SQL avec <code>NULL</code> ne fonctionnent jamais avec <code>=</code>, nécessitent <code>IS NULL</code></td></tr>
+        <tr><td><code>NaN</code> (Not a Number)</td><td>Pandas / NumPy, colonnes numériques</td><td>Type flottant uniquement — ne peut historiquement pas exister nativement dans une colonne d'entiers pandas</td></tr>
+        <tr><td><code>None</code></td><td>Python natif, colonnes pandas de type "object"</td><td>Comportement parfois différent de NaN dans certaines opérations pandas</td></tr>
+        <tr><td>Chaîne vide <code>""</code></td><td>CSV, formulaires web</td><td>Distincte de NaN par défaut — pas toujours reconnue automatiquement comme "manquante"</td></tr>
+        <tr><td><code>null</code> (JSON)</td><td>APIs, fichiers JSON</td><td>Devient <code>None</code> en Python après désérialisation, mais peut rester une chaîne <code>"null"</code> si mal parsé</td></tr>
+      </table>
+
+      <pre><code class="language-python">import pandas as pd
+import numpy as np
+
+df = pd.DataFrame({
+    "a": [1, np.nan, 3],
+    "b": [1, None, 3],
+    "c": ["texte", "", "autre"],
+    "d": ["texte", "null", "autre"],  # chaîne littérale "null", pas une vraie valeur manquante Python
+})
+
+print(df.isna().sum())
+# a    1  -- NaN correctement détecté
+# b    1  -- None correctement détecté (converti en NaN par pandas pour cette colonne)
+# c    0  -- ATTENTION : la chaîne vide "" n'est PAS détectée comme manquante par défaut !
+# d    0  -- ATTENTION : la chaîne littérale "null" n'est PAS reconnue comme valeur manquante</code></pre>
+
+      <h3>Harmoniser explicitement toutes les représentations dès l'ingestion</h3>
+      <pre><code class="language-python">import pandas as pd
+import numpy as np
+
+VALEURS_MANQUANTES_CONNUES = ["", "null", "NULL", "None", "N/A", "n/a", "NA", "-", "?"]
+
+df_harmonise = df.replace(VALEURS_MANQUANTES_CONNUES, np.nan)
+print(df_harmonise.isna().sum())
+# Toutes les représentations d'absence convergent maintenant vers une seule convention (NaN),
+# permettant un traitement uniforme dans la suite du pipeline
+
+# À la lecture d'un CSV, pandas accepte directement une liste de valeurs à traiter comme NaN
+df_direct = pd.read_csv("donnees.csv", na_values=VALEURS_MANQUANTES_CONNUES)</code></pre>
+
+      <h3>Le piège spécifique des entiers et de NaN en pandas</h3>
+      <p>Historiquement, NumPy et pandas ne permettaient pas à un <code>NaN</code> (intrinsèquement de type flottant) de coexister dans une colonne d'entiers — la présence d'une seule valeur manquante dans une colonne d'âges entiers forçait silencieusement la conversion de toute la colonne en flottant (1, 2, 3 devenant 1.0, 2.0, 3.0), une transformation de type inattendue qui peut casser du code en aval supposant des entiers stricts. Le type <code>Int64</code> (avec un I majuscule) de pandas, dit "nullable integer", résout ce problème en autorisant un entier natif avec une vraie représentation de valeur manquante (<code>pd.NA</code>) sans conversion forcée en flottant.</p>
+
+      <pre><code class="language-python">import pandas as pd
+import numpy as np
+
+age_standard = pd.Series([25, np.nan, 30])
+print(age_standard.dtype)  # float64 -- conversion forcée silencieuse à cause du NaN
+
+age_nullable = pd.Series([25, pd.NA, 30], dtype="Int64")  # "Int64" nullable, avec I majuscule
+print(age_nullable.dtype)  # Int64 -- reste un entier, avec une vraie valeur manquante préservée</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Calculer un taux de valeurs manquantes avec <code>df.isna().sum()</code> sur un dataset fraîchement importé sans avoir préalablement harmonisé les représentations d'absence non standards (chaînes vides, "N/A", "null" littéral). Le taux rapporté sera artificiellement bas, masquant une partie substantielle du problème réel qui échappe à la détection par défaut.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un dataset CSV importé montre 0% de valeurs manquantes selon <code>df.isna().sum()</code>, mais un examen visuel révèle de nombreuses cellules contenant la chaîne "-". Expliquez pourquoi <code>isna()</code> ne les détecte pas, et écrivez la ligne de code qui corrigerait cette détection.
+      </div>
+    </section>
+
+    <section id="m1-l5">
+      <span class="lesson-kicker">Module 1 · Leçon 5</span>
+      <h2>Le Piège de la Valeur Manquante Déguisée (0, -1, 9999, "N/A")</h2>
+
+      <p>Cette dernière leçon du module fondamental aborde un piège encore plus insidieux que les représentations non standards de la leçon précédente : des valeurs manquantes encodées comme des <strong>valeurs numériques parfaitement valides en apparence</strong>, choisies historiquement par un système ou un formulaire pour représenter "pas de réponse" — souvent sans documentation, et totalement indétectables par <code>isna()</code> quelle que soit la configuration.</p>
+
+      <div class="gap-row">
+        <span class="hole-tag">âge = 999</span>
+        <span class="arrow">signifie en réalité</span>
+        <span class="fill-tag">âge = inconnu</span>
+      </div>
+
+      <h3>Les valeurs sentinelles classiques à surveiller</h3>
+      <table>
+        <tr><th>Valeur observée</th><th>Contexte typique</th><th>Signification réelle probable</th></tr>
+        <tr><td>-1 ou -999</td><td>Champs numériques (âge, quantité, score)</td><td>Absence de valeur, "non renseigné"</td></tr>
+        <tr><td>9999 ou 99999</td><td>Systèmes legacy, anciens formulaires papier numérisés</td><td>Absence de valeur — convention héritée de systèmes à taille de champ fixe</td></tr>
+        <tr><td>0</td><td>Montants, durées, compteurs</td><td>Ambigu : peut être un vrai zéro OU une valeur manquante par défaut du système</td></tr>
+        <tr><td>1900-01-01 ou 1970-01-01</td><td>Dates</td><td>Valeur par défaut d'un système qui n'accepte pas de date nulle (1970 = epoch Unix)</td></tr>
+        <tr><td>"Autre", "Non spécifié", "XXX"</td><td>Champs catégoriels avec liste déroulante</td><td>Valeur par défaut du formulaire, jamais modifiée par l'utilisateur</td></tr>
+      </table>
+
+      <h3>Détecter ces valeurs sentinelles par l'analyse de la distribution</h3>
+      <p>Une valeur sentinelle laisse presque toujours une trace statistique détectable : un pic de fréquence anormal et disproportionné sur une valeur numérique par ailleurs plausible mais suspecte, ou une valeur extrême totalement déconnectée de la distribution du reste des données.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+df = pd.DataFrame({"age": [25, 34, 41, 28, 999, 999, 999, 37, 999, 45]})
+
+# Un simple .describe() ou histogramme révèle souvent la sentinelle par son incohérence
+print(df["age"].describe())
+# max=999 alors que le 75e percentile est autour de 40 -- écart massif et suspect
+
+print(df["age"].value_counts())
+# 999 apparaît 4 fois sur 10 -- une fréquence anormalement élevée pour une valeur
+# par ailleurs impossible pour un âge humain réel (Module 1 du cours de statistiques descriptives)</code></pre>
+
+      <h3>Remplacer explicitement les sentinelles identifiées</h3>
+      <pre><code class="language-python">import numpy as np
+
+VALEURS_SENTINELLES = {"age": [999, -1], "date_naissance": ["1900-01-01"], "score": [-999]}
+
+for colonne, sentinelles in VALEURS_SENTINELLES.items():
+    if colonne in df.columns:
+        df[colonne] = df[colonne].replace(sentinelles, np.nan)
+
+print(df["age"].isna().sum())  # les 4 occurrences de 999 sont maintenant de vraies valeurs manquantes</code></pre>
+
+      <h3>Documenter les sentinelles découvertes pour éviter de les redécouvrir à chaque fois</h3>
+      <p>Une fois identifiées, ces valeurs sentinelles devraient être consignées dans un document de référence propre à chaque source de données (un "dictionnaire de données" ou data dictionary), plutôt que redécouvertes empiriquement par chaque nouvelle personne qui travaille sur le dataset — un gain de temps direct et une garantie de cohérence entre les différentes analyses menées par différentes personnes sur les mêmes données sources.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Calculer une moyenne d'âge ou toute autre statistique descriptive sans avoir vérifié au préalable la présence de valeurs sentinelles extrêmes (comme 999), faussant radicalement le résultat sans qu'aucune erreur ne soit levée. Une valeur sentinelle non détectée est un cas particulier, mais bien plus trompeur, du piège de la moyenne sur données contenant des outliers déjà vu dans le cours de statistiques descriptives.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une colonne "duree_appel_secondes" d'un centre d'appels contient de nombreuses valeurs à exactement 0. Proposez deux hypothèses distinctes pour expliquer ces zéros (l'une où 0 est une vraie mesure légitime, l'autre où c'est une valeur sentinelle déguisée), et la vérification qui permettrait de trancher entre les deux.
+      </div>
+    </section>
+
+    <div class="module-divider">
+      <span class="num">MODULE 02 · DIAGNOSTIQUER LE MÉCANISME</span>
+      <span class="line"></span>
+    </div>
+
+    <section id="m2-l1">
+      <span class="lesson-kicker">Module 2 · Leçon 1</span>
+      <h2>Visualiser les Patterns de Manquance</h2>
+
+      <p>Avant tout test statistique formel (leçon 2), l'inspection visuelle des patterns de manquance est souvent l'étape la plus rapide et la plus révélatrice pour orienter le diagnostic — l'œil humain repère instantanément des structures (blocs, séquences, corrélations) qu'un simple tableau de pourcentages par colonne ne rend pas visibles.</p>
+
+      <h3>La matrice de manquance : une vue d'ensemble immédiate</h3>
+      <pre><code class="language-python">import missingno as msno  # pip install missingno
+import matplotlib.pyplot as plt
+import pandas as pd
+
+df = pd.read_csv("clients.csv")
+
+msno.matrix(df)
+plt.show()
+# Chaque colonne blanche verticale représente une valeur manquante --
+# des blocs blancs alignés horizontalement sur plusieurs colonnes suggèrent
+# une manquance corrélée entre elles, un signal fort pour le diagnostic MAR/MNAR</code></pre>
+
+      <p>La matrice de <code>missingno</code> affiche chaque ligne du dataset comme une bande horizontale, colorée là où la valeur est présente et blanche là où elle manque. Ce simple graphique révèle immédiatement si la manquance est diffuse et aléatoire à travers tout le dataset (compatible avec un MCAR), ou si elle forme des blocs cohérents suggérant une cause commune (plusieurs colonnes issues du même formulaire non rempli, un import par lot ayant échoué pour certaines lignes).</p>
+
+      <h3>Le diagramme en barres : quantifier visuellement chaque colonne</h3>
+      <pre><code class="language-python">msno.bar(df)
+plt.show()
+# Une vue en barres, plus proche d'un résumé statistique classique mais avec
+# un rendu visuel qui facilite la comparaison rapide entre de nombreuses colonnes</code></pre>
+
+      <h3>La heatmap de corrélation de manquance : formaliser visuellement la co-occurrence</h3>
+      <pre><code class="language-python">msno.heatmap(df)
+plt.show()
+# Étend l'analyse de corrélation de manquance déjà vue au Module 1 (leçon 3)
+# avec une représentation visuelle directement interprétable -- une case proche de 1
+# indique que deux colonnes manquent quasi systématiquement ensemble</code></pre>
+
+      <h3>Le dendrogramme : regrouper les colonnes par similarité de pattern de manquance</h3>
+      <p>Au-delà de la corrélation simple entre paires de colonnes, un dendrogramme de manquance regroupe hiérarchiquement les colonnes selon la similarité de leur pattern d'absence à travers l'ensemble des lignes — utile sur des datasets à de nombreuses colonnes où une simple heatmap devient difficile à lire, et où plusieurs groupes de colonnes pourraient partager une cause de manquance commune sans que cela soit une simple corrélation par paire.</p>
+
+      <pre><code class="language-python">msno.dendrogram(df)
+plt.show()
+# Des colonnes regroupées tout en bas de l'arbre (fusion à faible distance) partagent
+# un pattern de manquance quasi identique -- souvent le signe d'une cause structurelle commune</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Passer directement à une stratégie de traitement (suppression ou imputation) sur un nouveau dataset sans avoir pris ne serait-ce que deux minutes pour visualiser les patterns de manquance avec un outil comme missingno. Cette étape, peu coûteuse, révèle souvent en un coup d'œil des structures qu'un tableau de pourcentages ne rend jamais apparentes, et oriente directement vers le bon diagnostic de mécanisme (leçons suivantes).
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous observez sur une matrice missingno que les colonnes "date_derniere_connexion" et "email_verifie" sont systématiquement manquantes ensemble sur exactement les mêmes 8% de lignes, jamais l'une sans l'autre. Formulez une hypothèse métier plausible expliquant cette co-occurrence parfaite.
+      </div>
+    </section>
+
+    <section id="m2-l2">
+      <span class="lesson-kicker">Module 2 · Leçon 2</span>
+      <h2>Tester le MCAR : le Test de Little</h2>
+
+      <p>Au-delà de l'inspection visuelle de la leçon précédente, il existe un test statistique formel pour évaluer l'hypothèse MCAR : le <strong>test de Little</strong> (1988), qui compare les moyennes des variables observées entre différents "patterns" de manquance (groupes de lignes partageant le même ensemble de colonnes manquantes) — sous MCAR, ces moyennes ne devraient pas différer significativement d'un pattern à l'autre, puisque la manquance est censée être indépendante de tout le reste.</p>
+
+      <pre><code class="language-python">import pandas as pd
+from pyampute.exploration.mcar_statistical_tests import MCARTest  # pip install pyampute
+
+df = pd.read_csv("clients.csv")
+
+test_little = MCARTest(method="little")
+p_valeur = test_little(df)
+print(f"p-valeur du test de Little : {p_valeur:.4f}")
+# H0 (hypothèse nulle) : les données sont MCAR
+# p &lt; 0.05 -> on rejette le MCAR -- la manquance dépend probablement d'autre chose (MAR ou MNAR)
+# p >= 0.05 -> le MCAR n'est pas rejeté, sans pour autant être formellement "prouvé"</code></pre>
+
+      <h3>Ce que le test de Little peut et ne peut pas vous dire</h3>
+      <p>Comme tout test d'hypothèse, le test de Little permet de <strong>rejeter</strong> l'hypothèse MCAR avec un certain niveau de confiance, mais ne permet jamais de la <strong>confirmer</strong> définitivement — une p-valeur élevée signifie seulement "les données observées ne fournissent pas de preuve suffisante contre le MCAR", pas "les données sont certainement MCAR". Une nuance déjà rencontrée dans le cours de statistiques descriptives à propos des tests de normalité, et qui s'applique de la même façon ici.</p>
+
+      <h3>La limite structurelle majeure : le test de Little ne peut jamais détecter le MNAR</h3>
+      <p>Une limite fondamentale et souvent mal comprise du test de Little : il ne peut tester que si la manquance dépend des <strong>variables observées</strong> du dataset. Si la manquance dépend de la valeur manquante elle-même (MNAR, Module 1 leçon 2), le test de Little peut très bien ne rien détecter d'anormal, car il n'a tout simplement aucun accès à l'information qui expliquerait la manquance — un résultat "MCAR non rejeté" ne garantit donc jamais l'absence de MNAR sous-jacent.</p>
+
+      <pre><code class="language-python">import numpy as np
+import pandas as pd
+
+np.random.seed(0)
+n = 3000
+revenu_reel = np.random.lognormal(10.5, 0.5, n)
+# MNAR pur : la non-réponse dépend uniquement du revenu réel, aucune autre variable observée en jeu
+masque_manquant = revenu_reel > np.percentile(revenu_reel, 80)  # les 20% les plus hauts ne répondent pas
+
+df_mnar = pd.DataFrame({"revenu": np.where(masque_manquant, np.nan, revenu_reel),
+                         "age": np.random.normal(40, 12, n)})  # variable non liée à la manquance
+# Le test de Little sur ce dataset a de bonnes chances de ne PAS rejeter le MCAR,
+# car "age" (seule autre variable observée) n'a aucun lien avec la manquance --
+# le test est aveugle au vrai mécanisme MNAR sous-jacent, qui ne dépend que du revenu manquant lui-même</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Interpréter un résultat "MCAR non rejeté" par le test de Little comme une garantie qu'il est sûr d'imputer les données par une méthode simple, sans considérer la possibilité d'un MNAR sous-jacent invisible au test faute de variables observées pertinentes. Le test de Little est un indice utile, jamais une preuve définitive de sécurité.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un test de Little sur un dataset de candidatures à un prêt bancaire ne rejette pas l'hypothèse MCAR pour la colonne "revenu_declare". Expliquez pourquoi ce résultat ne devrait pas suffire à vous convaincre de traiter cette colonne comme MCAR, en particulier dans ce contexte métier spécifique où une raison de suspecter un MNAR existe intuitivement.
+      </div>
+    </section>
+
+    <section id="m2-l3">
+      <span class="lesson-kicker">Module 2 · Leçon 3</span>
+      <h2>Détecter le MAR : Manquance Corrélée à d'Autres Variables</h2>
+
+      <p>Puisque le MAR (Module 1, leçon 2) se définit par une dépendance à des variables <strong>observées</strong>, il est directement détectable : il suffit de comparer statistiquement les autres variables du dataset entre le groupe de lignes où une colonne cible manque et le groupe où elle est renseignée — une différence significative entre ces deux groupes sur une ou plusieurs autres variables est un signal de MAR.</p>
+
+      <pre><code class="language-python">import pandas as pd
+from scipy import stats
+
+df = pd.read_csv("clients.csv")
+
+df["revenu_manquant"] = df["revenu"].isna()  # variable indicatrice de manquance (Module 7)
+
+# Comparer l'âge moyen entre les deux groupes : ceux qui répondent vs ceux qui ne répondent pas
+groupe_repondants = df[~df["revenu_manquant"]]["age"]
+groupe_non_repondants = df[df["revenu_manquant"]]["age"]
+
+stat, p_valeur = stats.ttest_ind(groupe_repondants.dropna(), groupe_non_repondants.dropna())
+print(f"Différence d'âge moyen : p-valeur = {p_valeur:.4f}")
+# p &lt; 0.05 -> l'âge diffère significativement entre les deux groupes --
+# la manquance du revenu est probablement liée à l'âge -> signal de MAR</code></pre>
+
+      <h3>Systématiser le test sur l'ensemble des variables disponibles</h3>
+      <pre><code class="language-python">import pandas as pd
+from scipy import stats
+
+def tester_mar_toutes_variables(df: pd.DataFrame, colonne_cible: str) -> pd.DataFrame:
+    manquant = df[colonne_cible].isna()
+    resultats = []
+    for col in df.select_dtypes(include="number").columns:
+        if col == colonne_cible:
+            continue
+        groupe_a = df.loc[~manquant, col].dropna()
+        groupe_b = df.loc[manquant, col].dropna()
+        if len(groupe_a) > 5 and len(groupe_b) > 5:
+            _, p = stats.ttest_ind(groupe_a, groupe_b)
+            resultats.append({"variable": col, "p_valeur": p, "signal_mar": p &lt; 0.05})
+    return pd.DataFrame(resultats).sort_values("p_valeur")
+
+print(tester_mar_toutes_variables(df, "revenu"))
+# Les variables avec signal_mar=True sont les candidates les plus pertinentes
+# à utiliser comme prédicteurs dans une imputation statistique (Module 5)</code></pre>
+
+      <h3>Le lien direct entre ce diagnostic et le choix de méthode d'imputation</h3>
+      <p>L'intérêt pratique de ce diagnostic dépasse la simple classification théorique : les variables identifiées comme statistiquement liées à la manquance sont précisément celles qui devraient être incluses comme <strong>prédicteurs</strong> dans une méthode d'imputation par régression ou KNN (Module 5) — une imputation qui ignorerait ces variables corrélées à la manquance produirait un résultat moins fiable qu'une imputation qui les exploite explicitement.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Confirmer un MAR sur une seule variable candidate testée au hasard, sans systématiser le test sur l'ensemble des variables disponibles comme dans l'exemple ci-dessus. Une variable clé expliquant réellement la manquance peut être différente de la première testée, et passer inaperçue si le diagnostic s'arrête à la première hypothèse venue.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Le test systématique révèle que la manquance de la colonne "revenu" est statistiquement liée à la fois à "age" et à "region", mais pas à "anciennete_client". Quelle décision cela suggère-t-il pour le choix des variables prédictives à utiliser dans une future imputation par régression (Module 5, leçon 1) ?
+      </div>
+    </section>
+
+    <section id="m2-l4">
+      <span class="lesson-kicker">Module 2 · Leçon 4</span>
+      <h2>Suspecter le MNAR : Quand la Valeur Manquante Dépend d'Elle-Même</h2>
+
+      <p>Le MNAR est, par construction théorique, le mécanisme le plus difficile à détecter statistiquement à partir des seules données disponibles — puisqu'il dépend précisément de la valeur qui manque, aucune analyse des variables observées ne peut le confirmer avec certitude. Cette leçon propose néanmoins des méthodes pour <strong>suspecter</strong> raisonnablement un MNAR, à défaut de pouvoir le prouver formellement.</p>
+
+      <h3>Le raisonnement métier reste l'outil principal de détection du MNAR</h3>
+      <p>Contrairement au MAR (détectable statistiquement en leçon 3), le MNAR se suspecte avant tout par une réflexion sur le <strong>processus de génération</strong> des données : quelle raison logique pourrait pousser une entité à ne pas répondre précisément à cause de la valeur qu'elle aurait donnée ? Des questions sensibles (revenu, poids, consommation d'alcool, opinions politiques), des indicateurs de performance ou d'échec (taux de désabonnement, notes basses), et des mesures qui révèlent un problème (une panne, une fraude) sont des candidats naturels au MNAR.</p>
+
+      <table>
+        <tr><th>Contexte</th><th>Pourquoi le MNAR est plausible</th></tr>
+        <tr><td>Revenu dans un sondage</td><td>Les hauts revenus déclinent plus souvent de répondre</td></tr>
+        <tr><td>Note de satisfaction après un incident</td><td>Les clients les plus mécontents abandonnent le questionnaire avant la fin</td></tr>
+        <tr><td>Poids dans une étude de santé</td><td>Les valeurs extrêmes (obésité, maigreur) sont plus souvent omises par gêne</td></tr>
+        <tr><td>Cause de départ d'un salarié</td><td>Les départs conflictuels sont moins souvent documentés en détail dans le SIRH</td></tr>
+      </table>
+
+      <h3>Une technique indirecte : comparer la distribution partielle observée à une source externe de référence</h3>
+      <p>Quand une source de référence externe et indépendante existe (des statistiques nationales de revenu, par exemple), comparer la distribution des valeurs <em>observées</em> dans le dataset à cette référence externe peut révéler un écart systématique suggérant un MNAR — si la distribution observée est significativement décalée vers le bas par rapport à une référence connue et fiable, cela suggère que les valeurs les plus hautes manquent disproportionnellement.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+# Comparaison illustrative : revenu médian observé dans l'échantillon vs référence externe connue
+revenu_median_observe = df["revenu"].dropna().median()
+revenu_median_reference_nationale = 24_000  # donnée externe, par exemple une statistique officielle
+
+ecart_relatif = (revenu_median_observe - revenu_median_reference_nationale) / revenu_median_reference_nationale
+print(f"Écart au revenu médian national : {ecart_relatif * 100:.1f}%")
+# Un écart négatif important et inattendu (compte tenu du profil connu de l'échantillon)
+# est un signal indirect, jamais définitif, de sous-représentation des hauts revenus -- signal MNAR</code></pre>
+
+      <h3>Accepter l'incertitude : documenter l'hypothèse plutôt que prétendre trancher</h3>
+      <p>Face à l'impossibilité structurelle de confirmer un MNAR avec certitude à partir des seules données internes, la pratique honnête consiste à <strong>documenter explicitement l'hypothèse</strong> de MNAR suspecté (avec son raisonnement métier) plutôt que d'ignorer le risque ou de prétendre à tort l'avoir écarté. Cette documentation influence directement la suite : sous suspicion de MNAR, toute méthode de traitement (suppression ou imputation) doit être présentée avec la réserve explicite qu'elle repose sur une hypothèse non vérifiable, jamais comme une correction garantie.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Conclure à tort qu'un MNAR est "réglé" simplement parce qu'une méthode d'imputation sophistiquée a été appliquée. Aucune méthode statistique, aussi avancée soit-elle (Modules 5 et 6), ne peut corriger un biais MNAR sans information externe supplémentaire — la sophistication de la méthode ne compense jamais l'absence structurelle d'information nécessaire pour modéliser correctement ce mécanisme.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une entreprise SaaS constate que le champ "raison_desabonnement" (texte libre optionnel) est rempli par seulement 20% des clients qui se désabonnent. Formulez une hypothèse expliquant pourquoi ce taux de réponse pourrait lui-même dépendre de la raison réelle du désabonnement (MNAR), et proposez une action métier (pas seulement statistique) qui pourrait réduire ce biais à la source plutôt que de tenter de le corriger après coup.
+      </div>
+    </section>
+
+    <div class="module-divider">
+      <span class="num">MODULE 03 · STRATÉGIES DE SUPPRESSION</span>
+      <span class="line"></span>
+    </div>
+
+    <section id="m3-l1">
+      <span class="lesson-kicker">Module 3 · Leçon 1</span>
+      <h2>Suppression de Lignes : Quand C'est Sûr</h2>
+
+      <p>La suppression des lignes contenant des valeurs manquantes (listwise deletion, ou "complete case analysis") est la méthode la plus simple à mettre en œuvre — une seule ligne de code — et pourtant l'une des plus mal utilisées en pratique, appliquée par réflexe sans évaluation préalable de ses conditions de validité, qui découlent directement du diagnostic de mécanisme établi au Module 2.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+df = pd.read_csv("clients.csv")
+
+# Supprimer toute ligne contenant AU MOINS une valeur manquante, sur n'importe quelle colonne
+df_sans_manquants = df.dropna()
+
+# Supprimer uniquement si une valeur manquante existe sur des colonnes spécifiques et critiques
+df_sans_manquants_cible = df.dropna(subset=["email", "date_naissance"])
+
+print(f"Lignes conservées : {len(df_sans_manquants)} sur {len(df)} "
+      f"({len(df_sans_manquants) / len(df) * 100:.1f}%)")</code></pre>
+
+      <h3>La condition de validité : le mécanisme doit être MCAR (ou proche)</h3>
+      <p>La suppression de lignes ne produit des résultats statistiquement non biaisés que si les données sont MCAR (Module 1, leçon 2) — c'est-à-dire si les lignes supprimées ne diffèrent pas systématiquement des lignes conservées. Sous MAR ou MNAR, supprimer les lignes incomplètes revient à analyser un sous-échantillon non représentatif de la population complète, introduisant un biais qui affecte directement toute statistique calculée sur les données restantes (moyennes, corrélations, modèles entraînés).</p>
+
+      <pre><code class="language-python">import numpy as np
+import pandas as pd
+
+np.random.seed(0)
+n = 5000
+revenu_reel = np.random.lognormal(10.5, 0.5, n)
+# Manquance MNAR : les hauts revenus manquent plus souvent (cas déjà vu au Module 2)
+masque = revenu_reel > np.percentile(revenu_reel, 75)
+revenu_observe = np.where(masque, np.nan, revenu_reel)
+
+df = pd.DataFrame({"revenu": revenu_observe})
+print(f"Revenu médian réel (population complète) : {np.median(revenu_reel):,.0f}")
+print(f"Revenu médian après suppression des lignes manquantes : {df.dropna()['revenu'].median():,.0f}")
+# La suppression amplifie le biais déjà présent dans les données observées :
+# elle ne fait qu'analyser exactement le sous-groupe (les 75% de revenus les plus bas)
+# qui a répondu, sans aucune correction possible</code></pre>
+
+      <h3>Quand la suppression de lignes reste un choix raisonnable</h3>
+      <ul>
+        <li>Le diagnostic du Module 2 (visuel, test de Little, absence de signal MAR détecté) suggère un mécanisme proche du MCAR.</li>
+        <li>Le volume de lignes supprimées reste faible (généralement sous 5%, un seuil indicatif à ajuster selon le contexte et la taille totale du dataset) et ne compromet pas la puissance statistique de l'analyse.</li>
+        <li>Le contexte privilégie la simplicité et l'absence d'hypothèse supplémentaire (une imputation, aussi rigoureuse soit-elle, introduit toujours une hypothèse sur la valeur manquante) plutôt que la conservation maximale des données.</li>
+      </ul>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Appeler <code>dropna()</code> comme première réaction automatique face à des valeurs manquantes, sans avoir réalisé le diagnostic de mécanisme du Module 2. C'est de loin l'erreur la plus fréquente en pratique — <code>dropna()</code> est syntaxiquement trivial, ce qui encourage son usage réflexe précisément dans les cas où il est le plus susceptible d'introduire un biais silencieux et non détecté.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un dataset de 50 000 lignes a 3% de valeurs manquantes sur une colonne, et le diagnostic du Module 2 n'a révélé aucun signal de MAR sur les variables testées. Justifiez pourquoi la suppression de lignes reste néanmoins une décision qui devrait être explicitement documentée (Module 1, leçon 5 du cours précédent) plutôt qu'appliquée silencieusement, même dans ce cas favorable.
+      </div>
+    </section>
+
+    <section id="m3-l2">
+      <span class="lesson-kicker">Module 3 · Leçon 2</span>
+      <h2>Suppression de Colonnes : Fixer un Seuil de Tolérance</h2>
+
+      <p>Quand une colonne entière présente un taux de valeurs manquantes très élevé, la supprimer entièrement peut être préférable à tenter de l'imputer ou de supprimer massivement des lignes pour la préserver. Cette leçon aborde comment fixer un seuil de décision raisonné plutôt qu'arbitraire.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+df = pd.read_csv("clients.csv")
+
+SEUIL_SUPPRESSION_COLONNE = 0.6  # 60% -- à calibrer selon le contexte, jamais une valeur universelle
+
+taux_manquants = df.isna().mean()
+colonnes_a_supprimer = taux_manquants[taux_manquants > SEUIL_SUPPRESSION_COLONNE].index.tolist()
+
+print(f"Colonnes candidates à la suppression (>{SEUIL_SUPPRESSION_COLONNE*100:.0f}% manquant) :")
+print(colonnes_a_supprimer)
+
+df_reduit = df.drop(columns=colonnes_a_supprimer)</code></pre>
+
+      <h3>Pourquoi il n'existe aucun seuil universellement correct</h3>
+      <p>Un seuil de 50%, 60%, ou 80% fréquemment cité dans la littérature n'a rien d'une règle scientifiquement fondée — c'est une convention de commodité. Le seuil réellement pertinent dépend de l'<strong>importance métier</strong> de la colonne concernée : une colonne "revenu" avec 55% de valeurs manquantes mais absolument critique pour l'analyse ne devrait probablement pas être supprimée aussi facilement qu'une colonne "commentaire_libre_facultatif" avec le même taux de manquance mais un intérêt analytique secondaire.</p>
+
+      <h3>Considérer conjointement le taux de manquance ET la valeur informative de la colonne</h3>
+      <pre><code class="language-python">import pandas as pd
+
+COLONNES_CRITIQUES = ["revenu", "age", "date_inscription"]  # jugement métier explicite
+
+taux_manquants = df.isna().mean()
+for col, taux in taux_manquants.items():
+    if taux > 0.3:
+        criticite = "CRITIQUE -- ne pas supprimer sans validation métier" if col in COLONNES_CRITIQUES else "secondaire"
+        print(f"{col}: {taux*100:.0f}% manquant -- {criticite}")</code></pre>
+
+      <h3>L'alternative à la suppression pure : dégrader plutôt qu'éliminer</h3>
+      <p>Avant de supprimer entièrement une colonne à fort taux de manquance mais jugée importante, une alternative consiste à la conserver sous une forme dégradée : convertir une variable continue partiellement manquante en catégorie ("connu bas / connu élevé / inconnu") préserve un signal partiel plutôt que de le perdre intégralement — une technique qui rejoint directement l'indicateur de manquance comme variable à part entière, approfondi au Module 7.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Appliquer un seuil de suppression de colonne unique et uniforme à l'ensemble d'un dataset sans distinguer les colonnes selon leur importance métier réelle. Une colonne rarement utilisée mais à faible taux de manquance survit ainsi souvent à tort, tandis qu'une colonne cruciale mais légèrement au-dessus du seuil peut être supprimée sans que quiconque n'ait explicitement validé cette perte d'information critique.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une colonne "score_credit_externe" (achetée auprès d'un bureau de crédit tiers) présente 70% de valeurs manquantes, mais les 30% de valeurs disponibles sont un prédicteur très puissant de défaut de paiement d'après une analyse préliminaire. Justifieriez-vous sa suppression malgré le taux élevé de manquance ? Quelle alternative de la leçon proposeriez-vous ?
+      </div>
+    </section>
+
+    <section id="m3-l3">
+      <span class="lesson-kicker">Module 3 · Leçon 3</span>
+      <h2>Le Coût Caché de la Suppression : Biais et Perte de Puissance</h2>
+
+      <p>Au-delà du biais déjà illustré en leçon 1 sous mécanisme MAR/MNAR, la suppression de lignes ou de colonnes a un second coût, plus discret mais tout aussi réel même sous MCAR : la <strong>perte de puissance statistique</strong>, c'est-à-dire une réduction de la capacité à détecter des effets réels dans les données restantes, simplement du fait de la réduction de la taille de l'échantillon disponible.</p>
+
+      <h3>Illustrer concrètement la perte de puissance</h3>
+      <pre><code class="language-python">import numpy as np
+from scipy import stats
+
+np.random.seed(0)
+
+# Un vrai effet existe dans la population : deux groupes ont des moyennes légèrement différentes
+groupe_a_complet = np.random.normal(50, 15, 1000)
+groupe_b_complet = np.random.normal(53, 15, 1000)  # différence réelle mais modeste
+
+_, p_complet = stats.ttest_ind(groupe_a_complet, groupe_b_complet)
+print(f"p-valeur avec échantillon complet (n=1000 par groupe) : {p_complet:.4f}")
+
+# Simulation d'une suppression MCAR de 70% des données -- une perte sévère mais purement aléatoire
+masque_a = np.random.random(1000) > 0.7
+masque_b = np.random.random(1000) > 0.7
+_, p_reduit = stats.ttest_ind(groupe_a_complet[masque_a], groupe_b_complet[masque_b])
+print(f"p-valeur avec échantillon réduit (n≈300 par groupe) : {p_reduit:.4f}")
+# Même sous MCAR (aucun biais introduit), une perte de puissance peut faire manquer
+# un effet réel mais modeste, qui aurait été détecté avec l'échantillon complet</code></pre>
+
+      <h3>Le coût multiplicateur de la suppression sur plusieurs colonnes simultanément</h3>
+      <p>Le coût de la suppression de lignes s'aggrave de façon multiplicative, pas additive, quand plusieurs colonnes ont chacune leur propre taux de manquance indépendant : si trois colonnes ont chacune 10% de valeurs manquantes réparties indépendamment (approximativement MCAR et non corrélées entre elles), la suppression de toute ligne avec au moins une valeur manquante sur l'une de ces trois colonnes peut éliminer bien plus que 10% des lignes au total.</p>
+
+      <pre><code class="language-python">import numpy as np
+import pandas as pd
+
+np.random.seed(0)
+n = 10000
+df = pd.DataFrame({
+    "a": np.random.normal(0, 1, n),
+    "b": np.random.normal(0, 1, n),
+    "c": np.random.normal(0, 1, n),
+})
+for col in df.columns:
+    masque = np.random.random(n) &lt; 0.10  # 10% de manquance indépendante par colonne
+    df.loc[masque, col] = np.nan
+
+taux_perte_reel = 1 - len(df.dropna()) / len(df)
+print(f"Taux de manquance par colonne : 10% chacune")
+print(f"Taux de perte réel après dropna() sur les 3 colonnes : {taux_perte_reel*100:.1f}%")
+# Le résultat dépasse largement 10% -- proche de 1 - (0.9)^3 ≈ 27% si les manquances
+# sont indépendantes entre colonnes, un effet multiplicatif souvent sous-estimé</code></pre>
+
+      <h3>Pourquoi ce coût multiplicateur justifie souvent l'imputation plutôt que la suppression sur des datasets larges</h3>
+      <p>Ce mécanisme explique en grande partie pourquoi la suppression de lignes devient rapidement impraticable sur des datasets comportant de nombreuses colonnes ayant chacune un taux de manquance même modeste — la perte cumulée peut rapidement dépasser un seuil raisonnable, orientant naturellement vers l'imputation (Modules 4 à 6) comme alternative pour préserver la taille de l'échantillon.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Sous-estimer l'effet multiplicatif de la suppression sur plusieurs colonnes en ne vérifiant le taux de manquance que colonne par colonne, sans jamais calculer le taux de perte réel après un <code>dropna()</code> global appliqué à l'ensemble des colonnes pertinentes pour l'analyse.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un dataset a 8 colonnes numériques utilisées dans une analyse, chacune avec environ 5% de valeurs manquantes indépendantes. Estimez approximativement (sans exécuter de code) le pourcentage de lignes qui seraient perdues par un <code>dropna()</code> global, et expliquez pourquoi ce chiffre justifierait de considérer une méthode d'imputation.
+      </div>
+    </section>
+
+    <section id="m3-l4">
+      <span class="lesson-kicker">Module 3 · Leçon 4</span>
+      <h2>Documenter l'Arbitrage Suppression vs Conservation</h2>
+
+      <p>Cette dernière leçon du module consolide les critères des trois leçons précédentes en une grille de décision explicite, à documenter systématiquement pour chaque décision de suppression — dans la continuité directe de la pratique de traçabilité déjà établie comme principe central du cours précédent sur le nettoyage de données.</p>
+
+      <h3>Grille de décision synthétique</h3>
+      <table>
+        <tr><th>Facteur</th><th>Favorise la suppression</th><th>Favorise la conservation (imputation)</th></tr>
+        <tr><td>Mécanisme diagnostiqué (Module 2)</td><td>MCAR ou proche</td><td>MAR ou MNAR suspecté</td></tr>
+        <tr><td>Volume de lignes/colonnes affecté</td><td>Faible (quelques %)</td><td>Élevé (perte de puissance importante)</td></tr>
+        <tr><td>Importance métier de la variable</td><td>Secondaire</td><td>Critique pour l'analyse ou le modèle</td></tr>
+        <tr><td>Taille totale du dataset</td><td>Très grand (perte relative négligeable)</td><td>Petit ou modéré (chaque ligne compte)</td></tr>
+        <tr><td>Coût d'une hypothèse d'imputation incorrecte</td><td>Élevé (mieux vaut s'abstenir)</td><td>Faible (l'imputation reste globalement sûre)</td></tr>
+      </table>
+
+      <h3>Un gabarit de documentation à réutiliser systématiquement</h3>
+      <pre><code class="language-python">"""
+DÉCISION DE TRAITEMENT DES VALEURS MANQUANTES
+Colonne : revenu_mensuel
+Taux de manquance : 12%
+Mécanisme diagnostiqué (Module 2) : signal MAR détecté, corrélé à la variable 'age'
+Décision : imputation par régression (Module 5, leçon 1), utilisant 'age' et 'anciennete'
+           comme prédicteurs, plutôt que suppression des lignes concernées.
+Justification : le volume de lignes concerné (12%) est trop important pour une suppression
+                sans perte significative de puissance statistique (Module 3, leçon 3), et le
+                signal MAR permet une imputation statistiquement défendable (Module 2, leçon 3).
+Validé par : [nom], le [date]
+Impact mesuré : voir rapport_impact_imputation.csv (Module 8, leçon 2)
+"""</code></pre>
+
+      <h3>Pourquoi ce gabarit doit vivre à côté du code, pas dans un document séparé</h3>
+      <p>Comme établi dans le cours précédent sur le nettoyage de données, cette documentation gagne à être intégrée directement dans le code du pipeline (docstring, commentaire structuré, ou configuration versionnée) plutôt que dans un document externe qui se désynchronise inévitablement du code réel au fil des évolutions du pipeline. Un futur relecteur — ou soi-même six mois plus tard — doit pouvoir comprendre la décision sans devoir chercher un document tiers potentiellement introuvable ou obsolète.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Documenter les décisions de traitement des valeurs manquantes uniquement dans un compte-rendu de réunion ou un document de projet temporaire, qui ne sera jamais consulté par la personne qui reprendra ou maintiendra le pipeline dans le futur. La documentation doit vivre au plus près du code exécuté, pas dans un artefact de gestion de projet voué à être archivé et oublié.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        En utilisant la grille de décision de cette leçon, tranchez et justifiez : une colonne "note_examen_entree" a 25% de valeurs manquantes, aucun signal MAR détecté sur les variables disponibles, un dataset total de seulement 400 lignes, et un rôle secondaire dans l'analyse prévue (variable de contrôle, pas la variable d'intérêt principale).
+      </div>
+    </section>
+
+    <div class="module-divider">
+      <span class="num">MODULE 04 · IMPUTATION SIMPLE</span>
+      <span class="line"></span>
+    </div>
+
+    <section id="m4-l1">
+      <span class="lesson-kicker">Module 4 · Leçon 1</span>
+      <h2>Imputation par une Constante</h2>
+
+      <p>La forme la plus élémentaire d'imputation consiste à remplacer toute valeur manquante par une constante fixe, choisie non pas pour "deviner" statistiquement la vraie valeur, mais pour représenter explicitement l'absence elle-même comme une catégorie à part entière — une approche particulièrement adaptée aux cas de non-applicabilité structurelle déjà évoqués au Module 1 (leçon 1).</p>
+
+      <div class="gap-row">
+        <span class="hole-tag">secteur = ?</span>
+        <span class="arrow">→</span>
+        <span class="fill-tag">secteur = "Non renseigné"</span>
+      </div>
+
+      <pre><code class="language-python">import pandas as pd
+
+df = pd.DataFrame({
+    "secteur_activite": ["Tech", None, "Santé", None, "Finance"],
+    "commentaire": [None, "Bon client", None, None, "Retard fréquent"],
+})
+
+# Imputation par une constante textuelle explicite, pour les variables catégorielles
+df["secteur_activite"] = df["secteur_activite"].fillna("Non renseigné")
+
+# Imputation par une constante numérique (0 est un choix fréquent, mais voir la mise en garde)
+df["commentaire"] = df["commentaire"].fillna("Aucun commentaire")
+print(df)</code></pre>
+
+      <h3>Le cas particulier justifié : les variables catégorielles</h3>
+      <p>Pour une variable catégorielle, remplacer une valeur manquante par une catégorie explicite ("Non renseigné", "Inconnu") est souvent préférable à toute autre méthode d'imputation, car cela <strong>préserve l'information</strong> que la valeur était manquante (utile pour l'indicateur de manquance du Module 7) tout en évitant d'introduire une fausse certitude sur une valeur catégorielle qui n'a pas de "moyenne" ou de valeur par défaut naturelle et non arbitraire.</p>
+
+      <h3>Le piège majeur : la constante 0 pour une variable numérique</h3>
+      <p>Remplacer une valeur manquante par 0 sur une variable numérique est l'une des décisions d'imputation les plus dangereuses et pourtant les plus fréquentes, car elle est syntaxiquement triviale (<code>fillna(0)</code>) et ne provoque jamais d'erreur — mais elle suppose implicitement que "je ne sais pas" équivaut à "c'est zéro", une équivalence presque toujours fausse et qui peut fausser radicalement toute statistique calculée ensuite (une moyenne de revenu incluant des zéros artificiels pour les non-répondants, par exemple).</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+revenus = pd.Series([45000, 52000, None, 61000, None])
+
+print(f"Moyenne en ignorant les NaN : {revenus.mean():,.0f}")  # 52 666 -- calcul correct sur les valeurs connues
+
+revenus_avec_zero = revenus.fillna(0)
+print(f"Moyenne après fillna(0) : {revenus_avec_zero.mean():,.0f}")  # 31 600 -- FAUSSÉ, et de façon importante
+# Le 0 n'est pas une vraie observation -- c'est un artefact d'imputation qui pollue
+# silencieusement tout calcul statistique ultérieur sur cette colonne</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Utiliser <code>fillna(0)</code> comme réflexe universel sur des colonnes numériques, sans distinguer les cas où 0 est réellement la valeur logique par défaut (un compteur d'événements qui n'a jamais eu lieu, par exemple) des cas où 0 est une valeur artificielle qui dénature la distribution réelle de la variable (un revenu, un âge, une note).
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Pour chacune des colonnes suivantes, indiquez si <code>fillna(0)</code> serait une imputation légitime ou trompeuse, et pourquoi : (1) "nombre_de_reclamations" pour un client n'ayant jamais contacté le support, (2) "montant_dernier_achat" pour un client n'ayant jamais acheté, (3) "note_satisfaction" pour un client n'ayant jamais répondu à l'enquête.
+      </div>
+    </section>
+
+    <section id="m4-l2">
+      <span class="lesson-kicker">Module 4 · Leçon 2</span>
+      <h2>Imputation par Moyenne, Médiane, Mode</h2>
+
+      <p>L'imputation par une statistique centrale (moyenne, médiane, ou mode selon le type de variable) est probablement la méthode la plus enseignée et la plus utilisée en pratique — simple à mettre en œuvre, elle mérite néanmoins d'être appliquée avec la même rigueur de choix déjà établie dans le cours de statistiques descriptives entre ces trois mesures.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+df = pd.DataFrame({
+    "age": [25, 34, None, 45, 29, None],
+    "revenu": [28000, 250000, 32000, None, 31000, 29000],  # distribution asymétrique, un outlier
+    "categorie_favorite": ["Sport", "Mode", None, "Sport", "Tech", "Sport"],
+})
+
+# Moyenne : appropriée pour une distribution approximativement symétrique
+df["age_impute_moyenne"] = df["age"].fillna(df["age"].mean())
+
+# Médiane : préférable pour une distribution asymétrique ou avec outliers (Module 1 du cours de stats)
+df["revenu_impute_mediane"] = df["revenu"].fillna(df["revenu"].median())
+
+# Mode : la seule option sensée pour une variable catégorielle
+df["categorie_impute_mode"] = df["categorie_favorite"].fillna(df["categorie_favorite"].mode()[0])
+print(df)</code></pre>
+
+      <h3>Le rappel direct du cours de statistiques descriptives : moyenne vs médiane</h3>
+      <p>Le choix entre moyenne et médiane pour l'imputation suit exactement la même logique déjà établie pour le choix de la mesure de tendance centrale à communiquer : sur une distribution asymétrique (revenus, durées, montants), la moyenne est tirée par les valeurs extrêmes et produit une valeur imputée moins représentative qu'une médiane, robuste par construction (Module 1, leçon 3 du cours de statistiques descriptives).</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+revenus = pd.Series([28000, 32000, 31000, 29000, 250000])  # outlier légitime, un cadre dirigeant
+print(f"Moyenne : {revenus.mean():,.0f}")   # 74 000 -- tirée vers le haut par l'outlier
+print(f"Médiane : {revenus.median():,.0f}") # 31 000 -- bien plus représentative du revenu "typique"
+# Imputer par la moyenne créerait des valeurs artificiellement hautes et peu réalistes
+# pour la majorité des cas manquants, qui ressemblent probablement plus au profil médian</code></pre>
+
+      <h3>Imputer par groupe plutôt que globalement : un premier pas vers plus de nuance</h3>
+      <p>Une amélioration simple mais souvent négligée consiste à calculer la statistique d'imputation non pas sur l'ensemble du dataset, mais séparément par sous-groupe pertinent (approfondi en leçon 4 de ce module) — imputer l'âge manquant d'un étudiant par la moyenne d'âge des étudiants plutôt que par la moyenne d'âge de l'ensemble de la population (étudiants et retraités confondus) produit une estimation nettement plus fine et généralement plus proche de la réalité.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Utiliser systématiquement la moyenne pour toute imputation numérique par habitude, sans vérifier au préalable si la distribution de la variable est symétrique ou non (via un simple skewness, Module 2 du cours de statistiques descriptives). Sur une variable fortement asymétrique, cette habitude introduit un biais similaire à celui déjà identifié pour la communication d'une moyenne trompeuse.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une colonne "duree_session_minutes" a un skewness de 3.8 (fortement asymétrique à droite) et 8% de valeurs manquantes. Justifiez le choix entre moyenne et médiane pour l'imputation, en vous appuyant explicitement sur ce que le skewness révèle de la distribution.
+      </div>
+    </section>
+
+    <section id="m4-l3">
+      <span class="lesson-kicker">Module 4 · Leçon 3</span>
+      <h2>Imputation par Propagation : Forward/Backward Fill</h2>
+
+      <p>Pour des données ordonnées de façon significative — typiquement des séries temporelles ou toute donnée triée selon un axe naturel — l'imputation par propagation consiste à reporter la dernière valeur connue (forward fill) ou la prochaine valeur connue (backward fill) sur les valeurs manquantes, en s'appuyant sur l'hypothèse qu'une grandeur évolue de façon suffisamment continue pour que la valeur immédiatement voisine soit une estimation raisonnable.</p>
+
+      <pre><code class="language-python">import pandas as pd
+import numpy as np
+
+temperatures = pd.Series([18.2, 18.5, np.nan, np.nan, 19.1, 19.4, np.nan, 20.0],
+                          index=pd.date_range("2024-06-01", periods=8, freq="h"))
+
+# Forward fill : reporte la dernière valeur connue vers l'avant
+print(temperatures.ffill())
+# 18.2, 18.5, 18.5, 18.5, 19.1, 19.4, 19.4, 20.0 -- plausible pour une température qui évolue lentement
+
+# Backward fill : reporte la prochaine valeur connue vers l'arrière
+print(temperatures.bfill())
+# 18.2, 18.5, 19.1, 19.1, 19.1, 19.4, 20.0, 20.0</code></pre>
+
+      <h3>Pourquoi cette méthode n'a de sens que pour des données ordonnées et continues</h3>
+      <p>Le forward/backward fill repose entièrement sur l'hypothèse que la grandeur mesurée évolue de façon relativement lente et continue par rapport à la fréquence d'échantillonnage — une température, un cours de bourse à court terme, un niveau de stock. Appliquer cette méthode à une donnée sans ordre significatif (un identifiant client dans un ordre arbitraire d'export) ou à une donnée qui peut changer brutalement (un statut binaire actif/inactif qui bascule instantanément) produirait des valeurs imputées dénuées de sens.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+statuts = pd.Series(["actif", "actif", None, None, "inactif", "actif"])
+print(statuts.ffill())
+# "actif" reporté même après le passage réel à "inactif" (non observé ici) -- risque
+# de masquer un changement d'état réel survenu précisément pendant la période manquante</code></pre>
+
+      <h3>Limiter la propagation : éviter de combler des trous trop larges</h3>
+      <p>Propager une valeur sur une trop longue période sans nouvelle observation devient de moins en moins fiable à mesure que l'écart temporel grandit — le paramètre <code>limit</code> permet de plafonner le nombre de valeurs consécutives comblées par propagation, au-delà duquel les valeurs restent explicitement manquantes plutôt que de recevoir une estimation devenue trop incertaine pour être crédible.</p>
+
+      <pre><code class="language-python">import pandas as pd
+import numpy as np
+
+serie = pd.Series([10, np.nan, np.nan, np.nan, np.nan, np.nan, 25])
+print(serie.ffill(limit=2))
+# 10, 10, 10, NaN, NaN, NaN, 25 -- seules 2 valeurs consécutives sont comblées,
+# au-delà l'incertitude est jugée trop grande pour propager la dernière valeur connue</code></pre>
+
+      <h3>L'interpolation linéaire : une alternative souvent supérieure au fill pur</h3>
+      <p>Plutôt que de reporter une valeur constante, l'interpolation linéaire (approfondie au Module 6, leçon 2 pour les séries temporelles) trace une droite entre la dernière valeur connue avant le trou et la première valeur connue après, produisant une estimation progressive plutôt qu'un plateau artificiel — souvent plus réaliste pour des grandeurs qui évoluent continûment plutôt que par paliers.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Appliquer un forward fill sans limite sur un très long intervalle de valeurs manquantes consécutives (plusieurs jours ou semaines pour une mesure censée être horaire), produisant un plateau artificiel qui masque toute variation réelle ayant pu survenir pendant cette période, et peut fausser gravement une analyse de tendance si ce plateau constitue une part substantielle de la série.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une série de relevés de température horaire contient un trou de 6 heures consécutives (capteur en panne). Comparez ce que produirait un forward fill simple vs une interpolation linéaire sur ce trou, et indiquez laquelle des deux méthodes vous semble la plus fidèle à une évolution réaliste de la température sur une demi-journée.
+      </div>
+    </section>
+
+    <section id="m4-l4">
+      <span class="lesson-kicker">Module 4 · Leçon 4</span>
+      <h2>Imputation par Groupe : la Moyenne Conditionnelle</h2>
+
+      <p>Cette leçon approfondit l'amélioration effleurée en leçon 2 : plutôt que de calculer une statistique d'imputation unique sur l'ensemble du dataset, la calculer séparément pour chaque sous-groupe pertinent produit une estimation qui exploite l'information déjà disponible dans les autres colonnes du dataset — une forme d'imputation intermédiaire entre la simplicité de la moyenne globale et la sophistication d'une véritable régression (Module 5).</p>
+
+      <pre><code class="language-python">import pandas as pd
+import numpy as np
+
+df = pd.DataFrame({
+    "categorie_produit": ["Électronique", "Électronique", "Alimentaire", "Alimentaire", "Électronique"],
+    "prix": [450, np.nan, 8, np.nan, 380],
+})
+
+# Imputation globale (naïve) : ignore que les catégories ont des échelles de prix très différentes
+moyenne_globale = df["prix"].mean()
+print(f"Moyenne globale : {moyenne_globale:.0f}")  # 279 -- absurde pour un produit alimentaire
+
+# Imputation par groupe : exploite l'information de la colonne "categorie_produit"
+df["prix_impute"] = df.groupby("categorie_produit")["prix"].transform(lambda x: x.fillna(x.mean()))
+print(df)
+# Le produit alimentaire manquant reçoit une valeur proche de 8€, pas de 279€ --
+# une estimation bien plus réaliste car elle respecte le contexte de la catégorie</code></pre>
+
+      <h3>Le lien direct avec le diagnostic MAR du Module 2</h3>
+      <p>L'imputation par groupe est particulièrement justifiée quand le diagnostic MAR (Module 2, leçon 3) a identifié qu'une variable catégorielle (comme "categorie_produit" ci-dessus) est corrélée à la manquance ou à la valeur elle-même — dans ce cas, ignorer cette variable dans l'imputation revient à jeter une information pourtant disponible et statistiquement pertinente pour affiner l'estimation.</p>
+
+      <h3>La limite pratique : la taille de chaque groupe</h3>
+      <p>Un groupe contenant très peu d'observations produit une moyenne de groupe peu fiable, potentiellement plus trompeuse qu'une moyenne globale calculée sur un échantillon plus large — un compromis à évaluer explicitement plutôt que de multiplier systématiquement les groupes de conditionnement sans limite. Une pratique courante consiste à définir un seuil minimal d'observations par groupe (par exemple 30), en repli sur la moyenne globale pour les groupes trop petits.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+def imputer_par_groupe_avec_repli(df: pd.DataFrame, colonne: str, groupe: str, taille_min: int = 30) -> pd.Series:
+    tailles = df.groupby(groupe)[colonne].transform("count")
+    moyenne_groupe = df.groupby(groupe)[colonne].transform("mean")
+    moyenne_globale = df[colonne].mean()
+
+    # Utilise la moyenne de groupe si le groupe est suffisamment grand, sinon replie sur la moyenne globale
+    moyenne_a_utiliser = moyenne_groupe.where(tailles >= taille_min, moyenne_globale)
+    return df[colonne].fillna(moyenne_a_utiliser)</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Multiplier les niveaux de conditionnement (imputer par catégorie ET région ET tranche d'âge simultanément) sans vérifier que chaque combinaison de groupes contient encore suffisamment d'observations pour produire une moyenne fiable. Une sur-segmentation peut aboutir à des groupes d'une seule observation, où la "moyenne de groupe" n'est en réalité qu'une valeur individuelle arbitraire, pas une estimation statistique robuste.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un dataset de salaires manquants pourrait être imputé par la moyenne du poste, ou par la moyenne du poste croisée avec l'ancienneté. Sachant que certaines combinaisons poste × ancienneté ne contiennent que 2 ou 3 employés, quelle stratégie proposeriez-vous pour bénéficier de la finesse du croisement sans souffrir de groupes trop petits ?
+      </div>
+    </section>
+
+    <section id="m4-l5">
+      <span class="lesson-kicker">Module 4 · Leçon 5</span>
+      <h2>Les Limites Systémiques de l'Imputation Simple</h2>
+
+      <p>Cette dernière leçon du module prend du recul sur l'ensemble des méthodes précédentes pour exposer une limite structurelle commune à toutes les formes d'imputation simple (constante, moyenne, médiane, mode, propagation) : elles remplacent systématiquement une incertitude réelle par une <strong>fausse certitude</strong>, une distorsion qui affecte la variance et les analyses statistiques ultérieures d'une façon souvent invisible tant qu'on ne la mesure pas explicitement.</p>
+
+      <h3>La distorsion de variance : l'effet le plus systématique et le plus sous-estimé</h3>
+      <pre><code class="language-python">import numpy as np
+import pandas as pd
+
+np.random.seed(0)
+donnees_completes = np.random.normal(50, 10, 1000)
+print(f"Écart-type réel (données complètes) : {donnees_completes.std():.2f}")
+
+donnees_avec_trous = donnees_completes.copy()
+masque = np.random.random(1000) &lt; 0.3  # 30% de valeurs manquantes, MCAR pour isoler l'effet
+donnees_avec_trous[masque] = np.nan
+
+serie = pd.Series(donnees_avec_trous)
+serie_imputee = serie.fillna(serie.mean())
+print(f"Écart-type après imputation par la moyenne : {serie_imputee.std():.2f}")
+# L'écart-type après imputation est SYSTÉMATIQUEMENT plus faible que l'écart-type réel --
+# chaque valeur imputée est exactement la moyenne, donc n'ajoute AUCUNE variance,
+# artificiellement resserrant la distribution autour du centre</code></pre>
+
+      <h3>Pourquoi cette distorsion se propage à toute analyse en aval</h3>
+      <p>Une variance artificiellement réduite fausse directement les intervalles de confiance (trop étroits, suggérant une précision qui n'existe pas réellement), les tests d'hypothèse (p-valeurs artificiellement significatives car la variance sous-estimée gonfle la statistique de test), et les coefficients de corrélation (généralement atténués vers zéro, car l'imputation par une constante unique réduit la covariance avec les autres variables). Ces effets sont d'autant plus marqués que le taux de valeurs manquantes est élevé.</p>
+
+      <h3>Ce que l'imputation multiple corrige, et pourquoi elle existe</h3>
+      <p>Cette limite structurelle de l'imputation simple — une seule valeur "certaine" remplaçant une vraie incertitude — est précisément le problème que l'imputation multiple (Module 5, leçons 3 et 4) a été conçue pour résoudre, en générant plusieurs valeurs plausibles reflétant l'incertitude réelle plutôt qu'une seule estimation ponctuelle. Comprendre cette limite est donc la meilleure façon de saisir *pourquoi* les méthodes plus sophistiquées existent, plutôt que de les percevoir comme une complexité gratuite.</p>
+
+      <h3>Une bonne pratique intermédiaire : signaler la distorsion plutôt que la nier</h3>
+      <p>Quand l'imputation simple reste le choix retenu (pour des raisons de simplicité ou de contraintes de temps, un compromis parfois raisonnable), la bonne pratique minimale consiste à <strong>signaler explicitement</strong> cette distorsion de variance dans la documentation du dataset ou du rapport d'analyse, plutôt que de laisser un utilisateur final calculer un intervalle de confiance ou un test statistique sur des données imputées en croyant à tort travailler sur des données complètes et fiables à 100%.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Calculer un intervalle de confiance ou effectuer un test d'hypothèse directement sur des données ayant subi une imputation simple, sans corriger ni même mentionner que la variance sous-jacente est artificiellement réduite. Le résultat rapporté (souvent une p-valeur ou un intervalle) sera trop optimiste, suggérant une confiance statistique supérieure à celle réellement justifiée par les données d'origine.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un data scientist impute 25% des valeurs manquantes d'une variable par sa moyenne, puis calcule un intervalle de confiance à 95% sur cette variable en la traitant comme si elle était complète. Expliquez pourquoi cet intervalle de confiance est probablement trop étroit, et ce que cela implique concrètement pour une décision prise sur la base de ce résultat.
+      </div>
+    </section>
+
+    <div class="module-divider">
+      <span class="num">MODULE 05 · IMPUTATION STATISTIQUE</span>
+      <span class="line"></span>
+    </div>
+
+    <section id="m5-l1">
+      <span class="lesson-kicker">Module 5 · Leçon 1</span>
+      <h2>Imputation par Régression</h2>
+
+      <p>L'imputation par régression exploite directement le diagnostic MAR établi au Module 2 : si la manquance d'une variable est corrélée à d'autres variables observées, alors un modèle de régression entraîné sur les lignes complètes peut prédire la valeur la plus probable pour les lignes où elle manque, en utilisant précisément ces variables corrélées comme prédicteurs — une amélioration directe et naturelle par rapport à l'imputation par groupe du Module 4.</p>
+
+      <pre><code class="language-python">import pandas as pd
+import numpy as np
+from sklearn.linear_model import LinearRegression
+
+df = pd.DataFrame({
+    "age": [25, 34, 45, 29, 52, 38, 41],
+    "anciennete": [2, 8, 15, 4, 20, 10, 12],
+    "salaire": [32000, 45000, 62000, 35000, np.nan, np.nan, 55000],
+})
+
+lignes_completes = df.dropna()
+lignes_a_imputer = df[df["salaire"].isna()]
+
+modele = LinearRegression()
+modele.fit(lignes_completes[["age", "anciennete"]], lignes_completes["salaire"])
+
+salaires_predits = modele.predict(lignes_a_imputer[["age", "anciennete"]])
+df.loc[df["salaire"].isna(), "salaire"] = salaires_predits
+print(df)</code></pre>
+
+      <h3>Pourquoi cette méthode est supérieure à la moyenne de groupe dans certains cas</h3>
+      <p>Contrairement à l'imputation par groupe (Module 4, leçon 4), qui nécessite une variable catégorielle pour définir des groupes discrets, la régression exploite directement des variables <strong>continues</strong> (âge, ancienneté) sans devoir les découper artificiellement en catégories, et peut combiner simultanément plusieurs prédicteurs continus et catégoriels dans un seul modèle — une flexibilité que l'imputation par groupe simple n'offre pas.</p>
+
+      <h3>Le piège déjà annoncé au Module 4 : la régression ne résout pas la distorsion de variance</h3>
+      <p>Un piège important, souvent ignoré : l'imputation par régression produit une prédiction <strong>ponctuelle</strong> (la valeur la plus probable selon le modèle), sans jamais ajouter le bruit résiduel que la variable aurait naturellement dans la réalité. Le résultat souffre donc d'une distorsion de variance analogue à celle de l'imputation par la moyenne (Module 4, leçon 5) — la variable imputée est "trop parfaitement" expliquée par les prédicteurs, plus que ne le serait la vraie donnée si elle avait été observée.</p>
+
+      <pre><code class="language-python">import numpy as np
+
+# La régression prédit exactement sur la droite -- sans le bruit résiduel réel
+# qu'une vraie observation aurait presque toujours autour de cette droite
+residus_reels_type = lignes_completes["salaire"] - modele.predict(lignes_completes[["age", "anciennete"]])
+print(f"Écart-type des résidus réels observés : {residus_reels_type.std():.0f}")
+# Ce bruit est totalement absent des valeurs imputées par régression simple --
+# une imputation "stochastique" (leçon suivante et Module 5, leçon 3) corrige ce point
+# en ajoutant explicitement un bruit aléatoire de cette magnitude à la prédiction</code></pre>
+
+      <h3>L'imputation stochastique : une correction simple à ce défaut</h3>
+      <p>Une amélioration directe consiste à ajouter à chaque prédiction un bruit aléatoire tiré de la distribution des résidus observés sur les données complètes, restaurant une variabilité réaliste plutôt qu'une valeur mécaniquement "trop propre".</p>
+
+      <pre><code class="language-python">import numpy as np
+
+ecart_type_residus = residus_reels_type.std()
+bruit_aleatoire = np.random.normal(0, ecart_type_residus, size=len(salaires_predits))
+salaires_imputes_stochastiques = salaires_predits + bruit_aleatoire
+# Cette variabilité restaurée rapproche la distribution imputée de ce qu'aurait été
+# la distribution réelle si les valeurs avaient été effectivement observées</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Utiliser un modèle de régression très performant (R² élevé) pour l'imputation en pensant que cela garantit une bonne imputation, sans considérer que même un modèle parfait ne produit qu'une prédiction ponctuelle sans le bruit résiduel réel — un R² élevé résout un problème différent (la qualité de la prédiction moyenne) de celui de la préservation de la variance réelle des données imputées.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Expliquez pourquoi une imputation par régression, même avec un excellent modèle prédictif, produirait une matrice de corrélation légèrement différente (généralement des corrélations plus fortes qu'en réalité) par rapport aux données complètes originales, si elle est appliquée sans ajout de bruit résiduel.
+      </div>
+    </section>
+
+    <section id="m5-l2">
+      <span class="lesson-kicker">Module 5 · Leçon 2</span>
+      <h2>Imputation par k-Plus Proches Voisins (KNN)</h2>
+
+      <p>L'imputation par KNN (K-Nearest Neighbors) adopte une approche différente de la régression : plutôt que de modéliser une relation fonctionnelle explicite entre variables, elle identifie les <code>k</code> observations les plus "proches" (selon une distance calculée sur les autres variables disponibles) de la ligne à imputer, puis utilise la moyenne (ou le mode, pour une variable catégorielle) de ces voisins comme valeur imputée.</p>
+
+      <pre><code class="language-python">import pandas as pd
+import numpy as np
+from sklearn.impute import KNNImputer
+
+df = pd.DataFrame({
+    "age": [25, 34, 45, 29, 52, 38, 41],
+    "anciennete": [2, 8, 15, 4, 20, 10, 12],
+    "salaire": [32000, 45000, 62000, 35000, np.nan, np.nan, 55000],
+})
+
+imputer = KNNImputer(n_neighbors=3)
+donnees_imputees = imputer.fit_transform(df)
+df_impute = pd.DataFrame(donnees_imputees, columns=df.columns)
+print(df_impute)
+# Pour chaque salaire manquant, le modèle identifie les 3 employés les plus similaires
+# en termes d'âge et d'ancienneté, puis moyenne leurs salaires connus</code></pre>
+
+      <h3>L'importance cruciale de la standardisation avant le calcul de distance</h3>
+      <p>KNN repose entièrement sur une notion de distance entre observations — un rappel direct du Module 7 du cours de statistiques descriptives sur la standardisation. Sans standardisation préalable, une variable à grande échelle (un salaire en dizaines de milliers) dominera artificiellement le calcul de distance par rapport à une variable à petite échelle (un âge en dizaines d'années), rendant la notion de "voisin le plus proche" incohérente.</p>
+
+      <pre><code class="language-python">from sklearn.preprocessing import StandardScaler
+from sklearn.impute import KNNImputer
+import pandas as pd
+
+scaler = StandardScaler()
+colonnes_numeriques = ["age", "anciennete", "salaire"]
+
+# Standardiser AVANT d'imputer, pour que chaque variable contribue équitablement à la distance
+donnees_standardisees = scaler.fit_transform(df[colonnes_numeriques])
+imputer = KNNImputer(n_neighbors=3)
+donnees_imputees_std = imputer.fit_transform(donnees_standardisees)
+
+# Ne pas oublier de revenir à l'échelle d'origine après imputation pour l'interprétation
+donnees_finales = scaler.inverse_transform(donnees_imputees_std)</code></pre>
+
+      <h3>Le choix de k : un compromis biais-variance classique</h3>
+      <p>Un <code>k</code> petit (par exemple k=1) rend l'imputation très sensible au bruit d'une seule observation voisine potentiellement atypique ; un <code>k</code> grand lisse excessivement l'estimation en la rapprochant d'une moyenne globale, perdant l'avantage de la localité qui fait l'intérêt même de la méthode KNN. Comme pour le choix du nombre de voisins dans un modèle de classification KNN classique, ce paramètre se calibre généralement par validation croisée plutôt que par un choix arbitraire.</p>
+
+      <h3>Le coût computationnel : une limite pratique sur de gros volumes</h3>
+      <p>Le calcul de distance entre chaque ligne à imputer et l'ensemble des autres lignes du dataset a un coût qui croît rapidement avec le volume de données (similaire au problème de comparaison en force brute déjà rencontré pour le fuzzy matching dans le cours précédent) — sur des datasets de plusieurs millions de lignes, KNN peut devenir impraticable sans une stratégie d'échantillonnage ou d'indexation adaptée.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Appliquer <code>KNNImputer</code> directement sur des données non standardisées contenant des variables d'échelles très différentes (un âge et un salaire, par exemple), produisant des "voisins les plus proches" qui ne le sont en réalité que sur la variable à plus grande échelle, faussant silencieusement toute l'imputation sans qu'aucune erreur ne soit levée.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous appliquez KNNImputer avec k=1 sur un dataset de 50 lignes, et observez que les valeurs imputées semblent très instables (deux exécutions légèrement différentes du pipeline en amont produisent des résultats sensiblement différents). Expliquez ce phénomène et proposez un ajustement de paramètre pour le stabiliser.
+      </div>
+    </section>
+
+    <section id="m5-l3">
+      <span class="lesson-kicker">Module 5 · Leçon 3</span>
+      <h2>Imputation Multiple (MICE) : Principe et Intérêt</h2>
+
+      <p>Cette leçon aborde la réponse la plus rigoureuse au problème de distorsion de variance identifié au Module 4 (leçon 5) et rappelé en leçon 1 de ce module : plutôt que de produire une seule valeur imputée par cellule manquante, l'<strong>imputation multiple</strong> génère <em>plusieurs</em> jeux de données complets, chacun avec des valeurs imputées légèrement différentes reflétant l'incertitude réelle de l'estimation, puis combine les résultats d'analyses menées sur chacun de ces jeux (leçon 4).</p>
+
+      <h3>MICE : Multiple Imputation by Chained Equations</h3>
+      <p>MICE, l'algorithme d'imputation multiple le plus répandu, procède de façon itérative : chaque variable comportant des valeurs manquantes est imputée tour à tour par un modèle de régression utilisant toutes les autres variables comme prédicteurs (y compris celles imputées provisoirement lors d'un tour précédent), le processus étant répété sur plusieurs "tours" jusqu'à stabilisation des valeurs imputées — et l'ensemble de cette procédure est répété plusieurs fois avec un tirage aléatoire différent à chaque fois, produisant autant de jeux de données complets distincts.</p>
+
+      <pre><code class="language-python">import pandas as pd
+import numpy as np
+from sklearn.experimental import enable_iterative_imputer
+from sklearn.impute import IterativeImputer
+
+df = pd.DataFrame({
+    "age": [25, 34, 45, 29, 52, 38, 41, 33],
+    "anciennete": [2, 8, 15, 4, 20, 10, 12, 6],
+    "salaire": [32000, 45000, 62000, np.nan, np.nan, 48000, 55000, np.nan],
+})
+
+# Génération de 5 jeux de données imputés distincts, chacun avec un tirage aléatoire différent
+jeux_imputes = []
+for i in range(5):
+    imputer = IterativeImputer(random_state=i, max_iter=10)
+    jeu_impute = pd.DataFrame(imputer.fit_transform(df), columns=df.columns)
+    jeux_imputes.append(jeu_impute)
+
+for i, jeu in enumerate(jeux_imputes):
+    print(f"Jeu {i+1}, salaire ligne 3 (index) : {jeu['salaire'].iloc[3]:.0f}")
+# Chaque jeu produit une valeur imputée légèrement différente pour la même cellule --
+# c'est précisément cette variabilité qui reflète honnêtement l'incertitude de l'estimation</code></pre>
+
+      <h3>Pourquoi générer plusieurs jeux plutôt qu'un seul "meilleur" jeu</h3>
+      <p>L'intuition contre-intuitive de l'imputation multiple est qu'il n'existe <strong>pas</strong> de "meilleure" valeur unique à imputer — chaque valeur manquante a une distribution entière de valeurs plausibles compte tenu des autres variables observées, et générer plusieurs jeux de données matérialise explicitement cette distribution plutôt que de la réduire arbitrairement à un seul point (la moyenne de cette distribution, ce que fait implicitement toute imputation simple).</p>
+
+      <h3>Combien de jeux imputés générer</h3>
+      <p>La littérature statistique historique recommandait souvent 3 à 5 jeux, une convention issue d'une époque où la puissance de calcul disponible limitait le nombre d'itérations réalistes. Les recommandations plus récentes, avec la puissance de calcul actuelle, suggèrent un nombre de jeux au moins égal au pourcentage de valeurs manquantes (20 jeux pour 20% de manquance, par exemple), une règle empirique qui améliore la précision de l'estimation finale sans coût computationnel prohibitif sur des datasets de taille raisonnable.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Générer plusieurs jeux de données imputés par MICE puis, par simplicité, en moyenner les valeurs pour revenir à un seul jeu de données "consolidé" — cette pratique annule précisément le bénéfice de l'imputation multiple en recréant la même distorsion de variance que l'imputation simple, puisqu'elle réduit à nouveau la distribution de valeurs plausibles à un seul point moyen.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un collègue propose de simplifier un pipeline MICE en ne générant qu'un seul jeu de données imputé plutôt que cinq, "pour gagner du temps de calcul et simplifier l'analyse en aval". Expliquez ce qui serait perdu par cette simplification, en vous appuyant sur le principe central de cette leçon.
+      </div>
+    </section>
+
+    <section id="m5-l4">
+      <span class="lesson-kicker">Module 5 · Leçon 4</span>
+      <h2>Combiner les Imputations : les Règles de Rubin</h2>
+
+      <p>Une fois plusieurs jeux de données imputés générés (leçon 3), une question demeure : comment combiner les résultats d'une même analyse (une moyenne, un coefficient de régression) menée séparément sur chacun de ces jeux, en une estimation finale unique accompagnée d'une mesure d'incertitude honnête ? Les <strong>règles de Rubin</strong> (1987) répondent formellement à cette question.</p>
+
+      <h3>Le principe : combiner l'estimation ET son incertitude</h3>
+      <p>Les règles de Rubin combinent deux sources de variance distinctes : la variance <strong>intra-imputation</strong> (l'incertitude habituelle de l'estimation statistique, présente même sans aucune valeur manquante) et la variance <strong>inter-imputation</strong> (l'écart entre les estimations obtenues sur les différents jeux imputés, qui reflète spécifiquement l'incertitude due aux valeurs manquantes elles-mêmes). La variance totale combinée est toujours supérieure à la variance intra-imputation moyenne seule, reflétant honnêtement le coût réel de l'incertitude introduite par les valeurs manquantes.</p>
+
+      <pre><code class="language-python">import numpy as np
+
+# Simuler l'estimation d'une moyenne sur 5 jeux de données imputés distincts
+estimations_par_jeu = np.array([51200, 51800, 50900, 52100, 51500])  # moyenne estimée dans chaque jeu
+variances_par_jeu = np.array([1200, 1150, 1300, 1100, 1250])          # variance de l'estimation dans chaque jeu
+
+m = len(estimations_par_jeu)
+estimation_combinee = estimations_par_jeu.mean()                       # règle de Rubin : moyenne simple des estimations
+variance_intra = variances_par_jeu.mean()                              # moyenne des variances individuelles
+variance_inter = estimations_par_jeu.var(ddof=1)                       # variance ENTRE les estimations des jeux
+variance_totale = variance_intra + variance_inter * (1 + 1/m)          # formule combinée de Rubin
+
+print(f"Estimation combinée : {estimation_combinee:.0f}")
+print(f"Variance totale (incluant l'incertitude due aux manquants) : {variance_totale:.0f}")
+print(f"Écart-type combiné : {np.sqrt(variance_totale):.0f}")</code></pre>
+
+      <h3>Pourquoi cette formule combinée est plus honnête qu'un intervalle calculé sur un seul jeu imputé</h3>
+      <p>Un intervalle de confiance calculé sur un unique jeu de données imputé (que ce soit par imputation simple ou sur un seul des jeux MICE pris isolément) ignore complètement la variance inter-imputation, et sous-estime donc systématiquement l'incertitude réelle — exactement le problème de distorsion de variance déjà identifié au Module 4, leçon 5. Les règles de Rubin corrigent formellement cette sous-estimation en intégrant explicitement cette source de variance supplémentaire dans le calcul final.</p>
+
+      <h3>L'outillage pratique : automatiser la combinaison plutôt que la calculer à la main</h3>
+      <p>En pratique, des bibliothèques dédiées à l'analyse de données multiplement imputées (comme <code>statsmodels</code> avec son module <code>MI</code>, ou des équivalents en R comme <code>mice</code>, bibliothèque de référence historique du domaine) automatisent l'application des règles de Rubin sur des analyses complexes (régression multiple, modèles de survie), évitant un calcul manuel sujet à erreur sur des formules statistiques non triviales.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Générer plusieurs jeux de données par MICE (Module 5, leçon 3) dans les règles de l'art, puis ne mener l'analyse finale que sur l'un des jeux choisi arbitrairement (souvent le premier), perdant tout le bénéfice de l'imputation multiple en retombant sur une estimation ponctuelle sans la correction d'incertitude apportée par les règles de Rubin.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Sur cinq jeux de données imputés, un coefficient de régression estimé varie entre 2.1 et 2.9 selon le jeu, avec une variance intra-imputation individuelle relativement faible et stable entre les jeux. Qu'est-ce que cette forte variabilité inter-jeux révèle sur le degré d'incertitude réel introduit par les valeurs manquantes sur ce coefficient particulier ?
+      </div>
+    </section>
+
+    <section id="m5-l5">
+      <span class="lesson-kicker">Module 5 · Leçon 5</span>
+      <h2>Quand la Sophistication Est Justifiée (ou Pas)</h2>
+
+      <p>Ce module a présenté une escalade de sophistication croissante : régression simple, KNN, puis imputation multiple avec combinaison formelle par les règles de Rubin. Cette dernière leçon aborde une question tout aussi importante que la maîtrise technique de ces méthodes : <strong>quand</strong> ce niveau de sophistication est réellement justifié, et quand il constitue une complexité disproportionnée par rapport au bénéfice réel obtenu.</p>
+
+      <h3>Facteurs qui justifient une méthode sophistiquée (régression, KNN, MICE)</h3>
+      <ul>
+        <li>Le taux de valeurs manquantes est substantiel (au-delà de 10-15%, une convention indicative), rendant la distorsion de variance de l'imputation simple (Module 4, leçon 5) significative.</li>
+        <li>La variable concernée joue un rôle central dans l'analyse finale (variable cible d'un modèle, indicateur clé d'un rapport stratégique), justifiant un effort de précision supplémentaire.</li>
+        <li>Un diagnostic MAR robuste (Module 2, leçon 3) a identifié des prédicteurs clairs et disponibles, rendant une imputation basée sur ces prédicteurs réellement plus informative qu'une simple moyenne.</li>
+        <li>Le projet final nécessite une inférence statistique rigoureuse (intervalles de confiance, tests d'hypothèse publiés ou utilisés pour une décision à fort enjeu), où l'honnêteté de l'incertitude compte particulièrement.</li>
+      </ul>
+
+      <h3>Facteurs qui rendent l'imputation simple suffisante</h3>
+      <ul>
+        <li>Le taux de manquance est faible (quelques %), limitant mécaniquement l'ampleur de toute distorsion possible, quelle que soit la méthode.</li>
+        <li>L'usage final est exploratoire ou descriptif plutôt qu'inférentiel (un dashboard opérationnel qui n'a pas vocation à produire des intervalles de confiance formels).</li>
+        <li>Aucun signal MAR clair n'a été détecté (Module 2), rendant une régression peu plus informative qu'une simple moyenne faute de bons prédicteurs disponibles.</li>
+        <li>Les contraintes de temps ou de ressources de calcul rendent une méthode itérative comme MICE disproportionnée par rapport à l'enjeu réel de l'analyse.</li>
+      </ul>
+
+      <h3>Une grille de décision pour trancher rapidement</h3>
+      <pre><code class="language-python">def recommander_methode_imputation(taux_manquance: float, signal_mar_detecte: bool,
+                                     usage_inferentiel: bool, volume_lignes: int) -> str:
+    if taux_manquance &lt; 0.05 and not usage_inferentiel:
+        return "Imputation simple (moyenne/médiane) suffisante"
+    if not signal_mar_detecte:
+        return "Imputation simple ou par groupe -- pas de prédicteur MAR clair à exploiter"
+    if usage_inferentiel and taux_manquance > 0.10:
+        return "Imputation multiple (MICE) recommandée -- enjeu inférentiel + manquance significative"
+    if volume_lignes > 1_000_000:
+        return "KNN à éviter (coût computationnel) -- privilégier régression ou MICE optimisé"
+    return "Imputation par régression simple ou stochastique recommandée"</code></pre>
+
+      <h3>Le principe général : la complexité doit être proportionnée à l'enjeu, pas à la disponibilité de l'outil</h3>
+      <p>La disponibilité facile d'une méthode sophistiquée (une simple ligne <code>IterativeImputer()</code>) ne justifie jamais son emploi automatique — le coût réel n'est pas seulement computationnel, mais aussi celui de la complexité ajoutée à un pipeline (plus difficile à expliquer à un stakeholder, plus difficile à déboguer, plus de paramètres à calibrer et à documenter). La meilleure méthode est toujours la plus simple qui répond correctement et honnêtement au problème identifié par le diagnostic des Modules 1 et 2, ni plus ni moins.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Utiliser systématiquement la méthode d'imputation la plus sophistiquée disponible "pour être sûr de bien faire", sans évaluer si le taux de manquance et l'enjeu de l'analyse la justifient réellement. Cette sur-ingénierie ajoute de la complexité, du temps de calcul, et des risques de bugs sans bénéfice statistique proportionnel dans de nombreux cas simples où une imputation basique aurait suffi.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un dashboard interne affiche un taux de conversion moyen avec 2% de valeurs manquantes sur la variable sous-jacente, sans qu'aucune décision critique n'en dépende directement (usage purement informatif pour l'équipe). Justifiez pourquoi une imputation multiple par MICE serait probablement disproportionnée dans ce contexte, et quelle méthode plus simple recommanderiez-vous.
+      </div>
+    </section>
+
+    <div class="module-divider">
+      <span class="num">MODULE 06 · IMPUTATION AVANCÉE</span>
+      <span class="line"></span>
+    </div>
+
+    <section id="m6-l1">
+      <span class="lesson-kicker">Module 6 · Leçon 1</span>
+      <h2>Imputation par Random Forest (MissForest)</h2>
+
+      <p>MissForest est un algorithme d'imputation qui remplace les modèles de régression linéaire du Module 5 par des forêts aléatoires (Random Forest), capables de capturer des relations non linéaires et des interactions complexes entre variables sans qu'il soit nécessaire de les spécifier manuellement — un avantage significatif sur des données réelles où les relations linéaires simples sont souvent une approximation insuffisante.</p>
+
+      <pre><code class="language-python">import pandas as pd
+import numpy as np
+from missforest import MissForest  # pip install MissForest
+
+df = pd.DataFrame({
+    "age": [25, 34, 45, 29, 52, 38, 41, 60],
+    "anciennete": [2, 8, 15, 4, 20, 10, 12, 25],
+    "salaire": [32000, 45000, 62000, np.nan, 95000, np.nan, 55000, 110000],
+    "poste": ["Junior", "Senior", "Senior", "Junior", "Direction", "Senior", "Senior", "Direction"],
+})
+
+imputer = MissForest()
+df_impute = imputer.fit_transform(df)  # gère nativement variables numériques ET catégorielles
+print(df_impute)</code></pre>
+
+      <h3>Pourquoi les forêts aléatoires capturent mieux les non-linéarités et interactions</h3>
+      <p>Une relation comme "le salaire augmente fortement avec l'ancienneté pour les postes de direction, mais beaucoup plus modestement pour les postes juniors" est une <strong>interaction</strong> entre deux variables qu'un modèle de régression linéaire simple (Module 5, leçon 1) ne capture pas sans construction manuelle explicite d'un terme d'interaction. Une forêt aléatoire, de par sa construction par découpages successifs, capture ce type d'interaction naturellement, sans configuration additionnelle.</p>
+
+      <h3>La gestion native des variables catégorielles et numériques mélangées</h3>
+      <p>Contrairement à la régression linéaire ou KNN qui nécessitent un encodage explicite des variables catégorielles (one-hot encoding notamment) avant utilisation, les forêts aléatoires gèrent nativement des variables catégorielles mélangées à des variables numériques dans le même modèle, simplifiant le pipeline de préparation en amont de l'imputation elle-même.</p>
+
+      <h3>Le compromis : coût computationnel et interprétabilité réduite</h3>
+      <p>Cette flexibilité a un coût direct : l'entraînement de multiples forêts aléatoires (une par variable à imputer, à chaque itération) est nettement plus coûteux en temps de calcul que l'ajustement d'une simple régression linéaire, un facteur à considérer sur de grands volumes de données selon la même logique de proportionnalité déjà établie au Module 5 (leçon 5). L'interprétabilité du processus d'imputation est également réduite — il est plus difficile d'expliquer simplement à un stakeholder "comment" une valeur a été imputée par une forêt aléatoire que par une simple moyenne conditionnelle.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Choisir MissForest par défaut pour sa réputation de performance supérieure sans vérifier si les relations entre variables du dataset concerné sont effectivement non linéaires ou marquées par des interactions fortes. Sur des relations essentiellement linéaires, une régression simple (Module 5, leçon 1) peut produire une qualité d'imputation comparable pour un coût de calcul et de complexité bien moindre.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous devez imputer une variable "prime_annuelle" qui dépend du poste, de l'ancienneté, et d'une interaction complexe entre les deux (les primes de direction croissent beaucoup plus vite avec l'ancienneté que les primes juniors). Expliquez pourquoi une régression linéaire simple risque de mal capturer cette relation, et comment MissForest y répondrait mieux.
+      </div>
+    </section>
+
+    <section id="m6-l2">
+      <span class="lesson-kicker">Module 6 · Leçon 2</span>
+      <h2>Séries Temporelles : Interpolation et Spécificités</h2>
+
+      <p>Les séries temporelles ont des propriétés structurelles (ordre, continuité, saisonnalité) qui rendent inadaptées la plupart des méthodes vues jusqu'ici, conçues pour des données tabulaires sans ordre significatif entre les lignes — cette leçon prolonge directement le forward/backward fill du Module 4 (leçon 3) avec des méthodes qui exploitent plus finement la structure temporelle.</p>
+
+      <h3>L'interpolation linéaire, polynomiale et par spline</h3>
+      <pre><code class="language-python">import pandas as pd
+import numpy as np
+
+temperatures = pd.Series([18.2, 18.5, np.nan, np.nan, 19.4, np.nan, 20.1],
+                          index=pd.date_range("2024-06-01", periods=7, freq="h"))
+
+print(temperatures.interpolate(method="linear"))
+# Trace une droite entre les points connus encadrant chaque trou -- une progression
+# graduelle plutôt que le plateau artificiel produit par un simple forward fill
+
+print(temperatures.interpolate(method="polynomial", order=2))
+# Ajuste une courbe plus souple, utile si la grandeur suit une tendance non linéaire
+# (accélération/décélération) plutôt qu'une progression strictement constante</code></pre>
+
+      <h3>Exploiter la saisonnalité : une spécificité propre aux séries temporelles</h3>
+      <p>Une méthode d'interpolation simple ignore une information souvent disponible et précieuse pour des séries à forte saisonnalité (ventes mensuelles, trafic web par heure de la journée) : la valeur manquante d'un lundi ressemble probablement plus à la valeur d'un autre lundi qu'à une simple moyenne entre le dimanche et le mardi environnants. L'imputation saisonnière exploite cette structure périodique connue.</p>
+
+      <pre><code class="language-python">import pandas as pd
+import numpy as np
+
+ventes = pd.Series(
+    [120, 95, 88, 130, np.nan, 91, 85, 125, 98, np.nan, 89, 128],
+    index=pd.date_range("2024-01-01", periods=12, freq="W")
+)  # cycle hebdomadaire répété -- position 4 dans le cycle attendu à environ 130 (comme positions 0, 3, 7, 11)
+
+periode = 4  # cycle supposé de 4 semaines pour cet exemple simplifié
+for i in range(len(ventes)):
+    if pd.isna(ventes.iloc[i]):
+        valeurs_meme_position = ventes.iloc[i % periode::periode].dropna()
+        ventes.iloc[i] = valeurs_meme_position.mean()
+print(ventes)</code></pre>
+
+      <h3>Décomposition tendance-saisonnalité-résidu pour une imputation encore plus fine</h3>
+      <p>Une approche plus rigoureuse décompose formellement la série en trois composantes (tendance de fond, motif saisonnier répétitif, résidu bruité), impute séparément sur la composante résiduelle (généralement proche d'un bruit blanc, donc plus simple à traiter), puis recompose la série complète — une technique qui rejoint les méthodes de décomposition de séries temporelles plus larges, hors du périmètre détaillé de ce cours mais dont le principe mérite d'être connu.</p>
+
+      <pre><code class="language-python">from statsmodels.tsa.seasonal import seasonal_decompose
+import pandas as pd
+
+# Nécessite une série sans valeurs manquantes pour la décomposition initiale --
+# une première passe d'interpolation simple sert souvent d'étape préparatoire
+serie_pre_interpolee = ventes.interpolate(method="linear")
+decomposition = seasonal_decompose(serie_pre_interpolee, model="additive", period=4)
+print(decomposition.trend)
+print(decomposition.seasonal)</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Appliquer une interpolation linéaire standard sur une série fortement saisonnière (ventes de jouets avec un pic massif en décembre, par exemple) sans tenir compte du motif saisonnier connu, produisant une estimation lissée qui manque complètement un pic ou un creux attendu si la donnée manquante tombe justement sur une période de forte saisonnalité.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une série de trafic web horaire présente un pic quotidien récurrent vers 20h et un creux vers 4h du matin. Une valeur manque précisément à 20h un jour donné. Expliquez pourquoi une interpolation linéaire entre 19h et 21h serait probablement trompeuse, et quelle alternative de cette leçon serait plus appropriée.
+      </div>
+    </section>
+
+    <section id="m6-l3">
+      <span class="lesson-kicker">Module 6 · Leçon 3</span>
+      <h2>Valeurs Manquantes dans le Texte et les Catégories</h2>
+
+      <p>Les méthodes des modules précédents ciblent essentiellement des variables numériques. Cette leçon traite des spécificités du texte libre et des variables catégorielles à cardinalité élevée, où les notions de "moyenne" ou de "distance" ne s'appliquent pas directement de la même façon.</p>
+
+      <h3>Catégories à faible cardinalité : le mode reste souvent suffisant</h3>
+      <p>Pour une variable catégorielle à peu de valeurs distinctes (un statut, un type de contrat), l'imputation par le mode (Module 4, leçon 2) ou par une catégorie explicite "Inconnu" (Module 4, leçon 1) reste généralement le choix le plus raisonnable — la notion de "régression" ou de "distance" a peu de sens supplémentaire à apporter sur un nombre restreint de catégories discrètes sans ordre naturel entre elles.</p>
+
+      <h3>Catégories à haute cardinalité : le piège du mode trompeur</h3>
+      <p>Sur une variable catégorielle à très grande cardinalité (un code postal, une profession détaillée avec des centaines de valeurs possibles), le mode global peut être une catégorie dominante mais peu représentative de la majorité des cas individuels — imputer systématiquement "Paris" comme ville par défaut pour tout enregistrement avec ville manquante, simplement parce que Paris est la valeur la plus fréquente du dataset, introduit une distorsion géographique disproportionnée.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+villes = pd.Series(["Paris", "Lyon", "Paris", "Marseille", None, "Lyon", "Toulouse", None, "Paris"])
+print(villes.value_counts())
+# "Paris" domine avec 3 occurrences sur 7 valeurs connues -- imputer systématiquement "Paris"
+# créerait une sur-représentation artificielle de Paris, disproportionnée par rapport
+# à la réalité si les 2 valeurs manquantes ne sont pas réellement toutes deux parisiennes</code></pre>
+
+      <h3>Texte libre : au-delà de "Inconnu", exploiter le contenu sémantique</h3>
+      <p>Pour du texte libre (commentaires clients, descriptions de produits), une imputation par une constante générique ("Aucun commentaire") reste souvent le choix par défaut le plus sûr — tenter de "générer" un texte plausible pour combler une valeur manquante (via un modèle de langage, par exemple) introduit un risque important de fabriquer une information factuellement fausse présentée comme réelle, un risque bien plus grave pour du texte informatif que pour une simple valeur numérique approximée.</p>
+
+      <h3>Les embeddings comme représentation intermédiaire pour l'imputation</h3>
+      <p>Une approche plus avancée pour des variables catégorielles à très haute cardinalité consiste à convertir chaque catégorie en un vecteur numérique dense (embedding) qui capture une notion de similarité sémantique entre catégories (deux professions proches obtiennent des vecteurs proches), permettant ensuite d'appliquer les méthodes numériques du Module 5 (KNN, régression) sur cette représentation vectorielle plutôt que sur la catégorie brute — une technique qui rejoint les méthodes vues dans le cursus sur les embeddings pour la préparation de données RAG.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Utiliser un modèle de langage génératif pour "compléter" des champs de texte libre manquants (une description de produit, un commentaire client) sans avertissement explicite que le contenu généré est fabriqué et non observé — un risque particulièrement sérieux si ce texte est ensuite présenté à un utilisateur final ou utilisé comme preuve factuelle dans une décision.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une colonne "profession" avec plus de 200 valeurs distinctes a 12% de valeurs manquantes. Expliquez pourquoi une imputation par le mode global serait probablement inadaptée ici, et proposez une alternative parmi celles vues dans le cours (Modules 4 à 6) mieux adaptée à cette haute cardinalité.
+      </div>
+    </section>
+
+    <section id="m6-l4">
+      <span class="lesson-kicker">Module 6 · Leçon 4</span>
+      <h2>Comparer Objectivement Plusieurs Méthodes d'Imputation</h2>
+
+      <p>Face à l'éventail de méthodes couvertes dans ce cours (constante, moyenne, régression, KNN, MICE, MissForest), cette dernière leçon du module propose une méthode rigoureuse pour comparer objectivement leur performance sur un dataset donné, plutôt que de choisir une méthode par intuition, par habitude, ou par simple réputation de sophistication.</p>
+
+      <h3>Le principe : masquer artificiellement des valeurs connues pour évaluer la récupération</h3>
+      <p>La technique de référence consiste à sélectionner un sous-ensemble de valeurs <strong>déjà connues</strong>, les masquer artificiellement pour simuler une manquance, appliquer chaque méthode candidate pour les "deviner", puis comparer les valeurs imputées aux vraies valeurs originales (connues puisque masquées artificiellement) — une évaluation directe et quantifiable de la qualité de chaque méthode, impossible à réaliser sur de vraies valeurs manquantes dont on ne connaîtra jamais la vérité terrain.</p>
+
+      <pre><code class="language-python">import pandas as pd
+import numpy as np
+from sklearn.metrics import mean_absolute_error
+from sklearn.impute import SimpleImputer, KNNImputer
+from sklearn.experimental import enable_iterative_imputer
+from sklearn.impute import IterativeImputer
+
+np.random.seed(0)
+df_complet = pd.DataFrame({
+    "age": np.random.normal(40, 12, 500),
+    "anciennete": np.random.exponential(8, 500),
+    "salaire": np.random.normal(45000, 15000, 500),
+})
+
+# Masquage artificiel de 20% des valeurs de "salaire", dont on connaît la vraie valeur
+masque_test = np.random.random(500) &lt; 0.20
+vraies_valeurs = df_complet.loc[masque_test, "salaire"].copy()
+
+df_avec_trous = df_complet.copy()
+df_avec_trous.loc[masque_test, "salaire"] = np.nan
+
+methodes = {
+    "Moyenne": SimpleImputer(strategy="mean"),
+    "Médiane": SimpleImputer(strategy="median"),
+    "KNN (k=5)": KNNImputer(n_neighbors=5),
+    "MICE": IterativeImputer(random_state=0),
+}
+
+for nom, imputer in methodes.items():
+    df_impute = pd.DataFrame(imputer.fit_transform(df_avec_trous), columns=df_complet.columns)
+    valeurs_imputees = df_impute.loc[masque_test, "salaire"]
+    erreur = mean_absolute_error(vraies_valeurs, valeurs_imputees)
+    print(f"{nom} : erreur absolue moyenne = {erreur:,.0f}")</code></pre>
+
+      <h3>Ne pas se limiter à une seule métrique de comparaison</h3>
+      <p>L'erreur absolue moyenne mesure la précision ponctuelle de l'imputation, mais ne dit rien sur la préservation de la variance (Module 4, leçon 5) ni sur la préservation des corrélations avec d'autres variables. Une comparaison rigoureuse devrait inclure au minimum ces trois angles : l'erreur de prédiction ponctuelle, l'écart-type de la variable imputée comparé à l'écart-type réel, et la corrélation avec d'autres variables comparée à la corrélation réelle sur les données complètes.</p>
+
+      <pre><code class="language-python">print(f"Écart-type réel du salaire (valeurs masquées) : {vraies_valeurs.std():,.0f}")
+print(f"Écart-type imputé (dernière méthode testée) : {valeurs_imputees.std():,.0f}")
+# Une méthode peut avoir une bonne erreur moyenne tout en écrasant excessivement la variance --
+# les deux angles de comparaison sont complémentaires, jamais substituables l'un à l'autre</code></pre>
+
+      <h3>Automatiser cette comparaison comme étape standard avant de figer une méthode</h3>
+      <p>Cette procédure de validation par masquage artificiel devrait devenir une étape systématique avant de figer définitivement une méthode d'imputation dans un pipeline de production (Module 8, leçon 2 approfondit cette validation dans le contexte plus large du pipeline complet) — le coût de cette vérification est faible comparé au risque de déployer silencieusement une méthode sous-optimale ou biaisée sur des données réelles.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Choisir une méthode d'imputation sur la seule base de sa sophistication perçue ou de recommandations génériques trouvées en ligne, sans jamais la valider empiriquement sur un échantillon de valeurs masquées artificiellement propre au dataset concerné. La performance relative des méthodes d'imputation varie significativement d'un dataset à l'autre selon la structure réelle des corrélations entre variables — aucune méthode n'est universellement supérieure aux autres dans tous les contextes.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        En utilisant la procédure de masquage artificiel de cette leçon, comment sauriez-vous si l'effort supplémentaire de MICE (Module 5) est réellement justifié par rapport à une simple imputation par la médiane, sur votre dataset spécifique, plutôt que de vous fier à une recommandation générale ?
+      </div>
+    </section>
+
+    <div class="module-divider">
+      <span class="num">MODULE 07 · DÉCISION MÉTIER</span>
+      <span class="line"></span>
+    </div>
+
+    <section id="m7-l1">
+      <span class="lesson-kicker">Module 7 · Leçon 1</span>
+      <h2>Quand le Manquant EST l'Information</h2>
+
+      <p>Tout ce cours a jusqu'ici traité la valeur manquante comme un problème à résoudre — combler ou supprimer pour retrouver une donnée exploitable. Cette leçon introduit un renversement de perspective essentiel : dans de nombreux contextes métier, le simple fait qu'une valeur <strong>manque</strong> est en lui-même une information prédictive précieuse, parfois plus informative que la valeur elle-même ne l'aurait été.</p>
+
+      <h3>L'exemple canonique : le champ non rempli comme signal de désengagement</h3>
+      <div class="gap-row">
+        <span class="hole-tag">date_derniere_connexion = ?</span>
+        <span class="arrow">signifie</span>
+        <span class="fill-tag">signal fort de client à risque de churn</span>
+      </div>
+      <p>Dans un modèle de prédiction de désabonnement (churn), le fait qu'un client n'ait <strong>jamais complété son profil</strong> (champ "date de naissance" resté vide, "préférences produit" jamais renseignées) est souvent un signal prédictif puissant et indépendant de la vraie valeur qui aurait pu être renseignée — ce n'est pas l'âge du client qui prédit le churn, c'est le fait même qu'il n'ait jamais pris la peine de le renseigner, révélant un désengagement plus général avec le produit.</p>
+
+      <pre><code class="language-python">import pandas as pd
+import numpy as np
+
+np.random.seed(0)
+n = 2000
+# Simulation : les clients qui ne renseignent jamais leur profil ont un taux de churn plus élevé,
+# indépendamment de ce que la valeur elle-même aurait pu être si elle avait été renseignée
+profil_complete = np.random.random(n) > 0.3
+churn = np.where(profil_complete, np.random.random(n) &lt; 0.10, np.random.random(n) &lt; 0.35)
+
+df = pd.DataFrame({"profil_complete": profil_complete, "churn": churn})
+print(df.groupby("profil_complete")["churn"].mean())
+# Le taux de churn est nettement plus élevé chez les clients au profil incomplet --
+# imputer aveuglément le profil manquant supprimerait ce signal prédictif précieux</code></pre>
+
+      <h3>Pourquoi imputer ce type de valeur manquante peut être une erreur stratégique</h3>
+      <p>Si le mécanisme est MNAR ou fortement MAR (Module 1, leçon 2) et que la manquance elle-même porte un signal prédictif indépendant, remplacer systématiquement la valeur manquante par une estimation statistique (Modules 4 à 6) <strong>détruit ce signal</strong> en le noyant dans une valeur numérique censée représenter la normalité. Un modèle de machine learning entraîné sur des données ainsi imputées perd l'accès à une information potentiellement plus prédictive que la variable originale elle-même.</p>
+
+      <h3>Distinguer ce cas des cas de non-applicabilité du Module 1</h3>
+      <p>Ce mécanisme se distingue de la non-applicabilité structurelle déjà vue au Module 1 (leçon 1, exemple de la date de divorce pour un célibataire) : ici, la valeur <em>pourrait</em> exister et être renseignée, mais le fait qu'elle ne le soit pas révèle quelque chose sur le comportement ou l'état de l'entité concernée — une distinction essentielle qui détermine si l'on doit chercher à combler la valeur (Modules 4-6) ou au contraire préserver explicitement l'information de son absence (leçon suivante).</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Imputer systématiquement toutes les valeurs manquantes avant d'entraîner un modèle de machine learning, par réflexe de "nettoyage complet", sans jamais tester si le simple fait qu'une valeur manque constitue déjà une variable prédictive à part entière. Ce réflexe peut dégrader significativement la performance d'un modèle prédictif en supprimant un signal utile plutôt qu'en le préservant.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Dans un modèle de détection de fraude bancaire, le champ "justificatif de revenu" est souvent absent pour les dossiers frauduleux (les fraudeurs évitent de fournir des documents vérifiables). Expliquez pourquoi imputer ce champ manquant par une valeur statistiquement plausible pourrait activement nuire à la capacité du modèle à détecter la fraude.
+      </div>
+    </section>
+
+    <section id="m7-l2">
+      <span class="lesson-kicker">Module 7 · Leçon 2</span>
+      <h2>L'Indicateur de Manquance comme Variable à Part Entière</h2>
+
+      <p>Cette leçon propose la solution technique la plus directe au dilemme soulevé en leçon 1 : plutôt que de choisir entre "imputer" et "ne pas imputer", créer une <strong>variable indicatrice binaire</strong> explicite (souvent appelée "missing indicator" ou "flag de manquance") qui capture le signal de la manquance elle-même, tout en imputant séparément la valeur numérique pour ne pas perdre la capacité d'exploiter les cas où elle est disponible.</p>
+
+      <pre><code class="language-python">import pandas as pd
+import numpy as np
+
+df = pd.DataFrame({
+    "revenu": [32000, np.nan, 45000, np.nan, 58000],
+    "age": [28, 45, 33, 51, 39],
+})
+
+# Étape 1 : créer l'indicateur de manquance AVANT toute imputation
+df["revenu_etait_manquant"] = df["revenu"].isna().astype(int)
+
+# Étape 2 : imputer la valeur elle-même par une méthode appropriée (Modules 4 à 6)
+df["revenu"] = df["revenu"].fillna(df["revenu"].median())
+
+print(df)
+# Le modèle en aval dispose maintenant de DEUX informations distinctes et complémentaires :
+# la valeur (estimée du mieux possible) ET le fait qu'elle ait dû être estimée</code></pre>
+
+      <h3>Pourquoi cette approche combine le meilleur des deux mondes</h3>
+      <p>Cette technique, parfois appelée "imputation avec indicateur" dans la littérature, permet à un modèle de machine learning d'apprendre séparément l'effet de la valeur elle-même (via la colonne imputée) et l'effet du fait qu'elle ait été manquante (via l'indicateur binaire) — si ces deux effets sont réellement indépendants (comme dans l'exemple de churn de la leçon 1), le modèle peut les exploiter tous les deux au lieu d'être forcé de choisir entre préserver le signal de manquance ou disposer d'une valeur numérique exploitable.</p>
+
+      <h3>Automatiser cette pratique avec scikit-learn</h3>
+      <pre><code class="language-python">from sklearn.impute import SimpleImputer
+import pandas as pd
+import numpy as np
+
+df = pd.DataFrame({"revenu": [32000, np.nan, 45000, np.nan, 58000]})
+
+# add_indicator=True génère automatiquement la colonne indicatrice en plus de l'imputation
+imputer = SimpleImputer(strategy="median", add_indicator=True)
+resultat = imputer.fit_transform(df)
+print(pd.DataFrame(resultat, columns=["revenu_impute", "revenu_manquant_indicateur"]))</code></pre>
+
+      <h3>Généraliser à toutes les colonnes du dataset, pas seulement celles jugées prioritaires a priori</h3>
+      <p>Une bonne pratique en amont d'un projet de machine learning consiste à générer systématiquement un indicateur de manquance pour <strong>chaque</strong> colonne comportant des valeurs manquantes, même celles qui ne semblent pas prioritairement liées à la variable cible — laisser ensuite le modèle (ou une étape de sélection de variables) déterminer empiriquement lesquels de ces indicateurs sont réellement informatifs, plutôt que de présupposer manuellement lesquels le seront.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Créer un indicateur de manquance mais l'ajouter <em>après</em> avoir déjà imputé la valeur originale, rendant impossible de savoir rétroactivement quelles lignes avaient réellement une valeur manquante à l'origine. L'indicateur doit toujours être créé avant toute opération d'imputation qui modifierait la colonne source.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous ajoutez des indicateurs de manquance pour 12 colonnes d'un dataset de 20 colonnes au total avant d'entraîner un modèle prédictif. Le modèle final accorde une importance quasi nulle à 10 de ces 12 indicateurs, mais une importance très élevée aux 2 restants. Que concluez-vous sur la nature du mécanisme de manquance (Module 1, leçon 2) pour ces deux variables particulières par rapport aux dix autres ?
+      </div>
+    </section>
+
+    <section id="m7-l3">
+      <span class="lesson-kicker">Module 7 · Leçon 3</span>
+      <h2>Consulter les Experts Métier Avant d'Imputer</h2>
+
+      <p>Cette leçon aborde une dimension organisationnelle trop souvent négligée face à un problème perçu comme purement technique : les experts du domaine métier concerné détiennent presque toujours une information contextuelle décisive, invisible dans les données elles-mêmes, qui peut radicalement changer la stratégie de traitement des valeurs manquantes la plus appropriée.</p>
+
+      <h3>Ce qu'un expert métier sait que les données seules ne révèlent pas</h3>
+      <ul>
+        <li><strong>La cause opérationnelle réelle</strong> : un expert RH sait immédiatement qu'un champ "date de fin de période d'essai" vide signifie très probablement un CDI direct sans période d'essai, une information qu'aucune analyse purement statistique du Module 1 ou 2 ne pourrait déduire avec certitude.</li>
+        <li><strong>Les changements de process dans le temps</strong> : un expert produit peut savoir qu'un champ n'a commencé à être collecté qu'à partir d'une certaine date suite à une mise à jour du formulaire, expliquant un bloc de manquance parfaitement délimité dans le temps sans qu'il s'agisse d'un problème de qualité.</li>
+        <li><strong>Les conséquences réelles d'une décision de traitement</strong> : un expert métier peut alerter qu'une suppression de lignes concernerait disproportionnellement un segment client stratégique, une conséquence invisible dans une simple analyse de taux de manquance globale (Module 3).</li>
+      </ul>
+
+      <h3>Structurer la conversation avec un expert métier</h3>
+      <p>Une conversation efficace avec un expert métier sur les valeurs manquantes gagne à être structurée autour de questions concrètes plutôt que d'une présentation générale du problème :</p>
+      <ol>
+        <li>"Dans quelles circonstances ce champ ne serait-il légitimement jamais rempli ?" (teste la non-applicabilité, Module 1 leçon 1)</li>
+        <li>"Le processus de collecte de cette donnée a-t-il changé récemment ?" (teste une cause structurelle liée au temps)</li>
+        <li>"Si je devais deviner cette valeur manquante, quelles autres informations utiliseriez-vous intuitivement pour l'estimer ?" (oriente vers les bons prédicteurs pour une imputation par régression, Module 5)</li>
+        <li>"Le fait que cette information manque vous apprend-il quelque chose en soi sur ce client/produit/cas ?" (teste directement l'hypothèse du Module 7, leçon 1)</li>
+      </ol>
+
+      <h3>Le risque de l'analyse purement quantitative sans validation métier</h3>
+      <p>Une analyse quantitative rigoureuse (diagnostic de mécanisme du Module 2, comparaison objective de méthodes du Module 6) reste nécessaire mais jamais suffisante isolément : elle peut confirmer <em>qu'</em>une relation statistique existe entre la manquance et d'autres variables, mais ne peut jamais expliquer de façon fiable <em>pourquoi</em> cette relation existe — une explication qui détermine souvent si cette relation doit être exploitée pour l'imputation, ou au contraire préservée comme signal (Module 7, leçon 1).</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Traiter la gestion des valeurs manquantes comme une décision purement technique à prendre isolément par l'équipe data, sans jamais consulter les experts métier qui connaissent le contexte réel de collecte des données. Cette approche isolée mène régulièrement à des décisions statistiquement défendables mais métier-ment absurdes, découvertes seulement après déploiement quand un stakeholder s'étonne d'un résultat incohérent.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous constatez qu'une colonne "canal_acquisition" est manquante pour 100% des clients acquis avant une certaine date, et parfaitement renseignée après. Avant même de consulter un expert métier, quelle hypothèse formuleriez-vous, et quelle question précise poseriez-vous pour la confirmer ?
+      </div>
+    </section>
+
+    <section id="m7-l4">
+      <span class="lesson-kicker">Module 7 · Leçon 4</span>
+      <h2>Documenter et Communiquer ses Choix</h2>
+
+      <p>Cette dernière leçon du module applique au traitement des valeurs manquantes le principe de traçabilité déjà établi comme central dans le cours précédent sur le nettoyage de données — avec une spécificité propre à ce sujet : la décision de traitement des valeurs manquantes repose souvent sur des hypothèses non vérifiables avec certitude (mécanisme MAR vs MNAR, Module 1), ce qui rend la documentation de ces hypothèses encore plus critique que pour d'autres formes de nettoyage.</p>
+
+      <h3>Ce qu'une documentation rigoureuse doit capturer spécifiquement pour les valeurs manquantes</h3>
+      <ul>
+        <li><strong>Le mécanisme diagnostiqué et son niveau de confiance</strong> : "MAR suspecté avec un signal statistique modéré (Module 2, leçon 3)" est une documentation bien plus utile que "traité comme MAR" sans nuance sur l'incertitude réelle du diagnostic.</li>
+        <li><strong>Les alternatives envisagées et rejetées</strong> : documenter pourquoi une suppression a été préférée à une imputation (ou l'inverse) aide un futur relecteur à comprendre que le choix a été réfléchi, pas pris par défaut.</li>
+        <li><strong>Le résultat de la validation empirique</strong> : les résultats de la comparaison de méthodes (Module 6, leçon 4), pas seulement la méthode finalement choisie.</li>
+        <li><strong>Les limites reconnues explicitement</strong> : si un MNAR est suspecté sans pouvoir être corrigé (Module 2, leçon 4), ce risque résiduel doit être documenté plutôt que silencieusement ignoré une fois une méthode appliquée.</li>
+      </ul>
+
+      <h3>Communiquer ces choix à un stakeholder non technique</h3>
+      <p>De la même façon qu'une synthèse statistique doit être traduite pour un public non technique (une compétence déjà développée dans le cours de statistiques descriptives), une décision de traitement des valeurs manquantes mérite une traduction similaire : plutôt que "nous avons appliqué une imputation MICE avec 5 jeux de données sous hypothèse MAR", une formulation adaptée serait "12% des revenus n'étaient pas renseignés ; nous avons estimé ces valeurs manquantes à partir du profil des clients similaires, avec une marge d'incertitude documentée dans l'analyse — cette estimation reste moins fiable qu'une donnée réellement observée."</p>
+
+      <pre><code class="language-python">"""
+DÉCISION DE TRAITEMENT — Colonne : revenu_mensuel
+Taux de manquance : 14%
+Diagnostic (Module 2) : signal MAR modéré, corrélé à 'age' et 'region' (test systématique,
+                        p &lt; 0.05 sur ces deux variables, aucun signal sur les 4 autres testées)
+MNAR résiduel suspecté : possible sous-déclaration des hauts revenus (non vérifiable avec
+                        les données internes seules -- limite explicitement assumée)
+Méthode retenue : imputation multiple (MICE, 8 jeux, Module 5 leçon 3), variables prédictives
+                  = age, region, anciennete
+Alternative rejetée : suppression de lignes -- écartée car le volume (14%) aurait réduit
+                      significativement la puissance statistique (Module 3, leçon 3)
+Validation (Module 6, leçon 4) : erreur absolue moyenne inférieure de 18% à l'imputation
+                                 par la médiane simple, sur un échantillon de test masqué
+Indicateur de manquance conservé : oui, colonne 'revenu_etait_manquant' ajoutée (Module 7, leçon 2)
+"""</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Présenter une décision de traitement des valeurs manquantes avec une confiance affichée supérieure à la confiance réelle justifiée par le diagnostic — en particulier omettre de mentionner un risque de MNAR résiduel non corrigé, ce qui peut conduire un stakeholder à accorder une fiabilité excessive à une statistique partiellement estimée plutôt qu'observée.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Rédigez, en une ou deux phrases accessibles à un stakeholder non technique, comment vous communiqueriez qu'une variable clé d'un rapport a été imputée à 20% par régression sous hypothèse MAR, avec un risque résiduel de MNAR non totalement écarté.
+      </div>
+    </section>
+
+    <div class="module-divider">
+      <span class="num">MODULE 08 · PIÈGES ET VALIDATION</span>
+      <span class="line"></span>
+    </div>
+
+    <section id="m8-l1">
+      <span class="lesson-kicker">Module 8 · Leçon 1</span>
+      <h2>Le Data Leakage à l'Imputation</h2>
+
+      <p>Ce piège prolonge directement une problématique déjà traitée dans le cours de statistiques descriptives à propos de la standardisation : toute statistique calculée à partir des données pour transformer celles-ci (une moyenne pour la standardisation, ici une moyenne ou un modèle pour l'imputation) doit être calculée <strong>uniquement sur les données d'entraînement</strong>, jamais sur l'ensemble complet avant le split train/test.</p>
+
+      <pre><code class="language-python">from sklearn.model_selection import train_test_split
+from sklearn.impute import SimpleImputer
+import pandas as pd
+import numpy as np
+
+df = pd.DataFrame({"age": np.random.normal(40, 12, 1000), "revenu": np.random.normal(45000, 15000, 1000)})
+df.loc[df.sample(150).index, "revenu"] = np.nan
+
+# INCORRECT : imputer sur l'ensemble complet AVANT le split -- fuite d'information
+imputer_incorrect = SimpleImputer(strategy="mean")
+df_impute_incorrect = pd.DataFrame(imputer_incorrect.fit_transform(df), columns=df.columns)
+train_bad, test_bad = train_test_split(df_impute_incorrect, test_size=0.2, random_state=0)
+# La moyenne utilisée pour imputer le train a été calculée en incluant des valeurs du test !
+
+# CORRECT : split D'ABORD, puis fit UNIQUEMENT sur train
+train, test = train_test_split(df, test_size=0.2, random_state=0)
+imputer_correct = SimpleImputer(strategy="mean")
+train_impute = pd.DataFrame(imputer_correct.fit_transform(train), columns=df.columns)  # fit_transform sur train
+test_impute = pd.DataFrame(imputer_correct.transform(test), columns=df.columns)        # transform SEUL sur test</code></pre>
+
+      <h3>Pourquoi ce leakage est particulièrement insidieux pour l'imputation par régression ou KNN</h3>
+      <p>Le risque de leakage s'aggrave avec les méthodes sophistiquées du Module 5 : une imputation par régression ou KNN entraînée sur l'ensemble complet exploite non seulement une statistique globale biaisée par le test, mais un <strong>modèle entier</strong> ayant "vu" les relations entre variables incluant les données de test — un leakage plus profond et plus difficile à détecter qu'une simple moyenne globale, car il affecte la structure même des relations apprises, pas seulement un chiffre unique.</p>
+
+      <pre><code class="language-python">from sklearn.experimental import enable_iterative_imputer
+from sklearn.impute import IterativeImputer
+from sklearn.model_selection import train_test_split
+
+# CORRECT pour une méthode sophistiquée : même principe, fit UNIQUEMENT sur train
+train, test = train_test_split(df, test_size=0.2, random_state=0)
+
+imputer = IterativeImputer(random_state=0)
+train_impute = imputer.fit_transform(train)  # le modèle MICE apprend uniquement sur train
+test_impute = imputer.transform(test)         # appliqué au test avec les paramètres appris sur train seul</code></pre>
+
+      <h3>Le cas particulier de la validation croisée</h3>
+      <p>Ce principe s'étend à chaque pli (fold) d'une validation croisée : l'imputation doit être réentraînée séparément sur les données d'entraînement de <em>chaque</em> pli, jamais calculée une seule fois sur l'ensemble des données avant de démarrer la validation croisée — une erreur fréquente qui gonfle artificiellement les métriques de performance rapportées par la validation croisée, car chaque pli de test bénéficie indirectement d'une information provenant de tous les autres plis via l'imputation partagée.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Imputer l'ensemble d'un dataset avant de le diviser en jeux d'entraînement et de test, une erreur si répandue qu'elle apparaît dans de nombreux tutoriels et exemples de code trouvés en ligne qui, par souci de simplicité pédagogique, omettent cette étape critique. Cette pratique gonfle artificiellement les métriques de performance mesurées en test, créant une fausse confiance qui se traduit par une dégradation de performance une fois le modèle réellement déployé en production sur des données jamais vues.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un collègue justifie l'imputation avant split en expliquant que "de toute façon, la moyenne calculée sur tout le dataset est presque identique à celle calculée sur le train seul, vu la taille de l'échantillon". Expliquez pourquoi cet argument, même s'il est numériquement vrai dans certains cas, ne justifie pas la pratique sur le plan méthodologique, en particulier pour des méthodes d'imputation plus sophistiquées que la simple moyenne.
+      </div>
+    </section>
+
+    <section id="m8-l2">
+      <span class="lesson-kicker">Module 8 · Leçon 2</span>
+      <h2>Valider l'Impact de l'Imputation sur les Résultats</h2>
+
+      <p>Au-delà de la validation empirique d'une méthode d'imputation isolée (Module 6, leçon 4), cette leçon aborde une question plus large : comment vérifier que l'imputation choisie, une fois intégrée dans le pipeline complet, n'a pas altéré de façon indésirable les conclusions finales d'une analyse ou la performance d'un modèle prédictif ?</p>
+
+      <h3>L'analyse de sensibilité : comparer plusieurs scénarios de traitement</h3>
+      <p>Une pratique rigoureuse consiste à mener la même analyse finale (calcul d'un indicateur clé, entraînement d'un modèle) sous plusieurs scénarios de traitement des valeurs manquantes — suppression, imputation simple, imputation multiple — et à comparer si les conclusions restent stables ou divergent significativement selon le scénario choisi.</p>
+
+      <pre><code class="language-python">import pandas as pd
+import numpy as np
+from sklearn.impute import SimpleImputer
+
+np.random.seed(0)
+df = pd.DataFrame({"age": np.random.normal(40, 12, 2000), "revenu": np.random.normal(45000, 15000, 2000)})
+df.loc[df.sample(300).index, "revenu"] = np.nan
+
+scenarios = {
+    "Suppression": df.dropna(),
+    "Imputation moyenne": df.assign(revenu=SimpleImputer(strategy="mean").fit_transform(df[["revenu"]])),
+    "Imputation médiane": df.assign(revenu=SimpleImputer(strategy="median").fit_transform(df[["revenu"]])),
+}
+
+for nom, donnees in scenarios.items():
+    print(f"{nom} : revenu moyen = {donnees['revenu'].mean():,.0f}, "
+          f"corrélation age-revenu = {donnees[['age','revenu']].corr().iloc[0,1]:.3f}")
+# Si les résultats divergent significativement selon le scénario, la conclusion finale
+# est SENSIBLE au choix de traitement -- un signal important à communiquer explicitement</code></pre>
+
+      <h3>Que faire si les conclusions divergent significativement selon le scénario</h3>
+      <p>Si l'analyse de sensibilité révèle que la conclusion finale change qualitativement selon la méthode de traitement des valeurs manquantes (un effet jugé significatif dans un scénario, non significatif dans un autre), cette instabilité doit être explicitement communiquée comme une limite de l'analyse, plutôt que de simplement rapporter les résultats du scénario qui produit la conclusion la plus favorable ou la plus attendue — une forme de biais de sélection méthodologique à éviter absolument.</p>
+
+      <h3>Pour un modèle prédictif : comparer la performance selon le traitement</h3>
+      <pre><code class="language-python">from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import cross_val_score
+
+for nom, donnees in scenarios.items():
+    X = donnees[["age"]]
+    y = donnees["revenu"]
+    scores = cross_val_score(LinearRegression(), X, y, cv=5, scoring="r2")
+    print(f"{nom} : R² moyen en validation croisée = {scores.mean():.3f}")
+# Une méthode d'imputation qui dégrade significativement la performance prédictive
+# par rapport à la suppression (ou à une autre méthode) doit être reconsidérée,
+# pas simplement adoptée parce qu'elle "semblait" statistiquement plus rigoureuse</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Choisir la méthode de traitement des valeurs manquantes uniquement sur des critères théoriques (sophistication de la méthode, respect apparent du mécanisme diagnostiqué) sans jamais vérifier empiriquement son impact réel sur les métriques ou conclusions qui comptent véritablement pour le projet — la méthode la plus rigoureuse en théorie n'est pas toujours celle qui produit le meilleur résultat pratique sur un cas réel.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une analyse de sensibilité révèle qu'un test statistique donné est significatif (p &lt; 0.05) sous suppression de lignes, mais non significatif sous imputation multiple. Quelle serait votre interprétation prudente de cette divergence, et comment la présenteriez-vous dans un rapport plutôt que de choisir silencieusement le résultat le plus favorable ?
+      </div>
+    </section>
+
+    <section id="m8-l3">
+      <span class="lesson-kicker">Module 8 · Leçon 3</span>
+      <h2>Valeurs Manquantes après une Jointure ou une Fusion</h2>
+
+      <p>Cette leçon traite d'une source de valeurs manquantes déjà effleurée au Module 1 (leçon 1, cause "perte lors d'une intégration") mais qui mérite un traitement dédié tant elle est fréquente et tant elle est facile à mal diagnostiquer : des valeurs manquantes apparaissant spécifiquement après une opération de jointure entre plusieurs tables, avec des causes et des traitements qui leur sont propres.</p>
+
+      <h3>Le mécanisme : rappel du lien avec les clés étrangères orphelines</h3>
+      <p>Comme établi dans le cours précédent sur le nettoyage de données, une jointure externe (left join) entre une table principale et une table secondaire produit des valeurs manquantes pour toute ligne de la table principale sans correspondance dans la table secondaire — un mécanisme de manquance <strong>structurel et déterministe</strong>, entièrement différent des mécanismes MCAR/MAR/MNAR du Module 1, puisqu'il ne provient pas d'un processus de collecte de données mais d'une opération technique de jointure elle-même.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+clients = pd.DataFrame({"client_id": [1, 2, 3, 4], "nom": ["Alice", "Bob", "Carla", "David"]})
+commandes = pd.DataFrame({"client_id": [1, 2, 3], "total_achats": [450, 890, 120]})
+# David (client_id=4) n'a jamais passé de commande -- absence légitime, pas une vraie "manquance"
+
+resultat = clients.merge(commandes, on="client_id", how="left")
+print(resultat)
+# David apparaît avec total_achats = NaN -- mais ceci NE SIGNIFIE PAS "donnée inconnue à deviner",
+# cela signifie très probablement "0 commande, information parfaitement connue et légitime"</code></pre>
+
+      <h3>Le piège de confondre "absence de correspondance" et "vraie donnée manquante"</h3>
+      <p>Le piège central de cette leçon rejoint directement le Module 1 (leçon 1) : un <code>NaN</code> issu d'une jointure sans correspondance représente très souvent une <strong>absence légitime et connue</strong> (David n'a simplement jamais commandé, on le sait avec certitude) plutôt qu'une vraie incertitude statistique à traiter par les méthodes d'imputation des Modules 4 à 6. Imputer "total_achats" pour David par la moyenne des achats des autres clients serait une erreur conceptuelle grave — la bonne pratique ici est un simple remplacement par 0, la vraie valeur connue.</p>
+
+      <pre><code class="language-python">resultat["total_achats"] = resultat["total_achats"].fillna(0)  # 0 = vraie valeur connue, pas une estimation
+print(resultat)</code></pre>
+
+      <h3>Distinguer ce cas des vraies valeurs manquantes préexistantes dans les tables sources</h3>
+      <p>Il est essentiel de ne pas confondre ce type de manquance "générée par la jointure" avec de vraies valeurs manquantes qui préexistaient déjà dans l'une des tables sources avant la jointure (un client existant dans la table "commandes" mais dont le champ "montant" était déjà lui-même manquant pour une raison différente). Un diagnostic rigoureux distingue systématiquement ces deux origines avant de choisir un traitement, car elles n'appellent pas la même réponse.</p>
+
+      <pre><code class="language-python">import numpy as np
+
+commandes_avec_trou = pd.DataFrame({
+    "client_id": [1, 2, 3], "total_achats": [450, np.nan, 120]  # Bob a une vraie donnée manquante
+})
+resultat = clients.merge(commandes_avec_trou, on="client_id", how="left")
+print(resultat)
+# David (NaN) : absence de correspondance -- remplacer par 0 est justifié
+# Bob (NaN) : vraie valeur manquante préexistante -- nécessite le diagnostic complet du Module 1 et 2,
+#             PAS un simple remplacement par 0 comme pour David</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Appliquer un traitement uniforme (imputation statistique ou remplacement par 0) à toutes les valeurs manquantes d'une colonne après une jointure, sans distinguer celles issues d'une absence de correspondance légitime (souvent un vrai zéro ou une vraie absence) de celles qui étaient déjà des valeurs manquantes authentiques dans la table source avant la jointure.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Après une jointure entre une table "employés" et une table "formations_suivies", la colonne "nombre_heures_formation" est manquante pour certains employés. Décrivez la vérification que vous effectueriez pour distinguer les employés n'ayant simplement suivi aucune formation (vraie valeur 0) de ceux pour qui la donnée serait réellement inconnue ou mal enregistrée.
+      </div>
+    </section>
+
+    <section id="m8-l4">
+      <span class="lesson-kicker">Module 8 · Leçon 4</span>
+      <h2>Checklist Finale de Décision</h2>
+
+      <p>Cette dernière leçon du cours condense l'ensemble des huit modules en une checklist opérationnelle à consulter face à toute nouvelle colonne comportant des valeurs manquantes — la meilleure façon de transformer ce cours en réflexe professionnel durable plutôt qu'en connaissance théorique dispersée.</p>
+
+      <h3>Étape 1 — Comprendre avant d'agir (Modules 1 et 2)</h3>
+      <ol>
+        <li>Ai-je identifié la cause probable de la manquance (non-réponse, non-applicabilité, erreur de collecte, jointure) plutôt que de la traiter comme un problème uniforme ?</li>
+        <li>Ai-je vérifié la présence de valeurs manquantes déguisées (0, -1, 9999, "N/A") au-delà des vrais NaN ?</li>
+        <li>Ai-je diagnostiqué le mécanisme probable (MCAR, MAR, MNAR) par visualisation et test statistique, plutôt que de le supposer par défaut ?</li>
+        <li>Si la manquance provient d'une jointure, ai-je distingué l'absence de correspondance légitime d'une vraie valeur manquante préexistante (Module 8, leçon 3) ?</li>
+      </ol>
+
+      <h3>Étape 2 — Considérer si le manquant est lui-même l'information (Module 7)</h3>
+      <ol start="5">
+        <li>Ai-je envisagé que la manquance elle-même puisse être un signal prédictif plutôt qu'un simple problème à résoudre ?</li>
+        <li>Ai-je consulté un expert métier pour valider mon hypothèse sur la cause et le traitement approprié ?</li>
+      </ol>
+
+      <h3>Étape 3 — Choisir une méthode proportionnée (Modules 3 à 6)</h3>
+      <ol start="7">
+        <li>Ai-je considéré la suppression avant l'imputation, et documenté pourquoi elle est ou n'est pas suffisante (Module 3) ?</li>
+        <li>Le niveau de sophistication de la méthode d'imputation choisie est-il proportionné au taux de manquance et à l'enjeu de l'analyse (Module 5, leçon 5), plutôt que choisi par réflexe ou par sophistication perçue ?</li>
+        <li>Ai-je conservé un indicateur de manquance si le signal identifié à l'étape 5 le justifie (Module 7, leçon 2) ?</li>
+      </ol>
+
+      <h3>Étape 4 — Valider et documenter (Module 8)</h3>
+      <ol start="10">
+        <li>Ai-je validé ma méthode d'imputation par masquage artificiel plutôt que de la choisir sur la seule base d'une recommandation générale (Module 6, leçon 4) ?</li>
+        <li>Mon pipeline évite-t-il tout data leakage entre train et test lors de l'imputation (Module 8, leçon 1) ?</li>
+        <li>Ai-je vérifié la sensibilité des conclusions finales au choix de traitement (Module 8, leçon 2) ?</li>
+        <li>Ai-je documenté explicitement le mécanisme diagnostiqué, la méthode retenue, les alternatives rejetées, et les limites résiduelles assumées (Module 7, leçon 4) ?</li>
+      </ol>
+
+      <h3>Le message final de ce cours</h3>
+      <p>La gestion des valeurs manquantes n'est jamais une opération purement mécanique de type "combler ou supprimer" — c'est un exercice de raisonnement qui combine diagnostic statistique rigoureux (le mécanisme sous-jacent détermine ce qui est méthodologiquement défendable), jugement métier (pourquoi cette valeur manque-t-elle réellement, et qu'est-ce que son absence révèle), et honnêteté méthodologique (documenter l'incertitude introduite plutôt que la masquer derrière une valeur imputée qui paraît complète). Le pire résultat n'est presque jamais une valeur manquante correctement documentée — c'est une fausse certitude introduite silencieusement par un traitement mal choisi.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Considérer cette checklist comme une formalité à valider rapidement pour "cocher les cases" avant de passer à l'analyse elle-même, plutôt que comme un guide de raisonnement à appliquer avec la même rigueur que n'importe quelle autre étape de l'analyse. Le temps investi dans ce diagnostic est systématiquement rentabilisé par la fiabilité accrue des conclusions qui en découlent.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        En appliquant cette checklist à un dataset que vous avez déjà traité par le passé (professionnel ou personnel), identifiez les deux ou trois étapes qui n'avaient pas été suivies à l'époque, et ce que vous feriez différemment aujourd'hui avec les connaissances de ce cours.
+      </div>
+
+      <div class="callout" style="border-left-color:#6d5ce8; background:#eeebfc;">
+        <strong>Fin du cours</strong>
+        Vous disposez maintenant d'une méthode complète pour diagnostiquer le mécanisme d'une manquance, choisir entre suppression et imputation en toute connaissance de cause, appliquer des méthodes d'imputation simples à avancées de façon proportionnée, reconnaître quand l'absence elle-même est une information métier précieuse, et valider rigoureusement l'impact de vos choix. Le prochain cours du Bloc 2 abordera la détection d'anomalies et d'outliers par des méthodes statistiques et des règles métier.
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+  hljs.highlightAll();
+
+  const sidebar = document.getElementById('sidebar');
+  document.getElementById('menuToggle').addEventListener('click', () => {
+    sidebar.classList.toggle('open');
+  });
+
+  const lessonLinks = document.querySelectorAll('[data-lesson]');
+  const storageKey = 'course-progress-' + (document.title || 'default');
+  const done = JSON.parse(localStorage.getItem(storageKey) || '{}');
+
+  function updateProgressBar() {
+    const total = lessonLinks.length;
+    const completed = Object.values(done).filter(Boolean).length;
+    document.getElementById('progressFill').style.width = (completed / total * 100) + '%';
+  }
+
+  lessonLinks.forEach(link => {
+    const id = link.dataset.lesson;
+    if (done[id]) link.querySelector('.lesson-check').classList.add('done');
+
+    link.addEventListener('click', () => {
+      done[id] = true;
+      localStorage.setItem(storageKey, JSON.stringify(done));
+      link.querySelector('.lesson-check').classList.add('done');
+      lessonLinks.forEach(l => l.classList.remove('active'));
+      link.classList.add('active');
+      updateProgressBar();
+      sidebar.classList.remove('open');
+    });
+  });
+
+  updateProgressBar();
+</script>
+</body>
+</html>

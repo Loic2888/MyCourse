@@ -1,0 +1,2472 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nettoyage de Données — Déduplication, Normalisation, Encodages</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@500;600;700;800&family=Source+Sans+3:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<style>
+  :root {
+    --bg:         #f4f9fa;
+    --bg-alt:     #e8f3f5;
+    --bg-card:    #ffffff;
+    --text:       #142a2e;
+    --text-muted: #5c7478;
+    --border:     #d7e6e8;
+    --border2:    #c3d8db;
+
+    --accent:      #0e7c86;
+    --accent-dim:  #dcf0f2;
+    --clean:       #2f9e44;
+    --clean-dim:   #e4f6e8;
+    --dirty:       #d9480f;
+    --dirty-dim:   #fbe7dc;
+
+    --font-display: 'Lexend', sans-serif;
+    --font-body: 'Source Sans 3', sans-serif;
+    --font-mono: 'Space Mono', monospace;
+
+    --sidebar-width: 300px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font-body);
+    color: var(--text);
+    background: var(--bg);
+    line-height: 1.7;
+  }
+
+  .layout { display: flex; min-height: 100vh; }
+
+  /* ---- Sidebar ---- */
+  .sidebar {
+    width: var(--sidebar-width);
+    flex-shrink: 0;
+    background: var(--bg-card);
+    border-right: 1px solid var(--border);
+    padding: 1.75rem 1.25rem 2rem;
+    overflow-y: auto;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+  }
+
+  .sidebar-header {
+    position: relative;
+    padding-bottom: 1.25rem;
+    margin-bottom: 1.25rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-header .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--accent);
+    display: block;
+    margin-bottom: 0.4rem;
+  }
+
+  .sidebar h1 {
+    font-family: var(--font-display);
+    font-size: 1.12rem;
+    font-weight: 800;
+    line-height: 1.35;
+  }
+
+  /* signature : mini diff sale -> propre */
+  .clean-signature {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 0.9rem;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+  }
+  .clean-signature .dirty-tag { color: var(--dirty); text-decoration: line-through; }
+  .clean-signature .arrow { color: var(--text-muted); }
+  .clean-signature .clean-tag { color: var(--clean); font-weight: 700; }
+
+  .module-group { margin-bottom: 0.35rem; }
+
+  .module-title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 0.9rem;
+    padding: 0.6rem 0.5rem;
+    cursor: pointer;
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text);
+  }
+  .module-title:hover { background: var(--bg-alt); }
+  .module-num {
+    font-family: var(--font-mono);
+    color: var(--accent);
+    font-size: 0.76rem;
+    flex-shrink: 0;
+  }
+
+  .lesson-list { list-style: none; padding-left: 0.6rem; margin-bottom: 0.5rem; }
+  .lesson-list li a {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.4rem 0.5rem;
+    border-radius: 7px;
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.86rem;
+  }
+  .lesson-list li a:hover { background: var(--bg-alt); color: var(--text); }
+  .lesson-list li a.active { color: var(--accent); font-weight: 600; background: var(--accent-dim); }
+
+  .lesson-check {
+    width: 13px; height: 13px; flex-shrink: 0;
+    border: 1.5px solid var(--border2); border-radius: 3px;
+  }
+  .lesson-check.done { background: var(--clean); border-color: var(--clean); }
+
+  /* ---- Barre de progression ---- */
+  .progress-bar {
+    height: 4px;
+    background: var(--border);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--dirty), var(--accent), var(--clean));
+    width: 0%;
+    transition: width 0.2s ease;
+  }
+
+  /* ---- Contenu principal ---- */
+  .content {
+    flex: 1;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 3rem 2rem 6rem;
+  }
+
+  .content section { margin-bottom: 4rem; }
+
+  .lesson-kicker {
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.6rem;
+    display: block;
+  }
+
+  .content h2 {
+    font-family: var(--font-display);
+    font-size: 1.7rem;
+    font-weight: 800;
+    margin-bottom: 1.1rem;
+    line-height: 1.3;
+  }
+  .content h3 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.1rem;
+    margin: 1.75rem 0 0.75rem;
+    color: var(--text);
+  }
+  .content p, .content ul, .content ol { margin-bottom: 1.1rem; }
+  .content ul, .content ol { padding-left: 1.4rem; }
+  .content li { margin-bottom: 0.4rem; }
+  .content strong { color: var(--text); }
+  .content code {
+    font-family: var(--font-mono);
+    background: var(--bg-alt);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.85em;
+  }
+
+  pre {
+    border-radius: 10px;
+    padding: 1.1rem 1.2rem;
+    overflow-x: auto;
+    margin: 1.2rem 0;
+    font-size: 0.85rem;
+  }
+  pre code { background: none; padding: 0; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.2rem 0;
+    font-size: 0.9rem;
+  }
+  th, td {
+    text-align: left;
+    padding: 0.55rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+  }
+  th { font-family: var(--font-display); font-size: 0.82rem; color: var(--text-muted); }
+
+  /* Signature du cours : diff sale/propre inline */
+  .diff-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.88rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.7rem 1rem;
+    margin: 1rem 0;
+    flex-wrap: wrap;
+  }
+  .diff-row .dirty { color: var(--dirty); text-decoration: line-through; background: var(--dirty-dim); padding: 0.15rem 0.5rem; border-radius: 5px; }
+  .diff-row .arrow { color: var(--text-muted); }
+  .diff-row .clean { color: var(--clean); font-weight: 700; background: var(--clean-dim); padding: 0.15rem 0.5rem; border-radius: 5px; }
+
+  .callout {
+    border-left: 4px solid var(--accent);
+    background: var(--accent-dim);
+    padding: 1rem 1.2rem;
+    border-radius: 0 10px 10px 0;
+    margin: 1.4rem 0;
+  }
+  .callout strong {
+    font-family: var(--font-display);
+    display: block;
+    margin-bottom: 0.3rem;
+    font-size: 0.9rem;
+  }
+  .callout.pitfall { border-left-color: var(--dirty); background: var(--dirty-dim); }
+  .callout.exercise { border-left-color: var(--clean); background: var(--clean-dim); }
+
+  .module-divider {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 0 0 2.5rem;
+    color: var(--text-muted);
+  }
+  .module-divider .num {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--accent-dim);
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    flex-shrink: 0;
+  }
+  .module-divider .line { flex: 1; height: 1px; background: var(--border2); }
+
+  .menu-toggle { display: none; }
+
+  @media (max-width: 768px) {
+    .sidebar {
+      position: fixed;
+      left: -100%;
+      z-index: 20;
+      transition: left 0.2s ease;
+      box-shadow: 4px 0 12px rgba(0,0,0,0.12);
+      width: 85%;
+      max-width: 320px;
+    }
+    .sidebar.open { left: 0; }
+    .menu-toggle {
+      display: block;
+      position: fixed;
+      top: 1rem; left: 1rem;
+      z-index: 30;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 0.55rem 0.8rem;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    .content { padding: 4.5rem 1.25rem 3rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-bar-fill" id="progressFill"></div></div>
+<button class="menu-toggle" id="menuToggle">☰</button>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <span class="eyebrow">Bloc 2 · Data Cleaning Classique · Cours 1/4</span>
+      <h1>Nettoyage de Données</h1>
+      <div class="clean-signature">
+        <span class="dirty-tag">"Jhon "</span>
+        <span class="arrow">→</span>
+        <span class="clean-tag">"John"</span>
+      </div>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span class="module-num">01</span> Fondamentaux</div>
+      <ul class="lesson-list">
+        <li><a href="#m1-l1" data-lesson="m1-l1"><span class="lesson-check"></span> Le Coût Réel des Données Sales</a></li>
+        <li><a href="#m1-l2" data-lesson="m1-l2"><span class="lesson-check"></span> Anatomie d'un Pipeline de Nettoyage</a></li>
+        <li><a href="#m1-l3" data-lesson="m1-l3"><span class="lesson-check"></span> Les Six Dimensions de la Qualité</a></li>
+        <li><a href="#m1-l4" data-lesson="m1-l4"><span class="lesson-check"></span> Nettoyer Avant ou Après l'Analyse ?</a></li>
+        <li><a href="#m1-l5" data-lesson="m1-l5"><span class="lesson-check"></span> Documenter ses Décisions</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span class="module-num">02</span> Déduplication</div>
+      <ul class="lesson-list">
+        <li><a href="#m2-l1" data-lesson="m2-l1"><span class="lesson-check"></span> Doublons Exacts vs Doublons Flous</a></li>
+        <li><a href="#m2-l2" data-lesson="m2-l2"><span class="lesson-check"></span> Détecter les Doublons Exacts</a></li>
+        <li><a href="#m2-l3" data-lesson="m2-l3"><span class="lesson-check"></span> Mesurer la Similarité de Chaînes</a></li>
+        <li><a href="#m2-l4" data-lesson="m2-l4"><span class="lesson-check"></span> Fuzzy Matching avec RapidFuzz</a></li>
+        <li><a href="#m2-l5" data-lesson="m2-l5"><span class="lesson-check"></span> Déduplication à l'Échelle</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span class="module-num">03</span> Normalisation des Chaînes</div>
+      <ul class="lesson-list">
+        <li><a href="#m3-l1" data-lesson="m3-l1"><span class="lesson-check"></span> Casse, Espaces, Caractères Invisibles</a></li>
+        <li><a href="#m3-l2" data-lesson="m3-l2"><span class="lesson-check"></span> Normalisation Unicode</a></li>
+        <li><a href="#m3-l3" data-lesson="m3-l3"><span class="lesson-check"></span> Normaliser Noms, Adresses, Téléphones</a></li>
+        <li><a href="#m3-l4" data-lesson="m3-l4"><span class="lesson-check"></span> Regex pour le Nettoyage de Texte</a></li>
+        <li><a href="#m3-l5" data-lesson="m3-l5"><span class="lesson-check"></span> Où s'Arrêter dans la Normalisation</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span class="module-num">04</span> Gestion des Encodages</div>
+      <ul class="lesson-list">
+        <li><a href="#m4-l1" data-lesson="m4-l1"><span class="lesson-check"></span> ASCII, Latin-1, UTF-8</a></li>
+        <li><a href="#m4-l2" data-lesson="m4-l2"><span class="lesson-check"></span> Détecter l'Encodage d'un Fichier</a></li>
+        <li><a href="#m4-l3" data-lesson="m4-l3"><span class="lesson-check"></span> Le Mojibake : Diagnostiquer et Réparer</a></li>
+        <li><a href="#m4-l4" data-lesson="m4-l4"><span class="lesson-check"></span> Convertir entre Encodages sans Perte</a></li>
+        <li><a href="#m4-l5" data-lesson="m4-l5"><span class="lesson-check"></span> Encodages et Bases de Données</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span class="module-num">05</span> Normalisation des Types</div>
+      <ul class="lesson-list">
+        <li><a href="#m5-l1" data-lesson="m5-l1"><span class="lesson-check"></span> Dates, Heures et Fuseaux Horaires</a></li>
+        <li><a href="#m5-l2" data-lesson="m5-l2"><span class="lesson-check"></span> Nombres, Devises et Unités</a></li>
+        <li><a href="#m5-l3" data-lesson="m5-l3"><span class="lesson-check"></span> Booléens Ambigus</a></li>
+        <li><a href="#m5-l4" data-lesson="m5-l4"><span class="lesson-check"></span> Catégories et Dictionnaires de Correspondance</a></li>
+        <li><a href="#m5-l5" data-lesson="m5-l5"><span class="lesson-check"></span> Adresses et Données Géographiques</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span class="module-num">06</span> Cohérence Métier</div>
+      <ul class="lesson-list">
+        <li><a href="#m6-l1" data-lesson="m6-l1"><span class="lesson-check"></span> Clés Étrangères Orphelines</a></li>
+        <li><a href="#m6-l2" data-lesson="m6-l2"><span class="lesson-check"></span> Contraintes de Plage et de Format</a></li>
+        <li><a href="#m6-l3" data-lesson="m6-l3"><span class="lesson-check"></span> Contradictions Inter-Colonnes</a></li>
+        <li><a href="#m6-l4" data-lesson="m6-l4"><span class="lesson-check"></span> Fusionner des Sources Multiples</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span class="module-num">07</span> Outillage</div>
+      <ul class="lesson-list">
+        <li><a href="#m7-l1" data-lesson="m7-l1"><span class="lesson-check"></span> Construire un Pipeline Réutilisable</a></li>
+        <li><a href="#m7-l2" data-lesson="m7-l2"><span class="lesson-check"></span> Valider Automatiquement avec Pandera</a></li>
+        <li><a href="#m7-l3" data-lesson="m7-l3"><span class="lesson-check"></span> Tester son Pipeline de Nettoyage</a></li>
+        <li><a href="#m7-l4" data-lesson="m7-l4"><span class="lesson-check"></span> Mesurer l'Impact Avant/Après</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span class="module-num">08</span> Cas Pratique</div>
+      <ul class="lesson-list">
+        <li><a href="#m8-l1" data-lesson="m8-l1"><span class="lesson-check"></span> Étude de Cas de Bout en Bout</a></li>
+        <li><a href="#m8-l2" data-lesson="m8-l2"><span class="lesson-check"></span> Le Piège du Nettoyage Trop Agressif</a></li>
+        <li><a href="#m8-l3" data-lesson="m8-l3"><span class="lesson-check"></span> Idempotence en Production</a></li>
+        <li><a href="#m8-l4" data-lesson="m8-l4"><span class="lesson-check"></span> Checklist Finale de Nettoyage</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main class="content">
+    <div class="module-divider">
+      <span class="num">MODULE 01 · FONDAMENTAUX</span>
+      <span class="line"></span>
+    </div>
+
+    <section id="m1-l1">
+      <span class="lesson-kicker">Module 1 · Leçon 1</span>
+      <h2>Le Coût Réel des Données Sales</h2>
+
+      <p>"Garbage in, garbage out" est probablement l'adage le plus répété en data — et pourtant l'un des plus systématiquement sous-estimés dans la pratique quotidienne. Le nettoyage de données n'est pas une étape administrative avant le "vrai travail" d'analyse : c'est le travail lui-même, dans une proportion largement documentée par de nombreuses enquêtes auprès de data scientists (souvent estimée entre 60% et 80% du temps total d'un projet data).</p>
+
+      <p>Le coût des données sales ne se limite pas à un désagrément technique — il se propage en cascade, souvent de façon invisible jusqu'à ce qu'une décision métier s'avère fausse. Un doublon client non détecté fausse un calcul de churn (le même client compté deux fois masque un vrai désabonnement). Un encodage mal géré corrompt silencieusement des noms propres (Module 4), faussant des jointures censées les faire correspondre. Une date au format ambigu (Module 5) peut inverser jour et mois sans jamais lever d'erreur, faussant une analyse de saisonnalité pendant des mois avant d'être détectée.</p>
+
+      <h3>Un exemple chiffré pour ancrer l'enjeu</h3>
+      <pre><code class="language-python">import pandas as pd
+
+clients = pd.DataFrame({
+    "nom": ["Jean Dupont", "jean dupont", "Jean  Dupont", "Marie Curie"],
+    "email": ["jean@ex.fr", "jean@ex.fr", "jean@ex.fr ", "marie@ex.fr"],
+    "montant_total": [450, 450, 450, 890]
+})
+
+# Un calcul naïf du chiffre d'affaires total par client, sans nettoyage préalable :
+print(clients.groupby("nom")["montant_total"].sum())
+# Jean Dupont, jean dupont et "Jean  Dupont" sont comptés comme 3 clients DIFFÉRENTS
+# alors qu'il s'agit très probablement de la même personne -- le vrai total pour "Jean" est
+# sous-estimé par client individuel, et le nombre de clients uniques est surestimé de 200%</code></pre>
+
+      <div class="diff-row">
+        <span class="dirty">"Jean Dupont" / "jean dupont" / "Jean  Dupont"</span>
+        <span class="arrow">→</span>
+        <span class="clean">1 client unique : "Jean Dupont"</span>
+      </div>
+
+      <h3>Le coût se mesure aussi en confiance</h3>
+      <p>Au-delà de l'impact direct sur un calcul, des données sales détectées tardivement (souvent par un stakeholder qui remarque une incohérence dans un rapport) érodent la confiance dans l'ensemble du système décisionnel de l'organisation — une fois qu'un chiffre s'avère faux, chaque chiffre suivant est examiné avec suspicion, y compris ceux qui étaient corrects. Ce coût de confiance, moins visible qu'un bug technique, est souvent le plus long et le plus coûteux à réparer.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Considérer le nettoyage de données comme une tâche ponctuelle "à faire une fois" en début de projet, plutôt que comme une discipline continue. De nouvelles données sales entrent en permanence dans un système (nouvelles saisies utilisateur, nouvelles sources externes intégrées) — un pipeline de nettoyage doit être pensé comme un processus récurrent, pas comme un grand nettoyage unique suivi d'un oubli.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Listez trois décisions métier prises récemment dans une organisation que vous connaissez (professionnelle ou non) qui reposaient sur un chiffre issu de données potentiellement sales (doublons, formats hétérogènes, valeurs manquantes). Pour chacune, estimez qualitativement l'impact si le chiffre sous-jacent avait été faux de 10 à 20%.
+      </div>
+    </section>
+
+    <section id="m1-l2">
+      <span class="lesson-kicker">Module 1 · Leçon 2</span>
+      <h2>Anatomie d'un Pipeline de Nettoyage</h2>
+
+      <p>Un nettoyage de données efficace n'est pas une succession ad hoc de corrections ponctuelles appliquées au fil des problèmes découverts, mais un processus structuré en quatre phases distinctes et récurrentes, chacune ayant un objectif précis et des outils dédiés — cette structure sera le fil conducteur de l'ensemble des modules suivants de ce cours.</p>
+
+      <h3>Les quatre phases d'un pipeline de nettoyage</h3>
+      <pre><code class="language-text">┌───────────┐    ┌───────────┐    ┌───────────┐    ┌───────────┐
+│ DÉTECTION  │ -&gt; │ DÉCISION   │ -&gt; │ CORRECTION │ -&gt; │ VALIDATION │
+│            │    │            │    │            │    │            │
+│ Identifier │    │ Choisir la │    │ Appliquer  │    │ Vérifier   │
+│ les        │    │ stratégie  │    │ la         │    │ que le     │
+│ anomalies  │    │ de         │    │ transfor-  │    │ résultat   │
+│            │    │ traitement │    │ mation     │    │ est correct│
+└───────────┘    └───────────┘    └───────────┘    └───────────┘</code></pre>
+
+      <p><strong>Détection</strong> : identifier systématiquement où se trouvent les anomalies — doublons (Module 2), incohérences de casse (Module 3), problèmes d'encodage (Module 4), formats hétérogènes (Module 5), violations de contraintes métier (Module 6). Cette phase doit être exhaustive et quantifiée (combien de lignes sont concernées ?), pas seulement qualitative.</p>
+
+      <p><strong>Décision</strong> : pour chaque type d'anomalie détectée, choisir une stratégie de traitement explicite — corriger automatiquement, corriger manuellement au cas par cas, supprimer l'enregistrement, ou l'accepter tel quel en documentant pourquoi. Cette phase est souvent la plus négligée, les équipes passant directement de la détection à la correction sans formaliser le raisonnement qui justifie le choix.</p>
+
+      <p><strong>Correction</strong> : appliquer effectivement la transformation décidée, idéalement de façon automatisée, reproductible et versionnée (Module 7) plutôt que par des modifications manuelles ponctuelles dans un tableur, qui ne laissent aucune trace et ne peuvent pas être rejouées sur de nouvelles données.</p>
+
+      <p><strong>Validation</strong> : vérifier après coup que la correction a bien produit le résultat attendu, sans avoir introduit de nouveaux problèmes (une normalisation trop agressive qui fusionne deux clients réellement différents, par exemple — voir Module 8, leçon 2).</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+df = pd.read_csv("clients.csv")
+
+# 1. DÉTECTION : quantifier le problème avant d'agir
+n_doublons_potentiels = df.duplicated(subset=["email"]).sum()
+print(f"Doublons potentiels détectés : {n_doublons_potentiels} sur {len(df)} lignes")
+
+# 2. DÉCISION (documentée en commentaire ou dans un document de suivi) :
+#    on garde le premier enregistrement par email, en supposant qu'il s'agit
+#    du profil le plus ancien et donc probablement le plus complet
+
+# 3. CORRECTION : appliquer la règle décidée
+df_nettoye = df.drop_duplicates(subset=["email"], keep="first")
+
+# 4. VALIDATION : vérifier que le nombre de lignes a diminué du montant attendu
+assert len(df_nettoye) == len(df) - n_doublons_potentiels
+print(f"Lignes après nettoyage : {len(df_nettoye)} (attendu : {len(df) - n_doublons_potentiels})")</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Fusionner les phases de détection et de correction en une seule étape mentale ("je vois un doublon, je le supprime immédiatement") sans jamais formaliser la phase de décision. Ce raccourci fonctionne sur un cas isolé examiné manuellement, mais devient risqué dès qu'on automatise le nettoyage sur des volumes importants — la règle de décision implicite dans la tête de l'analyste n'est alors documentée nulle part et ne peut pas être révisée ou auditée par quelqu'un d'autre.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Pour le problème "certains numéros de téléphone dans ma base sont au format international (+33...) et d'autres au format local (0...)", décrivez concrètement ce que vous feriez à chacune des quatre phases de ce pipeline, en particulier ce que vous écririez explicitement à la phase de décision.
+      </div>
+    </section>
+
+    <section id="m1-l3">
+      <span class="lesson-kicker">Module 1 · Leçon 3</span>
+      <h2>Les Six Dimensions de la Qualité de Données</h2>
+
+      <p>"Des données de mauvaise qualité" est une expression courante mais imprécise — la qualité de données se décompose en réalité en plusieurs dimensions indépendantes, chacune nécessitant des méthodes de détection et de correction différentes. Un dataset peut être excellent sur une dimension et défaillant sur une autre, et confondre ces dimensions conduit à appliquer la mauvaise solution au mauvais problème.</p>
+
+      <table>
+        <tr><th>Dimension</th><th>Question posée</th><th>Exemple de défaut</th></tr>
+        <tr><td><strong>Exactitude</strong></td><td>La valeur reflète-t-elle la réalité ?</td><td>Un âge de 200 ans, une adresse email inexistante</td></tr>
+        <tr><td><strong>Complétude</strong></td><td>Toutes les valeurs attendues sont-elles présentes ?</td><td>30% de valeurs manquantes sur la colonne "téléphone"</td></tr>
+        <tr><td><strong>Cohérence</strong></td><td>Les valeurs sont-elles logiquement compatibles entre elles ?</td><td>Une date de fin de contrat antérieure à la date de début</td></tr>
+        <tr><td><strong>Unicité</strong></td><td>Chaque entité réelle n'apparaît-elle qu'une seule fois ?</td><td>Le même client enregistré trois fois avec des variantes de nom (Module 2)</td></tr>
+        <tr><td><strong>Validité</strong></td><td>La valeur respecte-t-elle le format/type attendu ?</td><td>Un code postal à 3 chiffres au lieu de 5</td></tr>
+        <tr><td><strong>Actualité</strong></td><td>La donnée est-elle encore à jour ?</td><td>Une adresse client qui n'a pas été mise à jour depuis un déménagement</td></tr>
+      </table>
+
+      <h3>Pourquoi cette distinction change concrètement l'approche</h3>
+      <p>Un dataset peut avoir une excellente <strong>validité</strong> (tous les emails respectent le format attendu <code>xxx@xxx.xxx</code>) tout en ayant une <strong>exactitude</strong> désastreuse (la majorité de ces emails syntaxiquement valides sont en réalité inexistants ou appartiennent à quelqu'un d'autre que la personne déclarée). Un contrôle de format seul (regex de validation) ne détectera jamais ce second problème, qui nécessite une méthode différente (vérification d'existence via un service de validation d'email, ou recoupement avec d'autres signaux).</p>
+
+      <pre><code class="language-python">import pandas as pd
+import re
+
+df = pd.DataFrame({"email": ["alice@exemple.fr", "bob@fake123xyz.com", "carla@@invalide.fr"]})
+
+# Contrôle de VALIDITÉ (format syntaxique uniquement)
+pattern = r"^[\w\.-]+@[\w\.-]+\.\w+$"
+df["email_valide_syntaxe"] = df["email"].str.match(pattern)
+print(df)
+# "bob@fake123xyz.com" passe le contrôle de validité alors qu'il s'agit
+# probablement d'une adresse jetable ou inventée -- un problème d'EXACTITUDE,
+# pas de validité, qui nécessiterait une autre méthode de détection (Module 6)</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Se satisfaire d'un contrôle de validité de format (une regex qui passe) comme preuve suffisante de qualité de données, en oubliant que la validité n'est qu'une des six dimensions. Un champ peut être parfaitement valide en syntaxe tout en étant complètement inexact, incohérent avec d'autres champs, ou dupliqué ailleurs dans le dataset.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une colonne "date_naissance" contient uniquement des dates syntaxiquement valides (format JJ/MM/AAAA correct), mais certaines correspondent à des personnes qui auraient plus de 130 ans aujourd'hui. À quelle(s) dimension(s) de qualité ce problème appartient-il, et à quelle(s) dimension(s) n'appartient-il PAS ?
+      </div>
+    </section>
+
+    <section id="m1-l4">
+      <span class="lesson-kicker">Module 1 · Leçon 4</span>
+      <h2>Nettoyer Avant ou Après l'Analyse ? Le Piège du Nettoyage Tardif</h2>
+
+      <p>Une question qui semble organisationnelle mais qui a des conséquences techniques directes : à quel moment du cycle de vie d'un projet data le nettoyage doit-il intervenir ? La tentation, sous pression de délai, est de repousser le nettoyage approfondi et de "commencer l'analyse avec ce qu'on a", en se disant qu'on corrigera les problèmes au fur et à mesure qu'ils apparaîtront.</p>
+
+      <h3>Pourquoi le nettoyage tardif coûte structurellement plus cher</h3>
+      <p>Chaque étape d'analyse construite sur des données non nettoyées doit potentiellement être <strong>refaite</strong> une fois le nettoyage effectué a posteriori — un modèle entraîné, un dashboard construit, un rapport rédigé sur la base de doublons non détectés doivent tous être régénérés une fois la déduplication appliquée. Plus le nettoyage intervient tard dans le pipeline, plus le nombre d'artefacts en aval à refaire est important, et plus le coût total du nettoyage (incluant ce travail de refonte) est élevé — même si le nettoyage lui-même, pris isolément, ne prend pas plus de temps qu'il n'en aurait pris plus tôt.</p>
+
+      <pre><code class="language-text">Nettoyage précoce :
+  [Données brutes] -&gt; [NETTOYAGE] -&gt; [Analyse] -&gt; [Dashboard] -&gt; [Décision]
+                        (1 fois)
+
+Nettoyage tardif (doublon découvert après coup) :
+  [Données brutes] -&gt; [Analyse] -&gt; [Dashboard] -&gt; [Décision basée sur un chiffre faux]
+                                                          |
+                                                          v
+                    [NETTOYAGE] -&gt; [Analyse REFAITE] -&gt; [Dashboard REFAIT] -&gt; [Nouvelle décision]</code></pre>
+
+      <h3>Le contre-argument légitime : ne pas sur-nettoyer avant de savoir ce qui compte</h3>
+      <p>Il existe cependant une nuance importante à ce principe : nettoyer <em>exhaustivement</em> toutes les colonnes d'un dataset avant même de savoir lesquelles seront réellement utilisées dans l'analyse est un gaspillage d'effort symétrique et tout aussi réel. La bonne pratique consiste à effectuer un nettoyage minimal et rapide d'exploration (détecter les problèmes majeurs, Module 1 leçon 2) avant de définir précisément le périmètre de l'analyse, puis un nettoyage approfondi et rigoureux ciblé sur les colonnes effectivement utilisées, avant de construire quoi que ce soit de durable (modèle, dashboard) dessus.</p>
+
+      <h3>Le signal qui doit déclencher un nettoyage immédiat plutôt que différé</h3>
+      <p>Certains problèmes de qualité justifient un traitement immédiat même en phase exploratoire, car ils faussent silencieusement jusqu'aux statistiques descriptives les plus basiques (Module 1 du cours précédent sur les statistiques) : des doublons non détectés faussent des comptages et des moyennes dès la première exploration, pas seulement l'analyse finale. Un nettoyage minimal de ces problèmes structurels devrait donc précéder même une simple exploration descriptive.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Justifier un manque de rigueur dans le nettoyage par la pression du délai ("on nettoiera plus tard si besoin"), sans anticiper que ce report déplace le coût du nettoyage vers l'aval, où il devient plus élevé car il implique de refaire du travail déjà produit sur des données non fiables — un calcul de coût total souvent absent de la décision prise dans l'urgence.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une équipe data science commence l'entraînement d'un modèle de prédiction de churn sur un dataset client, et découvre après trois semaines de travail que 15% des lignes sont des doublons partiels d'autres clients. Décrivez les conséquences concrètes sur le travail déjà effectué, et ce que l'équipe aurait pu faire différemment en amont pour éviter cette situation.
+      </div>
+    </section>
+
+    <section id="m1-l5">
+      <span class="lesson-kicker">Module 1 · Leçon 5</span>
+      <h2>Documenter ses Décisions : Traçabilité et Reproductibilité</h2>
+
+      <p>Cette dernière leçon du module fondamental porte sur une pratique simple à énoncer mais rarement appliquée avec rigueur : documenter systématiquement chaque décision de nettoyage, pas seulement l'appliquer. Sans documentation, un nettoyage de données devient une boîte noire — personne (y compris l'auteur original, quelques mois plus tard) ne peut expliquer pourquoi telle ligne a été supprimée ou telle valeur modifiée.</p>
+
+      <h3>Ce qu'une documentation de nettoyage doit capturer</h3>
+      <ul>
+        <li><strong>Quel problème a été détecté</strong> : la nature précise de l'anomalie (pas juste "données sales" mais "doublons d'email avec variantes de casse").</li>
+        <li><strong>Combien de lignes étaient concernées</strong> : un chiffre précis, pas une estimation vague, pour pouvoir juger de la matérialité du problème.</li>
+        <li><strong>Quelle règle de décision a été appliquée</strong> : et surtout <em>pourquoi</em> cette règle plutôt qu'une alternative (garder le premier enregistrement plutôt que le dernier, par exemple, et la justification métier de ce choix).</li>
+        <li><strong>Quel a été l'impact mesuré</strong> : le nombre de lignes supprimées/modifiées, et idéalement l'effet sur une métrique clé avant/après (Module 7, leçon 4).</li>
+      </ul>
+
+      <h3>Documenter dans le code plutôt que dans un document séparé</h3>
+      <p>La documentation la plus fiable est celle qui ne peut pas devenir silencieusement obsolète — un commentaire dans un document Word séparé du code de nettoyage se désynchronise facilement du code réel au fil des modifications. La bonne pratique est de documenter directement dans le code de transformation, sous une forme qui reste exécutable et vérifiable plutôt que purement descriptive.</p>
+
+      <pre><code class="language-python">import pandas as pd
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("pipeline_nettoyage")
+
+def dedupliquer_clients(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Règle de déduplication : un même email correspond à un même client.
+    Décision : conserver le premier enregistrement (le plus ancien selon l'ordre
+    d'insertion), en supposant qu'il contient la version la plus stable du profil.
+    Justification métier : validé avec l'équipe CRM le 2024-03-01, les doublons
+    proviennent presque exclusivement de resoumissions du formulaire d'inscription.
+    """
+    n_avant = len(df)
+    n_doublons = df.duplicated(subset=["email"]).sum()
+
+    df_propre = df.drop_duplicates(subset=["email"], keep="first")
+
+    logger.info(f"Déduplication clients : {n_doublons} doublons supprimés sur {n_avant} lignes "
+                f"({n_doublons / n_avant * 100:.1f}%)")
+
+    return df_propre</code></pre>
+
+      <h3>La reproductibilité : pouvoir rejouer le nettoyage à l'identique</h3>
+      <p>Un pipeline de nettoyage bien documenté et codé (plutôt qu'exécuté manuellement dans un tableur) offre un bénéfice supplémentaire crucial : il peut être <strong>rejoué à l'identique</strong> sur une nouvelle extraction de données, produisant exactement le même résultat pour les mêmes règles. C'est cette propriété qui permet d'intégrer le nettoyage dans un pipeline automatisé récurrent (Module 7), plutôt que de devoir répéter manuellement un ensemble d'opérations à chaque nouvelle donnée reçue — une pratique non seulement inefficace mais source d'erreurs d'inconsistance entre deux exécutions manuelles successives.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Effectuer un nettoyage de données directement dans un tableur (suppression manuelle de lignes, correction de valeurs à la main) sans garder aucune trace des opérations effectuées. Ce type de nettoyage n'est ni documenté, ni reproductible, ni auditable — impossible de savoir six mois plus tard quelles lignes ont été supprimées et pourquoi, ni de rejouer la même opération sur une nouvelle version du fichier.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous reprenez un dataset "nettoyé" par un ancien collègue parti de l'entreprise, sans aucune documentation ni code associé — seulement le fichier final. Quelles trois informations manquantes regretteriez-vous le plus, et comment cette situation influencerait-elle votre confiance dans les analyses déjà construites sur ce fichier ?
+      </div>
+    </section>
+
+    <div class="module-divider">
+      <span class="num">MODULE 02 · DÉDUPLICATION</span>
+      <span class="line"></span>
+    </div>
+
+    <section id="m2-l1">
+      <span class="lesson-kicker">Module 2 · Leçon 1</span>
+      <h2>Doublons Exacts vs Doublons Flous</h2>
+
+      <p>La déduplication est souvent perçue à tort comme une opération simple ("supprimer les lignes identiques") alors qu'elle recouvre en réalité deux problèmes de nature très différente, nécessitant des méthodes distinctes vues dans ce module : les <strong>doublons exacts</strong>, où chaque champ est parfaitement identique entre deux enregistrements, et les <strong>doublons flous</strong> (ou approximatifs), où deux enregistrements représentent la même entité réelle malgré des différences superficielles dans leur représentation textuelle.</p>
+
+      <table>
+        <tr><th>Type</th><th>Exemple</th><th>Détection</th></tr>
+        <tr><td>Doublon exact</td><td>Deux lignes strictement identiques sur toutes les colonnes</td><td>Comparaison directe (Module 2, leçon 2)</td></tr>
+        <tr><td>Doublon flou — variation de casse/espaces</td><td>"Jean Dupont" vs "jean dupont " vs "JEAN DUPONT"</td><td>Normalisation puis comparaison (Module 3)</td></tr>
+        <tr><td>Doublon flou — faute de frappe</td><td>"Jean Dupont" vs "Jean Dupond"</td><td>Distance d'édition (Module 2, leçon 3)</td></tr>
+        <tr><td>Doublon flou — représentation différente</td><td>"J. Dupont" vs "Jean Dupont", "12 rue de Paris" vs "12, r. de Paris"</td><td>Similarité + règles métier (Module 2, leçons 3-5)</td></tr>
+      </table>
+
+      <div class="diff-row">
+        <span class="dirty">"Jean Dupond" (id 42)</span>
+        <span class="arrow">≈</span>
+        <span class="clean">"Jean Dupont" (id 108) → même personne ?</span>
+      </div>
+
+      <h3>Pourquoi cette distinction structure tout le reste du module</h3>
+      <p>Les doublons exacts se détectent avec une comparaison booléenne stricte, un problème résolu et peu coûteux en calcul même sur de gros volumes. Les doublons flous nécessitent en revanche de <strong>quantifier un degré de similarité</strong> entre deux chaînes de caractères, puis de décider d'un seuil au-delà duquel on considère qu'il s'agit probablement de la même entité — une décision intrinsèquement probabiliste et parfois ambiguë, qui ne peut jamais atteindre une fiabilité de 100% sans validation humaine sur les cas limites.</p>
+
+      <h3>Le risque asymétrique des deux erreurs possibles</h3>
+      <p>Dans la détection de doublons flous, deux types d'erreurs sont possibles, avec des conséquences différentes : un <strong>faux positif</strong> (fusionner deux entités qui sont en réalité distinctes, par exemple deux clients homonymes différents) fait perdre de l'information réelle et peut avoir des conséquences graves (fusionner par erreur les dossiers de deux patients différents dans un système médical, par exemple) ; un <strong>faux négatif</strong> (ne pas détecter un vrai doublon) laisse simplement subsister le problème initial identifié en Module 1. Le choix du seuil de similarité doit être calibré en tenant compte de cette asymétrie de coût, spécifique à chaque contexte métier.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Appliquer une déduplication floue agressive (seuil de similarité bas, donc permissif) sans considérer le coût asymétrique d'un faux positif dans le contexte métier spécifique. Fusionner par erreur deux clients distincts dans un système de facturation peut avoir des conséquences bien plus graves que de laisser temporairement subsister un doublon non détecté — le seuil de similarité n'est jamais un choix purement technique, mais un arbitrage métier.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Pour chacun des deux contextes suivants, indiquez si vous privilégieriez un seuil de similarité strict (peu de faux positifs, plus de faux négatifs) ou permissif (l'inverse) : (1) dédupliquer une liste d'emailing marketing avant envoi, (2) fusionner des dossiers patients dans un système hospitalier.
+      </div>
+    </section>
+
+    <section id="m2-l2">
+      <span class="lesson-kicker">Module 2 · Leçon 2</span>
+      <h2>Détecter et Supprimer les Doublons Exacts avec Pandas</h2>
+
+      <p>Cette leçon couvre l'outillage pratique pour les doublons exacts (ou quasi-exacts sur un sous-ensemble de colonnes), la première ligne de défense à appliquer avant d'envisager les méthodes plus coûteuses de correspondance floue.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+df = pd.DataFrame({
+    "id": [1, 2, 3, 4, 5],
+    "email": ["alice@ex.fr", "bob@ex.fr", "alice@ex.fr", "carla@ex.fr", "bob@ex.fr"],
+    "montant": [100, 200, 100, 150, 250]
+})
+
+# duplicated() : détecte les lignes strictement identiques sur TOUTES les colonnes par défaut
+print(df.duplicated())          # aucun doublon complet ici (les montants diffèrent parfois)
+
+# Détection sur un SOUS-ENSEMBLE de colonnes -- le cas le plus fréquent en pratique
+print(df.duplicated(subset=["email"]))
+# 0    False  -- alice@ex.fr, 1ère occurrence
+# 1    False  -- bob@ex.fr, 1ère occurrence
+# 2     True  -- alice@ex.fr, doublon
+# 3    False  -- carla@ex.fr, unique
+# 4     True  -- bob@ex.fr, doublon</code></pre>
+
+      <h3>Le paramètre <code>keep</code> : quelle occurrence conserver</h3>
+      <pre><code class="language-python"># keep="first" (par défaut) : marque comme doublon toutes les occurrences SAUF la première
+df_sans_doublons = df.drop_duplicates(subset=["email"], keep="first")
+
+# keep="last" : conserve la dernière occurrence -- utile si les données sont triées
+# chronologiquement et qu'on veut la version la plus RÉCENTE d'un enregistrement
+df_derniere_version = df.sort_values("id").drop_duplicates(subset=["email"], keep="last")
+
+# keep=False : supprime TOUTES les occurrences concernées par un doublon, y compris la première
+# -- utile pour isoler les cas ambigus à traiter manuellement plutôt que de choisir automatiquement
+lignes_ambigues = df[df.duplicated(subset=["email"], keep=False)]
+print(lignes_ambigues)  # affiche alice@ex.fr (x2) et bob@ex.fr (x2) pour inspection manuelle</code></pre>
+
+      <h3>Le piège des colonnes non pertinentes qui masquent un vrai doublon</h3>
+      <p>Une erreur fréquente consiste à appeler <code>duplicated()</code> sans spécifier <code>subset</code>, en s'appuyant sur la comparaison de toutes les colonnes — un enregistrement dupliqué avec un simple horodatage d'insertion différent (<code>date_creation</code>) ne sera <strong>jamais</strong> détecté comme doublon par cette méthode, alors qu'il s'agit bien du même client. Toujours réfléchir explicitement à quelles colonnes définissent réellement l'identité d'une entité avant de choisir le <code>subset</code>.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+df = pd.DataFrame({
+    "email": ["alice@ex.fr", "alice@ex.fr"],
+    "date_creation": ["2024-01-01 10:00:00", "2024-01-01 10:00:05"]  # 5 secondes d'écart
+})
+print(df.duplicated())  # False, False -- AUCUN doublon détecté à cause de date_creation différente
+print(df.duplicated(subset=["email"]))  # False, True -- correct : subset ciblé sur l'identité réelle</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Utiliser <code>duplicated()</code> ou <code>drop_duplicates()</code> sans le paramètre <code>subset</code> sur un dataset contenant une colonne d'horodatage ou d'identifiant technique unique par ligne (comme un ID auto-incrémenté), ce qui empêche mécaniquement la détection de tout doublon métier réel — chaque ligne étant rendue artificiellement unique par cette colonne technique.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un dataset de commandes contient les colonnes <code>id_commande</code> (unique par ligne), <code>client_id</code>, <code>produit</code>, <code>date_commande</code>. Un bug technique a inséré deux fois la même commande avec un <code>id_commande</code> différent à quelques millisecondes d'intervalle. Quel <code>subset</code> utiliseriez-vous pour détecter ce doublon, et quel risque cette approche comporte-t-elle si un client passe légitimement deux fois la même commande le même jour ?
+      </div>
+    </section>
+
+    <section id="m2-l3">
+      <span class="lesson-kicker">Module 2 · Leçon 3</span>
+      <h2>Mesurer la Similarité : Distance de Levenshtein et Alternatives</h2>
+
+      <p>Pour détecter des doublons flous (Module 2, leçon 1), il faut d'abord savoir <strong>quantifier</strong> à quel point deux chaînes de caractères se ressemblent. La <strong>distance de Levenshtein</strong> (aussi appelée distance d'édition) est la mesure la plus classique : elle compte le nombre minimal d'opérations élémentaires (insertion, suppression, substitution d'un caractère) nécessaires pour transformer une chaîne en une autre.</p>
+
+      <pre><code class="language-python">import Levenshtein  # pip install python-Levenshtein
+
+print(Levenshtein.distance("Dupont", "Dupond"))   # 1 -- une seule substitution (t -> d)
+print(Levenshtein.distance("Jean", "Jeanne"))      # 2 -- deux insertions
+print(Levenshtein.distance("Dupont", "Durand"))    # 4 -- beaucoup moins similaires
+
+# La distance brute dépend de la longueur des chaînes -- un ratio normalisé est souvent plus utile
+print(Levenshtein.ratio("Dupont", "Dupond"))   # 0.833 -- proche de 1 = très similaire
+print(Levenshtein.ratio("Dupont", "Durand"))   # 0.333 -- proche de 0 = peu similaire</code></pre>
+
+      <h3>Les limites de Levenshtein et les alternatives adaptées à d'autres cas</h3>
+      <p>Levenshtein traite chaque caractère de façon égale, ce qui n'est pas toujours le comportement souhaité. Plusieurs alternatives ciblent des cas spécifiques :</p>
+      <ul>
+        <li><strong>Distance de Jaro-Winkler</strong> : donne plus de poids aux différences en début de chaîne et moins aux transpositions de caractères adjacents — particulièrement adaptée aux noms propres, où les fautes de frappe en fin de mot sont plus tolérables qu'en début.</li>
+        <li><strong>Similarité de Jaccard sur n-grammes</strong> : découpe les chaînes en sous-séquences de n caractères et mesure le recouvrement entre les deux ensembles — robuste aux réorganisations de mots ("Jean Dupont" vs "Dupont Jean").</li>
+        <li><strong>Phonétique (Soundex, Metaphone)</strong> : encode les chaînes selon leur prononciation plutôt que leur orthographe exacte — utile pour rapprocher "Smith" et "Smyth", ou "Sophie" et "Sofie", que Levenshtein traiterait comme relativement différentes malgré une prononciation quasi identique.</li>
+      </ul>
+
+      <pre><code class="language-python">import jellyfish  # pip install jellyfish
+
+print(jellyfish.jaro_winkler_similarity("Dupont", "Dupond"))  # généralement plus élevé que Levenshtein
+                                                                # pour des différences en fin de chaîne
+
+print(jellyfish.soundex("Sophie"))   # code phonétique
+print(jellyfish.soundex("Sofie"))    # même code phonétique malgré une orthographe différente
+print(jellyfish.soundex("Sophie") == jellyfish.soundex("Sofie"))  # True</code></pre>
+
+      <h3>Choisir la bonne mesure selon le type de donnée</h3>
+      <table>
+        <tr><th>Type de donnée</th><th>Mesure recommandée</th></tr>
+        <tr><td>Noms propres (personnes)</td><td>Jaro-Winkler ou phonétique</td></tr>
+        <tr><td>Adresses (ordre des mots variable)</td><td>Jaccard sur n-grammes ou sur tokens</td></tr>
+        <tr><td>Fautes de frappe générales, courts textes</td><td>Levenshtein</td></tr>
+        <tr><td>Emails, identifiants structurés</td><td>Comparaison exacte après normalisation (Module 3), rarement de similarité floue</td></tr>
+      </table>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Utiliser uniquement Levenshtein pour comparer des adresses postales, où l'ordre des composants (numéro, rue, ville) peut légitimement varier ("12 rue de Paris" vs "rue de Paris 12") sans qu'il s'agisse d'une vraie différence. Levenshtein pénalise fortement les réordonnancements de mots, produisant un score de similarité artificiellement bas pour des adresses pourtant identiques en substance — une mesure basée sur les tokens (mots) plutôt que sur les caractères bruts est mieux adaptée à ce cas.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous devez rapprocher des fiches produits provenant de deux fournisseurs différents, avec des libellés comme "Casque Bluetooth Sony WH-1000XM4" et "Sony WH1000XM4 Casque sans fil Bluetooth". Levenshtein sur la chaîne complète serait-il un bon choix de mesure ici ? Justifiez et proposez une alternative parmi celles présentées dans cette leçon.
+      </div>
+    </section>
+
+    <section id="m2-l4">
+      <span class="lesson-kicker">Module 2 · Leçon 4</span>
+      <h2>Fuzzy Matching en Pratique avec RapidFuzz</h2>
+
+      <p>Cette leçon met en application les mesures de similarité vues en leçon 3 dans un contexte réel de déduplication, à l'aide de RapidFuzz, une bibliothèque Python performante (implémentée en C++) devenue le standard de facto pour le fuzzy matching, ayant largement remplacé l'ancienne bibliothèque FuzzyWuzzy dont elle reprend l'API tout en étant nettement plus rapide.</p>
+
+      <pre><code class="language-python">from rapidfuzz import fuzz, process
+
+# Comparaison simple entre deux chaînes -- score de 0 (aucune ressemblance) à 100 (identiques)
+print(fuzz.ratio("Jean Dupont", "jean dupont"))        # score élevé malgré la casse différente
+print(fuzz.ratio("Jean Dupont", "Jean Dupond"))         # score élevé, une seule lettre diffère
+print(fuzz.token_sort_ratio("Jean Dupont", "Dupont Jean"))  # ignore l'ordre des mots -- score élevé
+print(fuzz.ratio("Jean Dupont", "Dupont Jean"))             # sans tri des tokens -- score plus faible</code></pre>
+
+      <h3>Trouver le meilleur candidat dans une liste de référence</h3>
+      <pre><code class="language-python">from rapidfuzz import process, fuzz
+
+noms_existants = ["Jean Dupont", "Marie Curie", "Paul Martin", "Sophie Bernard"]
+nouveau_nom = "Jean Dupond"  # faute de frappe potentielle à la saisie
+
+resultat = process.extractOne(nouveau_nom, noms_existants, scorer=fuzz.ratio)
+print(resultat)  # ('Jean Dupont', 90.9, 0) -- (meilleur candidat, score, index)
+
+# Extraire les 3 meilleurs candidats plutôt qu'un seul, pour une revue manuelle des cas ambigus
+top_3 = process.extract(nouveau_nom, noms_existants, scorer=fuzz.ratio, limit=3)
+print(top_3)</code></pre>
+
+      <h3>Dédupliquer un DataFrame entier avec un seuil de décision</h3>
+      <pre><code class="language-python">import pandas as pd
+from rapidfuzz import fuzz, process
+
+df = pd.DataFrame({
+    "id": [1, 2, 3, 4],
+    "nom": ["Jean Dupont", "Jean Dupond", "Marie Curie", "Marie Curry"]
+})
+
+SEUIL_SIMILARITE = 85  # calibré empiriquement -- voir la mise en garde ci-dessous
+
+groupes = {}
+noms_traites = []
+for idx, nom in df["nom"].items():
+    correspondance = process.extractOne(nom, noms_traites, scorer=fuzz.ratio, score_cutoff=SEUIL_SIMILARITE)
+    if correspondance:
+        nom_reference = correspondance[0]
+        groupes[idx] = groupes[[k for k, v in df["nom"].items() if v == nom_reference][0]]
+    else:
+        groupes[idx] = idx  # nouveau groupe
+        noms_traites.append(nom)
+
+df["groupe_doublon"] = df.index.map(groupes)
+print(df)
+# "Jean Dupont" et "Jean Dupond" regroupés ; "Marie Curie" et "Marie Curry" -- à vérifier selon le seuil</code></pre>
+
+      <h3>Le seuil de similarité n'est jamais universel : il se calibre sur un échantillon</h3>
+      <p>Il n'existe aucun seuil de similarité "correct" applicable universellement — 85%, 90%, ou 95% ne sont que des points de départ raisonnables qui doivent être <strong>calibrés empiriquement</strong> sur un échantillon annoté manuellement (un ensemble de paires connues comme vrais doublons et vrais non-doublons), en mesurant le taux de faux positifs et de faux négatifs à différents seuils, plutôt que choisis arbitrairement puis jamais reconsidérés.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Choisir un seuil de similarité unique et global pour un dataset entier, sans considérer que le seuil optimal peut varier selon le type de champ comparé (les noms courts sont naturellement plus sensibles à une même distance d'édition que les noms longs — "Al" vs "Ali" a un score de similarité très différent d'un écart équivalent sur "Alexandre" vs "Alexandra"). Un seuil unique appliqué à des chaînes de longueurs très variables produit des résultats incohérents.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous testez un seuil de 90% sur un échantillon de 100 paires annotées manuellement (50 vrais doublons, 50 vrais non-doublons) et obtenez 45 vrais positifs, 5 faux négatifs, 3 faux positifs, 47 vrais négatifs. Calculez le taux de faux positifs et de faux négatifs, et indiquez si vous augmenteriez ou diminueriez le seuil selon que le contexte métier privilégie la prudence (éviter les fusions erronées) ou l'exhaustivité (éviter de manquer des doublons).
+      </div>
+    </section>
+
+    <section id="m2-l5">
+      <span class="lesson-kicker">Module 2 · Leçon 5</span>
+      <h2>Déduplication à l'Échelle : Blocking et Record Linkage</h2>
+
+      <p>Les approches de fuzzy matching vues en leçon 4 comparent chaque enregistrement à tous les autres — une approche dite en <strong>force brute</strong> dont le coût de calcul croît de façon quadratique avec le nombre de lignes (n² comparaisons pour n enregistrements). Sur un dataset de 10 000 lignes, cela représente déjà 50 millions de comparaisons ; sur 1 million de lignes, cela devient totalement impraticable (500 milliards de comparaisons). Cette leçon aborde les techniques pour dédupliquer efficacement à grande échelle.</p>
+
+      <h3>Le blocking : réduire drastiquement le nombre de comparaisons nécessaires</h3>
+      <p>Le <strong>blocking</strong> consiste à regrouper préalablement les enregistrements en blocs selon un critère peu coûteux à calculer (souvent une clé approximative comme les 3 premières lettres du nom, le code postal, ou l'année de naissance), puis à n'appliquer la comparaison floue coûteuse <strong>qu'à l'intérieur de chaque bloc</strong> — en pariant que deux enregistrements représentant la même entité partageront presque toujours cette clé de blocking, même avec des variations orthographiques mineures ailleurs.</p>
+
+      <pre><code class="language-python">import pandas as pd
+from rapidfuzz import fuzz
+
+df = pd.DataFrame({
+    "nom": ["Jean Dupont", "Jean Dupond", "Marie Curie", "Marc Curie", "Paul Martin"],
+    "code_postal": ["75001", "75001", "69002", "69002", "13001"]
+})
+
+# Clé de blocking : code postal -- on ne compare que les enregistrements du même bloc
+comparaisons_effectuees = 0
+doublons_potentiels = []
+
+for code_postal, groupe in df.groupby("code_postal"):
+    noms = groupe["nom"].tolist()
+    for i in range(len(noms)):
+        for j in range(i + 1, len(noms)):
+            comparaisons_effectuees += 1
+            score = fuzz.ratio(noms[i], noms[j])
+            if score > 85:
+                doublons_potentiels.append((noms[i], noms[j], score))
+
+print(f"Comparaisons effectuées avec blocking : {comparaisons_effectuees}")
+# Bien moins que les 10 comparaisons qu'exigerait une comparaison exhaustive de 5 éléments,
+# et l'écart se creuse de façon spectaculaire à mesure que le volume total augmente</code></pre>
+
+      <h3>Le compromis du blocking : le risque de manquer un vrai doublon mal classé</h3>
+      <p>Le blocking introduit un risque symétrique à celui du seuil de similarité (Module 2, leçon 4) : si un vrai doublon a une erreur de saisie précisément sur le champ utilisé comme clé de blocking (un code postal mal saisi), il ne sera jamais comparé à son doublon réel, car les deux enregistrements finissent dans des blocs différents. La pratique courante pour atténuer ce risque est d'utiliser <strong>plusieurs clés de blocking en parallèle</strong> (code postal ET les 3 premières lettres du nom, par exemple), en fusionnant les résultats des deux stratégies de blocking.</p>
+
+      <h3>Le record linkage : au-delà de la déduplication interne, rapprocher deux sources</h3>
+      <p>Le <strong>record linkage</strong> généralise le problème de déduplication au cas où l'on cherche à faire correspondre des enregistrements entre <em>deux datasets distincts</em> plutôt qu'à l'intérieur d'un seul (par exemple, rapprocher une base clients interne avec une base de prospects achetée à un tiers). Les mêmes techniques de blocking et de similarité s'appliquent, mais des bibliothèques dédiées comme <code>recordlinkage</code> en Python structurent explicitement ce processus en trois étapes formalisées : indexation (blocking), comparaison (calcul de scores de similarité sur plusieurs champs), et classification (décision finale via un seuil ou un modèle de machine learning entraîné sur des paires annotées).</p>
+
+      <pre><code class="language-python">import recordlinkage
+
+indexeur = recordlinkage.Index()
+indexeur.block("code_postal")  # stratégie de blocking explicite
+paires_candidates = indexeur.index(dataset_a, dataset_b)
+
+comparateur = recordlinkage.Compare()
+comparateur.string("nom", "nom", method="jarowinkler", threshold=0.85)
+comparateur.exact("date_naissance", "date_naissance")
+resultats = comparateur.compute(paires_candidates, dataset_a, dataset_b)
+
+# Score agrégé par paire -- un seuil sur la somme des scores détermine le lien final
+correspondances = resultats[resultats.sum(axis=1) > 1.5]</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Tenter une comparaison floue exhaustive (sans blocking) sur un dataset de plusieurs centaines de milliers de lignes, provoquant un temps de calcul de plusieurs heures voire jours, alors qu'une stratégie de blocking bien choisie aurait réduit ce temps à quelques minutes pour un résultat quasiment équivalent en qualité de détection.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous devez dédupliquer une base de 2 millions de contacts, avec les colonnes nom, prénom, email et code postal. Proposez une stratégie de blocking à deux clés différentes qui limiterait le risque de manquer un vrai doublon à cause d'une seule erreur de saisie sur l'une des deux clés.
+      </div>
+    </section>
+
+    <div class="module-divider">
+      <span class="num">MODULE 03 · NORMALISATION DES CHAÎNES</span>
+      <span class="line"></span>
+    </div>
+
+    <section id="m3-l1">
+      <span class="lesson-kicker">Module 3 · Leçon 1</span>
+      <h2>Casse, Espaces et Caractères Invisibles</h2>
+
+      <p>Avant d'envisager des techniques de normalisation avancées (Unicode, regex), la très grande majorité des problèmes de cohérence textuelle rencontrés en pratique se résument à trois catégories de défauts simples mais extrêmement fréquents, souvent invisibles à l'œil nu dans un tableur ou un éditeur de texte standard.</p>
+
+      <h3>La casse : uniformiser pour comparer</h3>
+      <div class="diff-row">
+        <span class="dirty">"PARIS" / "paris" / "Paris"</span>
+        <span class="arrow">→</span>
+        <span class="clean">"Paris" (une seule forme canonique)</span>
+      </div>
+      <pre><code class="language-python">import pandas as pd
+
+df = pd.DataFrame({"ville": ["PARIS", "paris", "Paris", "Lyon"]})
+print(df["ville"].value_counts())  # 4 valeurs "distinctes" alors qu'il n'y a que 2 villes réelles
+
+df["ville_normalisee"] = df["ville"].str.strip().str.title()  # "Paris", "Lyon"
+print(df["ville_normalisee"].value_counts())  # 2 valeurs distinctes -- correct</code></pre>
+
+      <h3>Les espaces : en début, en fin, et en double au milieu</h3>
+      <p>Un espace en début ou en fin de chaîne (souvent introduit par un copier-coller depuis un PDF ou une saisie manuelle négligente) rend deux valeurs visuellement identiques mais informatiquement différentes lors d'une comparaison stricte — un piège particulièrement insidieux car totalement invisible à l'affichage dans la plupart des outils.</p>
+      <pre><code class="language-python">valeur_a = "Jean Dupont"
+valeur_b = "Jean Dupont "  # espace final invisible
+print(valeur_a == valeur_b)  # False -- alors qu'elles semblent identiques à l'écran
+
+# .strip() retire les espaces en début/fin ; re.sub gère les espaces multiples internes
+import re
+def nettoyer_espaces(texte: str) -> str:
+    texte = texte.strip()                      # retire espaces début/fin
+    texte = re.sub(r"\s+", " ", texte)          # collapse les espaces multiples internes en un seul
+    return texte
+
+print(repr(nettoyer_espaces("  Jean   Dupont  ")))  # 'Jean Dupont'</code></pre>
+
+      <h3>Les caractères invisibles : au-delà de l'espace classique</h3>
+      <p>Au-delà de l'espace ASCII standard (code 32), de nombreux autres caractères Unicode sont visuellement indiscernables d'un espace mais informatiquement distincts : l'espace insécable (souvent introduite par des exports depuis Word ou certains sites web), les tabulations, ou des caractères de contrôle invisibles copiés accidentellement depuis une source externe. Ces caractères échappent souvent à un simple <code>.strip()</code>, qui ne cible que les espaces "blancs" standards selon la définition Python, laquelle inclut heureusement la plupart des espaces Unicode mais pas systématiquement tous les caractères de contrôle exotiques.</p>
+
+      <pre><code class="language-python">texte_suspect = "Jean Dupont"  #   = espace insécable, invisible à l'affichage
+print(texte_suspect == "Jean Dupont")  # False -- alors qu'ils semblent identiques
+
+# Remplacer explicitement les variantes d'espace connues avant tout traitement
+texte_corrige = texte_suspect.replace(" ", " ")
+print(texte_corrige == "Jean Dupont")  # True
+
+# Diagnostic : repérer les caractères "invisibles" suspects dans une colonne
+def contient_caractere_suspect(texte: str) -> bool:
+    return any(ord(c) > 127 and c.isspace() for c in texte)</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Diagnostiquer une comparaison de chaînes qui échoue de façon apparemment inexplicable ("ces deux valeurs sont pourtant identiques à l'écran !") sans envisager la présence d'un caractère invisible (espace insécable, tabulation, caractère de contrôle). Le réflexe de diagnostic correct est d'inspecter la représentation brute de la chaîne avec <code>repr()</code> ou en affichant les codes Unicode caractère par caractère, plutôt que de se fier à l'affichage visuel qui masque ces différences.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une jointure entre deux tables sur la colonne "code_produit" échoue à faire correspondre des lignes qui semblent pourtant identiques visuellement dans les deux tables. Décrivez la méthode de diagnostic précise que vous utiliseriez pour confirmer ou infirmer l'hypothèse d'un caractère invisible, avant de conclure à un autre problème.
+      </div>
+    </section>
+
+    <section id="m3-l2">
+      <span class="lesson-kicker">Module 3 · Leçon 2</span>
+      <h2>Normalisation Unicode : NFC, NFD, NFKC, NFKD</h2>
+
+      <p>Cette leçon aborde un piège plus subtil et moins connu que les espaces ou la casse : un même caractère accentué peut être représenté de <strong>deux façons binaires différentes</strong> en Unicode, produisant un texte visuellement identique mais informatiquement distinct — un problème particulièrement fréquent avec des données provenant de systèmes d'exploitation ou de logiciels différents (macOS a longtemps eu tendance à utiliser une forme différente de Windows pour les caractères accentués).</p>
+
+      <h3>Caractère précomposé vs caractère composé</h3>
+      <p>Le caractère "é" peut être encodé soit comme un unique point de code Unicode précomposé (<code>U+00E9</code>, forme NFC), soit comme une séquence de deux points de code : la lettre "e" de base (<code>U+0065</code>) suivie d'un accent aigu combinant (<code>U+0301</code>), formant visuellement "é" par superposition (forme NFD).</p>
+
+      <pre><code class="language-python">e_precompose = "é"          # "é" en un seul point de code (NFC)
+e_compose = "é"            # "é" en deux points de code : e + accent combinant (NFD)
+
+print(e_precompose)              # é
+print(e_compose)                 # é -- visuellement identique !
+print(e_precompose == e_compose) # False -- pourtant différents au niveau binaire
+print(len(e_precompose), len(e_compose))  # 1, 2 -- même longueur de caractère perçue, mais pas réelle</code></pre>
+
+      <h3>Les quatre formes de normalisation Unicode</h3>
+      <table>
+        <tr><th>Forme</th><th>Nom complet</th><th>Effet</th></tr>
+        <tr><td>NFC</td><td>Normalization Form Canonical Composition</td><td>Compose : combine en caractères précomposés (recommandé par défaut pour le stockage)</td></tr>
+        <tr><td>NFD</td><td>Normalization Form Canonical Decomposition</td><td>Décompose : sépare en caractères de base + accents combinants</td></tr>
+        <tr><td>NFKC</td><td>Normalization Form Compatibility Composition</td><td>Compose + normalise les variantes de compatibilité (ex : "①" devient "1")</td></tr>
+        <tr><td>NFKD</td><td>Normalization Form Compatibility Decomposition</td><td>Décompose + normalise les variantes de compatibilité</td></tr>
+      </table>
+
+      <pre><code class="language-python">import unicodedata
+
+e_compose = "é"
+
+# Normaliser systématiquement à l'ingestion résout le problème une fois pour toutes
+e_normalise_nfc = unicodedata.normalize("NFC", e_compose)
+print(e_normalise_nfc == "é")  # True -- les deux représentations convergent après normalisation
+
+# NFKC va plus loin : normalise aussi les variantes visuellement différentes mais sémantiquement identiques
+print(unicodedata.normalize("NFKC", "ﬁ"))    # la ligature "fi" devient "fi" (deux caractères séparés)
+print(unicodedata.normalize("NFKC", "①"))    # "①" devient "1"</code></pre>
+
+      <h3>La bonne pratique : normaliser systématiquement à l'ingestion</h3>
+      <p>La recommandation générale est d'appliquer une normalisation NFC (la forme la plus courante pour le stockage et l'échange) systématiquement à l'ingestion de toute donnée textuelle provenant de sources externes, avant tout traitement ultérieur — comparaison, déduplication (Module 2), ou stockage en base de données. Cela élimine la classe entière de bugs liés aux représentations Unicode divergentes d'un même texte visuel, sans jamais avoir à les diagnostiquer au cas par cas.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Rencontrer un échec de correspondance exacte entre deux chaînes de caractères visuellement identiques (souvent lors d'une jointure ou d'une déduplication, Module 2) sans envisager une différence de forme de normalisation Unicode comme cause possible — un problème d'autant plus difficile à diagnostiquer que les deux chaînes s'affichent de façon rigoureusement identique dans n'importe quel éditeur de texte ou tableur.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un système reçoit des noms de clients depuis deux sources différentes (un formulaire web et un import depuis un logiciel tiers), et une déduplication par correspondance exacte (Module 2, leçon 2) sur la colonne "nom" échoue à détecter des doublons pourtant visuellement identiques. Quelle vérification simple ajouteriez-vous à votre pipeline de nettoyage pour couvrir cette hypothèse avant même de recourir au fuzzy matching ?
+      </div>
+    </section>
+
+    <section id="m3-l3">
+      <span class="lesson-kicker">Module 3 · Leçon 3</span>
+      <h2>Normaliser Noms, Adresses et Numéros de Téléphone</h2>
+
+      <p>Cette leçon applique les principes des deux précédentes à trois catégories de données personnelles parmi les plus fréquemment rencontrées et les plus problématiques en pratique, chacune ayant ses propres conventions hétérogènes à harmoniser.</p>
+
+      <h3>Noms propres : gérer les particules, tirets et variantes</h3>
+      <div class="diff-row">
+        <span class="dirty">"DE LA FONTAINE, jean-pierre"</span>
+        <span class="arrow">→</span>
+        <span class="clean">"Jean-Pierre de la Fontaine"</span>
+      </div>
+      <pre><code class="language-python">import re
+
+def normaliser_nom(nom: str) -> str:
+    nom = nom.strip()
+    # Gérer le format "NOM, Prénom" fréquent dans les exports administratifs
+    if "," in nom:
+        partie_nom, partie_prenom = nom.split(",", 1)
+        nom = f"{partie_prenom.strip()} {partie_nom.strip()}"
+    # Title case, mais en préservant les tirets composés (Jean-Pierre, pas Jean-pierre)
+    nom = "-".join(mot.capitalize() for mot in nom.split("-"))
+    nom = " ".join(mot.capitalize() if mot.lower() not in ("de", "la", "le", "du", "des")
+                   else mot.lower() for mot in nom.split(" "))
+    return nom
+
+print(normaliser_nom("DE LA FONTAINE, jean-pierre"))  # "Jean-Pierre de la Fontaine"</code></pre>
+      <p>Remarquez la règle spécifique pour les particules ("de", "la", "le") qui restent conventionnellement en minuscules même en Title Case — un exemple concret montrant qu'une normalisation textuelle générique (simple <code>.title()</code>) ne suffit presque jamais pour des noms propres réels, qui nécessitent des règles métier explicites.</p>
+
+      <h3>Adresses : structurer l'hétérogène plutôt que tout fusionner en texte libre</h3>
+      <p>Les adresses combinent des abréviations multiples ("r." pour rue, "av." pour avenue, "bd" pour boulevard), un ordre des composants parfois variable, et des conventions différentes selon les pays. Plutôt que de tenter une normalisation textuelle générique, la bonne pratique pour des volumes importants est de recourir à un service de géocodage ou de validation d'adresse dédié (API gouvernementale d'adresse, service commercial), qui structure l'adresse en composants distincts (numéro, voie, code postal, ville) avec une fiabilité bien supérieure à des règles regex maison.</p>
+      <pre><code class="language-python">import re
+
+def normaliser_abreviations_adresse(adresse: str) -> str:
+    remplacements = {
+        r"\br\.": "rue", r"\bav\.": "avenue", r"\bbd\b": "boulevard",
+        r"\bst\b": "saint", r"\bste\b": "sainte",
+    }
+    adresse = adresse.lower()
+    for motif, remplacement in remplacements.items():
+        adresse = re.sub(motif, remplacement, adresse)
+    return adresse.strip()
+
+print(normalisation := normaliser_abreviations_adresse("12 r. de la paix, bd st michel"))
+# "12 rue de la paix, boulevard saint michel" -- utile en complément, pas en remplacement
+# d'une vraie API de validation d'adresse pour des cas de production sérieux</code></pre>
+
+      <h3>Numéros de téléphone : harmoniser le format international</h3>
+      <div class="diff-row">
+        <span class="dirty">"01 23 45 67 89" / "0123456789" / "+33123456789"</span>
+        <span class="arrow">→</span>
+        <span class="clean">"+33123456789" (format E.164 unique)</span>
+      </div>
+      <pre><code class="language-python">import phonenumbers  # pip install phonenumbers
+
+def normaliser_telephone(numero: str, pays_defaut: str = "FR") -> str:
+    try:
+        parse = phonenumbers.parse(numero, pays_defaut)
+        return phonenumbers.format_number(parse, phonenumbers.PhoneNumberFormat.E164)
+    except phonenumbers.NumberParseException:
+        return None  # signaler explicitement plutôt que de propager une valeur invalide silencieuse
+
+for numero in ["01 23 45 67 89", "0123456789", "+33 1 23 45 67 89"]:
+    print(normaliser_telephone(numero))  # les trois convergent vers "+33123456789"</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Écrire des règles de normalisation d'adresse ou de téléphone entièrement maison avec des expressions régulières ad hoc, alors que des bibliothèques spécialisées et éprouvées existent (comme <code>phonenumbers</code>, maintenue par Google, qui gère des centaines de conventions nationales). Réinventer ces règles soi-même mène presque systématiquement à des cas limites non couverts, découverts un par un en production plutôt qu'anticipés.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une base de données contient des numéros de téléphone dans 4 formats différents pour des clients de 6 pays différents. Pourquoi une approche par expressions régulières spécifiques à chaque pays serait-elle plus fragile et coûteuse à maintenir qu'une bibliothèque comme <code>phonenumbers</code> dans ce contexte multi-pays ?
+      </div>
+    </section>
+
+    <section id="m3-l4">
+      <span class="lesson-kicker">Module 3 · Leçon 4</span>
+      <h2>Expressions Régulières pour le Nettoyage de Texte</h2>
+
+      <p>Les expressions régulières (regex) sont l'outil transversal le plus utilisé en nettoyage de données textuelles, déjà mobilisé implicitement dans plusieurs exemples précédents de ce module. Cette leçon consolide les patterns les plus utiles spécifiquement pour le nettoyage, sans viser l'exhaustivité du langage regex lui-même.</p>
+
+      <h3>Patterns de nettoyage courants</h3>
+      <pre><code class="language-python">import re
+import pandas as pd
+
+df = pd.DataFrame({"texte": [
+    "Prix: 45,90€ !!",
+    "Contact : jean@ex.fr ou 01-23-45-67-89",
+    "  Commentaire   avec    espaces   multiples  ",
+]})
+
+# Extraire uniquement les chiffres et la virgule décimale d'un prix
+df["prix_numerique"] = df["texte"].str.extract(r"(\d+[,.]?\d*)")
+print(df["prix_numerique"])
+
+# Extraire une adresse email au sein d'un texte libre
+df["email_extrait"] = df["texte"].str.extract(r"([\w.+-]+@[\w-]+\.[\w.]+)")
+print(df["email_extrait"])
+
+# Supprimer toute ponctuation répétée ou parasite
+df["texte_nettoye"] = df["texte"].str.replace(r"[!?]{2,}", "", regex=True)
+
+# Collapse des espaces multiples en un seul (déjà vu en leçon 1, rappelé ici)
+df["texte_nettoye"] = df["texte_nettoye"].str.replace(r"\s+", " ", regex=True).str.strip()
+print(df["texte_nettoye"])</code></pre>
+
+      <h3>Vectoriser les opérations regex avec pandas plutôt que boucler en Python pur</h3>
+      <p>Les méthodes <code>.str.replace()</code>, <code>.str.extract()</code>, <code>.str.contains()</code> de pandas appliquent une regex à une colonne entière de façon vectorisée (optimisée en interne), une approche nettement plus rapide qu'une boucle Python explicite ligne par ligne appliquant <code>re.sub()</code> individuellement — un écart de performance qui devient significatif dès quelques dizaines de milliers de lignes.</p>
+
+      <pre><code class="language-python">import time
+import pandas as pd
+import re
+
+df = pd.DataFrame({"texte": ["  Exemple   texte  "] * 200_000})
+
+debut = time.time()
+df["v1"] = df["texte"].apply(lambda t: re.sub(r"\s+", " ", t).strip())  # boucle Python via apply
+print(f"apply() : {time.time() - debut:.2f}s")
+
+debut = time.time()
+df["v2"] = df["texte"].str.replace(r"\s+", " ", regex=True).str.strip()  # vectorisé pandas
+print(f"str.replace() vectorisé : {time.time() - debut:.2f}s")
+# Le vectorisé est généralement 2 à 5 fois plus rapide sur ce type d'opération simple</code></pre>
+
+      <h3>Le risque de la regex trop permissive ou trop stricte</h3>
+      <p>Une regex de nettoyage mal calibrée peut soit laisser passer des cas qu'elle était censée corriger (trop stricte), soit corrompre des données valides qui correspondent accidentellement au pattern (trop permissive). Une regex d'extraction de prix comme <code>r"(\d+)"</code> capturera par erreur le "2" d'une valeur comme "2 unités à 15€", extrayant la mauvaise partie du texte si l'ordre des mots n'est pas anticipé.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Écrire une regex qui fonctionne parfaitement sur les 5 exemples testés manuellement pendant le développement, puis la déployer directement sur l'ensemble du dataset sans avoir vérifié son comportement sur un échantillon représentatif de la diversité réelle des formats présents. Toujours tester une regex de nettoyage sur au moins quelques centaines de valeurs réelles distinctes, en particulier les cas extrêmes (valeurs vides, très longues, avec caractères spéciaux inattendus).
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Écrivez une expression régulière qui extrait uniquement le numéro de téléphone d'un texte libre du type "Appelez-moi au 06.12.34.56.78 avant 18h", en gérant le cas où les séparateurs peuvent être des points, des espaces, ou des tirets de façon interchangeable.
+      </div>
+    </section>
+
+    <section id="m3-l5">
+      <span class="lesson-kicker">Module 3 · Leçon 5</span>
+      <h2>Normalisation vs Perte d'Information : Où s'Arrêter</h2>
+
+      <p>Cette dernière leçon du module aborde une tension fondamentale, souvent négligée dans l'enthousiasme de "tout uniformiser" : chaque étape de normalisation, aussi bien intentionnée soit-elle, <strong>détruit potentiellement de l'information</strong> qui pourrait s'avérer pertinente plus tard. Savoir où s'arrêter est une compétence aussi importante que savoir normaliser.</p>
+
+      <h3>Un exemple concret de perte d'information par sur-normalisation</h3>
+      <div class="diff-row">
+        <span class="dirty">"Jean-Marie" et "Jean Marie" (deux prénoms distincts légitimes)</span>
+        <span class="arrow">→</span>
+        <span class="clean">"Jean Marie" (fusion : information de structure perdue)</span>
+      </div>
+      <p>Si une règle de normalisation supprime systématiquement les tirets dans les prénoms pour "uniformiser", elle fusionnera à tort "Jean-Marie" (un prénom composé légitime et courant) avec "Jean Marie" (qui pourrait être un prénom et un second prénom distincts, ou une erreur de structure) — une normalisation trop agressive résout un problème (incohérence de format) en créant potentiellement un autre problème plus grave (perte d'une distinction réelle).</p>
+
+      <h3>Distinguer la normalisation de présentation de la normalisation de fond</h3>
+      <p>Une distinction utile pour arbitrer ce type de décision : la normalisation de <strong>présentation</strong> (casse, espaces superflus, formatage) ne change jamais le sens de la donnée et peut être appliquée sans réserve. La normalisation de <strong>fond</strong> (fusionner des variantes orthographiques, réordonner des composants, supprimer des caractères considérés comme "parasites") modifie potentiellement le sens réel de la donnée et doit être appliquée avec prudence, idéalement en conservant la valeur originale dans une colonne séparée pour pouvoir revenir en arrière si la normalisation s'avère incorrecte a posteriori.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+df = pd.DataFrame({"nom_original": ["Jean-Marie Dupont", "François Müller"]})
+
+# Bonne pratique : conserver la valeur originale ET la valeur normalisée côte à côte,
+# plutôt que d'écraser irréversiblement l'originale
+df["nom_normalise"] = df["nom_original"].str.lower().str.strip()
+# En cas de problème découvert plus tard, la valeur d'origine reste disponible pour audit
+# ou pour une nouvelle stratégie de normalisation, sans avoir à ré-extraire la donnée source</code></pre>
+
+      <h3>La règle générale pour trancher : quel est le coût d'annuler cette normalisation plus tard ?</h3>
+      <p>Face à un doute sur l'agressivité d'une règle de normalisation, la question à se poser est : si cette normalisation s'avère incorrecte dans 6 mois, quel est le coût pour revenir en arrière ? Si la valeur originale a été conservée (pratique recommandée ci-dessus), le coût est faible — il suffit de réappliquer une règle différente. Si la valeur originale a été irrémédiablement écrasée, le coût peut être très élevé, voire rédhibitoire si la donnée source n'est plus accessible.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Écraser systématiquement la colonne originale par sa version normalisée directement lors du nettoyage ("pour ne pas polluer le dataset avec des colonnes redondantes"), rendant impossible tout audit ultérieur ou toute correction d'une règle de normalisation qui s'avérerait, après coup, trop agressive ou mal calibrée pour un sous-ensemble de cas particuliers.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une équipe envisage de normaliser tous les prénoms composés en supprimant systématiquement les tirets ("Jean-Marie" devient "Jean Marie") pour simplifier les jointures avec un système tiers. Identifiez un scénario métier concret où cette décision pourrait causer un problème, et proposez une alternative qui limiterait ce risque tout en résolvant le problème initial de jointure.
+      </div>
+    </section>
+
+    <div class="module-divider">
+      <span class="num">MODULE 04 · GESTION DES ENCODAGES</span>
+      <span class="line"></span>
+    </div>
+
+    <section id="m4-l1">
+      <span class="lesson-kicker">Module 4 · Leçon 1</span>
+      <h2>ASCII, Latin-1, UTF-8 : Comprendre les Fondations</h2>
+
+      <p>Un encodage de caractères est une convention qui associe chaque caractère (une lettre, un chiffre, un symbole) à une séquence d'octets stockée physiquement sur le disque. Comprendre l'histoire et les différences entre les principaux encodages est indispensable pour diagnostiquer efficacement les problèmes qui en découlent — un texte n'est jamais "juste du texte", c'est toujours une séquence d'octets interprétée selon une convention précise, et toute divergence entre la convention d'écriture et la convention de lecture produit une corruption.</p>
+
+      <h3>ASCII : 128 caractères, l'origine historique</h3>
+      <p>ASCII (1963) encode 128 caractères sur 7 bits — les lettres latines non accentuées, les chiffres, la ponctuation de base, et quelques caractères de contrôle. Suffisant pour l'anglais américain, totalement incapable de représenter un caractère accentué français, un caractère cyrillique, ou un idéogramme chinois.</p>
+
+      <h3>Latin-1 (ISO-8859-1) : l'extension européenne limitée</h3>
+      <p>Latin-1 (1987) étend ASCII à 256 caractères (8 bits), ajoutant les caractères accentués utilisés dans les langues d'Europe occidentale (français, espagnol, allemand, etc.). Il reste néanmoins limité à un seul "bloc" linguistique — impossible de représenter à la fois du français et du grec dans le même texte Latin-1, chaque langue européenne ayant souvent sa propre variante ISO-8859 incompatible avec les autres (ISO-8859-7 pour le grec, par exemple).</p>
+
+      <h3>UTF-8 : la solution universelle, aujourd'hui standard de facto</h3>
+      <p>UTF-8, une des formes d'encodage d'Unicode, résout ce problème en encodant chaque caractère sur un nombre <strong>variable</strong> d'octets (de 1 à 4) : les caractères ASCII restent encodés sur exactement 1 octet (garantissant une rétrocompatibilité totale avec l'ASCII existant), tandis que les caractères moins courants (accents, symboles, emojis, idéogrammes) utilisent 2, 3 ou 4 octets selon leur position dans l'espace de caractères Unicode, qui couvre la quasi-totalité des systèmes d'écriture du monde.</p>
+
+      <pre><code class="language-python"># Illustration concrète du nombre d'octets utilisés par UTF-8 selon le caractère
+for caractere in ["A", "é", "€", "😀"]:
+    octets = caractere.encode("utf-8")
+    print(f"'{caractere}' -> {len(octets)} octet(s) : {octets}")
+# 'A'  -> 1 octet  : b'A'
+# 'é'  -> 2 octets : b'\xc3\xa9'
+# '€'  -> 3 octets : b'\xe2\x82\xac'
+# '😀' -> 4 octets : b'\xf0\x9f\x98\x80'</code></pre>
+
+      <h3>Pourquoi UTF-8 est aujourd'hui recommandé par défaut, sans exception</h3>
+      <p>UTF-8 est aujourd'hui l'encodage recommandé pour absolument tout nouveau fichier ou système, sans exception : compatible avec la quasi-totalité des systèmes d'écriture mondiaux, rétrocompatible avec l'ASCII pur, largement supporté par tous les langages et systèmes modernes, et devenu le standard de facto du web (plus de 98% des pages web utilisent UTF-8). Le seul contexte légitime où l'on rencontre encore d'autres encodages est la lecture de fichiers <em>hérités</em>, produits par des systèmes plus anciens n'ayant jamais migré — jamais pour de nouveaux systèmes conçus aujourd'hui.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Choisir un encodage autre qu'UTF-8 (comme Latin-1) pour un nouveau système sous prétexte qu'il "prend moins de place" pour du texte purement en français sans accents complexes. Ce gain marginal et théorique (1 octet économisé par caractère accentué dans certains cas) ne justifie jamais le risque d'incompatibilité future avec des données internationales, des emojis, ou tout autre système moderne qui suppose UTF-8 par défaut.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Expliquez avec vos propres mots pourquoi un fichier encodé en Latin-1 ne peut structurellement pas représenter correctement un texte mélangeant du français et du japonais, alors qu'un fichier encodé en UTF-8 le peut sans difficulté.
+      </div>
+    </section>
+
+    <section id="m4-l2">
+      <span class="lesson-kicker">Module 4 · Leçon 2</span>
+      <h2>Détecter l'Encodage d'un Fichier Inconnu</h2>
+
+      <p>Un problème récurrent en pratique : recevoir un fichier dont l'encodage n'est ni documenté ni connu à l'avance, en particulier de la part de partenaires externes ou de systèmes legacy. Contrairement à une idée reçue, il n'existe <strong>aucun moyen de déterminer l'encodage d'un fichier avec une certitude absolue</strong> à partir de son seul contenu binaire — seulement des heuristiques statistiques qui donnent une estimation probabiliste, généralement fiable mais jamais garantie.</p>
+
+      <h3>Pourquoi la détection d'encodage est intrinsèquement probabiliste</h3>
+      <p>Un même octet peut être une séquence valide dans plusieurs encodages différents, correspondant potentiellement à des caractères totalement différents selon l'encodage supposé. La détection automatique fonctionne en analysant les <strong>patterns statistiques</strong> typiques de chaque encodage et de chaque langue (fréquence de certaines séquences d'octets caractéristiques du français, de l'anglais, etc.) pour estimer l'encodage le plus probable — une approche qui fonctionne bien en pratique sur des textes suffisamment longs, mais peut se tromper sur de très courtes chaînes ou des textes atypiques.</p>
+
+      <pre><code class="language-python">import chardet  # pip install chardet
+
+with open("fichier_mysterieux.csv", "rb") as f:  # lecture en mode binaire, indispensable ici
+    contenu_brut = f.read()
+
+resultat = chardet.detect(contenu_brut)
+print(resultat)
+# {'encoding': 'ISO-8859-1', 'confidence': 0.73, 'language': 'French'}
+# Le champ "confidence" indique le niveau de certitude de la détection -- jamais 100%</code></pre>
+
+      <h3>Une alternative plus rapide et souvent plus fiable : charset-normalizer</h3>
+      <p>La bibliothèque <code>charset-normalizer</code>, plus récente que chardet et aujourd'hui utilisée par défaut dans la bibliothèque <code>requests</code>, offre généralement une détection plus rapide et au moins aussi fiable, avec une approche différente basée sur la cohérence linguistique du résultat obtenu plutôt que sur des statistiques de fréquence d'octets pures.</p>
+
+      <pre><code class="language-python">from charset_normalizer import from_path
+
+resultat = from_path("fichier_mysterieux.csv").best()
+print(resultat.encoding)     # encodage détecté avec la meilleure confiance
+print(str(resultat)[:200])   # aperçu du texte décodé pour validation visuelle rapide</code></pre>
+
+      <h3>La validation humaine reste indispensable sur les cas ambigus</h3>
+      <p>Quelle que soit l'outil utilisé, la bonne pratique face à un fichier d'origine incertaine consiste à décoder un échantillon avec l'encodage détecté, puis à <strong>vérifier visuellement</strong> que le résultat semble cohérent (absence de mojibake détaillé en leçon 3) avant de traiter l'intégralité du fichier — une détection automatique avec une confiance de 60-70% mérite toujours cette vérification manuelle avant un traitement massif irréversible.</p>
+
+      <pre><code class="language-python">import chardet
+import pandas as pd
+
+with open("fichier_mysterieux.csv", "rb") as f:
+    echantillon = f.read(10000)  # analyser un échantillon suffit généralement, pas tout le fichier
+
+encodage_detecte = chardet.detect(echantillon)["encoding"]
+print(f"Encodage détecté : {encodage_detecte}")
+
+# Validation : lire les premières lignes et vérifier visuellement l'absence de corruption
+df_test = pd.read_csv("fichier_mysterieux.csv", encoding=encodage_detecte, nrows=5)
+print(df_test)  # inspection visuelle avant de traiter l'intégralité du fichier</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Faire aveuglément confiance au résultat d'une détection automatique d'encodage sans jamais vérifier visuellement un échantillon décodé, en particulier quand le score de confiance rapporté est modéré (inférieur à 80-90%). Une détection incorrecte non vérifiée peut corrompre silencieusement l'intégralité d'un fichier traité en masse, un problème qui ne sera découvert que bien plus tard.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un outil de détection automatique retourne un encodage avec une confiance de 45% sur un fichier reçu d'un partenaire. Quelles actions concrètes entreprendriez-vous avant de traiter ce fichier à grande échelle, sachant que la confiance rapportée est particulièrement faible ?
+      </div>
+    </section>
+
+    <section id="m4-l3">
+      <span class="lesson-kicker">Module 4 · Leçon 3</span>
+      <h2>Le Mojibake : Diagnostiquer et Réparer un Texte Corrompu</h2>
+
+      <p>Le <strong>mojibake</strong> (terme japonais signifiant littéralement "transformation de caractères") désigne le texte corrompu et illisible qui résulte du décodage d'un fichier avec un encodage différent de celui utilisé pour l'écrire — le cas le plus insidieux des problèmes d'encodage, car il ne provoque généralement <strong>aucune erreur explicite</strong>, seulement un texte visuellement incorrect que l'utilisateur doit repérer lui-même.</p>
+
+      <div class="diff-row">
+        <span class="dirty">"cafÃ©" (mojibake)</span>
+        <span class="arrow">→</span>
+        <span class="clean">"café" (texte correct)</span>
+      </div>
+
+      <h3>Comprendre le mécanisme exact du mojibake</h3>
+      <p>Le mojibake "cafÃ©" ci-dessus n'est pas une corruption aléatoire — c'est un phénomène parfaitement déterministe : le mot "café" a été <strong>encodé</strong> en UTF-8 (où "é" occupe 2 octets : <code>0xC3 0xA9</code>), puis ces 2 octets ont été <strong>décodés</strong> à tort comme s'ils étaient du Latin-1, où chaque octet représente un caractère différent (<code>0xC3</code> devient "Ã", <code>0xA9</code> devient "©") — d'où l'apparition de "Ã©" à la place de "é".</p>
+
+      <pre><code class="language-python"># Reproduire volontairement le mécanisme du mojibake pour bien le comprendre
+texte_original = "café"
+octets_utf8 = texte_original.encode("utf-8")
+print(octets_utf8)  # b'caf\xc3\xa9'
+
+mojibake = octets_utf8.decode("latin-1")  # décodage AVEC LE MAUVAIS encodage
+print(mojibake)  # "cafÃ©" -- le mojibake classique, reproduit à volonté</code></pre>
+
+      <h3>Réparer un mojibake : inverser précisément le mécanisme</h3>
+      <p>Puisque le mojibake est déterministe, il est généralement réparable en effectuant l'opération inverse : ré-encoder le texte corrompu avec l'encodage <em>erroné</em> qui a servi à le décoder, pour retrouver les octets d'origine, puis les redécoder avec le <em>bon</em> encodage.</p>
+
+      <pre><code class="language-python">mojibake = "cafÃ©"
+
+# Étape 1 : ré-encoder avec l'encodage erroné (latin-1) pour retrouver les octets d'origine
+octets_recuperes = mojibake.encode("latin-1")
+print(octets_recuperes)  # b'caf\xc3\xa9' -- on retrouve exactement les octets UTF-8 d'origine
+
+# Étape 2 : redécoder avec le BON encodage (utf-8)
+texte_repare = octets_recuperes.decode("utf-8")
+print(texte_repare)  # "café" -- réparé !
+
+# La bibliothèque ftfy ("fixes text for you") automatise cette détection et réparation
+import ftfy
+print(ftfy.fix_text("cafÃ©"))  # "café" -- détection et réparation automatiques</code></pre>
+
+      <h3>Toutes les corruptions ne sont pas réparables</h3>
+      <p>Certaines formes de corruption sont en revanche irréversibles : si un caractère n'a tout simplement <strong>aucune représentation</strong> dans l'encodage utilisé pour le décodage erroné (un caractère chinois décodé à tort comme Latin-1, par exemple), l'information peut être définitivement perdue plutôt que simplement déformée — souvent visible sous la forme du caractère de remplacement Unicode "�" (U+FFFD), qui signale une perte d'information irrécupérable plutôt qu'une simple déformation réversible comme le mojibake classique.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Confondre le caractère de remplacement "�" (perte d'information définitive lors d'un décodage impossible) avec un mojibake classique et réversible ("Ã©"). Le premier signale une donnée irrémédiablement perdue qu'aucune réparation ne peut restaurer — il faut retourner à la source originale des données si possible ; le second est généralement réparable par la technique de cette leçon.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous observez le texte corrompu "PrĂ©nom" dans une colonne censée contenir "Prénom". En appliquant le mécanisme expliqué dans cette leçon, déterminez quel encodage a probablement servi à l'écriture d'origine et lequel a été utilisé à tort pour le décodage, puis vérifiez votre hypothèse avec le code de réparation.
+      </div>
+    </section>
+
+    <section id="m4-l4">
+      <span class="lesson-kicker">Module 4 · Leçon 4</span>
+      <h2>Convertir entre Encodages sans Perte</h2>
+
+      <p>Au-delà de la réparation d'un mojibake déjà produit (leçon 3), cette leçon couvre la conversion propre et préventive d'un fichier d'un encodage connu vers un autre — typiquement pour harmoniser tous les fichiers d'un pipeline vers UTF-8, l'encodage recommandé (leçon 1), avant tout traitement ultérieur.</p>
+
+      <h3>Le principe général : décoder puis réencoder, jamais de raccourci</h3>
+      <p>La seule méthode fiable pour convertir un fichier d'un encodage à un autre consiste à le <strong>décoder</strong> intégralement avec son encodage d'origine (obtenant ainsi une représentation en mémoire indépendante de tout encodage, une chaîne de caractères Unicode abstraite), puis à le <strong>réencoder</strong> dans l'encodage cible. Il n'existe aucun raccourci binaire direct entre deux encodages arbitraires.</p>
+
+      <pre><code class="language-python">def convertir_encodage_fichier(chemin_source: str, chemin_cible: str,
+                                 encodage_source: str, encodage_cible: str = "utf-8") -> None:
+    with open(chemin_source, "r", encoding=encodage_source) as f_source:
+        contenu = f_source.read()  # décodage : octets -> représentation Unicode abstraite
+
+    with open(chemin_cible, "w", encoding=encodage_cible) as f_cible:
+        f_cible.write(contenu)  # réencodage : représentation Unicode -> nouveaux octets
+
+convertir_encodage_fichier("export_legacy.csv", "export_utf8.csv", encodage_source="latin-1")</code></pre>
+
+      <h3>Gérer les fichiers volumineux sans tout charger en mémoire</h3>
+      <p>Pour un fichier trop volumineux pour être chargé intégralement en mémoire (rejoignant les problématiques de streaming déjà abordées dans le cours précédent sur les formats de données), la conversion peut se faire par blocs, en veillant à ne jamais couper un caractère multi-octets au milieu — un risque spécifique aux encodages à taille variable comme UTF-8, où un découpage naïf par nombre d'octets fixe peut tronquer un caractère en son milieu et provoquer une erreur de décodage sur le bloc suivant.</p>
+
+      <pre><code class="language-python">import codecs
+
+# codecs.iterdecode gère correctement les caractères multi-octets à cheval sur deux blocs de lecture,
+# contrairement à un découpage naïf par nombre d'octets fixe
+with open("gros_fichier_latin1.txt", "rb") as f_source:
+    lecteur = codecs.iterdecode(f_source, "latin-1")
+    with open("gros_fichier_utf8.txt", "w", encoding="utf-8") as f_cible:
+        for ligne in lecteur:
+            f_cible.write(ligne)</code></pre>
+
+      <h3>Vérifier la conversion : un round-trip test</h3>
+      <p>Après conversion, une vérification simple et efficace consiste à comparer un échantillon de caractères spéciaux connus entre le fichier source et le fichier converti, pour s'assurer qu'aucune corruption n'a été introduite pendant l'opération elle-même — en particulier utile avant de supprimer le fichier source original, qui devrait toujours être conservé au moins temporairement après une conversion critique.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Découper un flux d'octets en blocs de taille fixe (par exemple 1024 octets) avant de les décoder individuellement, sans tenir compte du fait qu'un caractère UTF-8 peut occuper jusqu'à 4 octets et donc potentiellement être scindé entre deux blocs consécutifs, provoquant une erreur de décodage ou une corruption au point de coupure — toujours utiliser un mécanisme de décodage en flux conscient de cette contrainte (comme <code>codecs.iterdecode</code>) plutôt qu'un découpage manuel naïf.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous devez convertir un fichier de 20 Go encodé en Windows-1252 vers UTF-8 sur une machine avec 4 Go de RAM disponible. Décrivez l'approche que vous utiliseriez, en expliquant pourquoi un simple <code>open().read()</code> suivi d'un <code>open().write()</code> ne conviendrait pas ici.
+      </div>
+    </section>
+
+    <section id="m4-l5">
+      <span class="lesson-kicker">Module 4 · Leçon 5</span>
+      <h2>Encodages et Bases de Données : le Piège des Collations</h2>
+
+      <p>Cette dernière leçon du module aborde un aspect souvent négligé de la gestion des encodages : les bases de données relationnelles ajoutent une couche de complexité supplémentaire à travers le concept de <strong>collation</strong> — une convention qui détermine non seulement l'encodage de stockage, mais aussi comment les caractères sont <em>comparés et triés</em> entre eux, avec des conséquences directes sur les jointures et les recherches textuelles.</p>
+
+      <h3>Encodage de stockage vs collation de comparaison : deux notions distinctes</h3>
+      <p>Une base de données peut stocker des données en UTF-8 tout en appliquant une collation qui détermine, par exemple, si la comparaison de chaînes est sensible à la casse (<code>utf8mb4_bin</code>, où "Jean" ≠ "jean") ou insensible à la casse (<code>utf8mb4_general_ci</code>, où "Jean" = "jean" pour une comparaison), et si les caractères accentués sont traités comme équivalents à leur version non accentuée pour le tri et la recherche (une collation "insensible aux accents" traiterait "é" et "e" comme équivalents pour une recherche).</p>
+
+      <pre><code class="language-sql">-- Exemple MySQL : deux collations différentes produisent des résultats de comparaison différents
+SELECT 'Jean' = 'jean' COLLATE utf8mb4_bin;         -- 0 (faux, sensible à la casse)
+SELECT 'Jean' = 'jean' COLLATE utf8mb4_general_ci;  -- 1 (vrai, insensible à la casse, "ci" = case insensitive)
+
+SELECT 'café' = 'cafe' COLLATE utf8mb4_general_ci;   -- 0 (faux, cette collation reste sensible aux accents)
+SELECT 'café' = 'cafe' COLLATE utf8mb4_unicode_ci;   -- variable selon la version -- comportement à toujours vérifier</code></pre>
+
+      <h3>Le piège classique : une jointure qui échoue à cause d'une collation incohérente</h3>
+      <p>Un problème fréquent en pratique survient lorsque deux tables d'une même base (ou deux bases distinctes rapprochées) utilisent des collations différentes sur les colonnes servant de clé de jointure — certains systèmes de bases de données lèvent alors une erreur explicite (SQL Server, PostgreSQL sont généralement stricts sur ce point), tandis que d'autres appliquent une conversion implicite qui peut avoir des effets de bord inattendus sur les performances (impossibilité d'utiliser un index) ou sur le résultat (comparaisons insensibles à la casse alors que l'application suppose une sensibilité stricte).</p>
+
+      <pre><code class="language-sql">-- Diagnostic : lister la collation effective de chaque colonne d'une table (MySQL)
+SELECT column_name, collation_name
+FROM information_schema.columns
+WHERE table_name = 'clients';
+
+-- Harmoniser explicitement la collation d'une colonne si une incohérence est détectée
+ALTER TABLE clients MODIFY nom VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;</code></pre>
+
+      <h3>Le piège de la migration entre systèmes de bases de données</h3>
+      <p>Migrer des données entre deux systèmes de bases de données différents (par exemple de MySQL vers PostgreSQL) implique souvent une conversion implicite de la collation par défaut, qui peut changer silencieusement le comportement de tri ou de comparaison de chaînes déjà en place dans l'application — un problème rarement anticipé avant qu'un test de recette ne révèle des résultats de recherche ou de tri inattendus après la migration.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Supposer que "la base est en UTF-8" garantit un comportement de comparaison de chaînes cohérent et prévisible, en oubliant que l'encodage de stockage et la collation de comparaison sont deux paramètres indépendants. Deux colonnes UTF-8 avec des collations différentes peuvent produire des résultats de comparaison, de tri, et de recherche radicalement différents malgré un encodage de stockage identique.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une recherche de client par nom dans une application ne retrouve pas "Café Central" quand un utilisateur tape "cafe central" (sans accent, en minuscules). Après vérification, l'encodage de la colonne est bien UTF-8. Quelle piste d'investigation liée au contenu de cette leçon exploreriez-vous en priorité ?
+      </div>
+    </section>
+
+    <div class="module-divider">
+      <span class="num">MODULE 05 · NORMALISATION DES TYPES</span>
+      <span class="line"></span>
+    </div>
+
+    <section id="m5-l1">
+      <span class="lesson-kicker">Module 5 · Leçon 1</span>
+      <h2>Dates, Heures et Fuseaux Horaires</h2>
+
+      <p>Les dates sont probablement la catégorie de données la plus universellement problématique en nettoyage, pour une raison structurelle déjà évoquée dans le cours précédent sur les formats de données : aucun format texte courant (CSV, JSON) n'impose de convention unique pour représenter une date, et chaque pays, chaque logiciel, chaque export a ses propres habitudes.</p>
+
+      <h3>L'ambiguïté fondamentale jour/mois</h3>
+      <div class="diff-row">
+        <span class="dirty">"03/04/2024" → 3 avril ou 4 mars ?</span>
+        <span class="arrow">→</span>
+        <span class="clean">"2024-04-03" (format ISO 8601, non ambigu)</span>
+      </div>
+      <p>La date "03/04/2024" signifie le 3 avril 2024 en convention française (JJ/MM/AAAA) mais le 4 mars 2024 en convention américaine (MM/JJ/AAAA) — et rien dans la chaîne elle-même ne permet de trancher sans connaître la convention utilisée à la source. Le format ISO 8601 (<code>AAAA-MM-JJ</code>) élimine cette ambiguïté par construction, l'année en 4 chiffres ne pouvant jamais être confondue avec un jour ou un mois.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+dates_ambigues = pd.Series(["03/04/2024", "15/06/2024", "07/11/2024"])
+
+# "15/06/2024" ne peut être QUE le 15 juin (aucun mois 15 n'existe) -- indice de la convention réelle
+# pandas peut se tromper silencieusement si la convention n'est pas précisée explicitement
+dates_mal_parsees = pd.to_datetime(dates_ambigues)  # infère souvent MM/JJ par défaut -- risqué
+print(dates_mal_parsees)
+
+# Toujours préciser explicitement la convention plutôt que de laisser l'inférence deviner
+dates_correctes = pd.to_datetime(dates_ambigues, format="%d/%m/%Y")
+print(dates_correctes)</code></pre>
+
+      <h3>Les fuseaux horaires : une source de bugs plus discrète encore</h3>
+      <p>Une date-heure sans fuseau horaire explicite (naive datetime) est ambiguë dès qu'elle traverse un contexte international. Un timestamp "2024-06-15 14:00:00" signifie des instants réels différents selon qu'il représente l'heure de Paris (UTC+2 en été) ou l'heure UTC — une différence de 2 heures qui peut suffire à faire apparaître un événement du mauvais côté d'une frontière de jour dans une analyse par journée.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+# Timestamp "naive" -- ambigu, à éviter dans un système qui gère plusieurs fuseaux
+timestamp_naive = pd.Timestamp("2024-06-15 14:00:00")
+
+# Timestamp "aware" -- le fuseau est explicite, sans ambiguïté possible
+timestamp_paris = pd.Timestamp("2024-06-15 14:00:00", tz="Europe/Paris")
+timestamp_utc = timestamp_paris.tz_convert("UTC")
+print(timestamp_utc)  # 2024-06-15 12:00:00+00:00 -- l'écart de 2h (heure d'été) est rendu explicite
+
+# Bonne pratique en systèmes distribués : stocker systématiquement en UTC,
+# et ne convertir vers un fuseau local qu'à l'affichage final pour l'utilisateur
+</code></pre>
+
+      <h3>Le piège spécifique du changement d'heure (heure d'été/hiver)</h3>
+      <p>Les fuseaux horaires avec heure d'été (comme la France) créent un piège additionnel : certaines heures locales n'existent pas du tout (l'heure "sautée" au passage à l'heure d'été) ou existent deux fois (l'heure "répétée" au passage à l'heure d'hiver) — un timestamp naïf tombant précisément sur cette plage horaire est intrinsèquement ambigu ou invalide, et nécessite une gestion explicite plutôt qu'un traitement silencieux qui masquerait le problème.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Stocker des timestamps sans fuseau horaire explicite (naive) dans un système qui, même s'il ne semble concerner qu'un seul pays aujourd'hui, pourrait plus tard devoir gérer des données provenant de plusieurs fuseaux (extension internationale, serveurs hébergés dans une autre région). Toujours stocker en UTC avec fuseau explicite dès la conception, même si le besoin multi-fuseau ne semble pas immédiat — corriger ce choix après coup sur des données déjà accumulées est nettement plus coûteux que de bien faire dès le départ.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une colonne de dates contient les valeurs "01/02/2024", "13/02/2024" et "02/03/2024". Sachant que "13/02/2024" ne peut être qu'au format JJ/MM (aucun mois 13 n'existe), quelle convention en déduisez-vous probablement pour les deux autres valeurs, et quel risque subsiste malgré cette déduction ?
+      </div>
+    </section>
+
+    <section id="m5-l2">
+      <span class="lesson-kicker">Module 5 · Leçon 2</span>
+      <h2>Nombres : Séparateurs Décimaux, Devises et Unités</h2>
+
+      <p>Les valeurs numériques semblent moins sujettes à ambiguïté que le texte ou les dates, mais présentent en réalité des pièges de normalisation tout aussi fréquents, en particulier dès que des données proviennent de sources internationales ou de formats hétérogènes (exports Excel selon la langue système, saisies manuelles, sources multiples).</p>
+
+      <h3>Le séparateur décimal : virgule vs point, un piège international classique</h3>
+      <div class="diff-row">
+        <span class="dirty">"1.234,56" (convention française) vs "1,234.56" (convention US)</span>
+        <span class="arrow">→</span>
+        <span class="clean">1234.56 (valeur numérique non ambiguë)</span>
+      </div>
+      <pre><code class="language-python">import pandas as pd
+
+# La convention française utilise la virgule comme séparateur décimal
+# et parfois le point (ou l'espace) comme séparateur de milliers -- l'inverse du monde anglophone
+valeur_fr = "1.234,56"   # -> 1234.56 en convention française
+valeur_us = "1,234.56"   # -> 1234.56 en convention américaine -- même valeur, écriture différente !
+
+def parser_nombre_fr(texte: str) -> float:
+    texte = texte.replace(".", "").replace(",", ".")  # retire les milliers, convertit la décimale
+    return float(texte)
+
+print(parser_nombre_fr("1.234,56"))  # 1234.56 -- correct
+
+# pandas peut être configuré explicitement pour la convention décimale attendue
+df = pd.read_csv("export_fr.csv", decimal=",", thousands=".")</code></pre>
+
+      <h3>Devises : ne jamais mélanger montant et symbole dans le même champ</h3>
+      <p>Un champ contenant à la fois la valeur numérique et le symbole monétaire ("45,90€", "$120.00") empêche tout calcul direct et doit systématiquement être décomposé en (au minimum) deux colonnes distinctes : un montant numérique pur, et une devise explicite — l'absence de cette séparation est une source d'erreurs fréquente quand un dataset mélange plusieurs devises sans distinction claire, menant à des sommes dénuées de sens (additionner des dollars et des euros comme s'ils étaient dans la même unité).</p>
+
+      <pre><code class="language-python">import pandas as pd
+import re
+
+df = pd.DataFrame({"prix_brut": ["45,90€", "$120.00", "89,00 €"]})
+
+def extraire_montant_et_devise(texte: str) -> tuple:
+    montant = re.search(r"[\d,.]+", texte).group().replace(",", ".")
+    devise = "EUR" if "€" in texte else "USD" if "$" in texte else "INCONNU"
+    return float(montant), devise
+
+df[["montant", "devise"]] = df["prix_brut"].apply(
+    lambda t: pd.Series(extraire_montant_et_devise(t))
+)
+print(df)
+# Un calcul de somme sur "montant" sans tenir compte de "devise" resterait incorrect --
+# une conversion de change explicite est indispensable avant toute agrégation multi-devises</code></pre>
+
+      <h3>Unités : kilogrammes vs livres, kilomètres vs miles</h3>
+      <p>De la même façon qu'une devise doit être explicite et séparée du montant, une unité de mesure (poids, distance, volume) doit systématiquement être rendue explicite plutôt qu'implicite ou supposée uniforme — un dataset international mélangeant silencieusement des poids en kilogrammes et en livres sans colonne d'unité produira des statistiques absurdes (une moyenne mêlant deux échelles de grandeur incompatibles) sans qu'aucune erreur ne soit levée pour signaler le problème.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Convertir automatiquement une colonne de prix en float avec un simple <code>float(valeur.replace(",", "."))</code> sur un dataset international, sans détecter que certaines valeurs utilisent la virgule comme séparateur de milliers (convention anglophone) et non comme séparateur décimal. Un montant "1,234" serait alors incorrectement interprété comme 1.234 au lieu de 1234, une erreur d'un facteur 1000 totalement silencieuse.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un dataset de prix immobiliers agrège des annonces provenant de trois pays différents (France, Royaume-Uni, États-Unis), certaines en euros, d'autres en livres sterling, d'autres en dollars, sans colonne devise explicite dans le fichier source reçu. Quelle serait votre première étape avant de pouvoir calculer un prix moyen fiable sur l'ensemble du dataset ?
+      </div>
+    </section>
+
+    <section id="m5-l3">
+      <span class="lesson-kicker">Module 5 · Leçon 3</span>
+      <h2>Booléens Ambigus : Oui/Non, 1/0, True/False</h2>
+
+      <p>Les valeurs booléennes (vrai/faux) semblent triviales à normaliser, mais l'expérience montre qu'un même dataset peut contenir jusqu'à une dizaine de représentations différentes d'un même concept binaire, en particulier lorsque plusieurs sources ou plusieurs versions d'un formulaire de saisie ont contribué au dataset au fil du temps.</p>
+
+      <h3>L'inventaire des représentations rencontrées en pratique</h3>
+      <table>
+        <tr><th>Valeurs "vrai" rencontrées</th><th>Valeurs "faux" rencontrées</th></tr>
+        <tr><td>True, true, TRUE</td><td>False, false, FALSE</td></tr>
+        <tr><td>1, "1"</td><td>0, "0"</td></tr>
+        <tr><td>"oui", "Oui", "OUI"</td><td>"non", "Non", "NON"</td></tr>
+        <tr><td>"O", "o"</td><td>"N", "n"</td></tr>
+        <tr><td>"yes", "y"</td><td>"no", "n"</td></tr>
+        <tr><td>"vrai", "V"</td><td>"faux", "F"</td></tr>
+        <tr><td>"x" (case cochée dans un export de formulaire)</td><td>"" (case vide, absence de valeur)</td></tr>
+      </table>
+
+      <pre><code class="language-python">import pandas as pd
+
+df = pd.DataFrame({"actif": ["Oui", "1", "true", "N", "0", "faux", ""]})
+
+MAPPING_BOOLEEN = {
+    "oui": True, "o": True, "1": True, "true": True, "vrai": True, "yes": True, "y": True, "x": True,
+    "non": False, "n": False, "0": False, "false": False, "faux": False, "no": False, "": False,
+}
+
+df["actif_normalise"] = df["actif"].str.lower().str.strip().map(MAPPING_BOOLEEN)
+print(df)
+# Remarquez le cas de la chaîne vide "" -- mappée à False ici, mais est-ce toujours le bon choix ?</code></pre>
+
+      <h3>Le piège central : chaîne vide n'est pas toujours synonyme de "faux"</h3>
+      <p>Le traitement de la chaîne vide illustre un piège subtil et fréquent : une case non cochée dans un export de formulaire peut effectivement signifier "faux" (l'utilisateur a explicitement laissé la case décochée), mais elle peut tout aussi bien signifier une <strong>valeur manquante</strong> (le champ n'a jamais été rempli, la question ne s'appliquait pas à ce répondant) — deux situations sémantiquement très différentes que mapper systématiquement à <code>False</code> confond à tort. La bonne pratique est de traiter ce cas comme une valeur manquante explicite (<code>None</code> ou <code>NaN</code>) plutôt que comme un "faux" implicite, sauf si le contexte métier garantit sans ambiguïté que l'absence de coche équivaut toujours à "non".</p>
+
+      <pre><code class="language-python">MAPPING_BOOLEEN_PRUDENT = {
+    "oui": True, "o": True, "1": True, "true": True, "vrai": True,
+    "non": False, "n": False, "0": False, "false": False, "faux": False,
+    # "" volontairement absente : elle deviendra NaN via .map(), signalant une vraie incertitude
+}
+df["actif_normalise"] = df["actif"].str.lower().str.strip().map(MAPPING_BOOLEEN_PRUDENT)
+print(df["actif_normalise"].isna().sum())  # révèle le nombre de cas réellement ambigus à investiguer</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Mapper systématiquement une valeur vide ou absente à <code>False</code> par réflexe de simplification, sans se demander si cette absence signifie réellement "non/faux" dans le contexte métier, ou si elle signifie plutôt "cette information n'a jamais été collectée pour cet enregistrement" — deux réalités très différentes qui appellent des traitements en aval différents (une valeur manquante peut justifier une imputation ou une exclusion, alors qu'un vrai "faux" ne le justifie pas).
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une colonne "consentement_marketing" issue d'un export de formulaire contient des valeurs "oui", "non", et des cellules vides pour environ 15% des lignes. Ces 15% cellules vides doivent-elles être traitées comme "non" (pas de consentement) ou comme une valeur manquante distincte ? Quel critère utiliseriez-vous pour trancher, et pourquoi ce choix a-t-il potentiellement une implication réglementaire dans ce cas précis ?
+      </div>
+    </section>
+
+    <section id="m5-l4">
+      <span class="lesson-kicker">Module 5 · Leçon 4</span>
+      <h2>Catégories et Dictionnaires de Correspondance</h2>
+
+      <p>Les champs catégoriels en texte libre (secteur d'activité, statut, type de produit) accumulent typiquement au fil du temps des variantes qui devraient représenter la même catégorie mais divergent dans leur écriture — un problème hybride entre la normalisation textuelle du Module 3 et une véritable décision métier de regroupement, qui nécessite généralement la construction explicite d'un <strong>dictionnaire de correspondance</strong>.</p>
+
+      <h3>Diagnostiquer l'ampleur du problème avant de le corriger</h3>
+      <pre><code class="language-python">import pandas as pd
+
+df = pd.DataFrame({"secteur": [
+    "Informatique", "IT", "informatique", "Tech", "Technologie",
+    "Santé", "Médical", "santé", "Finance", "Banque/Finance"
+]})
+
+# Toujours commencer par un inventaire complet des valeurs distinctes avant de corriger au hasard
+print(df["secteur"].value_counts())
+# Révèle immédiatement les variantes à regrouper : Informatique/IT/informatique/Tech/Technologie
+# pourraient toutes représenter un même secteur "Technologie", à valider avec un expert métier</code></pre>
+
+      <h3>Construire et appliquer un dictionnaire de correspondance</h3>
+      <pre><code class="language-python">DICTIONNAIRE_SECTEURS = {
+    "informatique": "Technologie", "it": "Technologie",
+    "tech": "Technologie", "technologie": "Technologie",
+    "santé": "Santé", "médical": "Santé",
+    "finance": "Finance", "banque/finance": "Finance",
+}
+
+df["secteur_normalise"] = (
+    df["secteur"].str.lower().str.strip().map(DICTIONNAIRE_SECTEURS)
+)
+
+# Détecter les valeurs non couvertes par le dictionnaire -- étape de validation indispensable
+non_mappees = df[df["secteur_normalise"].isna()]["secteur"].unique()
+print(f"Valeurs non reconnues par le dictionnaire : {non_mappees}")
+# Un dictionnaire de correspondance n'est jamais figé -- il doit être maintenu à mesure
+# que de nouvelles variantes apparaissent dans les données au fil du temps</code></pre>
+
+      <h3>La différence avec la déduplication floue : ici, le regroupement est une décision métier</h3>
+      <p>Contrairement à la déduplication floue du Module 2, où l'objectif est de détecter que deux chaînes représentent probablement la <em>même</em> entité malgré une écriture différente, le regroupement de catégories implique souvent une véritable décision métier de <strong>niveau de granularité</strong> — "Informatique" et "Tech" pourraient rester des catégories distinctes dans un contexte où cette nuance compte (une agence de recrutement spécialisée, par exemple), alors qu'elles seraient fusionnées à raison dans une analyse macro-économique par secteur. Cette décision ne peut presque jamais être automatisée sans validation par un expert du domaine métier concerné.</p>
+
+      <h3>Maintenir le dictionnaire dans le temps : un actif vivant, pas un script jetable</h3>
+      <p>Un dictionnaire de correspondance construit une fois pour un dataset figé devient rapidement obsolète si de nouvelles catégories apparaissent dans les données au fil du temps (Module 7, leçon 4 approfondit ce point sous l'angle de l'évolution de schéma). La bonne pratique est d'externaliser ce dictionnaire dans un fichier de configuration versionné plutôt que codé en dur dans un script, et de systématiquement alerter (comme dans l'exemple ci-dessus) sur les valeurs non reconnues plutôt que de les ignorer silencieusement.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Construire un dictionnaire de correspondance une seule fois à partir d'un échantillon initial de données, puis l'appliquer indéfiniment sans jamais vérifier si de nouvelles variantes de catégories apparaissent dans les données ultérieures. Sans une alerte explicite sur les valeurs non reconnues (comme dans l'exemple ci-dessus), ces nouvelles variantes deviennent silencieusement des valeurs manquantes après application du mapping, un problème qui peut passer inaperçu pendant longtemps.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un dictionnaire de correspondance pour la colonne "pays" a été construit il y a un an. Un nouveau marché s'ouvre dans un pays jusqu'alors absent des données, et ses valeurs apparaissent désormais dans les nouveaux enregistrements. Décrivez le mécanisme de détection que vous mettriez en place pour être alerté de cette situation automatiquement, sans attendre qu'un stakeholder remarque des valeurs manquantes inexpliquées dans un rapport.
+      </div>
+    </section>
+
+    <section id="m5-l5">
+      <span class="lesson-kicker">Module 5 · Leçon 5</span>
+      <h2>Adresses et Données Géographiques : Structurer l'Hétérogène</h2>
+
+      <p>Cette dernière leçon du module approfondit le traitement des données géographiques, déjà effleuré au Module 3 (leçon 3) pour les adresses postales, en élargissant la perspective aux données géographiques au sens large (coordonnées, découpages administratifs) et à leurs pièges spécifiques de normalisation.</p>
+
+      <h3>Coordonnées géographiques : formats et systèmes de référence multiples</h3>
+      <p>Une latitude/longitude peut être exprimée en degrés décimaux (<code>48.8566, 2.3522</code>) ou en degrés-minutes-secondes (<code>48°51'24"N, 2°21'08"E</code>) — deux représentations du même point nécessitant une conversion explicite avant toute comparaison ou tout calcul de distance. Au-delà du format, différents systèmes de référence géodésique (WGS84, le plus courant, vs des systèmes de projection nationaux plus anciens) peuvent produire des coordonnées légèrement différentes pour un même point physique réel, un piège plus rare mais réel lors de l'intégration de données cartographiques historiques ou spécialisées.</p>
+
+      <pre><code class="language-python">def dms_vers_decimal(degres: float, minutes: float, secondes: float, direction: str) -> float:
+    decimal = degres + minutes / 60 + secondes / 3600
+    if direction in ("S", "O", "W"):  # Sud ou Ouest -- valeur négative en degrés décimaux
+        decimal = -decimal
+    return decimal
+
+latitude = dms_vers_decimal(48, 51, 24, "N")
+print(latitude)  # 48.856666... -- comparable directement à des coordonnées déjà en degrés décimaux</code></pre>
+
+      <h3>Découpages administratifs : gérer les évolutions dans le temps</h3>
+      <p>Les découpages administratifs (régions, départements, codes postaux) ne sont pas figés dans le temps — la réforme territoriale française de 2016 a fusionné plusieurs régions (la Bourgogne et la Franche-Comté sont devenues une seule région), rendant obsolète toute donnée historique référençant l'ancien découpage sans table de correspondance vers le nouveau. Un dataset combinant des données antérieures et postérieures à une telle réforme sans harmonisation produira des agrégations régionales incohérentes dans le temps.</p>
+
+      <h3>La validation géographique croisée : un signal de qualité puissant</h3>
+      <p>Une technique de détection d'erreur particulièrement efficace pour les adresses consiste à croiser plusieurs champs entre eux pour détecter des incohérences invisibles en les examinant séparément : un code postal "75001" (Paris) associé à une ville "Marseille" est individuellement valide sur chaque champ pris isolément, mais incohérent une fois les deux champs comparés — ce type de contrôle croisé, davantage développé au Module 6, est l'un des moyens les plus fiables de détecter des erreurs de saisie sur des données géographiques.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+# Table de correspondance officielle code postal -> ville (simplifiée pour l'exemple)
+reference_cp_ville = {"75001": "Paris", "69001": "Lyon", "13001": "Marseille"}
+
+df = pd.DataFrame({"code_postal": ["75001", "69001"], "ville": ["Paris", "Marseille"]})
+df["ville_attendue"] = df["code_postal"].map(reference_cp_ville)
+df["incoherence_detectee"] = df["ville"] != df["ville_attendue"]
+print(df)  # révèle l'incohérence sur la seconde ligne : 69001 est Lyon, pas Marseille</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Valider un champ géographique uniquement sur sa propre plausibilité isolée (un code postal à 5 chiffres est syntaxiquement valide, une latitude entre -90 et 90 est plausible) sans jamais le croiser avec les champs géographiques adjacents pour détecter des incohérences qui ne sont visibles qu'en combinant plusieurs champs entre eux (Module 6 approfondit cette technique de validation croisée inter-colonnes).
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous disposez d'un dataset de succursales d'entreprise avec les colonnes code_postal, ville et région, collecté sur 10 ans incluant la réforme territoriale française de 2016. Décrivez la stratégie de nettoyage que vous adopteriez pour permettre une analyse régionale cohérente sur l'ensemble de la période, malgré le changement de découpage administratif survenu en cours de période.
+      </div>
+    </section>
+
+    <div class="module-divider">
+      <span class="num">MODULE 06 · COHÉRENCE MÉTIER</span>
+      <span class="line"></span>
+    </div>
+
+    <section id="m6-l1">
+      <span class="lesson-kicker">Module 6 · Leçon 1</span>
+      <h2>Clés Étrangères Orphelines</h2>
+
+      <p>Ce module s'éloigne du nettoyage d'un champ pris isolément (modules précédents) pour aborder la cohérence <strong>entre</strong> plusieurs tables ou plusieurs champs d'un même enregistrement — une classe de problèmes qui ne peut être détectée qu'en croisant des données entre elles, jamais en examinant une seule colonne à la fois.</p>
+
+      <p>Une <strong>clé étrangère orpheline</strong> est une valeur de clé (un <code>client_id</code> dans une table de commandes, par exemple) qui référence une entité n'existant pas ou plus dans la table censée la contenir. Ce problème survient typiquement suite à une suppression physique d'un enregistrement parent sans que les enregistrements enfants correspondants n'aient été traités en conséquence, ou lors d'une intégration de données provenant de systèmes désynchronisés dans le temps.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+clients = pd.DataFrame({"client_id": [1, 2, 3], "nom": ["Alice", "Bob", "Carla"]})
+commandes = pd.DataFrame({"commande_id": [101, 102, 103, 104], "client_id": [1, 2, 3, 99]})
+# client_id=99 dans "commandes" n'existe dans aucune ligne de la table "clients" -- orphelin
+
+commandes_orphelines = commandes[~commandes["client_id"].isin(clients["client_id"])]
+print(commandes_orphelines)
+# commande_id=104 référence un client_id=99 qui n'existe pas -- à investiguer avant toute jointure
+
+print(f"{len(commandes_orphelines)} commande(s) orpheline(s) sur {len(commandes)}")</code></pre>
+
+      <h3>Le piège silencieux d'une jointure interne (inner join) sur des données orphelines</h3>
+      <p>Une jointure interne (<code>inner join</code>) entre deux tables élimine <strong>silencieusement</strong> toute ligne orpheline sans lever la moindre alerte — un comportement souvent souhaité en pratique, mais qui masque le problème plutôt que de le signaler. Si l'objectif est une analyse du chiffre d'affaires total, ces commandes orphelines silencieusement exclues faussent le total sans qu'aucune erreur n'apparaisse, contrairement à une jointure externe qui rendrait le problème visible sous forme de valeurs manquantes à traiter explicitement.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+# Inner join : les commandes orphelines disparaissent silencieusement du résultat
+resultat_inner = commandes.merge(clients, on="client_id", how="inner")
+print(f"Lignes après inner join : {len(resultat_inner)}")  # 3 au lieu de 4 -- perte silencieuse
+
+# Left join : les commandes orphelines restent visibles, avec des colonnes clients à NaN
+resultat_left = commandes.merge(clients, on="client_id", how="left")
+print(resultat_left[resultat_left["nom"].isna()])  # révèle explicitement la commande 104</code></pre>
+
+      <h3>D'où viennent typiquement les clés orphelines, et comment agir</h3>
+      <p>Les causes les plus fréquentes sont une suppression physique en cascade mal configurée dans la base de données source (le parent est supprimé, l'enfant ne l'est pas), une synchronisation partielle entre deux systèmes (le système A a déjà supprimé une entité que le système B référence encore), ou une erreur de saisie pure (un identifiant mal tapé). La détection systématique (comme dans l'exemple ci-dessus) doit précéder toute jointure destinée à une analyse ou un rapport, afin de décider explicitement du traitement (exclure, investiguer, corriger à la source) plutôt que de laisser une jointure interne masquer silencieusement le problème.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Utiliser systématiquement des jointures internes (inner join) par habitude ou par simplicité, sans jamais vérifier explicitement l'existence de clés orphelines au préalable. Une jointure interne "fonctionne toujours" au sens où elle ne provoque jamais d'erreur technique, ce qui rend d'autant plus facile de ne jamais remarquer qu'elle exclut silencieusement des données potentiellement importantes pour l'analyse.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un rapport de chiffre d'affaires mensuel semble systématiquement inférieur de 2 à 3% au montant calculé par le système comptable de référence. Après investigation, vous découvrez que le rapport utilise une jointure interne entre commandes et clients. Formulez l'hypothèse la plus probable expliquant cet écart, et la vérification exacte que vous effectueriez pour la confirmer.
+      </div>
+    </section>
+
+    <section id="m6-l2">
+      <span class="lesson-kicker">Module 6 · Leçon 2</span>
+      <h2>Contraintes de Plage et de Format</h2>
+
+      <p>Au-delà de la validité syntaxique d'un format déjà abordée dans les modules précédents (Module 1, leçon 3, sur la dimension "validité"), cette leçon se concentre sur les <strong>contraintes de plage</strong> — des règles métier qui définissent les valeurs plausibles ou acceptables pour un champ donné, souvent bien plus restrictives que ce que le type de données seul autoriserait techniquement.</p>
+
+      <h3>Définir explicitement les contraintes de plage attendues</h3>
+      <pre><code class="language-python">import pandas as pd
+
+df = pd.DataFrame({
+    "age": [25, 34, -5, 150, 42],
+    "note_satisfaction": [8, 12, 5, 3, 4],  # échelle attendue de 1 à 10
+    "pourcentage_remise": [10, 25, 105, 0, 50],  # ne peut logiquement pas dépasser 100
+})
+
+CONTRAINTES = {
+    "age": (0, 120),
+    "note_satisfaction": (1, 10),
+    "pourcentage_remise": (0, 100),
+}
+
+for colonne, (min_val, max_val) in CONTRAINTES.items():
+    hors_plage = df[(df[colonne] &lt; min_val) | (df[colonne] &gt; max_val)]
+    if not hors_plage.empty:
+        print(f"{colonne} : {len(hors_plage)} valeur(s) hors plage [{min_val}, {max_val}]")
+        print(hors_plage[[colonne]])</code></pre>
+
+      <h3>Distinguer contrainte technique et contrainte métier</h3>
+      <p>Un âge stocké en type entier accepte techniquement n'importe quelle valeur de -2 milliards à +2 milliards (selon la taille de l'entier) — le type de données seul n'impose aucune borne réaliste. La contrainte "un âge doit être compris entre 0 et 120" n'est pas une contrainte technique du type de données, mais une <strong>contrainte métier</strong> qui doit être explicitement définie, documentée, et vérifiée par du code dédié (ou par une contrainte <code>CHECK</code> au niveau de la base de données, la solution la plus robuste car elle empêche l'insertion de données invalides dès la source plutôt que de les détecter après coup).</p>
+
+      <pre><code class="language-sql">-- Contrainte CHECK au niveau de la base de données : empêche l'insertion de données invalides
+-- dès la source, plutôt que de les détecter après coup dans un pipeline de nettoyage en aval
+ALTER TABLE clients ADD CONSTRAINT age_valide CHECK (age BETWEEN 0 AND 120);
+ALTER TABLE avis ADD CONSTRAINT note_valide CHECK (note_satisfaction BETWEEN 1 AND 10);</code></pre>
+
+      <h3>Le piège des contraintes trop strictes qui rejettent des cas légitimes</h3>
+      <p>Une contrainte de plage mal calibrée peut à l'inverse rejeter des valeurs parfaitement légitimes mais rares : un âge de 0 (nourrisson) pourrait être exclu par une contrainte "âge minimum 1" mal pensée, ou un pourcentage de remise de 100% (produit offert gratuitement, un cas métier réel dans certaines promotions) pourrait être rejeté par une contrainte trop restrictive "strictement inférieur à 100". La définition d'une contrainte de plage doit toujours être validée avec un expert métier connaissant l'ensemble des cas légitimes, y compris les plus rares, avant d'être appliquée de façon bloquante.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Définir des contraintes de plage à partir des valeurs observées dans un échantillon de données existant plutôt qu'à partir d'une réflexion métier sur les valeurs réellement possibles. Si l'échantillon de calibration ne contenait par hasard aucun cas de remise à 100%, une contrainte "remise inférieure à 100%" calibrée sur cet échantillon rejettera à tort ce cas légitime dès qu'il se présentera dans de nouvelles données.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous définissez une contrainte de plage sur une colonne "durée_appel_secondes" d'un centre d'appels, initialement fixée entre 1 et 3600 secondes (1 heure). Quel scénario métier légitime pourrait pourtant produire une durée d'appel supérieure à 1 heure, et comment ajusteriez-vous la contrainte pour éviter de rejeter ce cas à tort ?
+      </div>
+    </section>
+
+    <section id="m6-l3">
+      <span class="lesson-kicker">Module 6 · Leçon 3</span>
+      <h2>Cohérence Inter-Colonnes : Détecter les Contradictions Logiques</h2>
+
+      <p>Certaines erreurs de données ne sont détectables qu'en comparant <strong>plusieurs colonnes entre elles</strong> — chaque colonne prise isolément peut sembler parfaitement valide (bon format, bonne plage de valeurs), alors que leur combinaison révèle une contradiction logique impossible dans la réalité. Cette classe de problèmes, déjà effleurée au Module 5 (leçon 5) pour les codes postaux et villes, mérite un traitement systématique en tant que catégorie à part entière.</p>
+
+      <h3>Exemples classiques de contradictions inter-colonnes</h3>
+      <pre><code class="language-python">import pandas as pd
+
+df = pd.DataFrame({
+    "date_debut_contrat": pd.to_datetime(["2024-01-01", "2024-03-15", "2024-06-01"]),
+    "date_fin_contrat": pd.to_datetime(["2024-12-31", "2024-02-01", "2025-06-01"]),  # ligne 2 incohérente
+    "age": [25, 45, 8],
+    "statut_marital": ["Marié", "Célibataire", "Marié"],  # ligne 3 incohérente (âge 8 ans)
+})
+
+# Contrôle 1 : la date de fin ne peut jamais précéder la date de début
+incoherence_dates = df[df["date_fin_contrat"] &lt; df["date_debut_contrat"]]
+print("Dates incohérentes :\n", incoherence_dates)
+
+# Contrôle 2 : un statut marital suppose un âge minimum légal plausible
+incoherence_age_statut = df[(df["statut_marital"] == "Marié") & (df["age"] &lt; 16)]
+print("Âge/statut incohérents :\n", incoherence_age_statut)</code></pre>
+
+      <h3>Construire une bibliothèque de règles de cohérence métier</h3>
+      <p>Contrairement aux contraintes de plage (leçon 2), qui portent sur une seule colonne, les règles de cohérence inter-colonnes sont intrinsèquement spécifiques au domaine métier et ne peuvent pas être devinées automatiquement à partir des données seules — elles doivent être élicitées explicitement auprès d'experts métier, puis codées comme un ensemble de règles de validation systématiquement appliquées à chaque nouvel enregistrement ou lors de chaque campagne de nettoyage périodique.</p>
+
+      <pre><code class="language-python">def valider_coherence(df: pd.DataFrame) -> pd.DataFrame:
+    """Applique un ensemble de règles de cohérence métier et retourne les lignes en violation."""
+    regles = {
+        "date_fin_avant_debut": df["date_fin_contrat"] &lt; df["date_debut_contrat"],
+        "marie_trop_jeune": (df["statut_marital"] == "Marié") & (df["age"] &lt; 16),
+        "retraite_trop_jeune": (df.get("statut_emploi") == "Retraité") & (df["age"] &lt; 55) if "statut_emploi" in df else pd.Series(False, index=df.index),
+    }
+    violations = pd.DataFrame(regles)
+    df["nb_violations"] = violations.sum(axis=1)
+    return df[df["nb_violations"] > 0]
+
+print(valider_coherence(df))</code></pre>
+
+      <h3>Prioriser les règles selon leur fréquence et leur gravité</h3>
+      <p>Sur un dataset réel, l'ensemble des règles de cohérence métier possibles peut rapidement devenir très long — la pratique courante est de prioriser leur implémentation selon deux critères : la <strong>fréquence</strong> estimée de la violation (une règle qui détecte un problème présent sur 20% des lignes mérite plus d'attention immédiate qu'une règle qui n'en détecterait jamais) et la <strong>gravité métier</strong> de la conséquence si la violation n'est pas détectée (une incohérence sur un champ utilisé pour la facturation a plus d'impact qu'une incohérence sur un champ purement informatif).</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Se limiter à des contrôles de validité colonne par colonne (Module 1, leçon 3) en pensant avoir couvert l'essentiel de la qualité de données, sans jamais construire de règles de cohérence croisant plusieurs colonnes. Ce type de contrôle croisé révèle souvent des erreurs bien plus révélatrices de problèmes systémiques (un bug dans un formulaire de saisie, une erreur d'intégration entre deux systèmes) que des anomalies isolées sur une seule colonne.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Pour un dataset de candidatures à un prêt bancaire avec les colonnes revenu_mensuel, montant_pret_demande, et duree_pret_mois, proposez deux règles de cohérence inter-colonnes qui pourraient révéler des dossiers suspects ou des erreurs de saisie, au-delà de simples contrôles de plage sur chaque colonne prise isolément.
+      </div>
+    </section>
+
+    <section id="m6-l4">
+      <span class="lesson-kicker">Module 6 · Leçon 4</span>
+      <h2>Fusionner des Sources Multiples : Résoudre les Conflits (Survivorship)</h2>
+
+      <p>Cette dernière leçon du module aborde un problème qui combine plusieurs des thématiques précédentes : lorsqu'une même entité (un client, un produit) est décrite par <strong>plusieurs sources de données différentes</strong> avec des valeurs parfois contradictoires pour un même champ, quelle valeur doit "survivre" dans le dataset final ? Cette question, connue sous le nom de <strong>survivorship</strong> dans la littérature de gestion de données de référence (Master Data Management), nécessite des règles de décision explicites plutôt qu'un choix arbitraire ou implicite.</p>
+
+      <h3>Un exemple concret de conflit entre sources</h3>
+      <pre><code class="language-python">import pandas as pd
+
+source_crm = pd.DataFrame({
+    "client_id": [1, 2], "email": ["alice@ancien.fr", "bob@ex.fr"], "derniere_maj": ["2022-01-15", "2023-06-01"]
+})
+source_facturation = pd.DataFrame({
+    "client_id": [1, 2], "email": ["alice@nouveau.fr", "bob@ex.fr"], "derniere_maj": ["2024-03-01", "2021-01-01"]
+})
+# Pour le client 1 : deux emails différents entre les deux sources -- lequel garder ?</code></pre>
+
+      <h3>Les stratégies de survivorship les plus courantes</h3>
+      <table>
+        <tr><th>Stratégie</th><th>Principe</th><th>Quand l'utiliser</th></tr>
+        <tr><td>Le plus récent</td><td>Conserver la valeur associée à la date de mise à jour la plus récente</td><td>Champs qui évoluent dans le temps (email, adresse)</td></tr>
+        <tr><td>La source la plus fiable</td><td>Une hiérarchie explicite de confiance entre sources (ex : le CRM prime sur un import tiers)</td><td>Sources de fiabilité connue et inégale</td></tr>
+        <tr><td>La plus complète</td><td>Préférer la valeur non vide, ou l'enregistrement avec le moins de champs manquants</td><td>Complétude prioritaire sur la fraîcheur</td></tr>
+        <tr><td>Validation manuelle</td><td>Signaler le conflit pour une décision humaine plutôt qu'automatiser</td><td>Champs critiques à fort impact (données financières, médicales)</td></tr>
+      </table>
+
+      <pre><code class="language-python">import pandas as pd
+
+fusion = source_crm.merge(source_facturation, on="client_id", suffixes=("_crm", "_fact"))
+
+# Stratégie "le plus récent" : comparer les dates de mise à jour pour trancher
+fusion["derniere_maj_crm"] = pd.to_datetime(fusion["derniere_maj_crm"])
+fusion["derniere_maj_fact"] = pd.to_datetime(fusion["derniere_maj_fact"])
+
+fusion["email_final"] = fusion.apply(
+    lambda ligne: ligne["email_crm"] if ligne["derniere_maj_crm"] > ligne["derniere_maj_fact"]
+                  else ligne["email_fact"],
+    axis=1
+)
+print(fusion[["client_id", "email_crm", "email_fact", "email_final"]])
+# Pour le client 1 : le CRM est plus récent (2024 > 2022... attention à vérifier le sens de la comparaison) </code></pre>
+
+      <h3>Documenter la stratégie choisie, champ par champ</h3>
+      <p>Une même fusion de sources peut légitimement appliquer des stratégies de survivorship <strong>différentes selon le champ</strong> : "le plus récent" pour l'email (qui change au fil du temps), "la source la plus fiable" pour la date de naissance (un champ qui ne devrait jamais changer, où une divergence signale plutôt une erreur de saisie dans l'une des deux sources), et "validation manuelle" pour un champ à fort enjeu réglementaire. Cette granularité doit être explicitement documentée (Module 1, leçon 5) pour chaque champ fusionné, plutôt que d'appliquer une règle unique et uniforme à l'ensemble du dataset par simplicité.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Fusionner deux sources en écrasant systématiquement les valeurs de la première par celles de la seconde (ou l'inverse) sans règle de survivorship explicite ni justification champ par champ, ce qui revient à faire un choix arbitraire dissimulé plutôt qu'une décision réfléchie — et qui peut introduire silencieusement des régressions (une donnée à jour écrasée par une donnée obsolète) selon l'ordre de fusion choisi.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous fusionnez une base clients interne avec une base achetée auprès d'un fournisseur de données tiers, avec des conflits sur les champs email, téléphone, et date de naissance. Proposez une stratégie de survivorship distincte et justifiée pour chacun de ces trois champs.
+      </div>
+    </section>
+
+    <div class="module-divider">
+      <span class="num">MODULE 07 · OUTILLAGE</span>
+      <span class="line"></span>
+    </div>
+
+    <section id="m7-l1">
+      <span class="lesson-kicker">Module 7 · Leçon 1</span>
+      <h2>Construire un Pipeline de Nettoyage Réutilisable en Python</h2>
+
+      <p>Les modules précédents ont présenté des techniques de nettoyage individuelles. Cette leçon aborde leur assemblage en un <strong>pipeline structuré</strong> — une série d'étapes de transformation nommées, testables indépendamment, et applicables de façon reproductible à chaque nouvelle donnée reçue, plutôt qu'une succession de scripts ad hoc exécutés manuellement dans un ordre dont on perd la trace.</p>
+
+      <h3>Le pattern de base : une fonction par étape, composées explicitement</h3>
+      <pre><code class="language-python">import pandas as pd
+import logging
+
+logger = logging.getLogger("pipeline_nettoyage")
+
+def normaliser_texte(df: pd.DataFrame, colonnes: list) -> pd.DataFrame:
+    df = df.copy()
+    for col in colonnes:
+        df[col] = df[col].str.strip().str.lower()
+    return df
+
+def dedupliquer(df: pd.DataFrame, cle: str) -> pd.DataFrame:
+    n_avant = len(df)
+    df = df.drop_duplicates(subset=[cle], keep="first")
+    logger.info(f"Déduplication sur '{cle}' : {n_avant - len(df)} lignes supprimées")
+    return df
+
+def valider_plage(df: pd.DataFrame, colonne: str, min_val, max_val) -> pd.DataFrame:
+    hors_plage = ~df[colonne].between(min_val, max_val)
+    if hors_plage.any():
+        logger.warning(f"{hors_plage.sum()} valeur(s) hors plage sur '{colonne}'")
+    return df[~hors_plage]
+
+def pipeline_nettoyage_clients(df: pd.DataFrame) -> pd.DataFrame:
+    """Pipeline complet, composant les étapes précédentes dans un ordre explicite et documenté."""
+    df = normaliser_texte(df, colonnes=["email", "nom"])
+    df = dedupliquer(df, cle="email")
+    df = valider_plage(df, colonne="age", min_val=0, max_val=120)
+    return df
+
+df_propre = pipeline_nettoyage_clients(pd.read_csv("clients_bruts.csv"))</code></pre>
+
+      <h3>Pourquoi cette structure en fonctions composées est supérieure à un script linéaire</h3>
+      <p>Comparée à un unique script long qui enchaîne toutes les transformations à la suite sans découpage, cette structure en fonctions nommées apporte trois bénéfices concrets : chaque étape peut être <strong>testée isolément</strong> (Module 7, leçon 3), l'<strong>ordre des étapes</strong> devient explicite et modifiable sans devoir tout réécrire, et chaque étape peut journaliser (logger) son propre impact (comme le nombre de doublons supprimés), offrant une traçabilité directement exploitable pour le suivi de qualité (Module 7, leçon 4) sans effort supplémentaire.</p>
+
+      <h3>Utiliser le chaînage de méthodes pandas pour plus de lisibilité</h3>
+      <p>Pandas propose la méthode <code>.pipe()</code> qui permet de chaîner des fonctions de transformation dans un style fluide, rendant la séquence d'opérations plus lisible qu'une succession de réaffectations de variables intermédiaires.</p>
+
+      <pre><code class="language-python">df_propre = (
+    pd.read_csv("clients_bruts.csv")
+    .pipe(normaliser_texte, colonnes=["email", "nom"])
+    .pipe(dedupliquer, cle="email")
+    .pipe(valider_plage, colonne="age", min_val=0, max_val=120)
+)
+# Le style .pipe() rend la séquence d'étapes visuellement évidente,
+# et facilite l'ajout, la suppression ou la réorganisation d'une étape</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Écrire un pipeline de nettoyage comme un unique bloc de code séquentiel sans découpage en fonctions nommées, rendant impossible de tester, réutiliser, ou modifier une étape isolément sans risquer d'affecter le comportement des étapes voisines par inadvertance. Cette structure monolithique est également plus difficile à faire relire ou auditer par un collègue qui ne connaît pas déjà le contexte complet.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Reprenez un script de nettoyage que vous avez déjà écrit (ou imaginez-en un pour un cas simple : nettoyage d'une colonne d'emails). Découpez-le mentalement en fonctions nommées distinctes, en identifiant clairement l'entrée et la sortie de chacune.
+      </div>
+    </section>
+
+    <section id="m7-l2">
+      <span class="lesson-kicker">Module 7 · Leçon 2</span>
+      <h2>Valider Automatiquement avec Pandera</h2>
+
+      <p>Écrire manuellement des assertions de validation (comme dans les exemples précédents) devient rapidement fastidieux et répétitif à mesure que le nombre de règles augmente. <strong>Pandera</strong> est une bibliothèque Python qui permet de déclarer un schéma de validation pour un DataFrame pandas de façon déclarative — rassemblant en un seul endroit lisible l'ensemble des règles de types, de plages, et de contraintes attendues pour un dataset.</p>
+
+      <pre><code class="language-python">import pandera as pa
+from pandera import Column, Check, DataFrameSchema
+
+schema_clients = DataFrameSchema({
+    "client_id": Column(int, Check.greater_than(0), unique=True),
+    "email": Column(str, Check.str_matches(r"^[\w.+-]+@[\w-]+\.[\w.]+$")),
+    "age": Column(int, Check.in_range(0, 120), nullable=True),
+    "statut": Column(str, Check.isin(["actif", "inactif", "suspendu"])),
+})
+
+import pandas as pd
+df = pd.read_csv("clients.csv")
+
+try:
+    df_valide = schema_clients.validate(df, lazy=True)  # lazy=True : collecte TOUTES les erreurs
+    print("Validation réussie")
+except pa.errors.SchemaErrors as erreur:
+    print(erreur.failure_cases)  # tableau détaillé de chaque violation, ligne par ligne</code></pre>
+
+      <h3>Le mode <code>lazy</code> : collecter toutes les erreurs plutôt que s'arrêter à la première</h3>
+      <p>Sans le paramètre <code>lazy=True</code>, Pandera lève une exception dès la première violation rencontrée, obligeant à corriger et relancer la validation de façon répétée pour découvrir les erreurs une par une. Avec <code>lazy=True</code>, Pandera collecte l'<strong>ensemble</strong> des violations en une seule passe, retournant un tableau complet (<code>failure_cases</code>) indiquant précisément quelle colonne, quelle ligne, et quelle règle a été violée — une approche bien plus efficace pour un diagnostic initial sur un nouveau dataset.</p>
+
+      <h3>Intégrer la validation Pandera directement dans le pipeline de la leçon précédente</h3>
+      <pre><code class="language-python">def valider_schema_clients(df: pd.DataFrame) -> pd.DataFrame:
+    """Étape de validation Pandera intégrée comme n'importe quelle autre étape du pipeline."""
+    return schema_clients.validate(df, lazy=True)
+
+df_propre = (
+    pd.read_csv("clients_bruts.csv")
+    .pipe(normaliser_texte, colonnes=["email", "nom"])
+    .pipe(dedupliquer, cle="email")
+    .pipe(valider_schema_clients)  # dernière étape : garantit la conformité au schéma déclaré
+)</code></pre>
+
+      <h3>Pourquoi préférer un schéma déclaratif à des assertions manuelles dispersées</h3>
+      <p>Un schéma Pandera centralisé sert simultanément de documentation vivante (n'importe qui peut lire le schéma pour comprendre les règles attendues sur le dataset, sans devoir parcourir un pipeline entier de transformations), de mécanisme de validation automatisée, et de garde-fou contre les régressions silencieuses (si une nouvelle étape du pipeline introduit accidentellement une violation, la validation l'attrapera immédiatement plutôt que de laisser le problème se propager en aval).</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Définir un schéma de validation une seule fois au démarrage d'un projet puis ne plus jamais le maintenir à mesure que les règles métier évoluent (une nouvelle valeur de statut ajoutée, une plage d'âge élargie), ce qui transforme progressivement le schéma en une source de faux positifs bloquants plutôt qu'un outil de confiance — un schéma de validation doit être maintenu avec la même rigueur que le code de transformation lui-même.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Écrivez un schéma Pandera pour un DataFrame de commandes avec les colonnes <code>commande_id</code> (entier positif unique), <code>montant</code> (décimal strictement positif), et <code>statut</code> (une valeur parmi "en attente", "expédiée", "livrée", "annulée").
+      </div>
+    </section>
+
+    <section id="m7-l3">
+      <span class="lesson-kicker">Module 7 · Leçon 3</span>
+      <h2>Tester son Pipeline : Jeux de Données de Test et Cas Limites</h2>
+
+      <p>Un pipeline de nettoyage, comme tout code de production, doit être testé — une pratique moins répandue en data engineering que dans le développement logiciel classique, mais tout aussi cruciale : un bug silencieux dans une fonction de nettoyage peut corrompre des mois de données avant d'être détecté, avec un coût de correction rétroactive potentiellement considérable.</p>
+
+      <h3>Construire un jeu de données de test qui couvre les cas limites, pas seulement le cas nominal</h3>
+      <pre><code class="language-python">import pandas as pd
+import pytest
+
+def normaliser_email(email: str) -> str:
+    if pd.isna(email):
+        return None
+    return email.strip().lower()
+
+def test_normaliser_email_cas_nominal():
+    assert normaliser_email("Jean.Dupont@Exemple.FR") == "jean.dupont@exemple.fr"
+
+def test_normaliser_email_espaces():
+    assert normaliser_email("  jean@ex.fr  ") == "jean@ex.fr"
+
+def test_normaliser_email_valeur_manquante():
+    assert normaliser_email(None) is None
+    assert normaliser_email(float("nan")) is None
+
+def test_normaliser_email_chaine_vide():
+    # Cas limite explicitement testé : une chaîne vide n'est pas None mais mérite réflexion
+    assert normaliser_email("") == ""  # comportement actuel -- est-ce le comportement voulu ?</code></pre>
+
+      <h3>Les catégories de cas limites systématiquement à couvrir</h3>
+      <ul>
+        <li><strong>Valeurs manquantes</strong> : <code>None</code>, <code>NaN</code>, chaîne vide — chacune peut nécessiter un traitement distinct (Module 5, leçon 3, sur les booléens ambigus illustre bien cette nuance).</li>
+        <li><strong>Valeurs extrêmes</strong> : une chaîne extrêmement longue, un nombre à la limite de la plage acceptée, une date au tout début ou à la toute fin d'une plage plausible.</li>
+        <li><strong>Types inattendus</strong> : un nombre reçu sous forme de chaîne, une date reçue sous forme d'entier (timestamp Unix), un cas particulièrement fréquent lors de l'ingestion de sources hétérogènes (Module 5).</li>
+        <li><strong>Caractères spéciaux</strong> : accents, emojis, caractères invisibles (Module 3 et Module 4) — souvent oubliés dans un jeu de test construit uniquement avec des exemples "propres".</li>
+      </ul>
+
+      <h3>Tester le pipeline complet, pas seulement chaque fonction isolément</h3>
+      <p>Au-delà des tests unitaires sur chaque fonction individuelle, un test d'intégration sur le pipeline complet (Module 7, leçon 1) permet de vérifier que l'enchaînement des étapes produit le résultat attendu de bout en bout, et de détecter des interactions imprévues entre étapes qu'un test unitaire isolé ne peut pas révéler (une étape de normalisation qui modifie une colonne d'une façon qui casse silencieusement une règle de validation appliquée plus tard dans le pipeline, par exemple).</p>
+
+      <pre><code class="language-python">def test_pipeline_complet_supprime_doublons_et_normalise():
+    donnees_test = pd.DataFrame({
+        "email": ["Jean@Ex.fr", "jean@ex.fr", "marie@ex.fr"],  # 2 premiers = doublon après normalisation
+        "age": [30, 30, 45],
+    })
+    resultat = pipeline_nettoyage_clients(donnees_test)
+    assert len(resultat) == 2  # le doublon détecté APRÈS normalisation a bien été supprimé
+    assert resultat["email"].tolist() == ["jean@ex.fr", "marie@ex.fr"]</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Tester uniquement le "chemin heureux" (happy path) d'une fonction de nettoyage avec des données propres et bien formées, sans jamais tester les cas limites qui sont pourtant statistiquement les plus susceptibles de révéler un bug une fois en production sur des données réelles, nécessairement plus désordonnées que n'importe quel jeu de test artisanal.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Pour la fonction <code>normaliser_telephone</code> présentée au Module 3 (leçon 3), listez au moins quatre cas de test que vous écririez, en incluant au moins deux cas limites au-delà du cas nominal d'un numéro français bien formé.
+      </div>
+    </section>
+
+    <section id="m7-l4">
+      <span class="lesson-kicker">Module 7 · Leçon 4</span>
+      <h2>Mesurer l'Impact du Nettoyage : Indicateurs Avant/Après</h2>
+
+      <p>Cette dernière leçon du module clôt la boucle ouverte au Module 1 (leçon 2, phase de "validation" du pipeline) : comment quantifier objectivement l'effet d'un nettoyage de données, à la fois pour valider qu'il a résolu les problèmes identifiés et pour communiquer cet impact à des stakeholders qui ne liront jamais le code du pipeline lui-même.</p>
+
+      <h3>Construire un tableau de bord avant/après systématique</h3>
+      <pre><code class="language-python">import pandas as pd
+
+def rapport_impact_nettoyage(df_avant: pd.DataFrame, df_apres: pd.DataFrame, colonnes_cles: list) -> pd.DataFrame:
+    rapport = []
+    for col in colonnes_cles:
+        rapport.append({
+            "colonne": col,
+            "valeurs_manquantes_avant": df_avant[col].isna().sum(),
+            "valeurs_manquantes_apres": df_apres[col].isna().sum() if col in df_apres else None,
+            "valeurs_uniques_avant": df_avant[col].nunique(),
+            "valeurs_uniques_apres": df_apres[col].nunique() if col in df_apres else None,
+        })
+    rapport.append({
+        "colonne": "TOTAL_LIGNES",
+        "valeurs_manquantes_avant": len(df_avant),
+        "valeurs_manquantes_apres": len(df_apres),
+        "valeurs_uniques_avant": None, "valeurs_uniques_apres": None,
+    })
+    return pd.DataFrame(rapport)
+
+df_brut = pd.read_csv("clients_bruts.csv")
+df_nettoye = pipeline_nettoyage_clients(df_brut)
+print(rapport_impact_nettoyage(df_brut, df_nettoye, colonnes_cles=["email", "nom"]))</code></pre>
+
+      <h3>Des indicateurs alignés sur les six dimensions de qualité du Module 1</h3>
+      <p>Un rapport d'impact rigoureux gagne à être structuré selon les six dimensions de qualité vues au Module 1 (leçon 3) plutôt que selon une liste ad hoc de métriques : combien de doublons supprimés (unicité), combien de valeurs manquantes comblées ou signalées (complétude), combien de contraintes de plage violées corrigées (validité), combien d'incohérences inter-colonnes résolues (cohérence). Cette structuration facilite la comparaison de l'impact du nettoyage d'un cycle à l'autre, et révèle si un type de problème particulier s'aggrave ou s'améliore dans le temps.</p>
+
+      <h3>Suivre ces indicateurs dans le temps, pas seulement ponctuellement</h3>
+      <p>La vraie valeur de ces indicateurs de qualité apparaît lorsqu'ils sont mesurés et archivés à <strong>chaque exécution</strong> du pipeline de nettoyage (quotidienne, hebdomadaire), plutôt que calculés une seule fois de façon ponctuelle. Une dégradation progressive du taux de doublons ou de valeurs manquantes dans le temps est un signal précoce et actionnable d'un problème émergent en amont (un nouveau formulaire de saisie mal conçu, une source de données tierce dont la qualité se dégrade) — un signal invisible sans ce suivi historique.</p>
+
+      <pre><code class="language-python">import pandas as pd
+from datetime import datetime
+
+def journaliser_metriques_qualite(df: pd.DataFrame, chemin_historique: str = "qualite_historique.csv"):
+    ligne = {
+        "date": datetime.now().isoformat(),
+        "nb_lignes": len(df),
+        "taux_manquants_email": df["email"].isna().mean(),
+        "nb_doublons_potentiels": df.duplicated(subset=["email"]).sum(),
+    }
+    historique = pd.DataFrame([ligne])
+    historique.to_csv(chemin_historique, mode="a", header=False, index=False)
+    # Une analyse ultérieure de ce fichier historique révèle les tendances de qualité dans le temps</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Mesurer l'impact d'un nettoyage une seule fois, au moment de sa mise en place initiale, puis ne plus jamais revérifier ces indicateurs par la suite. Sans suivi dans le temps, une dégradation progressive de la qualité des données en amont (un nouveau système source moins rigoureux, un changement de fournisseur de données) passe inaperçue jusqu'à ce qu'elle devienne suffisamment grave pour être remarquée directement par un stakeholder final, au pire moment possible.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Proposez trois indicateurs de qualité que vous suivriez dans le temps pour un pipeline de nettoyage d'une base de contacts commerciaux, en vous inspirant des six dimensions de qualité du Module 1, et expliquez ce qu'une dégradation de chacun signalerait probablement.
+      </div>
+    </section>
+
+    <div class="module-divider">
+      <span class="num">MODULE 08 · CAS PRATIQUE</span>
+      <span class="line"></span>
+    </div>
+
+    <section id="m8-l1">
+      <span class="lesson-kicker">Module 8 · Leçon 1</span>
+      <h2>Étude de Cas : Nettoyer un Dataset Client de Bout en Bout</h2>
+
+      <p>Ce module final consolide l'ensemble des sept modules précédents à travers un cas pratique complet, suivant méthodiquement les quatre phases du pipeline de nettoyage établies au Module 1 (leçon 2) sur un dataset client réaliste combinant la plupart des problèmes rencontrés tout au long de ce cours.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+# Dataset brut représentatif, combinant plusieurs problèmes vus dans ce cours
+df_brut = pd.DataFrame({
+    "nom": ["Jean Dupont", "jean dupont ", "DUPONT, Marie", "Paul Martin", "paul martin"],
+    "email": ["jean@ex.fr", "jean@ex.fr", "marie@ex.fr", "paul@ex.fr", "paul@ex.fr"],
+    "age": [34, 34, 28, -5, 45],
+    "telephone": ["0123456789", "01 23 45 67 89", "+33612345678", "0611223344", None],
+    "date_inscription": ["15/03/2023", "15/03/2023", "2022-11-01", "01/13/2023", "05/06/2023"],
+    "actif": ["Oui", "oui", "1", "Non", ""],
+})
+print(df_brut)</code></pre>
+
+      <h3>Phase 1 — Détection : quantifier chaque problème avant d'agir</h3>
+      <pre><code class="language-python">print("=== DÉTECTION ===")
+print(f"Doublons potentiels (email) : {df_brut.duplicated(subset=['email']).sum()}")
+print(f"Âges hors plage [0,120] : {((df_brut['age'] &lt; 0) | (df_brut['age'] &gt; 120)).sum()}")
+print(f"Téléphones manquants : {df_brut['telephone'].isna().sum()}")
+print(f"Valeurs 'actif' distinctes : {df_brut['actif'].unique()}")
+# Cette phase révèle : 2 doublons (Jean, Paul via variantes de casse/espace), 1 âge invalide (-5),
+# 1 téléphone manquant, des formats hétérogènes sur téléphone/date/booléen</code></pre>
+
+      <h3>Phase 2 — Décision : documenter chaque règle avant de l'appliquer</h3>
+      <p>Pour ce cas d'étude : normaliser nom/email en minuscules avant déduplication (Module 3) ; conserver le premier enregistrement en cas de doublon (Module 2) ; exclure les âges hors plage [0,120] plutôt que de les corriger arbitrairement, faute de pouvoir deviner la vraie valeur (Module 6) ; harmoniser les téléphones au format E.164 (Module 3) ; les dates au format ISO (Module 5) ; les booléens à un type strict (Module 5).</p>
+
+      <h3>Phase 3 — Correction : appliquer le pipeline complet</h3>
+      <pre><code class="language-python">import re
+
+def nettoyer_dataset_clients(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+
+    # Normalisation des chaînes (Module 3)
+    df["nom"] = df["nom"].str.strip().str.lower()
+    df["email"] = df["email"].str.strip().str.lower()
+
+    # Déduplication après normalisation, jamais avant (Module 2)
+    df = df.drop_duplicates(subset=["email"], keep="first")
+
+    # Contrainte de plage : exclusion documentée plutôt que correction devinée (Module 6)
+    df = df[df["age"].between(0, 120)]
+
+    # Normalisation des booléens avec gestion prudente des valeurs vides (Module 5)
+    mapping_bool = {"oui": True, "1": True, "non": False, "": None}
+    df["actif"] = df["actif"].str.lower().map(mapping_bool)
+
+    return df.reset_index(drop=True)
+
+df_propre = nettoyer_dataset_clients(df_brut)
+print(df_propre)</code></pre>
+
+      <h3>Phase 4 — Validation : vérifier le résultat obtenu</h3>
+      <pre><code class="language-python">print("=== VALIDATION ===")
+print(f"Lignes avant : {len(df_brut)}, après : {len(df_propre)}")
+assert df_propre["email"].duplicated().sum() == 0, "Doublons résiduels détectés"
+assert df_propre["age"].between(0, 120).all(), "Âges hors plage résiduels détectés"
+print("Toutes les validations sont passées")</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Traiter ce type d'étude de cas comme un exercice isolé et académique plutôt que comme le reflet fidèle d'un travail réel — dans la pratique, un dataset réel combine presque toujours plusieurs problèmes simultanément (comme dans cet exemple), et l'ordre dans lequel les corrections sont appliquées a une importance réelle (ici, normaliser avant de dédupliquer, jamais l'inverse).
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Dans le pipeline ci-dessus, la colonne "date_inscription" et la colonne "telephone" n'ont volontairement pas été traitées, pour laisser un exercice pratique : écrivez les deux fonctions de normalisation manquantes en vous appuyant sur les techniques des Modules 3 et 5, puis intégrez-les au pipeline <code>nettoyer_dataset_clients</code>.
+      </div>
+    </section>
+
+    <section id="m8-l2">
+      <span class="lesson-kicker">Module 8 · Leçon 2</span>
+      <h2>Le Piège du Nettoyage Trop Agressif</h2>
+
+      <p>Ce cours a insisté à plusieurs reprises sur les dangers des données sales — mais le symétrique existe tout autant et mérite une attention égale : un nettoyage trop agressif peut détruire de l'information réelle et légitime, introduisant de nouveaux problèmes parfois plus graves que ceux qu'il prétendait résoudre. Cette leçon rassemble les signaux d'alerte d'un sur-nettoyage, déjà évoqués séparément dans plusieurs modules.</p>
+
+      <h3>Rappel des cas de sur-nettoyage déjà rencontrés dans ce cours</h3>
+      <ul>
+        <li><strong>Déduplication trop permissive</strong> (Module 2) : un seuil de similarité trop bas fusionne deux personnes homonymes distinctes en une seule entité.</li>
+        <li><strong>Normalisation destructive</strong> (Module 3, leçon 5) : supprimer systématiquement les tirets dans des prénoms composés fusionne des variantes qui n'auraient pas dû l'être.</li>
+        <li><strong>Contraintes de plage trop strictes</strong> (Module 6, leçon 2) : rejeter une remise de 100% pourtant légitime dans certains contextes commerciaux.</li>
+        <li><strong>Booléens mal imputés</strong> (Module 5, leçon 3) : traiter une valeur manquante comme un "faux" implicite, perdant la distinction entre "non" et "jamais demandé".</li>
+      </ul>
+
+      <h3>Un nouvel exemple : la suppression excessive d'outliers dans une déduplication floue</h3>
+      <pre><code class="language-python">import pandas as pd
+from rapidfuzz import fuzz
+
+clients = pd.DataFrame({
+    "nom": ["Marie Dupont", "Marc Dupont", "Marion Dupont"],  # 3 personnes RÉELLEMENT différentes
+    "ville": ["Paris", "Lyon", "Marseille"]  # villes différentes -- signal fort de non-duplication
+})
+
+# Un seuil de similarité mal calibré, ignorant le contexte (villes différentes),
+# pourrait fusionner à tort ces trois personnes en une seule sur la seule base du nom de famille
+for i in range(len(clients)):
+    for j in range(i + 1, len(clients)):
+        score = fuzz.ratio(clients["nom"][i], clients["nom"][j])
+        print(f"{clients['nom'][i]} vs {clients['nom'][j]} : score={score:.0f}, "
+              f"villes différentes={clients['ville'][i] != clients['ville'][j]}")
+# Le signal "villes différentes" devrait fortement diminuer la confiance dans une fusion,
+# même si le score de similarité textuelle brut du nom seul semble élevé</code></pre>
+
+      <h3>Le principe général pour éviter le sur-nettoyage : croiser des signaux multiples</h3>
+      <p>La leçon centrale de ce cours entier, qui se cristallise ici : aucune décision de nettoyage à fort impact (fusion de doublons, suppression de lignes, correction automatique de valeurs) ne devrait reposer sur un <strong>signal unique</strong> pris isolément. Un score de similarité textuelle élevé (Module 2) devient bien plus fiable une fois croisé avec d'autres champs cohérents (même ville, même date de naissance) ; une valeur jugée hors plage (Module 6) mérite d'être croisée avec d'autres champs avant d'être supprimée plutôt que simplement comparée à un seuil univarié.</p>
+
+      <h3>Conserver une trace des décisions à fort impact pour pouvoir les auditer</h3>
+      <p>Pour toute opération de nettoyage à fort impact (fusion, suppression massive), conserver une trace explicite des lignes affectées (dans un fichier de log séparé, une table d'audit) permet de revenir en arrière si un cas de sur-nettoyage est découvert après coup — un prolongement direct du principe de traçabilité déjà établi au Module 1 (leçon 5) et de la préservation des données brutes (Module 7, leçon 3 du cours précédent sur les formats de données, couche "bronze").</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Optimiser un pipeline de nettoyage uniquement pour minimiser le nombre de doublons ou d'anomalies résiduelles visibles dans un rapport de qualité, sans mesurer symétriquement le taux de faux positifs introduits (des entités distinctes fusionnées à tort, des valeurs légitimes supprimées). Un pipeline "trop efficace" en apparence peut en réalité détruire plus de valeur qu'il n'en préserve.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un pipeline de déduplication automatique a réduit une base de 100 000 à 92 000 clients uniques. Avant de célébrer ce résultat, quelles deux vérifications proposeriez-vous pour vous assurer que cette réduction ne cache pas un taux significatif de fusions erronées entre personnes réellement distinctes ?
+      </div>
+    </section>
+
+    <section id="m8-l3">
+      <span class="lesson-kicker">Module 8 · Leçon 3</span>
+      <h2>Idempotence en Production : Rejouer un Nettoyage Sans Risque</h2>
+
+      <p>Cette leçon aborde une propriété technique cruciale pour tout pipeline de nettoyage exécuté de façon récurrente en production : l'<strong>idempotence</strong>, c'est-à-dire la garantie que réexécuter le même pipeline plusieurs fois sur les mêmes données produit toujours exactement le même résultat, sans effet cumulatif indésirable.</p>
+
+      <h3>Un exemple concret de non-idempotence, source de bugs difficiles à diagnostiquer</h3>
+      <pre><code class="language-python">import pandas as pd
+
+df = pd.DataFrame({"prix_texte": ["45,90€"]})
+
+# NON IDEMPOTENT : cette transformation suppose que "prix_texte" contient toujours le format
+# original avec le symbole €, mais si le pipeline est exécuté deux fois sur le même DataFrame
+# déjà transformé une première fois, le comportement devient incorrect ou plante
+def extraire_prix_non_idempotent(df: pd.DataFrame) -> pd.DataFrame:
+    df["prix_texte"] = df["prix_texte"].str.replace("€", "").str.replace(",", ".").astype(float)
+    return df
+
+df_v1 = extraire_prix_non_idempotent(df.copy())
+print(df_v1)  # fonctionne correctement la première fois : 45.9
+
+# df_v2 = extraire_prix_non_idempotent(df_v1.copy())  # ÉCHOUERAIT : .str accessor sur une colonne float
+# AttributeError -- la colonne n'est plus une chaîne de caractères, .str.replace() est indisponible</code></pre>
+
+      <h3>Concevoir un pipeline idempotent par construction</h3>
+      <pre><code class="language-python">def extraire_prix_idempotent(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+    if df["prix_texte"].dtype == object:  # ne transforme QUE si la colonne est encore du texte brut
+        df["prix_numerique"] = (
+            df["prix_texte"].str.replace("€", "", regex=False)
+                             .str.replace(",", ".", regex=False)
+                             .astype(float)
+        )
+    return df
+# Exécuter cette fonction plusieurs fois de suite produit systématiquement le même résultat final,
+# car elle vérifie explicitement l'état de la donnée avant d'agir, plutôt que de supposer un état fixe</code></pre>
+
+      <h3>Pourquoi l'idempotence est indispensable en production, pas seulement une élégance technique</h3>
+      <p>En production, un pipeline peut être réexécuté pour de nombreuses raisons imprévues : une reprise après un échec partiel, un rejeu volontaire suite à la découverte d'un bug corrigé depuis, une réexécution automatique programmée qui se chevauche accidentellement avec la précédente. Sans garantie d'idempotence, chacune de ces situations parfaitement normales dans l'exploitation d'un système peut corrompre silencieusement les données ou provoquer un plantage difficile à diagnostiquer, précisément parce que le bug ne se manifeste pas lors d'une exécution isolée en test, mais seulement lors d'exécutions répétées.</p>
+
+      <h3>La rejouabilité : pouvoir reconstruire un résultat identique depuis la source</h3>
+      <p>Un concept complémentaire à l'idempotence est la <strong>rejouabilité</strong> : la capacité à reconstruire intégralement le résultat d'un pipeline en le rejouant depuis les données sources brutes, un principe qui rejoint directement l'architecture en couches bronze/silver/gold déjà présentée au cours précédent sur les formats de données. Un pipeline idempotent ET rejouable offre la garantie la plus forte possible : peu importe combien de fois ou à quel moment il est exécuté sur les mêmes données sources, le résultat final reste toujours identique et prévisible.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Écrire une transformation qui modifie une colonne "en place" en supposant implicitement qu'elle n'a jamais été transformée auparavant (comme retirer un symbole monétaire d'une chaîne), sans jamais vérifier explicitement l'état actuel de la donnée avant d'agir. Ce type de code fonctionne parfaitement lors des tests (exécutés une seule fois sur des données fraîches) mais échoue de façon imprévisible dès qu'il est rejoué en production sur des données déjà partiellement traitées.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une fonction de nettoyage incrémente un compteur "nombre_de_nettoyages" à chaque exécution pour suivre l'historique de traitement d'un enregistrement. Expliquez pourquoi cette fonction n'est pas idempotente, et proposez une alternative qui conserve l'objectif de traçabilité sans sacrifier l'idempotence.
+      </div>
+    </section>
+
+    <section id="m8-l4">
+      <span class="lesson-kicker">Module 8 · Leçon 4</span>
+      <h2>Checklist Finale de Nettoyage de Données</h2>
+
+      <p>Cette dernière leçon condense l'ensemble du cours en une checklist opérationnelle à consulter concrètement avant, pendant, et après tout projet de nettoyage de données — la meilleure façon de transformer les huit modules de ce cours en réflexe professionnel durable plutôt qu'en connaissance théorique isolée.</p>
+
+      <h3>Avant de commencer : cadrage</h3>
+      <ol>
+        <li>Ai-je identifié quelles colonnes seront réellement utilisées, pour éviter un nettoyage exhaustif prématuré (Module 1, leçon 4) ?</li>
+        <li>Ai-je conservé une copie des données brutes originales, non modifiées, avant toute transformation (Module 1, leçon 5 ; Module 7, leçon 3 du cours précédent) ?</li>
+      </ol>
+
+      <h3>Pendant le nettoyage : les six dimensions et les quatre phases</h3>
+      <ol start="3">
+        <li>Ai-je quantifié chaque type de problème (détection) avant de choisir une stratégie (décision) ? (Module 1, leçon 2)</li>
+        <li>Ai-je vérifié l'unicité (doublons exacts et flous, Module 2), la validité (formats, Module 5), la cohérence (inter-colonnes et référentielle, Module 6) ?</li>
+        <li>Ai-je normalisé la casse, les espaces, l'encodage Unicode avant toute comparaison ou déduplication (Modules 3 et 4) ?</li>
+        <li>Ai-je vérifié l'encodage réel des fichiers sources plutôt que de le supposer (Module 4) ?</li>
+        <li>Pour chaque règle de normalisation ou de suppression, ai-je documenté explicitement le "pourquoi" (Module 1, leçon 5) ?</li>
+      </ol>
+
+      <h3>Après le nettoyage : validation et outillage</h3>
+      <ol start="9">
+        <li>Ai-je mesuré l'impact avant/après avec des indicateurs quantifiés (Module 7, leçon 4) ?</li>
+        <li>Ai-je vérifié l'absence de sur-nettoyage (faux positifs de fusion, suppression excessive) en croisant plusieurs signaux (Module 8, leçon 2) ?</li>
+        <li>Mon pipeline est-il testé sur des cas limites, pas seulement le cas nominal (Module 7, leçon 3) ?</li>
+        <li>Mon pipeline est-il idempotent et rejouable pour une exécution récurrente en production (Module 8, leçon 3) ?</li>
+        <li>Ai-je un schéma de validation formel (Pandera ou équivalent) qui pourra détecter une régression future (Module 7, leçon 2) ?</li>
+      </ol>
+
+      <h3>Le message final de ce cours</h3>
+      <p>Le nettoyage de données n'est ni une formalité rapide à expédier, ni une quête impossible de perfection absolue — c'est une discipline d'ingénierie à part entière, avec ses propres méthodes (le pipeline en quatre phases), ses propres outils (RapidFuzz, Pandera, phonenumbers), et ses propres pièges symétriques (données trop sales d'un côté, sur-nettoyage destructeur de l'autre). La compétence centrale développée dans ce cours n'est pas de mémoriser une technique par type de problème, mais de savoir <strong>diagnostiquer</strong> quelle dimension de qualité est en jeu, quel niveau de rigueur le contexte métier exige, et quelle trace laisser pour que le travail reste auditable et réversible.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Considérer cette checklist comme un document à consulter une seule fois en fin de projet pour "cocher les cases" a posteriori, plutôt que comme un guide à intégrer dès la phase de cadrage d'un nouveau projet de nettoyage — la plupart de ces points (conservation des données brutes, documentation des décisions) sont bien plus efficaces et moins coûteux à mettre en place en amont qu'à rattraper après coup.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        En appliquant cette checklist à un dataset réel que vous avez déjà nettoyé (professionnel ou personnel), identifiez les deux ou trois points qui n'avaient pas été respectés à l'époque, et ce que vous feriez différemment aujourd'hui avec les connaissances de ce cours.
+      </div>
+
+      <div class="callout" style="border-left-color:#2f9e44; background:#e4f6e8;">
+        <strong>Fin du cours</strong>
+        Vous disposez maintenant d'une méthode complète pour détecter, décider, corriger et valider la qualité de données réelles — déduplication exacte et floue, normalisation de chaînes et d'encodages, harmonisation des types, cohérence métier inter-colonnes, et outillage de production robuste (pipelines testés, idempotents, validés automatiquement). Ce cours ouvre le Bloc 2 (Data Cleaning Classique). Le prochain cours abordera la gestion des valeurs manquantes : suppression, imputation et décision métier.
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+  hljs.highlightAll();
+
+  const sidebar = document.getElementById('sidebar');
+  document.getElementById('menuToggle').addEventListener('click', () => {
+    sidebar.classList.toggle('open');
+  });
+
+  const lessonLinks = document.querySelectorAll('[data-lesson]');
+  const storageKey = 'course-progress-' + (document.title || 'default');
+  const done = JSON.parse(localStorage.getItem(storageKey) || '{}');
+
+  function updateProgressBar() {
+    const total = lessonLinks.length;
+    const completed = Object.values(done).filter(Boolean).length;
+    document.getElementById('progressFill').style.width = (completed / total * 100) + '%';
+  }
+
+  lessonLinks.forEach(link => {
+    const id = link.dataset.lesson;
+    if (done[id]) link.querySelector('.lesson-check').classList.add('done');
+
+    link.addEventListener('click', () => {
+      done[id] = true;
+      localStorage.setItem(storageKey, JSON.stringify(done));
+      link.querySelector('.lesson-check').classList.add('done');
+      lessonLinks.forEach(l => l.classList.remove('active'));
+      link.classList.add('active');
+      updateProgressBar();
+      sidebar.classList.remove('open');
+    });
+  });
+
+  updateProgressBar();
+</script>
+</body>
+</html>
