@@ -1,0 +1,2200 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Validation de Schéma de Données — Types, Contraintes et Cohérence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Karla:wght@400;500;600&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<style>
+  :root {
+    --bg:         #f6f7f9;
+    --bg-alt:     #eaedf1;
+    --bg-card:    #ffffff;
+    --text:       #14181f;
+    --text-muted: #5c6472;
+    --border:     #dde1e6;
+    --border2:    #c7ccd3;
+
+    --schema:       #3a3f8f;
+    --schema-dim:   #e5e6f5;
+    --valid:        #0d7d4d;
+    --valid-dim:    #e0f2e8;
+    --violation:    #b3261e;
+    --violation-dim:#fbe4e2;
+
+    --font-display: 'Plus Jakarta Sans', sans-serif;
+    --font-body: 'Karla', sans-serif;
+    --font-mono: 'Fira Code', monospace;
+
+    --sidebar-width: 300px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font-body);
+    color: var(--text);
+    background: var(--bg);
+    line-height: 1.7;
+  }
+
+  .layout { display: flex; min-height: 100vh; }
+
+  /* ---- Sidebar ---- */
+  .sidebar {
+    width: var(--sidebar-width);
+    flex-shrink: 0;
+    background: var(--bg-card);
+    border-right: 1px solid var(--border);
+    padding: 1.75rem 1.25rem 2rem;
+    overflow-y: auto;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+  }
+
+  .sidebar-header {
+    position: relative;
+    padding-bottom: 1.25rem;
+    margin-bottom: 1.25rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-header .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--schema);
+    display: block;
+    margin-bottom: 0.4rem;
+  }
+
+  .sidebar h1 {
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    font-weight: 800;
+    line-height: 1.35;
+  }
+
+  /* signature : rangée de chips de type, un invalidé */
+  .schema-signature {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 1rem;
+  }
+  .type-chip {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 5px;
+    border: 1px solid var(--border2);
+    color: var(--text-muted);
+    background: var(--bg-alt);
+  }
+  .type-chip.invalid {
+    border-color: var(--violation);
+    color: white;
+    background: var(--violation);
+    text-decoration: line-through;
+  }
+
+  .module-group { margin-bottom: 0.35rem; }
+
+  .module-title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 0.9rem;
+    padding: 0.6rem 0.5rem;
+    cursor: pointer;
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text);
+  }
+  .module-title:hover { background: var(--bg-alt); }
+  .module-num {
+    font-family: var(--font-mono);
+    color: var(--schema);
+    font-size: 0.76rem;
+    flex-shrink: 0;
+  }
+
+  .lesson-list { list-style: none; padding-left: 0.6rem; margin-bottom: 0.5rem; }
+  .lesson-list li a {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.4rem 0.5rem;
+    border-radius: 7px;
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.86rem;
+  }
+  .lesson-list li a:hover { background: var(--bg-alt); color: var(--text); }
+  .lesson-list li a.active { color: var(--schema); font-weight: 600; background: var(--schema-dim); }
+
+  .lesson-check {
+    width: 13px; height: 13px; flex-shrink: 0;
+    border: 1.5px dashed var(--border2); border-radius: 3px;
+  }
+  .lesson-check.done { background: var(--schema); border: 1.5px solid var(--schema); }
+
+  /* ---- Barre de progression ---- */
+  .progress-bar {
+    height: 4px;
+    background: var(--border);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--schema), var(--valid));
+    width: 0%;
+    transition: width 0.2s ease;
+  }
+
+  /* ---- Contenu principal ---- */
+  .content {
+    flex: 1;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 3rem 2rem 6rem;
+  }
+
+  .content section { margin-bottom: 4rem; }
+
+  .lesson-kicker {
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    color: var(--schema);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.6rem;
+    display: block;
+  }
+
+  .content h2 {
+    font-family: var(--font-display);
+    font-size: 1.7rem;
+    font-weight: 800;
+    margin-bottom: 1.1rem;
+    line-height: 1.3;
+  }
+  .content h3 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.1rem;
+    margin: 1.75rem 0 0.75rem;
+    color: var(--text);
+  }
+  .content p, .content ul, .content ol { margin-bottom: 1.1rem; }
+  .content ul, .content ol { padding-left: 1.4rem; }
+  .content li { margin-bottom: 0.4rem; }
+  .content strong { color: var(--text); }
+  .content code {
+    font-family: var(--font-mono);
+    background: var(--bg-alt);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.85em;
+  }
+
+  pre {
+    border-radius: 10px;
+    padding: 1.1rem 1.2rem;
+    overflow-x: auto;
+    margin: 1.2rem 0;
+    font-size: 0.85rem;
+  }
+  pre code { background: none; padding: 0; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.2rem 0;
+    font-size: 0.9rem;
+  }
+  th, td {
+    text-align: left;
+    padding: 0.55rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+  }
+  th { font-family: var(--font-display); font-size: 0.82rem; color: var(--text-muted); }
+
+  /* Signature du cours : ligne champ -> contrainte -> verdict */
+  .signal-row {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.8rem 1.1rem;
+    margin: 1rem 0;
+    flex-wrap: wrap;
+  }
+  .signal-row .value-tag {
+    border: 1.5px dashed var(--border2); color: var(--text-muted);
+    padding: 0.2rem 0.55rem; border-radius: 5px;
+  }
+  .signal-row .arrow { color: var(--text-muted); }
+  .signal-row .flag-tag {
+    background: var(--violation); color: white; font-weight: 600;
+    padding: 0.2rem 0.55rem; border-radius: 5px;
+  }
+  .signal-row .ok-tag {
+    background: var(--valid); color: white; font-weight: 600;
+    padding: 0.2rem 0.55rem; border-radius: 5px;
+  }
+
+  .callout {
+    border-left: 4px solid var(--schema);
+    background: var(--schema-dim);
+    padding: 1rem 1.2rem;
+    border-radius: 0 10px 10px 0;
+    margin: 1.4rem 0;
+  }
+  .callout strong {
+    font-family: var(--font-display);
+    display: block;
+    margin-bottom: 0.3rem;
+    font-size: 0.9rem;
+  }
+  .callout.pitfall { border-left-color: var(--violation); background: var(--violation-dim); }
+  .callout.exercise { border-left-color: var(--valid); background: var(--valid-dim); }
+
+  .module-divider {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 0 0 2.5rem;
+    color: var(--text-muted);
+  }
+  .module-divider .num {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--schema);
+    background: var(--schema-dim);
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    flex-shrink: 0;
+  }
+  .module-divider .line { flex: 1; height: 1px; background: var(--border2); }
+
+  .menu-toggle { display: none; }
+
+  @media (max-width: 768px) {
+    .sidebar {
+      position: fixed;
+      left: -100%;
+      z-index: 20;
+      transition: left 0.2s ease;
+      box-shadow: 4px 0 12px rgba(0,0,0,0.12);
+      width: 85%;
+      max-width: 320px;
+    }
+    .sidebar.open { left: 0; }
+    .menu-toggle {
+      display: block;
+      position: fixed;
+      top: 1rem; left: 1rem;
+      z-index: 30;
+      background: var(--schema);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 0.55rem 0.8rem;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    .content { padding: 4.5rem 1.25rem 3rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-bar-fill" id="progressFill"></div></div>
+<button class="menu-toggle" id="menuToggle">☰</button>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <span class="eyebrow">Bloc 2 · Data Cleaning Classique · Cours 4/4</span>
+      <h1>Validation de Schéma de Données</h1>
+      <div class="schema-signature">
+        <span class="type-chip">{int}</span>
+        <span class="type-chip">{str}</span>
+        <span class="type-chip invalid">{date}</span>
+        <span class="type-chip">⌀</span>
+      </div>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span class="module-num">01</span> Pourquoi Valider un Schéma</div>
+      <ul class="lesson-list">
+        <li><a href="#m1-l1" data-lesson="m1-l1"><span class="lesson-check"></span> Le Contrat Implicite Producteur/Consommateur</a></li>
+        <li><a href="#m1-l2" data-lesson="m1-l2"><span class="lesson-check"></span> Schema-on-Write vs Schema-on-Read</a></li>
+        <li><a href="#m1-l3" data-lesson="m1-l3"><span class="lesson-check"></span> Le Coût Réel d'un Schéma Non Validé</a></li>
+        <li><a href="#m1-l4" data-lesson="m1-l4"><span class="lesson-check"></span> Où Placer la Validation dans le Pipeline</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span class="module-num">02</span> Types au-delà du Typage Natif</div>
+      <ul class="lesson-list">
+        <li><a href="#m2-l1" data-lesson="m2-l1"><span class="lesson-check"></span> Pièges des Types Primitifs</a></li>
+        <li><a href="#m2-l2" data-lesson="m2-l2"><span class="lesson-check"></span> Types Sémantiques : Email, URL, IBAN</a></li>
+        <li><a href="#m2-l3" data-lesson="m2-l3"><span class="lesson-check"></span> Dates, Fuseaux et Formats Ambigus</a></li>
+        <li><a href="#m2-l4" data-lesson="m2-l4"><span class="lesson-check"></span> Catégories et Énumérations</a></li>
+        <li><a href="#m2-l5" data-lesson="m2-l5"><span class="lesson-check"></span> Nullable vs Non-Nullable</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span class="module-num">03</span> Contraintes de Valeur et Structure</div>
+      <ul class="lesson-list">
+        <li><a href="#m3-l1" data-lesson="m3-l1"><span class="lesson-check"></span> Plages de Valeurs et Regex</a></li>
+        <li><a href="#m3-l2" data-lesson="m3-l2"><span class="lesson-check"></span> Unicité, Clés Primaires et Étrangères</a></li>
+        <li><a href="#m3-l3" data-lesson="m3-l3"><span class="lesson-check"></span> Cardinalité et Contraintes Multi-Colonnes</a></li>
+        <li><a href="#m3-l4" data-lesson="m3-l4"><span class="lesson-check"></span> Contraintes Conditionnelles (Si-Alors)</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span class="module-num">04</span> Cohérence Inter-Colonnes/Tables</div>
+      <ul class="lesson-list">
+        <li><a href="#m4-l1" data-lesson="m4-l1"><span class="lesson-check"></span> Dépendances Fonctionnelles</a></li>
+        <li><a href="#m4-l2" data-lesson="m4-l2"><span class="lesson-check"></span> Intégrité Référentielle entre Tables</a></li>
+        <li><a href="#m4-l3" data-lesson="m4-l3"><span class="lesson-check"></span> Invariants Métier Complexes</a></li>
+        <li><a href="#m4-l4" data-lesson="m4-l4"><span class="lesson-check"></span> Détecter les Violations à Grande Échelle</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span class="module-num">05</span> Outils de Validation Déclarative</div>
+      <ul class="lesson-list">
+        <li><a href="#m5-l1" data-lesson="m5-l1"><span class="lesson-check"></span> Pandera pour DataFrames</a></li>
+        <li><a href="#m5-l2" data-lesson="m5-l2"><span class="lesson-check"></span> Great Expectations et Data Docs</a></li>
+        <li><a href="#m5-l3" data-lesson="m5-l3"><span class="lesson-check"></span> Pydantic au Niveau Enregistrement</a></li>
+        <li><a href="#m5-l4" data-lesson="m5-l4"><span class="lesson-check"></span> JSON Schema pour APIs</a></li>
+        <li><a href="#m5-l5" data-lesson="m5-l5"><span class="lesson-check"></span> Comparer les Outils</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span class="module-num">06</span> Évolution de Schéma</div>
+      <ul class="lesson-list">
+        <li><a href="#m6-l1" data-lesson="m6-l1"><span class="lesson-check"></span> Versionner un Schéma</a></li>
+        <li><a href="#m6-l2" data-lesson="m6-l2"><span class="lesson-check"></span> Compatibilité Ascendante et Descendante</a></li>
+        <li><a href="#m6-l3" data-lesson="m6-l3"><span class="lesson-check"></span> Migrer sans Rompre les Consommateurs</a></li>
+        <li><a href="#m6-l4" data-lesson="m6-l4"><span class="lesson-check"></span> Détecter la Dérive de Schéma</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span class="module-num">07</span> Intégration en Production</div>
+      <ul class="lesson-list">
+        <li><a href="#m7-l1" data-lesson="m7-l1"><span class="lesson-check"></span> Valider à l'Ingestion vs en Aval</a></li>
+        <li><a href="#m7-l2" data-lesson="m7-l2"><span class="lesson-check"></span> Échouer Vite ou Dégrader Gracieusement</a></li>
+        <li><a href="#m7-l3" data-lesson="m7-l3"><span class="lesson-check"></span> Tester des Schémas en CI/CD</a></li>
+        <li><a href="#m7-l4" data-lesson="m7-l4"><span class="lesson-check"></span> Monitorer les Violations de Schéma</a></li>
+      </ul>
+    </div>
+
+  </nav>
+
+  <main class="content">
+    <div class="module-divider">
+      <span class="num">MODULE 01 · POURQUOI VALIDER UN SCHÉMA</span>
+      <span class="line"></span>
+    </div>
+
+    <section id="m1-l1">
+      <span class="lesson-kicker">Module 1 · Leçon 1</span>
+      <h2>Le Contrat Implicite entre Producteur et Consommateur de Données</h2>
+
+      <p>Tout dataset qui transite d'un système à un autre — d'une base de données vers un pipeline analytique, d'une API vers un data warehouse, d'une équipe vers une autre — repose sur une hypothèse rarement énoncée explicitement : que sa structure (les colonnes présentes, leurs types, leurs contraintes) restera stable et prévisible. Cette hypothèse est un <strong>contrat</strong>, au même titre qu'un contrat d'interface entre deux services logiciels — sauf qu'il est presque toujours implicite, jamais signé, et donc jamais vérifié avant qu'une violation ne casse quelque chose en aval.</p>
+
+      <h3>Pourquoi ce contrat reste si souvent implicite</h3>
+      <p>Un pipeline de données typique fonctionne pendant des mois sans qu'aucune validation de schéma explicite n'existe : le code en aval suppose simplement qu'une colonne <code>montant</code> restera de type numérique, qu'une colonne <code>email</code> contiendra toujours une chaîne de caractères, qu'une colonne <code>id_client</code> ne sera jamais nulle. Tant que la source de données ne change pas, cette hypothèse implicite tient — jusqu'au jour où une mise à jour du système source introduit un changement (une colonne renommée, un type modifié, une valeur nulle désormais possible) qui casse silencieusement toute la chaîne en aval, souvent des semaines après le déploiement du changement, au moment où quelqu'un remarque un résultat incohérent.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+# Code écrit en supposant implicitement un contrat jamais vérifié :
+# "la colonne montant est toujours numérique, id_client jamais vide"
+def calculer_chiffre_affaires(df):
+    return df["montant"].sum()  # aucune vérification que "montant" est bien numérique
+
+# Six mois plus tard, le système source change le format de "montant" de 1500.00 à "1 500,00 €"
+# (un format européen avec devise) -- ce code continue de s'exécuter SANS ERREUR,
+# mais produit un résultat silencieusement incorrect (une concaténation de chaînes, pas une somme)
+df = pd.DataFrame({"montant": ["1 500,00 €", "800,00 €", "1 200,00 €"]})
+print(calculer_chiffre_affaires(df))  # concatène les chaînes au lieu de sommer -- aucune exception levée</code></pre>
+
+      <h3>Rendre le contrat explicite : la fonction du schéma</h3>
+      <p>Un schéma de données rend ce contrat implicite <strong>explicite et vérifiable</strong> : il déclare noir sur blanc quelles colonnes doivent exister, avec quel type, quelles contraintes de valeur, et quelle tolérance aux valeurs manquantes — puis un outil de validation (Module 5) vérifie automatiquement, à chaque exécution du pipeline, que les données reçues respectent effectivement ce contrat déclaré. La différence fondamentale avec l'exemple précédent : une violation du contrat déclenche une erreur explicite et immédiate, au bon endroit, plutôt qu'un résultat silencieusement incorrect découvert bien plus tard, souvent par la personne la moins bien placée pour en comprendre la cause.</p>
+
+      <pre><code class="language-python">import pandera as pa
+from pandera import Column, DataFrameSchema, Check
+
+schema_attendu = DataFrameSchema({
+    "montant": Column(float, Check.greater_than(0), nullable=False),
+    "id_client": Column(str, nullable=False),
+})
+
+try:
+    schema_attendu.validate(df)
+except pa.errors.SchemaError as erreur:
+    print(f"Contrat violé, détecté immédiatement : {erreur}")
+    # Ici, la colonne "montant" contient des chaînes non numériques -- l'erreur est levée
+    # au point d'entrée du pipeline, pas des étapes plus tard sous une forme méconnaissable</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Considérer la validation de schéma comme une surcouche bureaucratique optionnelle, réservée aux "gros" projets ou aux équipes matures. En réalité, le coût de sa mise en place est faible comparé au coût, souvent invisible jusqu'à l'incident, d'un contrat implicite jamais vérifié — ce cours entier découle de ce simple renversement de perspective.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Décrivez un pipeline de données que vous connaissez (professionnel ou personnel) et identifiez au moins deux hypothèses implicites sur la structure des données qu'il suppose sans jamais les vérifier explicitement.
+      </div>
+    </section>
+
+    <section id="m1-l2">
+      <span class="lesson-kicker">Module 1 · Leçon 2</span>
+      <h2>Schema-on-Write vs Schema-on-Read</h2>
+
+      <p>Deux philosophies opposées existent pour appliquer un schéma à des données, et le choix entre elles détermine à quel moment une violation de contrat est détectée — bien avant l'usage des données, ou seulement au moment où elles sont effectivement lues et exploitées.</p>
+
+      <h3>Schema-on-Write : valider avant d'écrire</h3>
+      <p>Le schéma est appliqué et vérifié <strong>au moment de l'écriture</strong> des données dans le système de stockage — une base de données relationnelle classique (PostgreSQL, MySQL) en est l'exemple le plus répandu : une table avec des colonnes typées refuse par construction l'insertion d'une ligne qui ne respecte pas ces types ou ces contraintes (une contrainte <code>NOT NULL</code>, une clé étrangère). L'avantage majeur : aucune donnée non conforme ne peut jamais entrer dans le système, garantissant que tout ce qui en sort respecte le contrat.</p>
+
+      <pre><code class="language-sql">CREATE TABLE clients (
+    id_client INTEGER PRIMARY KEY,
+    email VARCHAR(255) NOT NULL,
+    age INTEGER CHECK (age >= 0 AND age <= 120)
+);
+
+-- Cette insertion échoue IMMÉDIATEMENT, avant même que la ligne n'existe dans la table --
+-- schema-on-write empêche la donnée non conforme d'entrer dans le système
+INSERT INTO clients (id_client, email, age) VALUES (1, NULL, 34);
+-- ERROR: null value in column "email" violates not-null constraint</code></pre>
+
+      <h3>Schema-on-Read : valider au moment de la lecture</h3>
+      <p>À l'inverse, un système schema-on-read (un data lake sur des fichiers Parquet ou JSON bruts, une base NoSQL sans schéma imposé) stocke les données telles quelles, sans vérification à l'écriture, et applique un schéma seulement au moment où une requête tente de les lire et de les interpréter selon une structure attendue. C'est l'approche dominante des architectures big data modernes (Spark, data lakes cloud), car elle offre une flexibilité d'ingestion bien supérieure — au prix d'un risque explicite : des données incohérentes ou mal formées peuvent s'accumuler silencieusement dans le stockage pendant longtemps avant qu'une lecture ne révèle enfin le problème.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+# Le fichier JSON brut a été écrit SANS AUCUNE validation de schéma (schema-on-read typique)
+# -- il peut contenir n'importe quelle structure, y compris incohérente d'un enregistrement à l'autre
+donnees_brutes = [
+    {"id_client": 1, "email": "a@ex.com", "age": 34},
+    {"id_client": 2, "age": "trente"},  # email manquant, age est une chaîne -- accepté à l'écriture
+]
+
+# Le schéma n'est appliqué et la violation détectée qu'ICI, au moment de la lecture --
+# potentiellement bien après que la donnée corrompue a été stockée
+df = pd.DataFrame(donnees_brutes)
+import pandera as pa
+schema = pa.DataFrameSchema({"email": pa.Column(str, nullable=False), "age": pa.Column(int)})
+try:
+    schema.validate(df)
+except pa.errors.SchemaError as e:
+    print(f"Violation détectée à la lecture, données déjà stockées : {e}")</code></pre>
+
+      <h3>Le compromis réel : flexibilité d'ingestion contre détection précoce</h3>
+      <p>Aucune des deux approches n'est universellement supérieure : schema-on-write garantit une cohérence stricte au prix d'une friction à l'ingestion (toute nouvelle source de données doit s'y conformer immédiatement, ce qui ralentit l'exploration de nouvelles données), tandis que schema-on-read permet d'ingérer rapidement des données hétérogènes ou évolutives, au prix d'un risque de données corrompues stockées et découvertes tardivement. Beaucoup d'architectures modernes combinent les deux : une zone d'ingestion brute schema-on-read (souvent appelée "bronze" ou "raw"), suivie d'une validation stricte schema-on-write avant que les données ne progressent vers des zones "silver" ou "gold" consommées par les équipes métier.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Adopter un stockage schema-on-read (un data lake, par exemple) en pensant à tort que cela dispense de toute validation de schéma, alors que cela ne fait que déplacer le moment de la détection — souvent bien plus tard, et bien plus coûteux à corriger une fois que des données non conformes se sont accumulées en volume dans le stockage brut.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une équipe stocke des événements utilisateurs bruts dans un data lake schema-on-read, puis les transforme mensuellement vers un entrepôt de données analytique schema-on-write. Décrivez à quel(s) moment(s) précis de ce pipeline vous ajouteriez une validation de schéma explicite, et pourquoi.
+      </div>
+    </section>
+
+    <section id="m1-l3">
+      <span class="lesson-kicker">Module 1 · Leçon 3</span>
+      <h2>Le Coût Réel d'un Schéma Non Validé en Production</h2>
+
+      <p>Cette leçon quantifie, par des scénarios concrets, ce que coûte réellement l'absence de validation de schéma — un coût presque toujours invisible au moment où la décision de "ne pas valider pour aller plus vite" est prise, et qui se révèle bien plus tard, de façon disproportionnée par rapport à l'effort initial économisé.</p>
+
+      <h3>Le scénario de la propagation silencieuse</h3>
+      <p>Une violation de schéma non détectée à sa source ne reste presque jamais localisée : elle se propage silencieusement à travers chaque étape du pipeline qui consomme la donnée, chacune ajoutant sa propre couche de transformation sur une base déjà corrompue. Un changement de type sur une colonne source (un identifiant qui passe d'entier à chaîne de caractères) peut ainsi corrompre une jointure en aval (qui échoue silencieusement à faire correspondre les identifiants), qui elle-même fausse un agrégat, qui alimente enfin un tableau de bord consulté par une direction pour une décision business — chaque étape intermédiaire amplifiant le coût de la remontée à la cause racine.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+# Étape 1 (source) : id_produit passe silencieusement de int à str suite à un changement en amont
+commandes = pd.DataFrame({"id_produit": ["101", "102", "103"], "quantite": [5, 3, 8]})
+catalogue = pd.DataFrame({"id_produit": [101, 102, 103], "prix": [20.0, 15.0, 30.0]})
+
+# Étape 2 (jointure) : échoue silencieusement à faire correspondre les types différents
+resultat = commandes.merge(catalogue, on="id_produit", how="left")
+print(resultat)
+# La colonne "prix" est entièrement NaN pour toutes les lignes -- aucune erreur levée,
+# mais l'agrégat de chiffre d'affaires calculé en aval sera silencieusement de zéro</code></pre>
+
+      <h3>Estimer l'ordre de grandeur du coût selon le point de détection</h3>
+      <p>Une règle empirique largement partagée dans l'ingénierie logicielle (et directement transposable à la qualité de données) veut que le coût de correction d'un défaut soit multiplié par un facteur substantiel à chaque étape où sa détection est retardée : détecté à l'ingestion (quelques minutes de correction), détecté en aval dans un pipeline de transformation (nécessite souvent de rejouer plusieurs traitements), détecté par un utilisateur final sur un tableau de bord erroné (nécessite d'abord de localiser la cause racine à travers toute la chaîne, puis de corriger, puis de recommuniquer sur la fiabilité des chiffres déjà partagés).</p>
+
+      <table>
+        <tr><th>Point de détection</th><th>Coût typique de correction</th><th>Risque additionnel</th></tr>
+        <tr><td>À l'ingestion (validation de schéma)</td><td>Minimal — rejet immédiat, cause évidente</td><td>Aucun</td></tr>
+        <tr><td>En cours de pipeline (tests de données)</td><td>Modéré — traitements à rejouer</td><td>Retard de livraison</td></tr>
+        <tr><td>Par un utilisateur final (dashboard, rapport)</td><td>Élevé — investigation complète, correction, recommunication</td><td>Perte de confiance dans les données</td></tr>
+        <tr><td>Par une décision business erronée déjà prise</td><td>Très élevé, parfois irréversible</td><td>Impact financier ou réputationnel direct</td></tr>
+      </table>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Justifier l'absence de validation de schéma par un gain de vitesse de développement à court terme, sans considérer que ce gain est systématiquement compensé, et largement dépassé, par le coût de détection et de correction tardive une fois le pipeline en production — un calcul rarement fait explicitement, ce qui explique sa persistance malgré son coût réel.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un tableau de bord de direction affiche un chiffre d'affaires mensuel anormalement bas depuis trois semaines, sans qu'aucune alerte technique n'ait été déclenchée. Décrivez le chemin d'investigation probable pour remonter à la cause racine, et comparez son coût à celui d'une validation de schéma qui aurait intercepté le problème à sa source.
+      </div>
+    </section>
+
+    <section id="m1-l4">
+      <span class="lesson-kicker">Module 1 · Leçon 4</span>
+      <h2>Où Placer la Validation dans un Pipeline de Données</h2>
+
+      <p>Une fois convaincu de la nécessité de valider un schéma, la question suivante est architecturale : à quel(s) point(s) précis d'un pipeline de données cette validation doit-elle intervenir ? Un placement mal choisi peut soit laisser passer des violations importantes, soit multiplier des vérifications redondantes qui alourdissent le pipeline sans bénéfice proportionnel.</p>
+
+      <h3>Les points de validation naturels d'un pipeline typique</h3>
+      <p>Un pipeline de données traverse généralement plusieurs frontières de confiance, chacune un candidat naturel à une validation de schéma : à l'<strong>ingestion</strong> (dès que la donnée entre dans le système, avant toute transformation) ; entre chaque <strong>étape de transformation majeure</strong> (avant et après une jointure complexe, une agrégation) ; et en <strong>sortie</strong>, juste avant que les données ne soient exposées à des consommateurs externes (une API, un tableau de bord, une équipe tierce).</p>
+
+      <pre><code class="language-python">import pandera as pa
+from pandera import Column, DataFrameSchema
+
+schema_ingestion = DataFrameSchema({
+    "id_produit": Column(int, nullable=False),
+    "quantite": Column(int, pa.Check.greater_than(0)),
+})
+
+schema_sortie = DataFrameSchema({
+    "id_produit": Column(int, nullable=False),
+    "quantite": Column(int, pa.Check.greater_than(0)),
+    "chiffre_affaires": Column(float, pa.Check.greater_than_or_equal_to(0)),
+})
+
+def pipeline_commandes(donnees_brutes, catalogue):
+    df = schema_ingestion.validate(donnees_brutes)  # frontière 1 : à l'entrée du pipeline
+    df = df.merge(catalogue, on="id_produit", how="left")
+    df["chiffre_affaires"] = df["quantite"] * df["prix"]
+    return schema_sortie.validate(df)  # frontière 2 : juste avant l'exposition aux consommateurs</code></pre>
+
+      <h3>Le compromis coût de validation vs couverture</h3>
+      <p>Valider à chaque étape intermédiaire offre la détection la plus précoce possible de toute violation, mais introduit un coût de calcul et de maintenance à chaque point ajouté (un schéma supplémentaire à écrire et faire évoluer). En pratique, la recommandation courante est de valider systématiquement aux deux frontières incontournables — l'ingestion et la sortie — et d'ajouter des validations intermédiaires ciblées uniquement aux étapes de transformation identifiées comme les plus à risque (une jointure complexe entre sources hétérogènes, une agrégation qui masque facilement une erreur de type sous-jacente comme vu en leçon 3).</p>
+
+      <h3>Ne pas confondre validation de schéma et validation de qualité de données</h3>
+      <p>La validation de schéma (ce cours) vérifie la <strong>structure</strong> — types, présence de colonnes, contraintes de base. Elle est complémentaire, mais distincte, des méthodes de détection d'anomalies vues au cours précédent du Bloc 2 : un schéma valide (toutes les colonnes du bon type, aucune valeur nulle non autorisée) n'empêche en rien la présence d'anomalies statistiques ou métier en son sein (un montant de 999 999€ parfaitement conforme au type <code>float</code> attendu peut rester une anomalie au sens du Module 1 du cours précédent). Un pipeline de qualité mature applique les deux couches en séquence : le schéma d'abord (structure), la détection d'anomalies ensuite (contenu), comme synthétisé dans le pipeline complet du Module 7 de ce cours.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Valider le schéma une seule fois à l'ingestion et supposer que cette garantie reste valable après plusieurs transformations complexes en aval (jointures, agrégations, pivots) qui peuvent elles-mêmes introduire des incohérences de type ou de structure non présentes dans les données d'origine. Une validation en sortie, juste avant l'exposition aux consommateurs, reste nécessaire même si l'ingestion a déjà été validée.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Pour un pipeline qui ingère des données de trois sources différentes, les joint, calcule des agrégats, puis les expose via une API, identifiez les deux ou trois points où vous placeriez une validation de schéma, en justifiant chaque choix par rapport au compromis coût/couverture de cette leçon.
+      </div>
+    </section>
+
+    <div class="module-divider">
+      <span class="num">MODULE 02 · TYPES AU-DELÀ DU TYPAGE NATIF</span>
+      <span class="line"></span>
+    </div>
+
+    <section id="m2-l1">
+      <span class="lesson-kicker">Module 2 · Leçon 1</span>
+      <h2>Pièges des Types Primitifs (int, float, string, bool)</h2>
+
+      <p>Le typage natif d'un langage ou d'un format de données (int, float, string, bool) donne une fausse impression de sécurité : un champ typé <code>int</code> semble garantir qu'il contient un entier valide, alors qu'en pratique de nombreux pièges subsistent, tous plus fréquents en données réelles que ne le suggère une vision purement académique du typage.</p>
+
+      <h3>Le piège de la coercition implicite</h3>
+      <p>De nombreux formats et langages effectuent une conversion automatique et silencieuse entre types compatibles en apparence — une chaîne <code>"42"</code> convertie automatiquement en entier 42 lors d'une opération arithmétique, une valeur booléenne convertie en 0 ou 1. Cette coercition, souvent perçue comme une commodité, masque en réalité des erreurs de type qui devraient être détectées et signalées plutôt que silencieusement corrigées à la volée.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+df = pd.DataFrame({"quantite": ["5", "3", "abc", "8"]})  # colonne censée être numérique, stockée en texte
+print(df["quantite"].dtype)  # object -- pandas n'a jamais validé qu'il s'agissait bien d'entiers
+
+# pd.to_numeric avec errors="coerce" convertit silencieusement les valeurs invalides en NaN --
+# une correction "pratique" qui masque une vraie erreur de type sans jamais la signaler explicitement
+df["quantite_convertie"] = pd.to_numeric(df["quantite"], errors="coerce")
+print(df)
+# La ligne "abc" devient NaN sans qu'aucune alerte ne soit levée -- une validation de schéma
+# explicite (Module 5) aurait détecté et signalé ce problème au lieu de le masquer silencieusement</code></pre>
+
+      <h3>Le piège de la précision flottante</h3>
+      <p>Les nombres à virgule flottante (float) ne représentent pas exactement la plupart des valeurs décimales en base 10 — une contrainte d'égalité stricte sur un float est donc presque toujours une erreur latente. Un montant financier stocké en float peut accumuler des erreurs d'arrondi minuscules mais réelles au fil d'opérations successives, un problème suffisamment sérieux pour que la plupart des systèmes financiers professionnels utilisent des types décimaux dédiés plutôt que des floats natifs.</p>
+
+      <pre><code class="language-python">print(0.1 + 0.2 == 0.3)  # False -- piège classique de la représentation flottante en base 2
+print(0.1 + 0.2)          # 0.30000000000000004
+
+from decimal import Decimal
+print(Decimal("0.1") + Decimal("0.2") == Decimal("0.3"))  # True -- Decimal évite ce piège
+# Pour toute donnée financière, préférer Decimal (Python) ou NUMERIC (SQL) à float dès la conception du schéma</code></pre>
+
+      <h3>Le piège du booléen à trois états implicite</h3>
+      <p>Un champ booléen supposé binaire (vrai/faux) cache souvent, en données réelles, un troisième état implicite : "inconnu" ou "non renseigné", représenté par une valeur nulle. Un schéma qui type une colonne comme <code>bool</code> sans jamais préciser si elle est nullable transforme silencieusement ce troisième état en une ambiguïté — une valeur nulle interprétée à tort comme <code>False</code> par certains outils, ou comme une erreur de type par d'autres.</p>
+
+      <pre><code class="language-python">import pandas as pd
+import numpy as np
+
+df = pd.DataFrame({"a_accepte_cgu": [True, False, None, True]})
+print(df["a_accepte_cgu"].dtype)  # object, pas bool -- la présence de None empêche pandas
+                                   # d'utiliser le type bool natif, qui ne tolère pas de valeur nulle
+
+# Le type "boolean" (nullable, avec un B majuscule) de pandas distingue explicitement
+# les trois états : True, False, et <NA> -- contrairement à un bool natif à deux états
+df["a_accepte_cgu_nullable"] = pd.array([True, False, None, True], dtype="boolean")
+print(df["a_accepte_cgu_nullable"])</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Faire confiance au type déclaré d'une colonne (par exemple <code>int64</code> dans un DataFrame pandas) sans vérifier que ce type reflète une validation réelle plutôt qu'une simple coercition automatique silencieuse effectuée lors du chargement des données. Le type affiché par un outil n'est jamais une preuve de validité — seule une validation explicite (Module 5) l'est.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un champ "prix" est stocké en float dans un système e-commerce et présente occasionnellement des écarts d'un centime lors de calculs de totaux de panier. Expliquez la cause probable et la correction de typage à apporter.
+      </div>
+    </section>
+
+    <section id="m2-l2">
+      <span class="lesson-kicker">Module 2 · Leçon 2</span>
+      <h2>Types Sémantiques : Email, URL, Code Postal, IBAN</h2>
+
+      <p>Au-delà des types primitifs de la leçon précédente, une grande partie des données réelles porte un <strong>type sémantique</strong> — une signification métier précise (une adresse email, un IBAN, un code postal) qui impose des contraintes de format bien plus riches que ne le permet un simple type <code>string</code>. Valider uniquement le type primitif ("c'est une chaîne de caractères") sans valider le type sémantique ("c'est une adresse email syntaxiquement valide") laisse passer une quantité substantielle d'erreurs réelles.</p>
+
+      <h3>Le cas de l'email : une validation plus subtile qu'il n'y paraît</h3>
+      <p>Valider une adresse email semble trivial, mais la spécification complète (RFC 5322) autorise une variété de formats bien plus large que ne le suggère l'intuition commune — et à l'inverse, une regex trop permissive laisse passer des erreurs évidentes (absence de <code>@</code>, domaine sans point). La pratique recommandée consiste à utiliser une bibliothèque dédiée et maintenue plutôt qu'une expression régulière maison, presque toujours incomplète ou trop stricte dans un sens ou dans l'autre.</p>
+
+      <pre><code class="language-python">from email_validator import validate_email, EmailNotValidError
+
+emails_a_verifier = ["contact@entreprise.fr", "invalide", "sans-arobase.com", "test@@double.com"]
+
+for email in emails_a_verifier:
+    try:
+        resultat = validate_email(email, check_deliverability=False)
+        print(f"{email} : valide -> {resultat.normalized}")
+    except EmailNotValidError as erreur:
+        print(f"{email} : invalide -- {erreur}")</code></pre>
+
+      <h3>Le cas de l'IBAN : format structuré avec clé de contrôle</h3>
+      <p>Un IBAN (International Bank Account Number) suit un format structuré par pays (longueur fixe, code pays, chiffres de contrôle calculés selon un algorithme précis, modulo 97). Une validation de type sémantique correcte ne se limite pas à vérifier la longueur de la chaîne — elle recalcule effectivement la clé de contrôle pour détecter une erreur de saisie (une transposition de deux chiffres, par exemple), que la seule longueur ne révélerait jamais.</p>
+
+      <pre><code class="language-python">from schwifty import IBAN
+from schwifty.exceptions import SchwiftyException
+
+ibans_a_verifier = ["FR7630006000011234567890189", "FR7630006000011234567890180"]  # dernier chiffre modifié
+
+for iban in ibans_a_verifier:
+    try:
+        validé = IBAN(iban)
+        print(f"{iban} : valide -- banque {validé.bank_code}")
+    except SchwiftyException as erreur:
+        print(f"{iban} : invalide -- clé de contrôle incorrecte ({erreur})")</code></pre>
+
+      <h3>Le cas du code postal : une contrainte dépendante du pays</h3>
+      <p>Un code postal n'a de sens de validation qu'en relation avec un pays donné — cinq chiffres pour la France, un format alphanumérique pour le Canada ou le Royaume-Uni. Une règle métier de validation de type sémantique doit donc souvent être <strong>conditionnelle</strong> à une autre colonne du même enregistrement (le pays), un cas qui préfigure directement les contraintes conditionnelles et la cohérence inter-colonnes des Modules 3 et 4.</p>
+
+      <pre><code class="language-python">import re
+
+PATRONS_CODE_POSTAL = {
+    "FR": re.compile(r"^\d{5}$"),
+    "CA": re.compile(r"^[A-Za-z]\d[A-Za-z] ?\d[A-Za-z]\d$"),
+    "GB": re.compile(r"^[A-Za-z]{1,2}\d[A-Za-z\d]? ?\d[A-Za-z]{2}$"),
+}
+
+def valider_code_postal(code_postal, pays):
+    patron = PATRONS_CODE_POSTAL.get(pays)
+    if patron is None:
+        return None  # pays non couvert par le référentiel -- à traiter explicitement, pas ignoré silencieusement
+    return bool(patron.match(code_postal))
+
+print(valider_code_postal("75001", "FR"))    # True
+print(valider_code_postal("K1A 0B1", "CA"))  # True
+print(valider_code_postal("75001", "CA"))    # False -- format français appliqué à un enregistrement canadien</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Écrire une expression régulière maison pour valider un type sémantique complexe (email, IBAN) plutôt que d'utiliser une bibliothèque dédiée et maintenue par une communauté. Les regex maison couvrent presque toujours un sous-ensemble incomplet des cas valides réels (rejetant à tort des emails ou IBAN légitimes mais atypiques) ou, à l'inverse, laissent passer des formats invalides que la spécification officielle exclurait.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un dataset international contient une colonne "code_postal" sans colonne "pays" associée. Expliquez pourquoi une validation de type sémantique fiable est impossible dans ces conditions, et quelle information manquante devrait être ajoutée au schéma.
+      </div>
+    </section>
+
+    <section id="m2-l3">
+      <span class="lesson-kicker">Module 2 · Leçon 3</span>
+      <h2>Dates, Fuseaux Horaires et Formats Ambigus</h2>
+
+      <p>Les données temporelles constituent l'une des catégories les plus riches en pièges de validation de schéma, pour une raison structurelle : une date ou un horodatage n'est jamais une valeur "brute" au même titre qu'un entier — elle porte toujours, explicitement ou implicitement, un format de représentation, un fuseau horaire, et une convention culturelle qui, mal spécifiés ou mal validés, produisent des erreurs d'interprétation silencieuses plutôt que des erreurs de type détectables.</p>
+
+      <h3>L'ambiguïté fondamentale des formats jour/mois</h3>
+      <p>La date "03/04/2024" signifie le 3 avril pour une convention européenne (JJ/MM/AAAA), et le 4 mars pour une convention américaine (MM/JJ/AAAA) — deux interprétations parfaitement valides syntaxiquement, produisant une date différente sans qu'aucune erreur ne soit levée dans un sens comme dans l'autre. Un schéma de données rigoureux doit imposer un format non ambigu (le format ISO 8601, <code>AAAA-MM-JJ</code>, est sans équivoque et internationalement standardisé) plutôt que de tolérer implicitement un format qui dépend de la locale du système ou de l'auteur de la donnée.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+dates_ambigues = pd.Series(["03/04/2024", "15/06/2024"])
+# "15/06/2024" ne peut être interprété qu'en JJ/MM (aucun mois 15 n'existe) -- un signal
+# que la convention est européenne. Mais "03/04/2024", seul, reste réellement ambigu
+
+# dayfirst=True force explicitement l'interprétation JJ/MM, mais NE VALIDE PAS que la source
+# suit effectivement cette convention -- l'hypothèse doit être vérifiée par ailleurs (métadonnées, documentation)
+dates_parsees = pd.to_datetime(dates_ambigues, dayfirst=True)
+print(dates_parsees)
+
+# La seule vraie solution structurelle : imposer le format ISO 8601 au niveau du schéma,
+# qui élimine l'ambiguïté par construction plutôt que par une convention externe fragile
+dates_iso = pd.Series(["2024-04-03", "2024-06-15"])
+print(pd.to_datetime(dates_iso, format="%Y-%m-%d"))  # aucune ambiguïté possible</code></pre>
+
+      <h3>Le piège du fuseau horaire implicite ("naive datetime")</h3>
+      <p>Un horodatage sans fuseau horaire explicite (dit "naive" en Python) est intrinsèquement incomplet : "2024-06-15 14:00:00" ne signifie rien de précis sans savoir s'il s'agit de UTC, d'une heure locale française, ou d'une heure locale américaine. Comparer ou combiner des horodatages naïfs provenant de systèmes différents (un serveur en UTC, un client dans un fuseau local) produit des résultats incorrects sans qu'aucune erreur de type ne soit jamais levée.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+horodatage_naif = pd.Timestamp("2024-06-15 14:00:00")  # aucun fuseau horaire associé -- ambigu
+horodatage_utc = pd.Timestamp("2024-06-15 14:00:00", tz="UTC")
+horodatage_paris = horodatage_utc.tz_convert("Europe/Paris")
+print(f"UTC   : {horodatage_utc}")
+print(f"Paris : {horodatage_paris}")  # 16:00 en été (UTC+2) -- une différence de 2 heures bien réelle
+
+# Un schéma de données rigoureux DEVRAIT exiger un type "datetime avec fuseau horaire",
+# jamais un datetime naïf, pour toute donnée destinée à être comparée entre systèmes ou fuseaux</code></pre>
+
+      <h3>Le piège du changement d'heure et des dates invalides qui en résultent</h3>
+      <p>Le passage à l'heure d'été ou d'hiver crée des horodatages qui n'existent tout simplement pas (2h30 du matin lors du passage à l'heure d'été en France, une heure qui est "sautée") ou qui existent deux fois (lors du passage à l'heure d'hiver). Un schéma qui valide uniquement le format syntaxique d'une date sans considérer ces cas limites peut accepter silencieusement un horodatage physiquement incohérent.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Stocker et valider des horodatages sans fuseau horaire explicite ("naive datetime") dans un système qui reçoit des données de sources situées dans des fuseaux différents. Toute comparaison, tri, ou calcul de durée entre deux horodatages naïfs d'origines différentes produit un résultat incorrect sans qu'aucune erreur ne soit jamais détectée par le typage seul.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un système ingère des commandes provenant d'un site e-commerce européen et d'une filiale américaine, chacune envoyant des horodatages naïfs dans sa propre heure locale. Décrivez le problème que cela pose pour trier l'ensemble des commandes par ordre chronologique global, et la correction de schéma qui l'éliminerait.
+      </div>
+    </section>
+
+    <section id="m2-l4">
+      <span class="lesson-kicker">Module 2 · Leçon 4</span>
+      <h2>Catégories, Énumérations et Valeurs Autorisées</h2>
+
+      <p>Une colonne catégorielle (un statut, un type, une catégorie) est souvent typée comme une simple chaîne de caractères, ce qui autorise implicitement <strong>toute</strong> valeur textuelle — alors que la sémantique métier n'en autorise en réalité qu'un ensemble fini et connu à l'avance. Cette leçon couvre la validation par énumération, qui restreint explicitement les valeurs acceptées à cet ensemble fini, transformant une contrainte métier implicite en une règle de schéma vérifiable.</p>
+
+      <h3>Le piège de la chaîne libre pour une donnée intrinsèquement catégorielle</h3>
+      <p>Sans contrainte d'énumération, une colonne "statut_commande" typée simplement comme chaîne de caractères accepte aussi bien "livré", "Livré", "LIVRE" (sans accent), "livree" (faute de frappe), ou "en cours de livraison" (une variante non standardisée) — chacune une valeur syntaxiquement valide pour le type <code>string</code>, mais sémantiquement incohérente avec les autres, fragmentant silencieusement ce qui devrait être une seule catégorie en plusieurs variantes distinctes pour tout regroupement ou agrégation ultérieure.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+df = pd.DataFrame({"statut": ["livré", "Livré", "LIVRE", "en_attente", "livree", "annulé"]})
+print(df["statut"].value_counts())
+# Cinq valeurs distinctes pour ce qui devrait être une seule catégorie "livré" en trois variantes --
+# un GROUP BY ou une agrégation par statut sous-comptera silencieusement chaque variante séparément</code></pre>
+
+      <h3>Valider par énumération stricte</h3>
+      <pre><code class="language-python">import pandera as pa
+from pandera import Column, DataFrameSchema, Check
+
+STATUTS_VALIDES = ["en_attente", "expédié", "livré", "annulé"]
+
+schema = DataFrameSchema({
+    "statut": Column(str, Check.isin(STATUTS_VALIDES)),
+})
+
+try:
+    schema.validate(df)
+except pa.errors.SchemaError as erreur:
+    print(f"Valeurs hors énumération détectées : {erreur}")
+    # "Livré", "LIVRE", et "livree" sont immédiatement signalées comme non conformes --
+    # forçant une harmonisation explicite AVANT toute analyse, plutôt qu'une fragmentation silencieuse</code></pre>
+
+      <h3>Le type catégoriel natif : performance et validation combinées</h3>
+      <p>Au-delà de la simple validation, pandas propose un type <code>category</code> natif qui déclare explicitement l'ensemble fini de valeurs autorisées au niveau du type de la colonne lui-même — toute tentative d'assigner une valeur hors de cet ensemble déclare une catégorie manquante plutôt que de l'accepter silencieusement, tout en offrant un gain de performance mémoire notable sur de grands volumes de données répétitives.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+type_categoriel = pd.CategoricalDtype(categories=["en_attente", "expédié", "livré", "annulé"], ordered=False)
+df["statut_categoriel"] = df["statut"].astype(type_categoriel)
+print(df["statut_categoriel"])
+# Les valeurs hors énumération ("Livré", "LIVRE", "livree") deviennent NaN lors de la conversion --
+# rendant visible et quantifiable ce qui était auparavant une fragmentation silencieuse</code></pre>
+
+      <h3>Gérer l'évolution légitime d'une énumération dans le temps</h3>
+      <p>Une énumération n'est pas figée pour toujours : un nouveau statut métier ("en_litige", par exemple) peut légitimement apparaître suite à une évolution du processus métier. La validation par énumération doit alors être mise à jour de façon gouvernée (rejoint le Module 5 leçon 4 du cours précédent sur la gouvernance des règles), plutôt que d'être soit ignorée (perdant toute valeur de contrôle), soit oubliée (bloquant à tort des données légitimes issues d'une évolution métier réelle).</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Traiter une colonne intrinsèquement catégorielle (un statut, un type, une catégorie métier) comme une simple chaîne de caractères libre, sans jamais imposer de contrainte d'énumération. Cette absence de contrainte permet l'accumulation silencieuse de variantes orthographiques ou de casse qui fragmentent une même catégorie logique en plusieurs valeurs distinctes, faussant tout comptage ou agrégation ultérieure sans qu'aucune erreur ne soit jamais levée.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une colonne "pays" contient les valeurs "France", "FR", "france", et "FRANCE" pour désigner le même pays. Proposez la contrainte de schéma qui aurait empêché cette fragmentation, et la correction à appliquer aux données déjà accumulées.
+      </div>
+    </section>
+
+    <section id="m2-l5">
+      <span class="lesson-kicker">Module 2 · Leçon 5</span>
+      <h2>Nullable vs Non-Nullable : une Décision Structurelle</h2>
+
+      <p>Cette dernière leçon du module aborde une décision de conception de schéma souvent traitée trop rapidement : déclarer si une colonne peut ou non contenir une valeur nulle. Loin d'être un détail technique mineur, c'est une décision structurelle qui encode une affirmation métier précise — "cette information est toujours disponible et obligatoire" versus "son absence est une possibilité légitime" — directement héritée des mécanismes de valeurs manquantes couverts au cours précédent du Bloc 2.</p>
+
+      <h3>Nullable comme affirmation métier, pas comme valeur par défaut technique</h3>
+      <p>Déclarer une colonne <code>nullable=True</code> par réflexe, "au cas où", affaiblit la valeur de contrôle du schéma tout entier : un consommateur en aval ne peut alors jamais présumer que la colonne sera renseignée, l'obligeant à gérer systématiquement le cas nul, même pour des colonnes qui, dans la réalité du domaine métier, devraient toujours être présentes (un identifiant client, par exemple, ne devrait structurellement jamais être nul). À l'inverse, déclarer une colonne <code>nullable=False</code> pour un champ dont l'absence est en réalité une situation métier parfaitement légitime (un champ "date_divorce" pour une personne jamais mariée, cf. cours précédent) provoquera des rejets injustifiés de données par ailleurs parfaitement valides.</p>
+
+      <pre><code class="language-python">import pandera as pa
+from pandera import Column, DataFrameSchema
+
+schema_client = DataFrameSchema({
+    "id_client": Column(int, nullable=False),       # affirmation métier : toujours présent, structurellement
+    "email": Column(str, nullable=False),            # obligatoire à l'inscription dans ce domaine métier
+    "date_derniere_connexion": Column("datetime64[ns]", nullable=True),  # légitimement absent pour un nouveau client
+    "code_parrainage": Column(str, nullable=True),   # optionnel par nature, pas par négligence de saisie
+})</code></pre>
+
+      <h3>Distinguer l'absence légitime de l'absence par défaillance</h3>
+      <p>Une colonne peut être <code>nullable=True</code> pour deux raisons très différentes qu'un schéma seul ne distingue pas explicitement : soit l'absence est une situation métier normale et attendue (le champ ne s'applique tout simplement pas à cet enregistrement), soit elle résulte d'une défaillance de collecte qui devrait, à terme, être corrigée. Un schéma rigoureux documente cette distinction — souvent via une colonne complémentaire explicite plutôt que de laisser cette nuance implicite dans la simple autorisation de nullité.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+df = pd.DataFrame({
+    "statut_marital": ["marié", "célibataire", "marié"],
+    "date_divorce": [pd.Timestamp("2020-01-01"), pd.NaT, pd.NaT],
+})
+
+# Rendre explicite la DISTINCTION entre absence structurelle et absence anormale,
+# plutôt que de laisser un NaT unique porter deux significations différentes
+df["date_divorce_applicable"] = df["statut_marital"] == "divorcé"
+df["anomalie_donnee_manquante"] = df["date_divorce_applicable"] & df["date_divorce"].isna()
+print(df)</code></pre>
+
+      <h3>Nullable et évolution du schéma : un axe de compatibilité</h3>
+      <p>La décision nullable/non-nullable a aussi un impact direct sur l'évolution future du schéma (Module 6) : ajouter une nouvelle colonne non-nullable à un schéma existant casse immédiatement toute donnée historique qui ne la contient pas, alors qu'ajouter cette même colonne comme nullable préserve la compatibilité ascendante. Ce choix, apparemment local à une seule colonne, a donc des implications qui dépassent la validation immédiate.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Déclarer systématiquement toutes les colonnes comme nullable par prudence excessive ("au cas où"), diluant ainsi la valeur de contrôle du schéma : un consommateur en aval ne peut plus jamais distinguer, à la seule lecture du schéma, les colonnes véritablement optionnelles par nature métier de celles qui devraient toujours être renseignées mais souffrent simplement d'un défaut de collecte non encore corrigé.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Pour un schéma de données RH, classez les colonnes suivantes en nullable ou non-nullable, en justifiant chaque choix par une réalité métier plutôt que par une prudence technique par défaut : "date_embauche", "date_fin_periode_essai", "numero_securite_sociale", "date_depart_retraite".
+      </div>
+    </section>
+
+    <div class="module-divider">
+      <span class="num">MODULE 03 · CONTRAINTES DE VALEUR ET DE STRUCTURE</span>
+      <span class="line"></span>
+    </div>
+
+    <section id="m3-l1">
+      <span class="lesson-kicker">Module 3 · Leçon 1</span>
+      <h2>Contraintes de Plage et Validation par Expression Régulière</h2>
+
+      <p>Au-delà du type d'une colonne (Module 2), la plupart des champs métier portent une contrainte de valeur plus fine que ne le capture le type seul — un âge doit être positif et raisonnablement borné, un code produit doit suivre un format précis. Cette leçon couvre les deux familles de contraintes de valeur les plus fondamentales : les plages numériques et les formats textuels validés par expression régulière.</p>
+
+      <h3>Contraintes de plage : bornées, ouvertes, ou strictement positives</h3>
+      <p>Une contrainte de plage restreint les valeurs acceptées d'une colonne numérique à un intervalle défini — borné des deux côtés (un pourcentage entre 0 et 100), borné d'un seul côté (une quantité strictement positive, sans borne supérieure), ou définie par une valeur d'exclusion précise (différent de zéro pour un diviseur). Ces contraintes rejoignent directement les règles métier absolues du cours précédent (Module 5), ici formalisées au niveau du schéma plutôt qu'appliquées comme un filtre séparé.</p>
+
+      <pre><code class="language-python">import pandera as pa
+from pandera import Column, DataFrameSchema, Check
+
+schema = DataFrameSchema({
+    "age": Column(int, Check.in_range(0, 120)),
+    "quantite_stock": Column(int, Check.greater_than_or_equal_to(0)),
+    "note_evaluation": Column(float, Check.in_range(0, 5)),
+    "taux_conversion": Column(float, [Check.greater_than(0), Check.less_than(1)]),  # bornes strictement exclusives
+})
+
+import pandas as pd
+df = pd.DataFrame({
+    "age": [34, 150, 28],
+    "quantite_stock": [10, -5, 20],
+    "note_evaluation": [4.5, 3.2, 5.5],
+    "taux_conversion": [0.15, 0.32, 1.0],
+})
+
+try:
+    schema.validate(df, lazy=True)  # lazy=True : collecte TOUTES les violations plutôt que de s'arrêter à la première
+except pa.errors.SchemaErrors as erreur:
+    print(erreur.failure_cases)</code></pre>
+
+      <h3>Validation par expression régulière pour les formats structurés</h3>
+      <p>Pour des champs textuels suivant un format structuré mais non couvert par une bibliothèque de type sémantique dédiée (Module 2, leçon 2) — un numéro de commande interne, un code produit propriétaire — une expression régulière reste l'outil approprié, à condition d'être suffisamment précise pour rejeter les cas invalides sans être si stricte qu'elle rejette des variations légitimes non anticipées.</p>
+
+      <pre><code class="language-python">import pandera as pa
+from pandera import Column, DataFrameSchema, Check
+
+schema_commandes = DataFrameSchema({
+    # Format attendu : CMD- suivi de exactement 8 chiffres, ex. CMD-20240615
+    "numero_commande": Column(str, Check.str_matches(r"^CMD-\d{8}$")),
+})
+
+df = pd.DataFrame({"numero_commande": ["CMD-20240615", "CMD-2024061", "cmd-20240615", "20240615"]})
+try:
+    schema_commandes.validate(df, lazy=True)
+except pa.errors.SchemaErrors as erreur:
+    print(erreur.failure_cases)
+# Les trois dernières valeurs sont rejetées : longueur incorrecte, casse incorrecte, préfixe manquant --
+# chacune une erreur de saisie ou d'intégration plausible que le format seul suffit à détecter</code></pre>
+
+      <h3>Le compromis strictness : ni trop laxiste, ni trop rigide</h3>
+      <p>Une contrainte de plage ou de format trop permissive laisse passer des erreurs réelles (une plage d'âge de 0 à 200 ans, par exemple, n'exclut pas des valeurs absurdes mais improbables comme 180 ans) ; une contrainte trop stricte rejette à tort des cas limites légitimes (un format de numéro de commande qui exclut par erreur un nouveau format introduit lors d'une migration de système, cf. Module 6 sur l'évolution de schéma). Chaque contrainte doit être calibrée et documentée avec sa justification métier explicite, exactement comme pour les règles du cours précédent.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Définir une contrainte de plage ou un format trop restrictif basé uniquement sur l'échantillon de données actuellement observé, sans anticiper les variations légitimes futures (un nouveau format de numéro de commande suite à une migration système, une plage de valeurs qui s'élargit avec la croissance de l'activité). Une contrainte trop rigide génère alors des rejets de données parfaitement valides, perçus à tort comme des bugs du pipeline plutôt que comme une contrainte de schéma devenue obsolète.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une colonne "note_satisfaction" doit être validée pour un questionnaire noté de 1 à 10, sans valeur décimale autorisée. Écrivez la contrainte pandera correspondante, en incluant à la fois le type et la plage.
+      </div>
+    </section>
+
+    <section id="m3-l2">
+      <span class="lesson-kicker">Module 3 · Leçon 2</span>
+      <h2>Unicité, Clés Primaires et Clés Étrangères</h2>
+
+      <p>Une contrainte d'unicité garantit qu'aucune valeur ne se répète dans une colonne (ou une combinaison de colonnes) donnée — une propriété fondamentale pour tout identifiant destiné à désigner sans ambiguïté un enregistrement unique. Cette leçon couvre l'unicité simple, les clés primaires qui en formalisent l'usage, et les clés étrangères qui étendent cette logique à la cohérence entre plusieurs tables ou datasets.</p>
+
+      <h3>Unicité simple et composite</h3>
+      <p>Une contrainte d'unicité peut porter sur une seule colonne (un identifiant client ne doit jamais se répéter) ou sur une <strong>combinaison</strong> de colonnes dont l'unicité n'a de sens que prise ensemble (une paire "id_produit" + "date" peut légitimement se répéter séparément, mais pas ensemble, dans une table de stock quotidien).</p>
+
+      <pre><code class="language-python">import pandera as pa
+from pandera import Column, DataFrameSchema
+
+schema_clients = DataFrameSchema({
+    "id_client": Column(int, unique=True),  # unicité simple
+})
+
+import pandas as pd
+df = pd.DataFrame({"id_client": [1, 2, 3, 2]})  # id_client=2 dupliqué
+try:
+    schema_clients.validate(df)
+except pa.errors.SchemaError as erreur:
+    print(f"Violation d'unicité détectée : {erreur}")
+
+# Unicité composite : la combinaison (id_produit, date) doit être unique, pas chaque colonne isolément
+df_stock = pd.DataFrame({
+    "id_produit": [101, 101, 102],
+    "date": ["2024-06-01", "2024-06-01", "2024-06-01"],  # duplicata de (101, 2024-06-01)
+})
+duplicatas = df_stock.duplicated(subset=["id_produit", "date"], keep=False)
+print(df_stock[duplicatas])</code></pre>
+
+      <h3>Clé primaire : unicité, non-nullité, et stabilité</h3>
+      <p>Une clé primaire combine trois propriétés simultanées : unicité (pas de doublon), non-nullité (toujours renseignée, rejoint le Module 2 leçon 5), et stabilité (sa valeur ne devrait jamais changer une fois attribuée à un enregistrement, contrairement à d'autres colonnes qui peuvent légitimement être mises à jour). Un schéma qui ne valide que l'unicité sans la non-nullité laisse passer un cas problématique : plusieurs lignes avec un identifiant nul, techniquement "non dupliquées" au sens strict d'une comparaison de valeurs, mais tout aussi ambiguës qu'un vrai doublon pour identifier un enregistrement précis.</p>
+
+      <h3>Clé étrangère : cohérence référentielle entre tables</h3>
+      <p>Une clé étrangère garantit qu'une valeur référençant un enregistrement d'une autre table (ou d'un autre dataset) correspond effectivement à un enregistrement existant dans cette table cible — une contrainte qui étend l'unicité à une cohérence <strong>inter-tables</strong>, développée plus en détail au Module 4. Sans cette validation, une jointure peut échouer silencieusement à trouver une correspondance (produisant des valeurs nulles inattendues, cf. Module 1 leçon 3), ou pire, correspondre par erreur à un enregistrement non voulu si les identifiants sont réutilisés dans le temps.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+commandes = pd.DataFrame({"id_commande": [1, 2, 3], "id_client": [101, 102, 999]})
+clients = pd.DataFrame({"id_client": [101, 102, 103]})
+
+# Validation de clé étrangère : chaque id_client référencé doit exister dans la table clients
+ids_invalides = ~commandes["id_client"].isin(clients["id_client"])
+if ids_invalides.any():
+    print(f"Clés étrangères invalides détectées :\n{commandes[ids_invalides]}")
+    # id_client=999 référence un client qui n'existe pas dans la table clients --
+    # une jointure classique produirait silencieusement une ligne à valeurs nulles pour ce client</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Valider l'unicité d'une clé primaire sans valider simultanément sa non-nullité, laissant passer plusieurs enregistrements avec un identifiant nul — chacun techniquement "non dupliqué" au sens d'une comparaison stricte de valeurs (NaN n'est jamais égal à NaN), mais tout aussi problématique qu'un doublon pour identifier sans ambiguïté un enregistrement précis lors d'une jointure ou d'une mise à jour ciblée.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une table "lignes_commande" contient une colonne "id_commande" censée référencer une table "commandes". Décrivez le test de validation de clé étrangère que vous écririez, et expliquez ce qui se passerait silencieusement lors d'une jointure classique si cette validation était absente et qu'une valeur invalide existait.
+      </div>
+    </section>
+
+    <section id="m3-l3">
+      <span class="lesson-kicker">Module 3 · Leçon 3</span>
+      <h2>Cardinalité et Contraintes Multi-Colonnes</h2>
+
+      <p>Au-delà de l'unicité (leçon précédente), certaines contraintes de structure portent sur le nombre d'occurrences ou de relations entre plusieurs colonnes ou plusieurs enregistrements liés — une notion appelée <strong>cardinalité</strong>, empruntée à la modélisation de bases de données relationnelles, mais tout aussi applicable à la validation de schéma sur des DataFrames ou des documents semi-structurés.</p>
+
+      <h3>Cardinalité un-à-un, un-à-plusieurs, plusieurs-à-plusieurs</h3>
+      <p>Une relation un-à-un (chaque client a exactement un profil de facturation) impose une contrainte d'unicité stricte des deux côtés de la relation. Une relation un-à-plusieurs (un client peut avoir plusieurs commandes, mais chaque commande appartient à exactement un client) autorise la répétition d'un côté, mais pas de l'autre. Une relation plusieurs-à-plusieurs (un produit peut appartenir à plusieurs catégories, une catégorie contient plusieurs produits) nécessite généralement une table de jonction dédiée, elle-même soumise à ses propres contraintes d'unicité composite (leçon précédente).</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+commandes = pd.DataFrame({"id_commande": [1, 2, 3, 4], "id_client": [101, 101, 102, 103]})
+
+# Valider une cardinalité un-à-plusieurs : chaque commande a un seul client (déjà garanti par
+# la structure d'une colonne unique), mais on peut aussi valider les BORNES de cette cardinalité --
+# par exemple, qu'aucun client n'a plus de N commandes dans une fenêtre donnée (règle métier)
+commandes_par_client = commandes.groupby("id_client").size()
+print(commandes_par_client)
+seuil_anormal = commandes_par_client[commandes_par_client > 100]  # cardinalité anormalement élevée
+if not seuil_anormal.empty:
+    print(f"Cardinalité suspecte, à investiguer (rejoint Module 1 du cours précédent) :\n{seuil_anormal}")</code></pre>
+
+      <h3>Contraintes multi-colonnes : la validation ne porte pas toujours sur une seule colonne</h3>
+      <p>Certaines contraintes de structure ne peuvent être exprimées qu'en relation entre plusieurs colonnes du même enregistrement — une contrainte qui préfigure directement la cohérence inter-colonnes développée en profondeur au Module 4, mais qui relève déjà, dans ses formes les plus simples, d'une contrainte de structure au niveau du schéma lui-même (plutôt que d'une règle métier plus complexe appliquée séparément).</p>
+
+      <pre><code class="language-python">import pandera as pa
+from pandera import Column, DataFrameSchema, Check
+
+# Check au niveau du DataFrame entier (pas d'une seule colonne) : exprime une contrainte multi-colonnes
+schema = DataFrameSchema(
+    columns={
+        "quantite_min": Column(int),
+        "quantite_max": Column(int),
+    },
+    checks=Check(lambda df: df["quantite_max"] >= df["quantite_min"],
+                 error="quantite_max doit être supérieure ou égale à quantite_min"),
+)
+
+df = pd.DataFrame({"quantite_min": [5, 10, 20], "quantite_max": [10, 8, 25]})
+try:
+    schema.validate(df)
+except pa.errors.SchemaError as erreur:
+    print(f"Violation multi-colonnes : {erreur}")
+    # La ligne (quantite_min=10, quantite_max=8) viole la contrainte -- un maximum inférieur au minimum</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Valider chaque colonne isolément (chacune de type <code>int</code> valide, chacune dans une plage acceptable) sans jamais vérifier les contraintes qui n'émergent que de leur relation combinée. Deux colonnes chacune individuellement valides peuvent former une combinaison structurellement incohérente, invisible à toute validation colonne par colonne.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Pour une table d'événements avec les colonnes "date_debut" et "date_fin", écrivez la logique (pandera ou pandas) qui validerait une contrainte multi-colonnes garantissant que "date_fin" est toujours postérieure ou égale à "date_debut".
+      </div>
+    </section>
+
+    <section id="m3-l4">
+      <span class="lesson-kicker">Module 3 · Leçon 4</span>
+      <h2>Contraintes Conditionnelles (Règles Si-Alors)</h2>
+
+      <p>Cette dernière leçon du module couvre la forme la plus expressive de contrainte au niveau du schéma : une règle conditionnelle qui n'impose une contrainte sur une colonne que <strong>si</strong> une autre colonne (ou une combinaison de colonnes) satisfait une condition donnée. Ces contraintes "si-alors" permettent de capturer des règles métier nuancées qu'aucune contrainte de plage ou d'unicité simple, prise isolément, ne pourrait exprimer.</p>
+
+      <h3>La structure générale d'une contrainte si-alors</h3>
+      <p>Une contrainte conditionnelle s'exprime toujours en deux parties : une condition sur une ou plusieurs colonnes (le "si"), et une contrainte qui ne s'applique qu'aux lignes satisfaisant cette condition (le "alors"). Contrairement à une contrainte de plage appliquée uniformément à toutes les lignes d'une colonne, une contrainte conditionnelle reconnaît explicitement que la validité d'une valeur peut dépendre du contexte porté par d'autres colonnes du même enregistrement.</p>
+
+      <pre><code class="language-python">import pandas as pd
+import pandera as pa
+from pandera import Column, DataFrameSchema, Check
+
+df = pd.DataFrame({
+    "statut": ["livré", "en_attente", "livré", "annulé"],
+    "date_livraison": [pd.Timestamp("2024-06-01"), pd.NaT, pd.NaT, pd.NaT],
+})
+
+def regle_si_livre_alors_date_presente(df):
+    # SI statut == "livré" ALORS date_livraison doit être renseignée
+    lignes_livrees = df["statut"] == "livré"
+    return ~(lignes_livrees & df["date_livraison"].isna())
+
+schema = DataFrameSchema(
+    columns={"statut": Column(str), "date_livraison": Column("datetime64[ns]", nullable=True)},
+    checks=Check(regle_si_livre_alors_date_presente,
+                 error="Un statut 'livré' doit toujours avoir une date_livraison renseignée"),
+)
+
+try:
+    schema.validate(df)
+except pa.errors.SchemaError as erreur:
+    print(f"Violation conditionnelle détectée : {erreur}")
+    # La troisième ligne (statut="livré", date_livraison manquante) viole la règle --
+    # une incohérence invisible à toute validation qui ignorerait la relation entre les deux colonnes</code></pre>
+
+      <h3>Contraintes conditionnelles à plusieurs niveaux</h3>
+      <p>Des règles métier réelles combinent souvent plusieurs conditions imbriquées — une contrainte qui ne s'applique que si <em>plusieurs</em> conditions sont simultanément satisfaites. Encoder ces règles complexes directement en une seule expression booléenne devient vite illisible ; la pratique recommandée consiste à décomposer chaque condition en une fonction nommée et documentée séparément, puis à les combiner explicitement, facilitant la lecture et la maintenance du référentiel de contraintes (rejoint directement le Module 5, leçon 4 du cours précédent sur la gouvernance des règles métier).</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+def regle_remboursement_coherent(df):
+    """SI statut == 'remboursé' ALORS montant_rembourse doit être renseigné ET <= montant_original."""
+    est_rembourse = df["statut"] == "remboursé"
+    montant_manquant = df["montant_rembourse"].isna()
+    montant_excessif = df["montant_rembourse"] > df["montant_original"]
+    violation = est_rembourse & (montant_manquant | montant_excessif.fillna(False))
+    return ~violation
+
+df = pd.DataFrame({
+    "statut": ["remboursé", "livré", "remboursé"],
+    "montant_original": [100, 50, 80],
+    "montant_rembourse": [100, None, 120],  # dernière ligne : remboursement supérieur au montant original
+})
+print(df[~regle_remboursement_coherent(df)])</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Empiler des conditions booléennes complexes en une seule expression illisible sans les décomposer en fonctions nommées et documentées séparément. Une règle conditionnelle à trois ou quatre niveaux de conditions imbriquées, écrite en une seule ligne, devient rapidement impossible à auditer ou à faire évoluer sans introduire silencieusement une régression sur un cas limite déjà couvert.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Formulez en langage naturel, puis en pseudo-code, une contrainte conditionnelle pour une table d'employés : si le champ "statut_emploi" vaut "en_congé_maternité", alors le champ "date_retour_prevue" doit être renseigné et postérieur à la date du jour.
+      </div>
+    </section>
+
+    <div class="module-divider">
+      <span class="num">MODULE 04 · COHÉRENCE INTER-COLONNES ET INTER-TABLES</span>
+      <span class="line"></span>
+    </div>
+
+    <section id="m4-l1">
+      <span class="lesson-kicker">Module 4 · Leçon 1</span>
+      <h2>Dépendances Fonctionnelles entre Colonnes</h2>
+
+      <p>Une dépendance fonctionnelle est une contrainte de cohérence fondamentale héritée de la théorie des bases de données relationnelles : une colonne (ou un ensemble de colonnes) <strong>détermine</strong> entièrement la valeur d'une autre colonne — pour une même valeur de la première, la seconde doit toujours prendre la même valeur, sans exception. Un code postal détermine fonctionnellement une ville (dans la plupart des pays), un identifiant produit détermine son nom et sa catégorie. Une violation de dépendance fonctionnelle est un signal de cohérence extrêmement fiable, souvent plus révélateur qu'une simple contrainte de plage.</p>
+
+      <h3>Pourquoi une dépendance fonctionnelle violée signale presque toujours une erreur réelle</h3>
+      <p>Contrairement à une anomalie statistique (cours précédent), qui peut légitimement correspondre à une observation rare mais réelle, une violation de dépendance fonctionnelle est presque toujours le signe d'une erreur de saisie, d'une désynchronisation entre systèmes, ou d'un problème d'intégration — la nature même de la dépendance fonctionnelle exclut par définition toute variation légitime. Si "75001" désigne Paris pour 999 enregistrements et "Lyon" pour un seul, ce dernier enregistrement est presque certainement erroné, pas une exception métier légitime à respecter.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+df = pd.DataFrame({
+    "code_postal": ["75001", "75001", "75001", "75001", "69001"],
+    "ville": ["Paris", "Paris", "Paris", "Lyon", "Lyon"],  # incohérence sur la 4e ligne
+})
+
+def detecter_violations_dependance_fonctionnelle(df, colonne_source, colonne_cible):
+    correspondances = df.groupby(colonne_source)[colonne_cible].nunique()
+    valeurs_incoherentes = correspondances[correspondances > 1].index
+    return df[df[colonne_source].isin(valeurs_incoherentes)]
+
+violations = detecter_violations_dependance_fonctionnelle(df, "code_postal", "ville")
+print(violations)
+# Le code postal "75001" est associé à deux villes différentes dans les données --
+# une incohérence quasi certaine, puisque cette dépendance fonctionnelle devrait être stricte</code></pre>
+
+      <h3>Dépendances fonctionnelles composites</h3>
+      <p>Certaines dépendances ne se manifestent qu'à partir d'une <strong>combinaison</strong> de colonnes source, aucune ne suffisant seule à déterminer la colonne cible — un cas analogue à l'unicité composite du Module 3, mais appliqué ici à une relation de détermination plutôt qu'à une contrainte d'unicité pure.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+df = pd.DataFrame({
+    "pays": ["FR", "FR", "US", "US"],
+    "code_region": ["75", "75", "75", "90"],
+    "nom_region": ["Île-de-France", "Île-de-France", "Texas", "California"],
+    # le code "75" seul ne détermine pas la région -- il faut le combiner avec le pays
+})
+
+correspondances = df.groupby(["pays", "code_region"])["nom_region"].nunique()
+print(correspondances[correspondances > 1])  # aucune violation ici, la dépendance composite est respectée</code></pre>
+
+      <h3>Construire un référentiel de correspondance plutôt que de tolérer la variation</h3>
+      <p>Une fois une dépendance fonctionnelle identifiée et validée sur un historique de données de confiance, elle peut être formalisée en un référentiel de correspondance externe (une table "code_postal -> ville" maintenue séparément), qui devient alors la source de vérité pour valider — voire corriger automatiquement — toute nouvelle donnée entrante, plutôt que de re-détecter la dépendance à chaque exécution du pipeline.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+referentiel_codes_postaux = pd.DataFrame({
+    "code_postal": ["75001", "69001"],
+    "ville_officielle": ["Paris", "Lyon"],
+})
+
+nouvelles_donnees = pd.DataFrame({"code_postal": ["75001", "69001"], "ville_saisie": ["Paris", "Marseille"]})
+verification = nouvelles_donnees.merge(referentiel_codes_postaux, on="code_postal")
+verification["coherent"] = verification["ville_saisie"] == verification["ville_officielle"]
+print(verification[~verification["coherent"]])
+# Détection immédiate contre un référentiel externe de confiance, plus fiable et plus rapide
+# qu'une re-détection de la dépendance fonctionnelle sur chaque nouveau lot de données</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Détecter une dépendance fonctionnelle apparente sur un échantillon de données trop restreint ou non représentatif, et la figer à tort comme une règle absolue alors qu'elle souffre en réalité d'exceptions légitimes rares (certains codes postaux couvrent effectivement plusieurs communes limitrophes). Valider une dépendance fonctionnelle suspectée contre un référentiel externe de confiance avant de la transformer en contrainte bloquante.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Dans un dataset RH, la colonne "id_departement" et la colonne "nom_departement" devraient former une dépendance fonctionnelle stricte. Écrivez le code qui détecterait toute violation de cette dépendance, en vous inspirant de l'exemple de cette leçon.
+      </div>
+    </section>
+
+    <section id="m4-l2">
+      <span class="lesson-kicker">Module 4 · Leçon 2</span>
+      <h2>Intégrité Référentielle entre Tables et Datasets</h2>
+
+      <p>Cette leçon étend la notion de clé étrangère du Module 3 à une vérification systématique et bidirectionnelle de la cohérence entre plusieurs tables ou datasets liés — au-delà de la simple existence d'une référence, jusqu'à la cohérence complète du volume et de la structure de la relation entre les deux ensembles de données.</p>
+
+      <h3>Vérification bidirectionnelle : orphelins et références manquantes</h3>
+      <p>Une vérification d'intégrité référentielle complète examine la relation dans les deux sens : les <strong>enregistrements orphelins</strong> (une ligne de la table enfant référence un identifiant qui n'existe pas dans la table parent, déjà vu au Module 3) mais aussi, symétriquement, les <strong>références manquantes</strong> attendues (un enregistrement parent qui devrait logiquement avoir au moins un enregistrement enfant associé, mais n'en a aucun — par exemple, un client sans aucune commande dans un contexte où cela signalerait une anomalie d'intégration plutôt qu'une situation normale).</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+clients = pd.DataFrame({"id_client": [101, 102, 103, 104]})
+commandes = pd.DataFrame({"id_commande": [1, 2, 3], "id_client": [101, 102, 999]})
+
+# Sens 1 : enregistrements orphelins (référence vers un parent inexistant)
+orphelins = commandes[~commandes["id_client"].isin(clients["id_client"])]
+print(f"Commandes orphelines (id_client inexistant) :\n{orphelins}")
+
+# Sens 2 : parents sans aucun enfant associé -- pas toujours une erreur, mais à examiner selon le contexte
+clients_sans_commande = clients[~clients["id_client"].isin(commandes["id_client"])]
+print(f"Clients sans aucune commande :\n{clients_sans_commande}")
+# Selon le contexte métier, ceci peut être parfaitement normal (nouveau client) ou suspect
+# (perte de données lors d'une migration si TOUS les clients migrés devraient avoir un historique)</code></pre>
+
+      <h3>Intégrité référentielle entre datasets provenant de systèmes différents</h3>
+      <p>Le cas le plus délicat survient quand les deux tables liées proviennent de systèmes source différents, synchronisés à des fréquences différentes — un dataset de commandes mis à jour en temps réel et un référentiel client mis à jour une fois par jour, par exemple. Une commande passée par un client tout juste créé peut alors apparaître comme "orpheline" non pas à cause d'une vraie erreur, mais d'un simple décalage temporel de synchronisation entre les deux sources — un faux positif qu'il faut savoir distinguer d'une vraie violation d'intégrité.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+def verifier_integrite_avec_tolerance_temporelle(commandes, clients, colonne_date_commande, delai_tolerance_heures=24):
+    orphelins = commandes[~commandes["id_client"].isin(clients["id_client"])]
+    # Ne signaler que les orphelins dont la commande date de plus de X heures --
+    # un orphelin très récent peut n'être qu'un décalage de synchronisation, pas une vraie violation
+    limite = pd.Timestamp.now() - pd.Timedelta(hours=delai_tolerance_heures)
+    return orphelins[orphelins[colonne_date_commande] < limite]</code></pre>
+
+      <h3>Documenter le sens de la relation attendue</h3>
+      <p>Une vérification d'intégrité référentielle devrait toujours documenter explicitement quelle direction de la relation constitue une violation attendue à signaler, et laquelle est une variation normale à tolérer — cette asymétrie n'est jamais évidente sans connaissance du contexte métier, et la confondre produit soit des alertes inutiles en volume (bruit qui dilue la confiance dans le système de validation), soit des vraies violations non détectées.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Traiter symétriquement les deux sens d'une relation d'intégrité référentielle sans tenir compte du décalage de synchronisation naturel entre systèmes sources différents. Signaler systématiquement chaque commande "orpheline" détectée sans tolérance temporelle génère un flot de faux positifs sur des données simplement pas encore synchronisées, plutôt que de vraies violations d'intégrité.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un système de commandes en temps réel et un référentiel produits mis à jour toutes les six heures coexistent. Une commande référence un produit qui n'existe pas encore dans le référentiel local. Expliquez pourquoi une tolérance temporelle serait appropriée ici, et comment vous la calibreriez.
+      </div>
+    </section>
+
+    <section id="m4-l3">
+      <span class="lesson-kicker">Module 4 · Leçon 3</span>
+      <h2>Invariants Métier Complexes à Plusieurs Variables</h2>
+
+      <p>Au-delà des dépendances fonctionnelles et de l'intégrité référentielle, certaines règles de cohérence expriment un <strong>invariant métier</strong> plus large — une propriété qui doit toujours être vraie, impliquant potentiellement de nombreuses colonnes et parfois plusieurs lignes ou plusieurs tables simultanément, reflétant une logique métier de plus haut niveau que les contraintes locales vues jusqu'ici.</p>
+
+      <h3>Invariants comptables et financiers</h3>
+      <p>Un exemple canonique d'invariant métier complexe : dans un système financier, le total débité doit toujours égaler le total crédité pour un ensemble de transactions liées (le principe de la partie double en comptabilité). Ce n'est ni une contrainte de plage, ni une dépendance fonctionnelle, ni une simple clé étrangère — c'est un invariant agrégé qui porte sur un ensemble d'enregistrements considérés collectivement, invisible à toute validation ligne par ligne.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+transactions = pd.DataFrame({
+    "id_operation": [1, 1, 2, 2],
+    "type_ligne": ["debit", "credit", "debit", "credit"],
+    "montant": [500, 500, 300, 250],  # opération 2 déséquilibrée : 300 débité, 250 seulement crédité
+})
+
+def verifier_equilibre_comptable(df):
+    agrege = df.pivot_table(index="id_operation", columns="type_ligne", values="montant", aggfunc="sum", fill_value=0)
+    agrege["equilibre"] = agrege["debit"] == agrege["credit"]
+    return agrege[~agrege["equilibre"]]
+
+print(verifier_equilibre_comptable(transactions))
+# L'opération 2 est déséquilibrée -- un invariant violé qui ne peut être détecté
+# qu'en agrégeant plusieurs lignes liées, jamais en examinant une ligne isolément</code></pre>
+
+      <h3>Invariants de capacité et de disponibilité</h3>
+      <p>Un autre type fréquent d'invariant métier complexe : la somme des quantités allouées à travers plusieurs enregistrements ne doit jamais dépasser une capacité totale déclarée ailleurs — le nombre total de places réservées pour un événement ne doit jamais excéder sa capacité déclarée, la somme des quantités vendues d'un produit ne doit jamais dépasser le stock déclaré à un instant donné.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+evenements = pd.DataFrame({"id_evenement": [1, 2], "capacite_max": [100, 50]})
+reservations = pd.DataFrame({"id_evenement": [1, 1, 2, 2], "nb_places": [60, 45, 20, 35]})
+
+total_reserve = reservations.groupby("id_evenement")["nb_places"].sum().rename("total_reserve")
+verification = evenements.set_index("id_evenement").join(total_reserve)
+verification["depassement"] = verification["total_reserve"] > verification["capacite_max"]
+print(verification[verification["depassement"]])
+# L'événement 1 a 105 places réservées pour une capacité de 100 -- un invariant de capacité violé,
+# potentiellement le signe d'une surréservation (race condition) plutôt qu'une simple erreur de saisie</code></pre>
+
+      <h3>Formaliser un invariant complexe comme test de schéma à part entière</h3>
+      <p>Ces invariants, bien que plus coûteux à exprimer et à calculer qu'une contrainte de colonne simple, méritent d'être formalisés au même titre que les contraintes plus locales des Modules 2 et 3 — intégrés dans le même référentiel de validation (Module 5) plutôt que traités comme des vérifications ad hoc séparées, garantissant qu'ils sont exécutés systématiquement à chaque cycle du pipeline plutôt que seulement lors d'audits ponctuels.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Limiter la validation de schéma aux contraintes locales (type, plage, unicité d'une colonne) sans jamais formaliser les invariants métier agrégés qui portent sur des groupes d'enregistrements liés. Ces invariants sont souvent les plus critiques d'un point de vue métier (équilibre financier, capacité, cohérence de stock) tout en étant les plus fréquemment absents d'un référentiel de validation, précisément parce qu'ils sont plus coûteux à exprimer qu'une simple contrainte de colonne.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Pour un système de gestion d'entrepôt, proposez un invariant métier complexe impliquant plusieurs colonnes ou plusieurs enregistrements liés (autre que les exemples comptable et de capacité de cette leçon), et décrivez comment vous le formaliseriez en code.
+      </div>
+    </section>
+
+    <section id="m4-l4">
+      <span class="lesson-kicker">Module 4 · Leçon 4</span>
+      <h2>Détecter les Violations de Cohérence à Grande Échelle</h2>
+
+      <p>Cette dernière leçon du module aborde un défi pratique et souvent sous-estimé : les vérifications de cohérence des leçons précédentes (jointures, group-by, comparaisons entre tables) deviennent coûteuses en temps de calcul sur de grands volumes de données, et une stratégie naïve d'exécution systématique sur l'intégralité d'un dataset à chaque cycle de validation peut devenir le goulot d'étranglement du pipeline tout entier.</p>
+
+      <h3>Échantillonnage stratifié plutôt qu'exhaustivité systématique</h3>
+      <p>Sur un dataset de plusieurs centaines de millions de lignes, valider une dépendance fonctionnelle ou un invariant complexe sur l'intégralité des données à chaque exécution peut ne pas être soutenable en pratique. Un échantillonnage stratifié — garantissant une représentation proportionnelle de chaque sous-groupe pertinent (par région, par catégorie de produit) plutôt qu'un échantillon aléatoire simple qui pourrait manquer des sous-groupes rares — offre un compromis raisonnable entre coût de calcul et couverture de détection.</p>
+
+      <pre><code class="language-python">import pandas as pd
+import numpy as np
+
+def echantillon_stratifie_pour_validation(df, colonne_strate, taille_par_strate=1000, seed=0):
+    return df.groupby(colonne_strate, group_keys=False).apply(
+        lambda groupe: groupe.sample(min(len(groupe), taille_par_strate), random_state=seed)
+    )
+
+np.random.seed(0)
+df_volumineux = pd.DataFrame({
+    "region": np.random.choice(["Nord", "Sud", "Est", "Ouest"], 1_000_000, p=[0.6, 0.2, 0.1, 0.1]),
+    "montant": np.random.normal(100, 20, 1_000_000),
+})
+echantillon = echantillon_stratifie_pour_validation(df_volumineux, "region", taille_par_strate=500)
+print(f"Échantillon : {len(echantillon)} lignes, dont régions rares (Est, Ouest) bien représentées")
+print(echantillon["region"].value_counts())</code></pre>
+
+      <h3>Validation incrémentale : ne vérifier que les nouvelles données</h3>
+      <p>Pour un pipeline qui ingère des données en continu, revalider l'intégralité de l'historique à chaque exécution est rarement nécessaire — une stratégie incrémentale, qui ne valide que les nouvelles données depuis la dernière exécution, combinée à une validation complète mais peu fréquente (hebdomadaire ou mensuelle) pour détecter d'éventuelles dérives cumulatives, réduit considérablement le coût de calcul sans sacrifier significativement la couverture de détection.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+def validation_incrementale(df, colonne_horodatage, derniere_validation):
+    nouvelles_donnees = df[df[colonne_horodatage] > derniere_validation]
+    print(f"Validation incrémentale sur {len(nouvelles_donnees)} nouvelles lignes "
+          f"(sur {len(df)} au total)")
+    return nouvelles_donnees
+    # La validation complète, moins fréquente, reste nécessaire pour détecter des incohérences
+    # qui n'émergent qu'après coup (une mise à jour tardive qui casse une dépendance déjà validée)</code></pre>
+
+      <h3>Paralléliser les vérifications indépendantes</h3>
+      <p>Lorsque l'échantillonnage ou l'incrémentalité ne suffisent pas (un audit de cohérence complet requis avant un rapport réglementaire, par exemple), les différentes vérifications de cohérence de ce module sont souvent indépendantes les unes des autres et peuvent être parallélisées — sur des partitions du dataset (par région, par période), ou en distribuant les différentes règles elles-mêmes sur des processus séparés, une approche facilitée par des frameworks de calcul distribué (Spark) au-delà de l'échelle où pandas reste pertinent.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Appliquer un échantillonnage aléatoire simple (non stratifié) pour valider la cohérence sur un grand volume de données, manquant systématiquement les sous-groupes rares où les violations de cohérence les plus critiques se concentrent souvent (un segment de clientèle minoritaire, une région à faible volume mais à fort enjeu réglementaire).
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un pipeline ingère 50 millions de nouvelles transactions par jour et doit valider un invariant comptable complexe (Module 4, leçon 3) qui devient trop coûteux à exécuter sur l'intégralité du flux quotidien. Proposez une stratégie combinant au moins deux des trois approches de cette leçon pour maintenir une couverture de détection raisonnable sans dégrader les performances du pipeline.
+      </div>
+    </section>
+
+    <div class="module-divider">
+      <span class="num">MODULE 05 · OUTILS DE VALIDATION DÉCLARATIVE</span>
+      <span class="line"></span>
+    </div>
+
+    <section id="m5-l1">
+      <span class="lesson-kicker">Module 5 · Leçon 1</span>
+      <h2>Pandera : Schémas Déclaratifs pour DataFrames</h2>
+
+      <p>Pandera, déjà utilisé à travers les exemples des modules précédents, est une bibliothèque de validation de schéma conçue spécifiquement pour les DataFrames pandas (et, plus récemment, polars et Spark via une API unifiée). Cette leçon en fait une présentation systématique, au-delà des usages ponctuels déjà rencontrés.</p>
+
+      <h3>Deux styles de définition : DataFrameSchema et modèles basés sur des classes</h3>
+      <p>Pandera propose deux syntaxes équivalentes pour définir un schéma : un style impératif via <code>DataFrameSchema</code> (déjà vu dans les modules précédents), et un style déclaratif orienté classe, inspiré de Pydantic, souvent préféré pour des schémas complexes car il bénéficie nativement de la vérification de type statique des IDE et de mypy.</p>
+
+      <pre><code class="language-python">import pandera as pa
+from pandera.typing import Series, DataFrame
+
+class SchemaCommande(pa.DataFrameModel):
+    id_commande: Series[int] = pa.Field(unique=True, nullable=False)
+    montant: Series[float] = pa.Field(gt=0)
+    statut: Series[str] = pa.Field(isin=["en_attente", "expédié", "livré", "annulé"])
+
+    class Config:
+        strict = True  # rejette toute colonne présente dans les données mais absente du schéma déclaré
+
+import pandas as pd
+df = pd.DataFrame({
+    "id_commande": [1, 2, 3],
+    "montant": [50.0, -10.0, 30.0],
+    "statut": ["livré", "en_attente", "en_cours"],  # valeur hors énumération
+})
+
+try:
+    SchemaCommande.validate(df, lazy=True)
+except pa.errors.SchemaErrors as erreur:
+    print(erreur.failure_cases)</code></pre>
+
+      <h3>Le paramètre strict : détecter les colonnes inattendues</h3>
+      <p>Un schéma qui ne valide que les colonnes qu'il déclare explicitement, sans jamais vérifier qu'aucune colonne <strong>supplémentaire et non attendue</strong> n'est présente, laisse passer une catégorie entière de dérive de schéma (Module 6) : l'apparition silencieuse d'une nouvelle colonne en amont, potentiellement le signe d'un changement non communiqué dans le système source. Le paramètre <code>strict=True</code> transforme cette omission silencieuse en une violation explicite et immédiatement détectée.</p>
+
+      <pre><code class="language-python">df_avec_colonne_inattendue = df.copy()
+df_avec_colonne_inattendue["nouvelle_colonne_non_documentee"] = "valeur"
+
+try:
+    SchemaCommande.validate(df_avec_colonne_inattendue)
+except pa.errors.SchemaError as erreur:
+    print(f"Colonne inattendue détectée grâce à strict=True : {erreur}")</code></pre>
+
+      <h3>Validation paresseuse (lazy) pour un rapport complet plutôt qu'un arrêt à la première erreur</h3>
+      <p>Par défaut, la validation s'arrête à la première violation rencontrée — pratique pour un développement itératif rapide, mais insuffisant en production où l'on souhaite généralement connaître <strong>l'ensemble</strong> des violations d'un lot de données en une seule passe, plutôt que de les découvrir une par une au fil de corrections successives. Le paramètre <code>lazy=True</code>, déjà utilisé dans les modules précédents, active ce comportement exhaustif.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Omettre <code>lazy=True</code> lors de la validation d'un lot de données en production, ne découvrant alors qu'une seule violation à la fois — nécessitant potentiellement de nombreux cycles de correction et de re-validation successifs pour découvrir l'ensemble des problèmes réels d'un même lot, alors qu'un seul passage avec <code>lazy=True</code> les aurait tous révélés d'un coup.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Réécrivez le schéma <code>SchemaCommande</code> de cette leçon pour ajouter une colonne "date_commande" de type date, non nulle, qui ne peut jamais être dans le futur (indice : un <code>Field</code> pandera accepte un paramètre de vérification personnalisée).
+      </div>
+    </section>
+
+    <section id="m5-l2">
+      <span class="lesson-kicker">Module 5 · Leçon 2</span>
+      <h2>Great Expectations : Suites d'Attentes et Data Docs</h2>
+
+      <p>Great Expectations (souvent abrégé GX) adopte une philosophie différente de Pandera : plutôt qu'un schéma unique et compact, il organise la validation en une <strong>suite d'attentes</strong> (expectation suite) — une collection de vérifications individuelles, chacune nommée explicitement et documentée, conçue pour être lisible et auditable par des profils non-développeurs autant que par des ingénieurs de données.</p>
+
+      <h3>Le vocabulaire des attentes (expectations)</h3>
+      <p>Chaque règle de validation dans Great Expectations est une "attente" — une affirmation testable sur les données, nommée de façon explicite (<code>expect_column_values_to_be_between</code>, <code>expect_column_values_to_not_be_null</code>) plutôt qu'exprimée comme une condition booléenne générique. Ce vocabulaire structuré facilite la découverte des vérifications disponibles (plus de 50 types d'attentes prédéfinies) et la lecture d'une suite existante sans avoir à déchiffrer du code Python personnalisé.</p>
+
+      <pre><code class="language-python">import great_expectations as gx
+
+contexte = gx.get_context()
+source_donnees = contexte.data_sources.add_pandas("source_commandes")
+actif = source_donnees.add_dataframe_asset(name="commandes")
+
+suite = contexte.suites.add(gx.ExpectationSuite(name="suite_commandes"))
+suite.add_expectation(gx.expectations.ExpectColumnValuesToNotBeNull(column="id_commande"))
+suite.add_expectation(gx.expectations.ExpectColumnValuesToBeBetween(column="montant", min_value=0))
+suite.add_expectation(gx.expectations.ExpectColumnValuesToBeInSet(
+    column="statut", value_set=["en_attente", "expédié", "livré", "annulé"]
+))
+
+# Chaque attente est un objet nommé et documenté, listable et auditable indépendamment
+# des autres -- contrairement à un schéma compact où toutes les règles sont fusionnées</code></pre>
+
+      <h3>Data Docs : documentation générée automatiquement, lisible par des non-développeurs</h3>
+      <p>La fonctionnalité la plus distinctive de Great Expectations est la génération automatique de "Data Docs" — une documentation HTML humainement lisible de chaque suite d'attentes et de ses résultats de validation, consultable par un analyste métier ou un product owner sans avoir à lire une ligne de code Python. Cette caractéristique en fait souvent le choix privilégié dans des organisations où la gouvernance de la qualité de données implique des parties prenantes non techniques (rejoint directement le Module 5, leçon 4 du cours précédent sur la gouvernance des règles).</p>
+
+      <h3>Quand préférer Great Expectations à Pandera</h3>
+      <p>Great Expectations est généralement préféré quand la documentation et l'auditabilité par des profils non-développeurs sont une exigence forte, ou quand la validation doit s'intégrer nativement à un large éventail de sources de données (bases SQL, fichiers, entrepôts cloud) au-delà du seul DataFrame en mémoire. Pandera reste souvent préféré pour une intégration légère et typée directement dans du code Python, avec une empreinte de dépendances plus réduite et une syntaxe plus proche du code applicatif classique.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Choisir Great Expectations pour un simple script de validation ponctuel où sa richesse fonctionnelle (Data Docs, stockage de résultats, intégration multi-sources) représente une surcharge de configuration disproportionnée par rapport au besoin réel — un cas où un schéma Pandera plus léger serait suffisant et plus rapide à mettre en place.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une équipe data doit produire une documentation de qualité de données consultable chaque semaine par des analystes métier non-techniciens. Expliquez pourquoi Great Expectations serait probablement mieux adapté que Pandera pour ce besoin spécifique.
+      </div>
+    </section>
+
+    <section id="m5-l3">
+      <span class="lesson-kicker">Module 5 · Leçon 3</span>
+      <h2>Pydantic : Validation au Niveau de l'Enregistrement</h2>
+
+      <p>Contrairement à Pandera et Great Expectations, conçus pour valider des <strong>lots</strong> de données tabulaires (un DataFrame entier), Pydantic valide des données au niveau d'un <strong>enregistrement individuel</strong> — typiquement un objet, un document JSON, ou le corps d'une requête API reçue un par un. C'est l'outil de référence pour la validation de schéma dans le contexte d'applications qui traitent des données unitairement plutôt qu'en lot.</p>
+
+      <h3>Définir un modèle Pydantic comme contrat de données</h3>
+      <pre><code class="language-python">from pydantic import BaseModel, EmailStr, Field, field_validator
+from datetime import date
+from typing import Literal
+
+class Commande(BaseModel):
+    id_commande: int = Field(gt=0)
+    email_client: EmailStr
+    montant: float = Field(gt=0)
+    statut: Literal["en_attente", "expédié", "livré", "annulé"]
+    date_commande: date
+
+    @field_validator("date_commande")
+    @classmethod
+    def date_non_future(cls, valeur):
+        if valeur > date.today():
+            raise ValueError("La date de commande ne peut pas être dans le futur")
+        return valeur
+
+# Validation immédiate à la construction de l'objet -- échoue avec un message détaillé
+try:
+    commande = Commande(
+        id_commande=1, email_client="pas-un-email", montant=50.0,
+        statut="livré", date_commande="2024-06-15"
+    )
+except Exception as erreur:
+    print(erreur)</code></pre>
+
+      <h3>Pydantic à la frontière d'une API : le point d'entrée naturel de la validation</h3>
+      <p>Pydantic est au cœur de frameworks web modernes comme FastAPI, où chaque endpoint déclare le modèle attendu du corps de requête — la validation devient alors automatique et transparente à chaque appel de l'API, rejetant toute requête non conforme avant même que le code métier de l'endpoint ne s'exécute. C'est un exemple concret et très répandu du principe du Module 1, leçon 4 : valider à la frontière d'entrée du système, avant toute logique métier.</p>
+
+      <pre><code class="language-python">from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.post("/commandes")
+def creer_commande(commande: Commande):  # la validation Pydantic s'exécute automatiquement ici
+    return {"statut": "commande créée", "id": commande.id_commande}
+    # Toute requête dont le corps ne correspond pas au modèle Commande est automatiquement
+    # rejetée par FastAPI avec un code 422, AVANT que cette fonction ne soit même appelée</code></pre>
+
+      <h3>Pydantic et Pandera : complémentaires, pas concurrents</h3>
+      <p>Un pipeline complet combine souvent les deux : Pydantic valide chaque enregistrement individuel au moment de son ingestion via une API ou un flux d'événements, puis les enregistrements validés sont accumulés en un DataFrame qui, à son tour, est validé par Pandera pour des contraintes agrégées ou inter-lignes (unicité, cohérence entre colonnes, Module 3) qu'une validation enregistrement par enregistrement ne peut pas exprimer.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Essayer d'utiliser Pydantic pour valider des contraintes qui portent intrinsèquement sur un ensemble d'enregistrements (unicité à travers un lot, cohérence entre plusieurs lignes) — Pydantic valide un enregistrement isolément et n'a, par construction, aucune visibilité sur les autres enregistrements du même lot. Ces contraintes relèvent de Pandera ou Great Expectations, pas de Pydantic.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Expliquez pourquoi une contrainte d'unicité sur "id_commande" ne peut pas être exprimée directement dans un modèle Pydantic validant une commande individuelle, et à quel niveau du pipeline cette contrainte devrait être vérifiée à la place.
+      </div>
+    </section>
+
+    <section id="m5-l4">
+      <span class="lesson-kicker">Module 5 · Leçon 4</span>
+      <h2>JSON Schema pour Données Semi-Structurées et APIs</h2>
+
+      <p>JSON Schema est une spécification indépendante de tout langage de programmation pour décrire la structure attendue d'un document JSON — particulièrement pertinent pour valider des données semi-structurées (imbriquées, à structure variable) échangées entre systèmes hétérogènes via des APIs, des messages de file d'attente, ou des fichiers de configuration.</p>
+
+      <h3>Décrire une structure imbriquée que les outils tabulaires ne capturent pas nativement</h3>
+      <p>Contrairement à Pandera ou Pydantic, pensés autour de structures plates (des colonnes, des champs de premier niveau), JSON Schema excelle à décrire des structures profondément imbriquées — des tableaux d'objets, des champs optionnels à plusieurs niveaux de profondeur — typiques des réponses d'API ou des documents NoSQL.</p>
+
+      <pre><code class="language-json">{
+  "type": "object",
+  "properties": {
+    "id_commande": { "type": "integer", "minimum": 1 },
+    "client": {
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email" },
+        "adresses": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": { "enum": ["facturation", "livraison"] },
+              "code_postal": { "type": "string", "pattern": "^[0-9]{5}$" }
+            },
+            "required": ["type", "code_postal"]
+          }
+        }
+      },
+      "required": ["email"]
+    }
+  },
+  "required": ["id_commande", "client"]
+}</code></pre>
+
+      <pre><code class="language-python">import jsonschema
+
+schema = {  # schéma défini ci-dessus, chargé en dictionnaire Python
+    "type": "object",
+    "properties": {
+        "id_commande": {"type": "integer", "minimum": 1},
+        "client": {
+            "type": "object",
+            "properties": {"email": {"type": "string", "format": "email"}},
+            "required": ["email"],
+        },
+    },
+    "required": ["id_commande", "client"],
+}
+
+document = {"id_commande": 1, "client": {"email": "test@exemple.fr"}}
+try:
+    jsonschema.validate(instance=document, schema=schema)
+    print("Document conforme au schéma JSON Schema")
+except jsonschema.ValidationError as erreur:
+    print(f"Violation : {erreur.message}")</code></pre>
+
+      <h3>Un standard interopérable, indépendant de Python</h3>
+      <p>L'avantage distinctif de JSON Schema par rapport aux trois outils précédents (tous spécifiques à l'écosystème Python) est son statut de standard ouvert, implémenté dans pratiquement tous les langages de programmation — un même fichier de schéma JSON Schema peut valider des documents aussi bien côté backend Python que côté frontend JavaScript, ou dans un pipeline de données écrit en Java. C'est le choix naturel dès qu'un schéma doit être partagé et respecté par des équipes utilisant des stacks technologiques différentes.</p>
+
+      <h3>OpenAPI : JSON Schema appliqué à la documentation d'API</h3>
+      <p>La spécification OpenAPI (utilisée pour documenter des APIs REST) s'appuie directement sur JSON Schema pour décrire la structure des requêtes et réponses attendues — un même schéma sert alors à la fois de documentation pour les développeurs consommateurs de l'API et de règle de validation exécutable, éliminant le risque de divergence entre une documentation écrite séparément et le comportement réel de validation.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Choisir JSON Schema pour valider des données par ailleurs parfaitement tabulaires (un DataFrame plat, sans imbrication) simplement par familiarité avec le format JSON, alors que Pandera ou Pydantic offriraient une intégration bien plus naturelle et performante dans un pipeline Python pour ce type de structure. JSON Schema apporte sa valeur ajoutée principalement pour des structures imbriquées ou pour l'interopérabilité multi-langage, pas comme choix par défaut systématique.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une API expose des profils utilisateurs, chacun pouvant contenir zéro, un, ou plusieurs numéros de téléphone, chacun avec un type ("mobile", "fixe") et un pays. Expliquez pourquoi JSON Schema serait mieux adapté que Pandera pour valider ce type de document avant son traitement.
+      </div>
+    </section>
+
+    <section id="m5-l5">
+      <span class="lesson-kicker">Module 5 · Leçon 5</span>
+      <h2>Comparer les Outils et Choisir selon le Contexte</h2>
+
+      <p>Cette dernière leçon du module synthétise les quatre outils vus précédemment en une grille de décision explicite, pour éviter l'écueil du choix par habitude ou par notoriété plutôt que par adéquation réelle au contexte technique du pipeline concerné.</p>
+
+      <table>
+        <tr><th>Outil</th><th>Granularité</th><th>Écosystème</th><th>Point fort distinctif</th></tr>
+        <tr><td>Pandera</td><td>Lot tabulaire (DataFrame)</td><td>Python (pandas, polars, Spark)</td><td>Léger, typé, intégration naturelle au code Python</td></tr>
+        <tr><td>Great Expectations</td><td>Lot tabulaire (DataFrame, SQL, fichiers)</td><td>Python, multi-source</td><td>Documentation auditable (Data Docs), gouvernance</td></tr>
+        <tr><td>Pydantic</td><td>Enregistrement individuel</td><td>Python (FastAPI, applications)</td><td>Validation à la frontière d'une API, par requête</td></tr>
+        <tr><td>JSON Schema</td><td>Document, potentiellement imbriqué</td><td>Multi-langage, standard ouvert</td><td>Interopérabilité, structures imbriquées, OpenAPI</td></tr>
+      </table>
+
+      <h3>Une question de granularité avant tout</h3>
+      <p>Le critère de choix le plus déterminant, avant même les considérations d'écosystème ou de fonctionnalités, est la granularité naturelle des données à valider : un flux d'enregistrements individuels arrivant un par un (Pydantic) n'a pas la même forme de validation qu'un lot déjà constitué en table (Pandera, Great Expectations), qui n'a lui-même pas la même forme qu'un document arbitrairement imbriqué (JSON Schema). Choisir l'outil avant d'avoir clarifié cette granularité conduit fréquemment à forcer un outil dans un usage pour lequel il n'a pas été conçu, avec des contorsions de code qui trahissent ce mauvais alignement.</p>
+
+      <h3>Combiner plusieurs outils dans un même pipeline n'est pas une incohérence</h3>
+      <p>Comme évoqué au Module 5, leçon 3, un pipeline mature combine fréquemment plusieurs de ces outils à différentes étapes : Pydantic à l'entrée d'une API qui reçoit des événements un par un, JSON Schema pour valider la structure des messages échangés avec un système tiers hétérogène, puis Pandera une fois les données consolidées en un DataFrame pour l'analyse en lot. Ce n'est pas une redondance mal maîtrisée, mais une spécialisation cohérente de chaque outil à l'étape où sa granularité est la plus adaptée.</p>
+
+      <pre><code class="language-python"># Exemple d'architecture combinée à travers un pipeline complet
+# 1. Ingestion événement par événement depuis une API -- Pydantic
+# 2. Messages échangés avec un partenaire externe au format JSON -- JSON Schema
+# 3. Consolidation en DataFrame pour analyse batch -- Pandera
+# 4. Documentation et audit de la qualité pour les équipes métier -- Great Expectations
+# Chaque outil intervient à l'étape où sa granularité et son écosystème sont les plus adaptés,
+# plutôt que de forcer un seul outil à couvrir l'ensemble du pipeline de bout en bout</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Standardiser sur un seul outil de validation pour l'ensemble d'un pipeline hétérogène par souci de simplicité apparente, alors que la granularité réelle des données change d'une étape à l'autre. Cette standardisation forcée produit souvent un code de validation plus complexe et moins lisible que l'usage combiné d'outils spécialisés, chacun à l'étape où il excelle naturellement.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Pour un pipeline qui reçoit des commandes via une API REST, les enrichit en les joignant à un référentiel produit, puis expose un rapport hebdomadaire de qualité de données à une équipe métier non-technique, proposez quel outil de cette leçon utiliser à chacune de ces trois étapes, en justifiant chaque choix.
+      </div>
+    </section>
+
+    <div class="module-divider">
+      <span class="num">MODULE 06 · ÉVOLUTION DE SCHÉMA</span>
+      <span class="line"></span>
+    </div>
+
+    <section id="m6-l1">
+      <span class="lesson-kicker">Module 6 · Leçon 1</span>
+      <h2>Versionner un Schéma de Données</h2>
+
+      <p>Un schéma de données n'est jamais figé pour toujours : les besoins métier évoluent, de nouveaux champs apparaissent, d'anciens deviennent obsolètes. Sans stratégie de versionnement explicite, chaque modification de schéma risque de casser silencieusement les consommateurs qui dépendent d'une version antérieure — cette leçon établit les fondations du versionnement, prérequis indispensable aux notions de compatibilité et de migration développées dans le reste du module.</p>
+
+      <h3>Pourquoi un schéma non versionné devient rapidement ingérable</h3>
+      <p>Sans version explicite associée à chaque évolution du schéma, il devient impossible de répondre à des questions pourtant fondamentales : quelle version du schéma un jeu de données historique respecte-t-il ? Un consommateur donné a-t-il été mis à jour pour supporter la dernière évolution ? Un schéma versionné répond à ces questions en associant explicitement chaque évolution à un identifiant de version, permettant de tracer précisément quelle donnée respecte quelle définition du contrat.</p>
+
+      <pre><code class="language-python">import pandera as pa
+from pandera import Column, DataFrameSchema
+
+# Version 1 du schéma commande, en usage depuis le lancement du produit
+schema_commande_v1 = DataFrameSchema({
+    "id_commande": Column(int, unique=True),
+    "montant": Column(float, pa.Check.greater_than(0)),
+}, name="schema_commande", metadata={"version": "1.0.0"})
+
+# Version 2 : ajout d'un champ "devise", auparavant implicitement toujours en euros
+schema_commande_v2 = DataFrameSchema({
+    "id_commande": Column(int, unique=True),
+    "montant": Column(float, pa.Check.greater_than(0)),
+    "devise": Column(str, pa.Check.isin(["EUR", "USD", "GBP"])),
+}, name="schema_commande", metadata={"version": "2.0.0"})</code></pre>
+
+      <h3>Sémantique de version : le versionnement sémantique appliqué aux schémas</h3>
+      <p>Le versionnement sémantique (semver), largement utilisé pour les bibliothèques logicielles, s'applique directement aux schémas de données : un numéro <strong>majeur</strong> incrémenté signale un changement incompatible (une colonne supprimée, un type modifié de façon incompatible) qui casse potentiellement les consommateurs existants ; un numéro <strong>mineur</strong> signale un ajout rétrocompatible (une nouvelle colonne optionnelle) ; un numéro de <strong>patch</strong> signale une clarification n'affectant pas la structure (une contrainte resserrée sur une valeur déjà toujours respectée en pratique). Cette classification prépare directement la notion de compatibilité ascendante et descendante de la leçon suivante.</p>
+
+      <table>
+        <tr><th>Type de changement</th><th>Exemple</th><th>Incrément de version</th></tr>
+        <tr><td>Majeur (breaking)</td><td>Suppression d'une colonne, changement de type incompatible</td><td>2.0.0 → 3.0.0</td></tr>
+        <tr><td>Mineur (rétrocompatible)</td><td>Ajout d'une colonne optionnelle</td><td>2.0.0 → 2.1.0</td></tr>
+        <tr><td>Patch (sans impact structurel)</td><td>Resserrement d'une contrainte déjà respectée en pratique</td><td>2.1.0 → 2.1.1</td></tr>
+      </table>
+
+      <h3>Associer chaque enregistrement stocké à sa version de schéma</h3>
+      <p>Une pratique robuste consiste à stocker, aux côtés de la donnée elle-même, la version du schéma qu'elle respectait au moment de son écriture — particulièrement précieux pour des données archivées sur de longues périodes, où plusieurs versions de schéma coexistent nécessairement dans un même historique.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+df_historique = pd.DataFrame({
+    "id_commande": [1, 2, 3],
+    "montant": [50.0, 30.0, 80.0],
+    "devise": [None, None, "EUR"],  # les deux premières lignes précèdent l'introduction du champ
+    "version_schema": ["1.0.0", "1.0.0", "2.0.0"],
+})
+print(df_historique)
+# La colonne version_schema permet d'appliquer rétroactivement la BONNE règle de validation
+# à chaque ligne selon la version qu'elle respectait au moment de son écriture</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Modifier un schéma en production sans lui associer de numéro de version explicite, rendant impossible de distinguer a posteriori quelles données historiques respectent l'ancienne définition et lesquelles respectent la nouvelle — une ambiguïté qui complique considérablement toute tentative de validation rétroactive ou de migration future (leçon 3).
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un schéma de données client passe d'un champ "telephone" unique à deux champs distincts "telephone_mobile" et "telephone_fixe". Ce changement constitue-t-il un incrément majeur, mineur, ou patch selon la classification de cette leçon ? Justifiez.
+      </div>
+    </section>
+
+    <section id="m6-l2">
+      <span class="lesson-kicker">Module 6 · Leçon 2</span>
+      <h2>Compatibilité Ascendante et Descendante</h2>
+
+      <p>Cette leçon formalise la notion de compatibilité entre versions de schéma, un concept central pour comprendre pourquoi certaines évolutions cassent des consommateurs existants tandis que d'autres ne le font pas — une distinction qui détermine directement la stratégie de migration à adopter (leçon suivante).</p>
+
+      <h3>Compatibilité ascendante (backward compatibility)</h3>
+      <p>Un nouveau schéma est rétrocompatible si les données produites selon l'<strong>ancien</strong> schéma restent valides et interprétables par un consommateur mis à jour vers le nouveau schéma. Ajouter une colonne optionnelle (nullable) est l'exemple le plus courant : les anciennes données, qui n'ont jamais renseigné cette colonne, restent valides puisque l'absence de valeur y est explicitement autorisée par le nouveau schéma.</p>
+
+      <pre><code class="language-python">import pandera as pa
+from pandera import Column, DataFrameSchema
+
+schema_v2_retrocompatible = DataFrameSchema({
+    "id_commande": Column(int, unique=True),
+    "montant": Column(float, pa.Check.greater_than(0)),
+    "devise": Column(str, pa.Check.isin(["EUR", "USD", "GBP"]), nullable=True),  # nullable = rétrocompatible
+})
+
+import pandas as pd
+anciennes_donnees = pd.DataFrame({
+    "id_commande": [1, 2], "montant": [50.0, 30.0],
+    # pas de colonne "devise" du tout dans les anciennes données
+})
+anciennes_donnees["devise"] = None  # ajoutée avec valeur nulle, compatible avec nullable=True
+schema_v2_retrocompatible.validate(anciennes_donnees)  # passe sans erreur : rétrocompatible</code></pre>
+
+      <h3>Compatibilité descendante (forward compatibility)</h3>
+      <p>À l'inverse, un schéma est compatible descendant si des données produites selon le <strong>nouveau</strong> schéma restent interprétables par un consommateur qui n'a pas encore été mis à jour et ne connaît que l'ancien schéma. C'est généralement plus difficile à garantir : un ancien consommateur qui ignore simplement les colonnes supplémentaires qu'il ne reconnaît pas (plutôt que de rejeter l'enregistrement entier) préserve cette compatibilité — un comportement qui doit être conçu explicitement dans le code du consommateur, pas seulement dans le schéma lui-même.</p>
+
+      <pre><code class="language-python">def consommateur_ancien_tolerant(enregistrement, colonnes_connues):
+    # Un consommateur compatible descendant IGNORE les champs inconnus plutôt que de rejeter
+    # l'enregistrement entier -- une conception défensive qui doit être explicite dans le code
+    return {cle: valeur for cle, valeur in enregistrement.items() if cle in colonnes_connues}
+
+nouvel_enregistrement = {"id_commande": 1, "montant": 50.0, "devise": "EUR", "canal_vente": "mobile"}
+colonnes_connues_ancien_consommateur = {"id_commande", "montant"}
+print(consommateur_ancien_tolerant(nouvel_enregistrement, colonnes_connues_ancien_consommateur))
+# {"id_commande": 1, "montant": 50.0} -- les champs "devise" et "canal_vente", inconnus
+# de l'ancien consommateur, sont ignorés plutôt que de provoquer un rejet ou une erreur</code></pre>
+
+      <h3>Changements qui cassent systématiquement les deux formes de compatibilité</h3>
+      <p>Certains changements ne peuvent jamais être ni ascendants ni descendants compatibles : renommer une colonne (l'ancien nom disparaît, cassant les anciens consommateurs qui l'attendent ; le nouveau nom est absent des anciennes données, cassant les nouveaux consommateurs qui le lisent), ou changer le type d'une colonne de façon incompatible (un identifiant qui passe d'entier à chaîne de caractères, cf. Module 1, leçon 3). Ces changements majeurs (leçon précédente) nécessitent une stratégie de migration explicite plutôt qu'une simple évolution transparente du schéma.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Renommer directement une colonne dans un schéma en production sans période de transition, en supposant à tort que tous les consommateurs seront mis à jour simultanément et instantanément. En pratique, différents consommateurs (équipes, systèmes, pipelines) se mettent à jour à des rythmes différents — un renommage direct casse systématiquement ceux qui n'ont pas encore migré, quel que soit le soin apporté à la communication du changement.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un schéma ajoute une nouvelle contrainte NOT NULL sur une colonne auparavant nullable, sans changer son type ni son nom. Cette évolution est-elle rétrocompatible avec des données historiques qui contiennent des valeurs nulles dans cette colonne ? Justifiez votre réponse.
+      </div>
+    </section>
+
+    <section id="m6-l3">
+      <span class="lesson-kicker">Module 6 · Leçon 3</span>
+      <h2>Migrer un Schéma sans Rompre les Consommateurs</h2>
+
+      <p>Face à un changement de schéma incompatible dans les deux sens (leçon précédente), une stratégie de migration progressive permet d'introduire le changement sans jamais casser brutalement les consommateurs existants — au prix d'une période de transition plus longue, mais avec un risque opérationnel considérablement réduit par rapport à un changement direct et immédiat.</p>
+
+      <h3>Le pattern "expand-contract" (ou "parallel change")</h3>
+      <p>Ce pattern, largement éprouvé en ingénierie logicielle, décompose une migration de schéma incompatible en plusieurs étapes progressives : d'abord <strong>étendre</strong> le schéma en ajoutant la nouvelle structure en parallèle de l'ancienne (sans rien supprimer), migrer progressivement tous les consommateurs vers la nouvelle structure pendant une période de coexistence, puis enfin <strong>contracter</strong> le schéma en retirant l'ancienne structure une fois tous les consommateurs effectivement migrés — jamais avant.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+# Étape 1 (expand) : ajouter la nouvelle structure SANS retirer l'ancienne
+df_transition = pd.DataFrame({
+    "id_client": [1, 2],
+    "telephone": ["0601020304", "0607080910"],           # ancienne structure, encore présente
+    "telephone_mobile": ["0601020304", "0607080910"],     # nouvelle structure, ajoutée en parallèle
+    "telephone_fixe": [None, None],
+})
+
+# Étape 2 (période de coexistence) : les deux structures sont maintenues synchronisées,
+# les nouveaux consommateurs utilisent la nouvelle structure, les anciens continuent
+# d'utiliser l'ancienne -- AUCUN consommateur n'est cassé pendant cette période
+
+# Étape 3 (contract), après confirmation que tous les consommateurs ont migré :
+df_final = df_transition.drop(columns=["telephone"])  # l'ancienne structure est enfin retirée
+print(df_final)</code></pre>
+
+      <h3>Suivre effectivement la migration des consommateurs avant de contracter</h3>
+      <p>L'étape de contraction ne devrait jamais être déclenchée sur une simple estimation ou une date arbitraire — elle nécessite une vérification effective que plus aucun consommateur actif ne dépend de l'ancienne structure, par exemple via un suivi des accès effectifs à l'ancienne colonne (des logs applicatifs, des métriques d'usage) plutôt qu'une simple annonce suivie d'une attente passive.</p>
+
+      <pre><code class="language-python">import pandas as pd
+from datetime import datetime, timedelta
+
+journal_acces_ancienne_colonne = []  # alimenté par le code applicatif à chaque lecture de "telephone"
+
+def peut_on_contracter_en_toute_securite(journal_acces, jours_sans_acces_requis=30):
+    if not journal_acces:
+        return True
+    dernier_acces = max(journal_acces)
+    return (datetime.now() - dernier_acces) > timedelta(days=jours_sans_acces_requis)
+
+# Ne procéder à la suppression de "telephone" que si AUCUN accès n'a été enregistré
+# sur une période de sécurité suffisante -- pas sur la seule base d'une annonce de dépréciation</code></pre>
+
+      <h3>Champs dépréciés plutôt que supprimés immédiatement</h3>
+      <p>Une pratique complémentaire consiste à marquer explicitement un champ comme "déprécié" dans le schéma et sa documentation, avec une date de suppression prévue communiquée à l'avance, plutôt que de le supprimer dès que la nouvelle structure devient disponible — donnant aux équipes consommatrices un délai raisonnable et prévisible pour s'adapter, plutôt qu'une suppression surprise qui casse leur code sans préavis.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Passer directement de l'ancienne à la nouvelle structure sans période de coexistence (sauter l'étape "expand" du pattern), en supposant que tous les consommateurs seront prêts à temps. Cette approche transforme une migration qui aurait pu être transparente en un changement brutal et disruptif, avec un risque opérationnel bien plus élevé pour un gain de temps souvent marginal.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une équipe souhaite fusionner deux colonnes "prenom" et "nom" en une seule colonne "nom_complet". Décrivez, étape par étape, comment vous appliqueriez le pattern expand-contract à cette migration.
+      </div>
+    </section>
+
+    <section id="m6-l4">
+      <span class="lesson-kicker">Module 6 · Leçon 4</span>
+      <h2>Détecter la Dérive de Schéma (Schema Drift)</h2>
+
+      <p>Cette dernière leçon du module aborde le cas où un changement de schéma survient de façon <strong>non planifiée et non communiquée</strong> — souvent parce qu'un système source évolue indépendamment du pipeline qui le consomme, sans qu'aucune coordination formelle n'ait eu lieu entre les deux équipes responsables. Ce phénomène, appelé dérive de schéma (schema drift), est l'une des causes les plus fréquentes d'incidents de qualité de données en production, précisément parce qu'il survient sans avertissement.</p>
+
+      <h3>Les formes typiques de dérive de schéma</h3>
+      <ul>
+        <li><strong>Apparition d'une nouvelle colonne</strong> non documentée dans le flux de données source, sans communication préalable à l'équipe consommatrice.</li>
+        <li><strong>Changement silencieux de type</strong> d'une colonne existante (un champ numérique qui devient occasionnellement une chaîne de caractères suite à une modification du système source).</li>
+        <li><strong>Changement de format</strong> à l'intérieur d'un même type déclaré (une date qui passe d'un format à un autre, cf. Module 2 leçon 3, sans que le type déclaré "date" ne change en apparence).</li>
+        <li><strong>Réordonnancement de colonnes</strong> dans un format positionnel (CSV sans en-tête), un cas particulièrement insidieux car il ne modifie ni les noms ni les types déclarés, mais corrompt silencieusement l'association entre chaque valeur et sa colonne d'origine.</li>
+      </ul>
+
+      <h3>Détecter la dérive par comparaison systématique à un schéma de référence</h3>
+      <p>La détection de dérive de schéma consiste à comparer, à chaque exécution du pipeline, la structure réellement observée des données entrantes à un schéma de référence stocké — toute divergence, même mineure ou apparemment anodine, doit déclencher une alerte explicite plutôt que d'être tolérée silencieusement par un système de validation trop permissif.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+schema_reference = {
+    "id_commande": "int64",
+    "montant": "float64",
+    "statut": "object",
+}
+
+def detecter_derive_schema(df, schema_reference):
+    colonnes_observees = set(df.columns)
+    colonnes_attendues = set(schema_reference.keys())
+
+    colonnes_manquantes = colonnes_attendues - colonnes_observees
+    colonnes_inattendues = colonnes_observees - colonnes_attendues
+    types_divergents = {
+        col: (schema_reference[col], str(df[col].dtype))
+        for col in colonnes_attendues & colonnes_observees
+        if str(df[col].dtype) != schema_reference[col]
+    }
+
+    if colonnes_manquantes or colonnes_inattendues or types_divergents:
+        print(f"DÉRIVE DE SCHÉMA DÉTECTÉE :")
+        if colonnes_manquantes: print(f"  Colonnes manquantes : {colonnes_manquantes}")
+        if colonnes_inattendues: print(f"  Colonnes inattendues : {colonnes_inattendues}")
+        if types_divergents: print(f"  Types divergents : {types_divergents}")
+        return False
+    return True
+
+df_recu = pd.DataFrame({
+    "id_commande": [1, 2], "montant": ["50.0", "30.0"],  # devenu str au lieu de float64
+    "statut": ["livré", "en_attente"], "nouveau_champ": ["x", "y"],  # colonne inattendue
+})
+detecter_derive_schema(df_recu, schema_reference)</code></pre>
+
+      <h3>Réagir à la dérive : alerter, mais aussi décider d'une politique par défaut</h3>
+      <p>Détecter une dérive n'est que la première moitié du problème — il faut ensuite décider d'une politique de réaction cohérente : rejeter systématiquement le lot de données concerné jusqu'à investigation manuelle (une politique stricte, sûre mais potentiellement bloquante pour le pipeline), ou accepter automatiquement les colonnes additionnelles tout en alertant a posteriori (une politique plus permissive, qui privilégie la continuité du pipeline au prix d'un risque accru). Ce choix rejoint directement l'arbitrage faux positifs / faux négatifs du cours précédent (Module 1, leçon 4), appliqué ici à la structure plutôt qu'au contenu des données.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Configurer un système de validation de schéma pour ignorer silencieusement toute colonne inattendue "pour ne pas bloquer le pipeline", ce qui élimine précisément la capacité à détecter une dérive de schéma au moment où elle se produit. Une nouvelle colonne inattendue devrait toujours générer au minimum une alerte, même si la politique choisie est de continuer à traiter le lot malgré tout.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un système source ajoute une nouvelle colonne "canal_acquisition" sans en avertir l'équipe data, qui découvre ce changement trois semaines plus tard en examinant un rapport. Décrivez comment le mécanisme de détection de dérive de cette leçon aurait permis une détection immédiate plutôt que tardive, et quelle politique de réaction (stricte ou permissive) vous recommanderiez pour ce cas précis.
+      </div>
+    </section>
+
+    <div class="module-divider">
+      <span class="num">MODULE 07 · INTÉGRATION EN PRODUCTION</span>
+      <span class="line"></span>
+    </div>
+
+    <section id="m7-l1">
+      <span class="lesson-kicker">Module 7 · Leçon 1</span>
+      <h2>Valider à l'Ingestion vs Valider en Aval</h2>
+
+      <p>Cette leçon approfondit une question déjà esquissée au Module 1, leçon 4 : au-delà du principe général de valider aux frontières du pipeline, quel arbitrage précis faire entre une validation systématique et exhaustive dès l'ingestion, et une validation plus ciblée réalisée à des étapes ultérieures, une fois les données déjà partiellement transformées ?</p>
+
+      <h3>Les arguments en faveur d'une validation maximale à l'ingestion</h3>
+      <p>Valider le plus tôt possible, dès que la donnée entre dans le système, présente un avantage décisif : toute violation est détectée avant qu'elle n'ait la moindre chance de se propager et de contaminer des transformations en aval (rejoint directement le Module 1, leçon 3, sur le coût croissant de détection tardive). Une donnée rejetée à l'ingestion n'a jamais l'occasion de fausser un agrégat, de corrompre une jointure, ou d'atteindre un tableau de bord consulté par une décision business.</p>
+
+      <pre><code class="language-python">import pandera as pa
+from pandera import Column, DataFrameSchema
+
+schema_ingestion_strict = DataFrameSchema({
+    "id_commande": Column(int, unique=True, nullable=False),
+    "montant": Column(float, pa.Check.greater_than(0)),
+    "email_client": Column(str, pa.Check.str_matches(r"^[^@]+@[^@]+\.[^@]+$")),
+}, strict=True)  # rejette également toute colonne inattendue, cf. Module 5 leçon 1
+
+def ingerer_commandes(donnees_brutes):
+    try:
+        return schema_ingestion_strict.validate(donnees_brutes, lazy=True)
+    except pa.errors.SchemaErrors as erreur:
+        # Rejeter le lot entier à la porte d'entrée plutôt que de laisser une partie
+        # contaminée progresser dans le pipeline
+        raise ValueError(f"Lot rejeté à l'ingestion : {erreur.failure_cases}")</code></pre>
+
+      <h3>Les limites d'une validation exhaustive systématique à l'ingestion</h3>
+      <p>Toutes les contraintes ne peuvent pas être vérifiées dès l'ingestion pour des raisons structurelles : une contrainte de cohérence référentielle (Module 4) nécessite que la table de référence soit déjà disponible et à jour, ce qui n'est pas toujours garanti au moment exact de l'ingestion d'un flux temps réel. De même, un invariant métier agrégé (Module 4, leçon 3) portant sur un ensemble d'enregistrements liés peut nécessiter que tous ces enregistrements soient déjà arrivés — une contrainte impossible à vérifier ligne par ligne au fil de l'ingestion d'un flux continu.</p>
+
+      <h3>Une architecture en couches de validation progressives</h3>
+      <p>La pratique recommandée n'oppose pas ingestion et aval, mais les articule en couches successives : une validation structurelle stricte à l'ingestion (types, contraintes de plage, unicité locale — tout ce qui peut être vérifié sur un enregistrement isolé ou un lot immédiat), suivie de validations de cohérence plus larges une fois les données consolidées avec leurs référentiels et leurs enregistrements liés (intégrité référentielle, invariants agrégés, Module 4).</p>
+
+      <pre><code class="language-python">def pipeline_valide_en_couches(donnees_brutes, referentiel_produits):
+    # Couche 1 : validation structurelle immédiate, à l'ingestion
+    donnees_validees = schema_ingestion_strict.validate(donnees_brutes, lazy=True)
+
+    # Couche 2 : validation de cohérence référentielle, après consolidation avec le référentiel
+    orphelins = ~donnees_validees["id_produit"].isin(referentiel_produits["id_produit"])
+    if orphelins.any():
+        raise ValueError(f"Cohérence référentielle violée : {orphelins.sum()} lignes orphelines")
+
+    return donnees_validees</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Vouloir absolument tout valider dès l'ingestion, y compris des contraintes qui dépendent structurellement de données non encore disponibles à ce stade (référentiels externes, agrégats sur un ensemble d'enregistrements pas encore complet). Cette ambition, bien intentionnée, produit souvent un code de validation fragile et artificiellement complexe, alors qu'une architecture en couches progressive serait plus naturelle et plus robuste.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Pour un flux d'événements de paiement ingéré en temps réel, identifiez une contrainte qui peut être validée immédiatement à l'ingestion, et une contrainte qui nécessite structurellement d'attendre une étape ultérieure du pipeline. Justifiez la différence.
+      </div>
+    </section>
+
+    <section id="m7-l2">
+      <span class="lesson-kicker">Module 7 · Leçon 2</span>
+      <h2>Échouer Vite ou Dégrader Gracieusement</h2>
+
+      <p>Face à une violation de schéma détectée, deux stratégies de réaction radicalement différentes s'offrent à un pipeline de production : interrompre immédiatement le traitement (fail-fast), ou continuer à traiter les données valides tout en isolant et signalant celles qui ne le sont pas (dégradation gracieuse). Le choix entre ces deux stratégies dépend directement du contexte métier et du coût relatif de chaque type d'erreur — un arbitrage qui rappelle directement le Module 1, leçon 4 du cours précédent sur les faux positifs et faux négatifs.</p>
+
+      <h3>Fail-fast : interrompre pour éviter toute propagation de données douteuses</h3>
+      <p>La stratégie fail-fast interrompt intégralement le traitement dès la première violation détectée, refusant de laisser progresser le moindre enregistrement tant que le problème n'est pas résolu. C'est la stratégie appropriée quand le coût de laisser passer une seule donnée non conforme est disproportionné par rapport au coût d'interrompre temporairement tout le pipeline — typiquement pour des données financières ou réglementaires, où l'intégrité globale prime sur la continuité de service.</p>
+
+      <pre><code class="language-python">import pandera as pa
+
+def pipeline_fail_fast(donnees, schema):
+    try:
+        return schema.validate(donnees)  # sans lazy=True : s'arrête à la première violation
+    except pa.errors.SchemaError as erreur:
+        # Le pipeline entier s'arrête ici -- aucune donnée, même valide, ne progresse
+        # tant que le problème identifié n'a pas été corrigé et le traitement relancé
+        raise SystemExit(f"Pipeline arrêté : violation de schéma critique -- {erreur}")</code></pre>
+
+      <h3>Dégradation gracieuse : isoler les non-conformes, continuer avec les valides</h3>
+      <p>La dégradation gracieuse sépare les enregistrements valides des enregistrements non conformes, poursuit le traitement avec les premiers, et route les seconds vers un mécanisme de traitement séparé (une file d'attente d'erreurs, une table de quarantaine) pour investigation ultérieure sans jamais bloquer l'ensemble du pipeline. C'est la stratégie appropriée quand la continuité de service prime, et quand une minorité d'enregistrements non conformes ne compromet pas la validité de l'ensemble du traitement.</p>
+
+      <pre><code class="language-python">import pandera as pa
+import pandas as pd
+
+def pipeline_degradation_gracieuse(donnees, schema):
+    try:
+        schema.validate(donnees, lazy=True)
+        return donnees, pd.DataFrame()  # tout est valide, aucune ligne en quarantaine
+    except pa.errors.SchemaErrors as erreur:
+        index_invalides = erreur.failure_cases["index"].unique()
+        donnees_valides = donnees.drop(index=index_invalides)
+        donnees_quarantaine = donnees.loc[index_invalides]
+        print(f"{len(donnees_quarantaine)} ligne(s) mise(s) en quarantaine, "
+              f"{len(donnees_valides)} ligne(s) poursuivent le traitement")
+        return donnees_valides, donnees_quarantaine</code></pre>
+
+      <h3>Un troisième mode : le seuil de tolérance</h3>
+      <p>Une approche intermédiaire, souvent la plus pragmatique en production, fixe un <strong>seuil de tolérance</strong> sur la proportion de violations acceptables : en dessous d'un pourcentage donné (par exemple 0.1% de lignes non conformes), le pipeline continue en mode dégradation gracieuse ; au-delà de ce seuil, considéré comme le signe d'un problème systémique plutôt que de quelques erreurs isolées, le pipeline bascule en fail-fast et s'arrête pour investigation.</p>
+
+      <pre><code class="language-python">def pipeline_avec_seuil_tolerance(donnees, schema, seuil_pourcentage=0.1):
+    donnees_valides, donnees_quarantaine = pipeline_degradation_gracieuse(donnees, schema)
+    taux_erreur = len(donnees_quarantaine) / len(donnees) * 100 if len(donnees) > 0 else 0
+
+    if taux_erreur > seuil_pourcentage:
+        raise SystemExit(
+            f"Taux d'erreur {taux_erreur:.2f}% dépasse le seuil de tolérance {seuil_pourcentage}% -- "
+            f"probable problème systémique, pas des erreurs isolées -- arrêt du pipeline pour investigation"
+        )
+    return donnees_valides, donnees_quarantaine</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Appliquer systématiquement une dégradation gracieuse sans jamais surveiller le taux cumulé de lignes mises en quarantaine dans le temps. Un taux de violation qui grandit progressivement, même s'il reste sous un seuil ponctuel acceptable à chaque exécution individuelle, peut signaler une dégradation systémique croissante (rejoint la dérive de schéma, Module 6 leçon 4) qui mérite une investigation avant qu'elle n'atteigne un niveau critique.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Pour un pipeline de traitement de relevés bancaires réglementaires d'une part, et un pipeline d'ingestion d'événements de clics utilisateur d'autre part, choisissez pour chacun une stratégie parmi fail-fast, dégradation gracieuse, ou seuil de tolérance, en justifiant par le coût relatif des erreurs dans chaque contexte.
+      </div>
+    </section>
+
+    <section id="m7-l3">
+      <span class="lesson-kicker">Module 7 · Leçon 3</span>
+      <h2>Tester des Schémas en CI/CD</h2>
+
+      <p>Un schéma de données, une fois formalisé avec les outils du Module 5, mérite d'être traité comme du code de production à part entière — versionné (Module 6), revu par les pairs, et surtout <strong>testé automatiquement</strong> dans un pipeline d'intégration continue, au même titre que toute autre logique métier critique.</p>
+
+      <h3>Tester un schéma avec des cas positifs et négatifs explicites</h3>
+      <p>Un schéma non testé peut contenir des erreurs de définition tout aussi silencieuses qu'un bug de code applicatif classique — une contrainte trop permissive qui ne détecte jamais la violation qu'elle est censée capturer, ou trop stricte qui rejette à tort des cas parfaitement légitimes. La pratique recommandée consiste à écrire, pour chaque contrainte du schéma, au moins un cas de test qui doit passer la validation et un cas qui doit explicitement échouer.</p>
+
+      <pre><code class="language-python">import pytest
+import pandas as pd
+import pandera as pa
+from mon_projet.schemas import schema_commande
+
+def test_schema_accepte_donnees_valides():
+    donnees_valides = pd.DataFrame({
+        "id_commande": [1, 2], "montant": [50.0, 30.0], "statut": ["livré", "en_attente"],
+    })
+    schema_commande.validate(donnees_valides)  # ne doit lever aucune exception
+
+def test_schema_rejette_montant_negatif():
+    donnees_invalides = pd.DataFrame({
+        "id_commande": [1], "montant": [-10.0], "statut": ["livré"],
+    })
+    with pytest.raises(pa.errors.SchemaError):
+        schema_commande.validate(donnees_invalides)
+
+def test_schema_rejette_statut_hors_enumeration():
+    donnees_invalides = pd.DataFrame({
+        "id_commande": [1], "montant": [50.0], "statut": ["statut_inconnu"],
+    })
+    with pytest.raises(pa.errors.SchemaError):
+        schema_commande.validate(donnees_invalides)</code></pre>
+
+      <h3>Tests de non-régression lors de l'évolution d'un schéma</h3>
+      <p>Chaque évolution de schéma (Module 6) devrait s'accompagner de tests vérifiant explicitement la compatibilité attendue : un test qui valide que d'anciennes données historiques restent acceptées par le nouveau schéma si la rétrocompatibilité était visée, ou un test qui documente et confirme explicitement qu'un changement majeur casse intentionnellement la compatibilité, évitant qu'une régression de compatibilité non désirée ne passe inaperçue lors d'une revue de code.</p>
+
+      <pre><code class="language-python">def test_retrocompatibilite_schema_v2_avec_donnees_v1():
+    """Vérifie explicitement que le schéma v2 reste rétrocompatible avec les données v1
+    (contrat de compatibilité ascendante défini au Module 6, leçon 2)."""
+    anciennes_donnees_v1 = pd.DataFrame({"id_commande": [1], "montant": [50.0]})
+    anciennes_donnees_v1["devise"] = None  # champ ajouté en v2, absent des vraies données v1
+    schema_commande_v2.validate(anciennes_donnees_v1)  # ne doit pas lever d'exception</code></pre>
+
+      <h3>Intégrer la validation de schéma comme étape de CI/CD</h3>
+      <p>Au-delà des tests unitaires du schéma lui-même, une pipeline de CI/CD mature exécute la validation de schéma contre un échantillon de données réelles (ou un jeu de données de référence représentatif) à chaque changement de code touchant le pipeline de données, détectant ainsi immédiatement qu'une modification du code de transformation n'a pas introduit, par inadvertance, une violation du contrat de schéma établi.</p>
+
+      <pre><code class="language-yaml"># Extrait d'un fichier de configuration CI (GitHub Actions, GitLab CI, etc.)
+test_validation_schema:
+  script:
+    - pytest tests/test_schemas.py -v
+    - python scripts/valider_schema_sur_echantillon_reference.py
+  rules:
+    - changes:
+        - "pipeline/transformations/**"
+        - "schemas/**"</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Définir un schéma de validation mais ne jamais écrire de tests explicites pour ce schéma lui-même, en supposant à tort que son usage en production constitue une validation suffisante. Sans tests explicites couvrant les cas limites, une contrainte mal définie (trop permissive ou trop stricte) peut rester silencieusement incorrecte pendant des mois avant qu'un incident ne la révèle.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Pour la contrainte conditionnelle du Module 3, leçon 4 ("si statut == 'livré' alors date_livraison doit être renseignée"), écrivez un test qui doit passer et un test qui doit échouer, dans le style des exemples de cette leçon.
+      </div>
+    </section>
+
+    <section id="m7-l4">
+      <span class="lesson-kicker">Module 7 · Leçon 4</span>
+      <h2>Monitorer et Alerter sur les Violations de Schéma</h2>
+
+      <p>Cette dernière leçon du cours ferme la boucle entre la validation de schéma (Modules 1 à 6) et l'observabilité continue d'un pipeline en production — un schéma validé une fois n'offre aucune garantie durable sans un monitoring actif qui surveille dans le temps le volume et la nature des violations détectées, capable d'alerter avant qu'un problème mineur ne devienne un incident majeur.</p>
+
+      <h3>Les métriques à suivre en continu</h3>
+      <ul>
+        <li><strong>Taux de violation par exécution</strong> : le pourcentage de lignes rejetées ou mises en quarantaine (Module 7, leçon 2) à chaque cycle du pipeline, suivi dans le temps pour détecter une tendance à la hausse plutôt qu'un incident isolé.</li>
+        <li><strong>Répartition des violations par type de contrainte</strong> : distinguer si les violations concentrent sur un type de contrainte particulier (une colonne spécifique, une règle conditionnelle) — un signal souvent plus actionnable qu'un taux global agrégé.</li>
+        <li><strong>Détections de dérive de schéma</strong> (Module 6, leçon 4) : chaque nouvelle colonne inattendue ou changement de type détecté, même s'il n'entraîne aucun rejet immédiat en mode dégradation gracieuse.</li>
+        <li><strong>Latence de détection</strong> : le délai entre l'introduction réelle d'un problème dans le système source et sa détection par le pipeline de validation, un indicateur direct de l'efficacité du dispositif de validation lui-même.</li>
+      </ul>
+
+      <pre><code class="language-python">import pandas as pd
+from datetime import datetime
+
+class MoniteurValidationSchema:
+    def __init__(self):
+        self.historique = []
+
+    def enregistrer_execution(self, nb_lignes_total, nb_lignes_rejetees, violations_par_colonne):
+        self.historique.append({
+            "date": datetime.now(),
+            "taux_violation": nb_lignes_rejetees / nb_lignes_total if nb_lignes_total > 0 else 0,
+            "violations_par_colonne": violations_par_colonne,
+        })
+        self._verifier_alerte()
+
+    def _verifier_alerte(self):
+        if len(self.historique) < 5:
+            return
+        taux_recents = [h["taux_violation"] for h in self.historique[-5:]]
+        if all(taux_recents[i] < taux_recents[i + 1] for i in range(len(taux_recents) - 1)):
+            print("ALERTE : le taux de violation de schéma augmente de façon monotone "
+                  "sur les 5 dernières exécutions -- dégradation progressive probable, investigation recommandée")
+
+moniteur = MoniteurValidationSchema()
+moniteur.enregistrer_execution(10000, 12, {"montant": 8, "statut": 4})</code></pre>
+
+      <h3>Synthèse : l'architecture complète d'un pipeline de qualité de données du Bloc 2</h3>
+      <p>Ce cours conclut le Bloc 2 en formalisant la dernière brique manquante : le contrat structurel qui, en amont, rend cohérentes et fiables toutes les techniques vues dans les trois cours précédents. Un pipeline de données véritablement industrialisé applique ces quatre couches en séquence, chacune s'appuyant sur les garanties de la précédente : la validation de schéma (ce cours) garantit d'abord la structure — types, contraintes, cohérence — avant même que le contenu ne soit examiné ; le nettoyage classique élimine ensuite les incohérences de format et les doublons sur des données dont la structure est déjà fiable ; le traitement des valeurs manquantes applique une décision informée sur les absences, distinguées de la non-applicabilité structurelle ; la détection d'anomalies enfin repère, sur une base saine, les signaux statistiques et métier qui appellent une investigation ou une action.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Mettre en place une validation de schéma robuste mais ne jamais superviser son comportement dans la durée, découvrant son inefficacité seulement lorsqu'un incident majeur la contourne complètement. Un dispositif de validation non monitoré peut se dégrader silencieusement (des règles devenues obsolètes qui laissent passer des cas qu'elles étaient censées bloquer) exactement comme les pipelines de détection d'anomalies du cours précédent.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        En reprenant les quatre couches de la synthèse de cette leçon (schéma, nettoyage, valeurs manquantes, anomalies), pour un pipeline de données de votre choix, identifiez à quelle couche appartient chacune des vérifications suivantes : "l'email suit un format valide", "le même client n'apparaît pas deux fois avec une orthographe différente", "la colonne âge n'a aucune valeur nulle non documentée", "un montant de transaction est statistiquement extrême par rapport à l'historique du client".
+      </div>
+    </section>
+
+    <section id="conclusion">
+      <span class="lesson-kicker">Bilan du Bloc 2</span>
+      <h2>Synthèse Finale : un Pipeline de Qualité de Données Complet</h2>
+      <p>Ce cours clôt le Bloc 2 (Data Cleaning Classique) en formalisant le contrat structurel — types, contraintes, cohérence — qui sous-tend implicitement chacun des trois cours précédents. Vous disposez désormais de l'ensemble des quatre piliers d'un pipeline de qualité de données industrialisé : le nettoyage classique (déduplication, normalisation, cohérence de format), la gestion rigoureuse des valeurs manquantes (distinguer l'absence structurelle de la vraie lacune), la détection d'anomalies et d'outliers (statistique et règles métier combinées), et enfin la validation de schéma de ce cours (types sémantiques, contraintes de structure, cohérence inter-tables, évolution maîtrisée, intégration en production). Appliquées en séquence — schéma d'abord, puis nettoyage, valeurs manquantes, et détection d'anomalies sur une base structurellement fiable — ces quatre couches forment un pipeline de données que vous pouvez désormais concevoir, tester, monitorer, et faire évoluer avec la même rigueur qu'un système logiciel de production critique.</p>
+    </section>
+
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+  hljs.highlightAll();
+
+  const sidebar = document.getElementById('sidebar');
+  document.getElementById('menuToggle').addEventListener('click', () => {
+    sidebar.classList.toggle('open');
+  });
+
+  const lessonLinks = document.querySelectorAll('[data-lesson]');
+  const storageKey = 'course-progress-' + (document.title || 'default');
+  const done = JSON.parse(localStorage.getItem(storageKey) || '{}');
+
+  function updateProgressBar() {
+    const total = lessonLinks.length;
+    const completed = Object.values(done).filter(Boolean).length;
+    document.getElementById('progressFill').style.width = (completed / total * 100) + '%';
+  }
+
+  lessonLinks.forEach(link => {
+    const id = link.dataset.lesson;
+    if (done[id]) link.querySelector('.lesson-check').classList.add('done');
+
+    link.addEventListener('click', () => {
+      done[id] = true;
+      localStorage.setItem(storageKey, JSON.stringify(done));
+      link.querySelector('.lesson-check').classList.add('done');
+      lessonLinks.forEach(l => l.classList.remove('active'));
+      link.classList.add('active');
+      updateProgressBar();
+      sidebar.classList.remove('open');
+    });
+  });
+
+  updateProgressBar();
+</script>
+</body>
+</html>

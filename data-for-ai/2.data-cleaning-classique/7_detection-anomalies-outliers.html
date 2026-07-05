@@ -1,0 +1,2165 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Détection d'Anomalies et d'Outliers — Méthodes Statistiques et Règles Métier</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Karla:wght@400;500;600&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<style>
+  :root {
+    --bg:         #f7f8f9;
+    --bg-alt:     #eceef0;
+    --bg-card:    #ffffff;
+    --text:       #16181b;
+    --text-muted: #62686f;
+    --border:     #dfe3e6;
+    --border2:    #cbd1d5;
+
+    --normal:       #0f766e;
+    --normal-dim:   #e1f2ef;
+    --anomaly:      #c2410c;
+    --anomaly-dim:  #fdeadb;
+    --critical:     #b91c1c;
+    --critical-dim: #fbe4e4;
+
+    --font-display: 'Plus Jakarta Sans', sans-serif;
+    --font-body: 'Karla', sans-serif;
+    --font-mono: 'Fira Code', monospace;
+
+    --sidebar-width: 300px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font-body);
+    color: var(--text);
+    background: var(--bg);
+    line-height: 1.7;
+  }
+
+  .layout { display: flex; min-height: 100vh; }
+
+  /* ---- Sidebar ---- */
+  .sidebar {
+    width: var(--sidebar-width);
+    flex-shrink: 0;
+    background: var(--bg-card);
+    border-right: 1px solid var(--border);
+    padding: 1.75rem 1.25rem 2rem;
+    overflow-y: auto;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+  }
+
+  .sidebar-header {
+    position: relative;
+    padding-bottom: 1.25rem;
+    margin-bottom: 1.25rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-header .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--anomaly);
+    display: block;
+    margin-bottom: 0.4rem;
+  }
+
+  .sidebar h1 {
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    font-weight: 800;
+    line-height: 1.35;
+  }
+
+  /* signature : mini radar, points normaux + un outlier cerclé */
+  .radar-signature {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin-top: 1rem;
+    height: 20px;
+  }
+  .radar-dot {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: var(--normal);
+    flex-shrink: 0;
+  }
+  .radar-dot.outlier {
+    width: 15px; height: 15px;
+    background: var(--anomaly);
+    box-shadow: 0 0 0 3px var(--anomaly-dim), 0 0 0 1px var(--anomaly);
+  }
+
+  .module-group { margin-bottom: 0.35rem; }
+
+  .module-title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 0.9rem;
+    padding: 0.6rem 0.5rem;
+    cursor: pointer;
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text);
+  }
+  .module-title:hover { background: var(--bg-alt); }
+  .module-num {
+    font-family: var(--font-mono);
+    color: var(--anomaly);
+    font-size: 0.76rem;
+    flex-shrink: 0;
+  }
+
+  .lesson-list { list-style: none; padding-left: 0.6rem; margin-bottom: 0.5rem; }
+  .lesson-list li a {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.4rem 0.5rem;
+    border-radius: 7px;
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.86rem;
+  }
+  .lesson-list li a:hover { background: var(--bg-alt); color: var(--text); }
+  .lesson-list li a.active { color: var(--anomaly); font-weight: 600; background: var(--anomaly-dim); }
+
+  .lesson-check {
+    width: 13px; height: 13px; flex-shrink: 0;
+    border: 1.5px dashed var(--border2); border-radius: 3px;
+  }
+  .lesson-check.done { background: var(--anomaly); border: 1.5px solid var(--anomaly); }
+
+  /* ---- Barre de progression ---- */
+  .progress-bar {
+    height: 4px;
+    background: var(--border);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--normal), var(--anomaly));
+    width: 0%;
+    transition: width 0.2s ease;
+  }
+
+  /* ---- Contenu principal ---- */
+  .content {
+    flex: 1;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 3rem 2rem 6rem;
+  }
+
+  .content section { margin-bottom: 4rem; }
+
+  .lesson-kicker {
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    color: var(--anomaly);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.6rem;
+    display: block;
+  }
+
+  .content h2 {
+    font-family: var(--font-display);
+    font-size: 1.7rem;
+    font-weight: 800;
+    margin-bottom: 1.1rem;
+    line-height: 1.3;
+  }
+  .content h3 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.1rem;
+    margin: 1.75rem 0 0.75rem;
+    color: var(--text);
+  }
+  .content p, .content ul, .content ol { margin-bottom: 1.1rem; }
+  .content ul, .content ol { padding-left: 1.4rem; }
+  .content li { margin-bottom: 0.4rem; }
+  .content strong { color: var(--text); }
+  .content code {
+    font-family: var(--font-mono);
+    background: var(--bg-alt);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.85em;
+  }
+
+  pre {
+    border-radius: 10px;
+    padding: 1.1rem 1.2rem;
+    overflow-x: auto;
+    margin: 1.2rem 0;
+    font-size: 0.85rem;
+  }
+  pre code { background: none; padding: 0; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.2rem 0;
+    font-size: 0.9rem;
+  }
+  th, td {
+    text-align: left;
+    padding: 0.55rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+  }
+  th { font-family: var(--font-display); font-size: 0.82rem; color: var(--text-muted); }
+
+  /* Signature du cours : ligne valeur -> signal -> verdict */
+  .signal-row {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.8rem 1.1rem;
+    margin: 1rem 0;
+    flex-wrap: wrap;
+  }
+  .signal-row .value-tag {
+    border: 1.5px dashed var(--border2); color: var(--text-muted);
+    padding: 0.2rem 0.55rem; border-radius: 5px;
+  }
+  .signal-row .arrow { color: var(--text-muted); }
+  .signal-row .flag-tag {
+    background: var(--anomaly); color: white; font-weight: 600;
+    padding: 0.2rem 0.55rem; border-radius: 5px;
+  }
+  .signal-row .ok-tag {
+    background: var(--normal); color: white; font-weight: 600;
+    padding: 0.2rem 0.55rem; border-radius: 5px;
+  }
+
+  .callout {
+    border-left: 4px solid var(--anomaly);
+    background: var(--anomaly-dim);
+    padding: 1rem 1.2rem;
+    border-radius: 0 10px 10px 0;
+    margin: 1.4rem 0;
+  }
+  .callout strong {
+    font-family: var(--font-display);
+    display: block;
+    margin-bottom: 0.3rem;
+    font-size: 0.9rem;
+  }
+  .callout.pitfall { border-left-color: var(--critical); background: var(--critical-dim); }
+  .callout.exercise { border-left-color: var(--normal); background: var(--normal-dim); }
+
+  .module-divider {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 0 0 2.5rem;
+    color: var(--text-muted);
+  }
+  .module-divider .num {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--anomaly);
+    background: var(--anomaly-dim);
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    flex-shrink: 0;
+  }
+  .module-divider .line { flex: 1; height: 1px; background: var(--border2); }
+
+  .menu-toggle { display: none; }
+
+  @media (max-width: 768px) {
+    .sidebar {
+      position: fixed;
+      left: -100%;
+      z-index: 20;
+      transition: left 0.2s ease;
+      box-shadow: 4px 0 12px rgba(0,0,0,0.12);
+      width: 85%;
+      max-width: 320px;
+    }
+    .sidebar.open { left: 0; }
+    .menu-toggle {
+      display: block;
+      position: fixed;
+      top: 1rem; left: 1rem;
+      z-index: 30;
+      background: var(--anomaly);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 0.55rem 0.8rem;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    .content { padding: 4.5rem 1.25rem 3rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-bar-fill" id="progressFill"></div></div>
+<button class="menu-toggle" id="menuToggle">☰</button>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <span class="eyebrow">Bloc 2 · Data Cleaning Classique · Cours 3/4</span>
+      <h1>Détection d'Anomalies et d'Outliers</h1>
+      <div class="radar-signature">
+        <span class="radar-dot"></span>
+        <span class="radar-dot"></span>
+        <span class="radar-dot outlier"></span>
+        <span class="radar-dot"></span>
+      </div>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span class="module-num">01</span> Qu'est-ce qu'une Anomalie</div>
+      <ul class="lesson-list">
+        <li><a href="#m1-l1" data-lesson="m1-l1"><span class="lesson-check"></span> Anomalie, Outlier, Bruit</a></li>
+        <li><a href="#m1-l2" data-lesson="m1-l2"><span class="lesson-check"></span> Ponctuelle, Contextuelle, Collective</a></li>
+        <li><a href="#m1-l3" data-lesson="m1-l3"><span class="lesson-check"></span> Erreur de Saisie vs Signal Réel</a></li>
+        <li><a href="#m1-l4" data-lesson="m1-l4"><span class="lesson-check"></span> Le Coût de l'Erreur</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span class="module-num">02</span> Détection Univariée</div>
+      <ul class="lesson-list">
+        <li><a href="#m2-l1" data-lesson="m2-l1"><span class="lesson-check"></span> Z-score et Règle des 3 Sigma</a></li>
+        <li><a href="#m2-l2" data-lesson="m2-l2"><span class="lesson-check"></span> Z-score Modifié (MAD)</a></li>
+        <li><a href="#m2-l3" data-lesson="m2-l3"><span class="lesson-check"></span> Méthode IQR (Boxplot)</a></li>
+        <li><a href="#m2-l4" data-lesson="m2-l4"><span class="lesson-check"></span> Percentiles et Winsorisation</a></li>
+        <li><a href="#m2-l5" data-lesson="m2-l5"><span class="lesson-check"></span> Limites : Asymétrie et Multimodalité</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span class="module-num">03</span> Détection Multivariée</div>
+      <ul class="lesson-list">
+        <li><a href="#m3-l1" data-lesson="m3-l1"><span class="lesson-check"></span> Pourquoi l'Univarié Échoue</a></li>
+        <li><a href="#m3-l2" data-lesson="m3-l2"><span class="lesson-check"></span> Distance de Mahalanobis</a></li>
+        <li><a href="#m3-l3" data-lesson="m3-l3"><span class="lesson-check"></span> Isolation Forest</a></li>
+        <li><a href="#m3-l4" data-lesson="m3-l4"><span class="lesson-check"></span> Local Outlier Factor (LOF)</a></li>
+        <li><a href="#m3-l5" data-lesson="m3-l5"><span class="lesson-check"></span> DBSCAN comme Détecteur</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span class="module-num">04</span> Séries Temporelles</div>
+      <ul class="lesson-list">
+        <li><a href="#m4-l1" data-lesson="m4-l1"><span class="lesson-check"></span> Décomposer avant de Détecter</a></li>
+        <li><a href="#m4-l2" data-lesson="m4-l2"><span class="lesson-check"></span> Moyennes Mobiles et Bandes de Bollinger</a></li>
+        <li><a href="#m4-l3" data-lesson="m4-l3"><span class="lesson-check"></span> Détection de Rupture (Changepoints)</a></li>
+        <li><a href="#m4-l4" data-lesson="m4-l4"><span class="lesson-check"></span> Saisonnalité Confondue avec Anomalie</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span class="module-num">05</span> Règles Métier</div>
+      <ul class="lesson-list">
+        <li><a href="#m5-l1" data-lesson="m5-l1"><span class="lesson-check"></span> Contraintes de Plage et Cohérence</a></li>
+        <li><a href="#m5-l2" data-lesson="m5-l2"><span class="lesson-check"></span> Règles Conditionnelles Inter-Colonnes</a></li>
+        <li><a href="#m5-l3" data-lesson="m5-l3"><span class="lesson-check"></span> Combiner Règles et Statistique</a></li>
+        <li><a href="#m5-l4" data-lesson="m5-l4"><span class="lesson-check"></span> Un Moteur de Règles Maintenable</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span class="module-num">06</span> Décider et Agir</div>
+      <ul class="lesson-list">
+        <li><a href="#m6-l1" data-lesson="m6-l1"><span class="lesson-check"></span> Investiguer avant d'Agir</a></li>
+        <li><a href="#m6-l2" data-lesson="m6-l2"><span class="lesson-check"></span> Suppression, Capping, Transformation, Flag</a></li>
+        <li><a href="#m6-l3" data-lesson="m6-l3"><span class="lesson-check"></span> Documenter et Tracer l'Impact</a></li>
+        <li><a href="#m6-l4" data-lesson="m6-l4"><span class="lesson-check"></span> L'Anomalie comme Signal Métier</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title"><span class="module-num">07</span> Validation et Production</div>
+      <ul class="lesson-list">
+        <li><a href="#m7-l1" data-lesson="m7-l1"><span class="lesson-check"></span> Évaluer sans Vérité Terrain</a></li>
+        <li><a href="#m7-l2" data-lesson="m7-l2"><span class="lesson-check"></span> Seuils Adaptatifs et Dérive</a></li>
+        <li><a href="#m7-l3" data-lesson="m7-l3"><span class="lesson-check"></span> PyOD, scikit-learn et Alternatives</a></li>
+        <li><a href="#m7-l4" data-lesson="m7-l4"><span class="lesson-check"></span> Un Pipeline Robuste et Monitorable</a></li>
+      </ul>
+    </div>
+
+  </nav>
+
+  <main class="content">
+    <div class="module-divider">
+      <span class="num">MODULE 01 · QU'EST-CE QU'UNE ANOMALIE</span>
+      <span class="line"></span>
+    </div>
+
+    <section id="m1-l1">
+      <span class="lesson-kicker">Module 1 · Leçon 1</span>
+      <h2>Anomalie, Outlier, Bruit : les Distinguer</h2>
+
+      <p>Ces trois mots sont utilisés de façon quasi interchangeable dans le langage courant de la data, et pourtant ils désignent des réalités différentes qui appellent des traitements différents. Confondre un bruit de mesure avec une anomalie métier — ou pire, avec un outlier statistique parfaitement légitime — est la cause la plus fréquente de décisions de nettoyage qui détruisent de l'information utile ou, à l'inverse, laissent passer un vrai problème.</p>
+
+      <h3>Le bruit : une variation attendue, sans signification individuelle</h3>
+      <p>Le bruit est une fluctuation aléatoire inhérente à tout processus de mesure ou d'observation — l'imprécision d'un capteur, l'arrondi d'une saisie, la variabilité naturelle d'un comportement humain. Un thermomètre qui affiche 21.3°C puis 21.4°C sur deux mesures consécutives dans une pièce stable ne signale rien : c'est du bruit de mesure, et vouloir l'expliquer point par point est une perte de temps. Le bruit se caractérise statistiquement et se traite globalement (par lissage, moyennage, tolérance), jamais valeur par valeur.</p>
+
+      <h3>L'outlier : un point statistiquement extrême, pas nécessairement un problème</h3>
+      <p>Un outlier est une observation qui s'écarte significativement de la distribution du reste des données, selon un critère statistique défini (distance à la moyenne, position dans l'IQR, densité locale — Modules 2 et 3). Un salaire de 400 000€ dans un dataset d'entreprise où la moyenne est de 45 000€ est un outlier statistique incontestable. Mais un outlier n'est <strong>pas automatiquement une erreur</strong> : ce salaire peut parfaitement correspondre à un poste de direction générale, une donnée exacte et légitime qui mérite d'être conservée telle quelle. L'outlier est une catégorie purement statistique, définie par la position dans une distribution — elle ne préjuge en rien de la validité de la donnée.</p>
+
+      <h3>L'anomalie : un signal métier, avec ou sans écart statistique</h3>
+      <p>L'anomalie est un jugement métier : une observation qui viole une attente légitime sur le processus qui a produit la donnée, que cette violation soit ou non statistiquement extrême. Une transaction de 12€ peut être une anomalie de fraude (une carte volée testée avec un petit montant) sans être du tout un outlier statistique — 12€ est une valeur banale pour une transaction. À l'inverse, un pic de trafic web à 3h du matin peut être un outlier statistique évident (très supérieur à la moyenne horaire) sans être une anomalie — c'est un comportement normal si un lancement produit était planifié à cette heure dans un fuseau horaire différent. Ce cours articule donc en permanence deux logiques complémentaires : la détection statistique (Modules 2 à 4), qui repère des écarts dans la distribution, et les règles métier (Module 5), qui encodent une connaissance du domaine que la statistique seule ne peut pas capturer.</p>
+
+      <table>
+        <tr><th>Concept</th><th>Nature</th><th>Exemple</th><th>Traitement typique</th></tr>
+        <tr><td>Bruit</td><td>Variation attendue, sans signification individuelle</td><td>21.3°C puis 21.4°C sur un capteur stable</td><td>Lissage, tolérance, ignoré au niveau du point</td></tr>
+        <tr><td>Outlier</td><td>Écart statistique par rapport à une distribution</td><td>Salaire de 400 000€ dans un dataset à 45 000€ de moyenne</td><td>Investigation avant toute décision (Module 6)</td></tr>
+        <tr><td>Anomalie métier</td><td>Violation d'une attente du domaine</td><td>Transaction de 12€ signant une fraude</td><td>Règles métier + statistique combinées (Module 5)</td></tr>
+      </table>
+
+      <div class="signal-row">
+        <span class="value-tag">salaire = 400 000 €</span>
+        <span class="arrow">outlier statistique ?</span>
+        <span class="flag-tag">OUI</span>
+        <span class="arrow">anomalie métier ?</span>
+        <span class="ok-tag">NON (DG légitime)</span>
+      </div>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Traiter systématiquement tout outlier statistique détecté comme une erreur à corriger ou supprimer, sans jamais vérifier s'il correspond à une anomalie métier réelle. Cette confusion conduit à supprimer silencieusement les cas les plus intéressants d'un dataset — les meilleurs clients, les transactions les plus rentables, les événements rares mais légitimes — au seul motif qu'ils sont statistiquement rares.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Pour chacun des cas suivants, indiquez s'il s'agit plutôt de bruit, d'un outlier statistique, d'une anomalie métier, ou d'une combinaison : (1) un capteur de température IoT qui envoie une valeur de -40°C dans un data center climatisé à 22°C, (2) un client qui achète pour 50 000€ en une commande dans une boutique où le panier moyen est de 80€, (3) un timestamp de connexion qui varie de quelques millisecondes entre deux requêtes identiques.
+      </div>
+    </section>
+
+    <section id="m1-l2">
+      <span class="lesson-kicker">Module 1 · Leçon 2</span>
+      <h2>Anomalies Ponctuelles, Contextuelles, Collectives</h2>
+
+      <p>Au-delà de la distinction bruit/outlier/anomalie de la leçon précédente, la littérature sur la détection d'anomalies (notamment la taxonomie de référence de Chandola, Banerjee et Kumar, 2009) distingue trois types structurels d'anomalies selon la façon dont elles se manifestent dans les données. Cette taxonomie n'est pas un exercice académique : chaque type appelle des familles de méthodes de détection différentes, et confondre les types conduit à choisir un outil inadapté au problème.</p>
+
+      <h3>Anomalie ponctuelle (point anomaly)</h3>
+      <p>Une observation individuelle qui s'écarte significativement du reste des données, indépendamment de tout contexte temporel ou de groupe. C'est le cas le plus simple et le plus étudié : une transaction bancaire de 50 000€ isolée dans un historique de transactions à quelques centaines d'euros. Les méthodes univariées et multivariées des Modules 2 et 3 (Z-score, IQR, Isolation Forest, LOF) ciblent principalement ce type.</p>
+
+      <h3>Anomalie contextuelle (contextual anomaly)</h3>
+      <p>Une observation qui est parfaitement normale dans l'absolu, mais anormale <strong>dans un contexte donné</strong> — un contexte défini par une variable temporelle, spatiale, ou catégorielle. Une température de 25°C n'a rien d'anormal en absolu, mais elle l'est fortement si elle est relevée en plein hiver à Moscou à 3h du matin, ou si elle correspond à un capteur situé dans une chambre froide industrielle censée rester sous 4°C. La détection contextuelle nécessite de conditionner l'analyse sur la variable de contexte — comparer chaque valeur non pas à l'ensemble du dataset, mais au sous-ensemble pertinent (Module 4, décomposition temporelle ; Module 5, règles conditionnelles).</p>
+
+      <h3>Anomalie collective (collective anomaly)</h3>
+      <p>Un groupe d'observations qui, prises individuellement, ne sont pas anormales, mais dont l'occurrence conjointe ou la séquence l'est. Une série de dix connexions à un compte utilisateur, chacune avec un délai de quelques secondes entre elles depuis dix pays différents, n'a rien d'extrême valeur par valeur — c'est le <strong>motif collectif</strong> (la vitesse de déplacement géographique impossible) qui constitue l'anomalie. La détection d'anomalies collectives nécessite une analyse de séquence ou de motif, typiquement hors du champ des méthodes point par point des Modules 2 et 3.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+# Anomalie contextuelle : température normale en absolu, anormale selon le contexte "saison"
+df = pd.DataFrame({
+    "date": pd.date_range("2024-01-01", periods=6, freq="ME"),
+    "temperature": [3, 5, 12, 22, 25, 24],
+})
+df["mois"] = df["date"].dt.month
+df["saison"] = df["mois"].map(lambda m: "hiver" if m in [12, 1, 2] else "ete" if m in [6,7,8] else "intersaison")
+
+# Une température de 22°C n'est PAS un outlier au sens global (Module 2),
+# mais devient contextuellement suspecte si le contexte associé est "hiver"
+seuils_par_saison = df.groupby("saison")["temperature"].agg(["mean", "std"])
+print(seuils_par_saison)</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Appliquer une détection ponctuelle globale (par exemple un Z-score calculé sur l'ensemble du dataset) à un problème qui est en réalité contextuel ou collectif. Un Z-score global sur toutes les températures de l'année ne détectera jamais une température estivale en plein hiver si elle reste dans la plage globale observée sur l'année entière — le problème n'est pas visible sans conditionner par le contexte pertinent.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Classez chacun des cas suivants parmi les trois types (ponctuelle, contextuelle, collective) : (1) un retrait bancaire de 5 000€ dans un pays où le client n'a jamais voyagé, immédiatement suivi de trois autres retraits similaires dans des pays différents en quelques minutes, (2) une consommation électrique de 15 kWh un jour donné pour un foyer qui consomme habituellement 8 kWh, (3) la même consommation de 15 kWh mais relevée un jour où le foyer était en vacances et le logement vide.
+      </div>
+    </section>
+
+    <section id="m1-l3">
+      <span class="lesson-kicker">Module 1 · Leçon 3</span>
+      <h2>Erreur de Saisie vs Signal Métier Réel</h2>
+
+      <p>Une fois une anomalie détectée, la question la plus cruciale — et la plus fréquemment court-circuitée — est de déterminer son origine : s'agit-il d'une erreur technique (saisie, capteur, transmission) qui doit être corrigée ou supprimée, ou d'un signal métier réel qui doit être conservé, voire mis en avant ? Cette distinction déterminera l'intégralité de la décision de traitement du Module 6, et se tromper dans un sens comme dans l'autre a un coût direct.</p>
+
+      <h3>Les signatures typiques d'une erreur technique</h3>
+      <ul>
+        <li><strong>Valeur physiquement impossible</strong> : un âge de 250 ans, une température corporelle de 0°C chez un patient vivant, un pourcentage de 150%. Aucune interprétation métier ne peut rendre cette valeur légitime — c'est un signal fort d'erreur.</li>
+        <li><strong>Rupture de type ou de format</strong> : une colonne numérique contenant soudainement une chaîne de caractères, une date au format américain glissée dans une colonne au format européen.</li>
+        <li><strong>Valeur sentinelle déguisée</strong> (Module 1 du cours sur les valeurs manquantes) : 9999, -1, ou 0 utilisés comme convention d'absence plutôt que comme vraie mesure.</li>
+        <li><strong>Doublon exact avec incohérence</strong> : deux enregistrements identiques sauf sur un seul champ, signant une double saisie ou une mise à jour partielle ratée.</li>
+      </ul>
+
+      <h3>Les signatures typiques d'un signal métier réel</h3>
+      <ul>
+        <li><strong>Cohérence interne malgré l'extrémité</strong> : un salaire de 400 000€ associé à un titre de poste "Directeur Général" et une ancienneté de 15 ans — la valeur extrême est corroborée par le contexte plutôt que contredite par lui.</li>
+        <li><strong>Récurrence structurée</strong> : un pic de ventes chaque année en décembre n'est pas une anomalie, c'est une saisonnalité récurrente (Module 4) — la répétition prévisible distingue le signal du bruit ponctuel.</li>
+        <li><strong>Corrélation avec un événement externe documenté</strong> : un pic de trafic web coïncidant exactement avec une campagne marketing lancée la veille.</li>
+        <li><strong>Plausibilité au regard du domaine</strong> : une transaction de 80 000€ chez un concessionnaire automobile n'a rien d'extrême pour ce secteur, même si elle le serait dans un commerce de détail alimentaire.</li>
+      </ul>
+
+      <div class="signal-row">
+        <span class="value-tag">âge = 130 ans</span>
+        <span class="arrow">cohérent avec le contexte ?</span>
+        <span class="flag-tag">NON → erreur technique</span>
+      </div>
+      <div class="signal-row">
+        <span class="value-tag">salaire = 400 000 €</span>
+        <span class="arrow">cohérent avec le contexte ?</span>
+        <span class="ok-tag">OUI (poste = DG) → signal réel</span>
+      </div>
+
+      <pre><code class="language-python">import pandas as pd
+
+df = pd.DataFrame({
+    "employe": ["A", "B", "C"],
+    "poste": ["Comptable", "Directeur Général", "Comptable"],
+    "salaire": [42000, 410000, 245000],
+})
+
+# Ne JAMAIS juger une valeur extrême isolément : croiser systématiquement
+# avec les colonnes de contexte disponibles avant toute conclusion
+df["salaire_median_poste"] = df.groupby("poste")["salaire"].transform("median")
+df["ecart_relatif"] = (df["salaire"] - df["salaire_median_poste"]) / df["salaire_median_poste"]
+print(df)
+# L'employé C (Comptable à 245 000€) reste suspect même après contextualisation :
+# aucun poste "Comptable" ne justifie un tel écart -- candidat probable à l'erreur de saisie
+# L'employé B (DG à 410 000€) est cohérent avec son propre poste -- signal réel probable</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Juger une valeur extrême de façon isolée, sans jamais la croiser avec les autres colonnes disponibles qui pourraient la corroborer ou la contredire. Une même valeur numérique (410 000€ de salaire) est une erreur évidente pour un poste de comptable et parfaitement plausible pour un poste de direction générale — le jugement ne peut jamais se faire sur une seule colonne prise isolément (voir aussi Module 5 sur les règles conditionnelles inter-colonnes).
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un capteur IoT de température ambiante enregistre une valeur de -273°C (le zéro absolu). Un second capteur enregistre 45°C dans un bureau climatisé en plein été. Pour chacun, indiquez s'il s'agit plutôt d'une erreur technique ou d'un signal potentiellement réel, et quelle vérification contextuelle supplémentaire permettrait de trancher avec certitude.
+      </div>
+    </section>
+
+    <section id="m1-l4">
+      <span class="lesson-kicker">Module 1 · Leçon 4</span>
+      <h2>Le Coût de l'Erreur : Faux Positifs vs Faux Négatifs</h2>
+
+      <p>Toute méthode de détection d'anomalies, aussi sophistiquée soit-elle, commet des erreurs dans les deux sens : elle signale parfois une observation normale comme anomalie (<strong>faux positif</strong>), et elle laisse parfois passer une vraie anomalie sans la signaler (<strong>faux négatif</strong>). Concevoir un système de détection sans avoir explicitement raisonné sur le coût relatif de ces deux types d'erreurs dans le contexte métier concerné est l'erreur de conception la plus fondamentale de ce domaine — elle précède et détermine tous les choix de seuils qui suivront dans les Modules 2 à 5.</p>
+
+      <h3>Le faux positif : le coût de la fausse alerte</h3>
+      <p>Un faux positif bloque, retarde, ou fait examiner manuellement une observation parfaitement légitime. Dans un système de détection de fraude bancaire, un faux positif bloque la carte d'un client honnête en plein achat — un coût direct en expérience client, en charge de support, et in fine en perte de confiance ou de revenu si le client se tourne vers un concurrent. Dans un pipeline de données scientifiques, un faux positif peut exclure une observation rare mais réelle et précieuse (une découverte, un événement extrême authentique) de l'analyse.</p>
+
+      <h3>Le faux négatif : le coût de l'anomalie manquée</h3>
+      <p>Un faux négatif laisse passer un vrai problème sans le signaler. Dans la détection de fraude, c'est la transaction frauduleuse non bloquée, avec une perte financière directe. Dans la maintenance prédictive industrielle, c'est la défaillance de capteur qui précède une panne mécanique majeure non détectée à temps, avec un coût potentiellement très supérieur à celui d'une fausse alerte.</p>
+
+      <h3>L'arbitrage n'est jamais symétrique — et dépend entièrement du domaine</h3>
+      <p>Il n'existe aucun réglage universellement "optimal" entre ces deux types d'erreurs : le bon compromis dépend entièrement du coût relatif propre au domaine d'application. Un seuil de détection plus strict (moins sensible) réduit les faux positifs mais augmente mécaniquement les faux négatifs, et inversement — c'est un arbitrage, pas un problème à résoudre une fois pour toutes. En sécurité aéronautique ou en détection de fraude à très fort enjeu financier, on tolère généralement bien plus de faux positifs pour minimiser les faux négatifs. En marketing ou en modération de contenu à faible enjeu individuel, l'inverse est souvent préférable pour ne pas dégrader l'expérience utilisateur avec des frictions excessives.</p>
+
+      <table>
+        <tr><th>Contexte</th><th>Coût dominant si on rate une vraie anomalie</th><th>Coût dominant si on signale à tort</th><th>Arbitrage typique</th></tr>
+        <tr><td>Fraude bancaire à fort montant</td><td>Perte financière directe</td><td>Friction client, appel support</td><td>Tolérer plus de faux positifs</td></tr>
+        <tr><td>Maintenance prédictive critique</td><td>Panne majeure, arrêt de production</td><td>Inspection manuelle inutile</td><td>Tolérer plus de faux positifs</td></tr>
+        <tr><td>Modération de contenu à bas risque</td><td>Contenu limite non filtré</td><td>Blocage de contenu légitime, frustration</td><td>Tolérer plus de faux négatifs</td></tr>
+        <tr><td>Alerte capteur IoT grand public</td><td>Notification manquée</td><td>Notification excessive, désinstallation de l'app</td><td>Tolérer plus de faux négatifs</td></tr>
+      </table>
+
+      <pre><code class="language-python">import numpy as np
+from sklearn.metrics import confusion_matrix, precision_score, recall_score
+
+# y_true : 1 = vraie anomalie, 0 = observation normale (nécessite une vérité terrain, voir Module 7)
+y_true = np.array([0, 0, 0, 1, 0, 1, 0, 0, 1, 0])
+y_pred = np.array([0, 1, 0, 1, 0, 0, 0, 0, 1, 0])  # seuil de détection donné
+
+tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
+print(f"Faux positifs : {fp} -- observations normales signalées à tort")
+print(f"Faux négatifs : {fn} -- vraies anomalies manquées")
+
+# La précision favorise la réduction des faux positifs, le rappel favorise la réduction des faux négatifs
+# Choisir la métrique à optimiser (Module 7) DOIT découler du coût métier, jamais d'une préférence technique par défaut
+print(f"Précision : {precision_score(y_true, y_pred):.2f}")
+print(f"Rappel    : {recall_score(y_true, y_pred):.2f}")</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Choisir un seuil de détection (Z-score de 3, IQR × 1.5, etc.) parce que c'est la convention par défaut trouvée dans un tutoriel ou une bibliothèque, sans jamais l'ajuster au coût réel des deux types d'erreurs dans le contexte métier concerné. Un seuil "par défaut" appliqué sans réflexion produit un système soit trop bruyant (submergé de fausses alertes, ignoré par les équipes), soit dangereusement silencieux (aucune alerte, faux sentiment de sécurité).
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une équipe de détection de fraude constate que son système actuel génère 200 alertes par jour, dont seulement 8 sont des fraudes confirmées après investigation manuelle. Discutez : ce système a-t-il un problème de faux positifs, de faux négatifs, ou potentiellement les deux à la fois ? Quelles informations manquantes faudrait-il obtenir pour trancher (indice : la question porte aussi sur ce qui n'est PAS visible dans ces chiffres).
+      </div>
+    </section>
+
+    <div class="module-divider">
+      <span class="num">MODULE 02 · DÉTECTION UNIVARIÉE</span>
+      <span class="line"></span>
+    </div>
+
+    <section id="m2-l1">
+      <span class="lesson-kicker">Module 2 · Leçon 1</span>
+      <h2>Le Z-score et la Règle des 3 Sigma</h2>
+
+      <p>Le Z-score est la méthode de détection d'anomalies la plus enseignée, la plus simple à implémenter, et pourtant la plus souvent mal appliquée — parce que sa validité repose sur une hypothèse rarement vérifiée avant usage : que les données suivent (approximativement) une distribution normale. Comprendre précisément ce que mesure un Z-score, et surtout dans quelles conditions il cesse d'être fiable, est le prérequis indispensable avant d'utiliser cette méthode en production.</p>
+
+      <h3>Ce que mesure réellement un Z-score</h3>
+      <p>Le Z-score d'une observation exprime son écart à la moyenne, normalisé par l'écart-type de la distribution : <code>z = (x - moyenne) / écart_type</code>. Un Z-score de 2 signifie que la valeur se situe à deux écarts-types au-dessus de la moyenne. Sous l'hypothèse d'une distribution normale, les propriétés de cette loi permettent d'associer un Z-score à une probabilité précise : environ 68% des observations tombent dans ±1 écart-type, 95% dans ±2, et 99.7% dans ±3 — c'est la fameuse "règle des 3 sigma". Un seuil de |z| > 3 est donc une convention courante, signifiant "moins de 0.3% de chance d'observer une valeur aussi extrême si la distribution est vraiment normale et l'observation vraiment issue du même processus".</p>
+
+      <pre><code class="language-python">import numpy as np
+import pandas as pd
+
+df = pd.DataFrame({"montant": [45, 52, 48, 51, 47, 620, 49, 53, 46, 50]})
+
+moyenne = df["montant"].mean()
+ecart_type = df["montant"].std()
+df["z_score"] = (df["montant"] - moyenne) / ecart_type
+
+seuil = 3
+df["anomalie"] = df["z_score"].abs() > seuil
+print(df)
+# La transaction à 620 obtient un Z-score très élevé et sera correctement signalée --
+# MAIS elle influence aussi elle-même la moyenne et l'écart-type utilisés pour la juger (voir piège ci-dessous)</code></pre>
+
+      <h3>Le problème de masquage : l'anomalie contamine sa propre référence</h3>
+      <p>Le défaut le plus insidieux du Z-score classique est que la moyenne et l'écart-type utilisés pour juger une observation sont eux-mêmes calculés à partir du dataset qui contient potentiellement l'anomalie. Une valeur extrême tire mécaniquement la moyenne vers elle et, plus grave encore, gonfle fortement l'écart-type (qui est très sensible aux valeurs extrêmes, puisqu'il repose sur des écarts au carré). Ce phénomène, appelé <strong>effet de masquage</strong>, peut faire chuter le Z-score d'une vraie anomalie sous le seuil de détection, ou pire, permettre à plusieurs anomalies groupées de se masquer mutuellement en gonflant ensemble l'écart-type de référence.</p>
+
+      <pre><code class="language-python">import numpy as np
+
+donnees_propres = np.array([45, 52, 48, 51, 47, 49, 53, 46, 50])
+donnees_avec_anomalie = np.append(donnees_propres, 620)
+
+print(f"Écart-type sans anomalie : {donnees_propres.std():.1f}")
+print(f"Écart-type avec anomalie : {donnees_avec_anomalie.std():.1f}")
+# L'écart-type explose avec l'ajout d'une seule valeur extrême -- ce qui, paradoxalement,
+# RÉDUIT le Z-score de cette même valeur par rapport à ce qu'il aurait été sur des données propres,
+# et peut aussi masquer une seconde anomalie plus modérée qui aurait été détectée sur données propres</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Calculer la moyenne et l'écart-type sur l'ensemble des données incluant les anomalies suspectées, puis s'étonner qu'une anomalie évidente à l'œil nu obtienne un Z-score sous le seuil. Ce cercle vicieux (l'anomalie affaiblit la référence qui sert à la détecter) est la raison principale pour laquelle des alternatives robustes comme le Z-score modifié (leçon suivante) ou l'IQR sont souvent préférées en présence d'anomalies potentiellement nombreuses ou extrêmes.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un dataset de 100 transactions a une moyenne de 50€ et un écart-type de 8€ en excluant une transaction de 900€. En incluant cette transaction dans le calcul, recalculez mentalement (ou avec du code) l'ordre de grandeur du nouvel écart-type, et expliquez pourquoi le Z-score de la transaction de 900€ sera plus bas qu'attendu intuitivement.
+      </div>
+    </section>
+
+    <section id="m2-l2">
+      <span class="lesson-kicker">Module 2 · Leçon 2</span>
+      <h2>Le Z-score Modifié (MAD) pour Distributions Non-Normales</h2>
+
+      <p>Le Z-score modifié, popularisé par Iglewicz et Hoaglin (1993), corrige le double défaut du Z-score classique de la leçon précédente : sa sensibilité aux anomalies qu'il est censé détecter, et sa dépendance à l'hypothèse de normalité. Il remplace la moyenne et l'écart-type — tous deux non robustes — par la médiane et la MAD (Median Absolute Deviation), deux statistiques dites <strong>robustes</strong> qui restent stables même en présence d'un nombre substantiel de valeurs extrêmes.</p>
+
+      <h3>Pourquoi la médiane et la MAD résistent aux anomalies là où la moyenne échoue</h3>
+      <p>La moyenne peut être arbitrairement déplacée par une seule valeur suffisamment extrême — c'est mathématiquement le cas de toute statistique dont le "point de rupture" (breakdown point) est de 0% : une seule observation aberrante suffit à la faire dériver sans limite. La médiane, à l'inverse, a un point de rupture de 50% : il faut que plus de la moitié des données soient des valeurs aberrantes pour la faire dériver significativement, puisqu'elle ne dépend que du rang des observations, pas de leur valeur exacte. La MAD applique le même principe à la mesure de dispersion : c'est la médiane des écarts absolus à la médiane, elle aussi insensible à une minorité de valeurs extrêmes.</p>
+
+      <pre><code class="language-python">import numpy as np
+import pandas as pd
+
+df = pd.DataFrame({"montant": [45, 52, 48, 51, 47, 620, 49, 53, 46, 50]})
+
+mediane = df["montant"].median()
+mad = (df["montant"] - mediane).abs().median()
+
+# Constante 0.6745 : facteur de correction pour que la MAD soit comparable à un écart-type
+# sous hypothèse de normalité (rend le seuil de 3.5 comparable au seuil classique de 3 sigma)
+df["z_modifie"] = 0.6745 * (df["montant"] - mediane) / mad
+
+seuil = 3.5  # seuil conventionnel recommandé par Iglewicz et Hoaglin pour le Z-score modifié
+df["anomalie"] = df["z_modifie"].abs() > seuil
+print(df[["montant", "z_modifie", "anomalie"]])
+# Contrairement au Z-score classique, la médiane et la MAD ici ne sont presque pas affectées
+# par la valeur 620 -- la détection reste fiable même en présence de l'anomalie elle-même</code></pre>
+
+      <h3>Le cas dégénéré : quand la MAD elle-même vaut zéro</h3>
+      <p>Sur des données très concentrées ou discrètes (beaucoup de valeurs identiques à la médiane), la MAD peut valoir exactement zéro, rendant le Z-score modifié indéfini (division par zéro). C'est un signal que la méthode atteint sa limite sur ce type de distribution — une situation à détecter explicitement plutôt que de laisser produire une erreur silencieuse ou un résultat infini non géré.</p>
+
+      <pre><code class="language-python">import numpy as np
+
+valeurs = np.array([10, 10, 10, 10, 10, 10, 55])  # majorité identique -> MAD nulle
+mediane = np.median(valeurs)
+mad = np.median(np.abs(valeurs - mediane))
+print(f"MAD = {mad}")  # 0.0 -- le Z-score modifié serait indéfini (division par zéro)
+if mad == 0:
+    print("MAD nulle : basculer vers une autre méthode (IQR, ou seuil métier absolu, Module 5)")</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Utiliser aveuglément le seuil conventionnel de 3.5 sans vérifier au préalable que la MAD n'est pas nulle ou proche de zéro. Sur des données à faible variance intrinsèque (beaucoup de valeurs répétées), une MAD quasi nulle peut faire passer des écarts en réalité mineurs pour des Z-scores modifiés extrêmement élevés, générant une explosion de faux positifs.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Recalculez à la main le Z-score classique et le Z-score modifié pour la valeur 620 du premier exemple de code de cette leçon, en utilisant respectivement la moyenne/écart-type et la médiane/MAD des mêmes données. Expliquez pourquoi les deux résultats diffèrent aussi fortement.
+      </div>
+    </section>
+
+    <section id="m2-l3">
+      <span class="lesson-kicker">Module 2 · Leçon 3</span>
+      <h2>La Méthode IQR (Boxplot) et ses Bornes</h2>
+
+      <p>La méthode de l'écart interquartile (IQR, Interquartile Range) est l'autre grand pilier de la détection univariée robuste, popularisée par le boxplot de John Tukey. Contrairement au Z-score, elle ne fait <strong>aucune hypothèse de normalité</strong> — elle se fonde uniquement sur les rangs des observations (les quartiles), ce qui la rend directement applicable à des distributions asymétriques dans une certaine mesure, bien qu'elle conserve elle aussi des limites (leçon 5 de ce module).</p>
+
+      <h3>Construire les bornes à partir des quartiles</h3>
+      <p>L'IQR se calcule comme la différence entre le troisième quartile (Q3, 75e percentile) et le premier quartile (Q1, 25e percentile) : <code>IQR = Q3 - Q1</code>. Les bornes de détection standard sont ensuite définies à 1.5 fois l'IQR au-delà de Q1 et Q3 — une convention également due à Tukey, choisie empiriquement pour correspondre approximativement à ±2.7 écarts-types sous une distribution normale (donc un peu plus permissif que la règle des 3 sigma).</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+df = pd.DataFrame({"montant": [45, 52, 48, 51, 47, 620, 49, 53, 46, 50, 44, 55]})
+
+q1 = df["montant"].quantile(0.25)
+q3 = df["montant"].quantile(0.75)
+iqr = q3 - q1
+
+borne_basse = q1 - 1.5 * iqr
+borne_haute = q3 + 1.5 * iqr
+
+df["anomalie"] = (df["montant"] < borne_basse) | (df["montant"] > borne_haute)
+print(f"Q1={q1}, Q3={q3}, IQR={iqr}")
+print(f"Bornes : [{borne_basse:.1f}, {borne_haute:.1f}]")
+print(df[df["anomalie"]])</code></pre>
+
+      <h3>Le multiplicateur 1.5 n'est pas une loi physique — l'ajuster au coût métier</h3>
+      <p>Le facteur 1.5 est une convention, pas une constante universelle. Un multiplicateur de 3 (au lieu de 1.5) est couramment utilisé pour définir des "anomalies extrêmes" plus sévères que les "anomalies modérées" détectées à 1.5 — une gradation à deux niveaux souvent utile en pratique pour prioriser l'investigation (Module 6). Comme évoqué en Module 1 leçon 4, ce choix doit refléter le coût relatif des faux positifs et faux négatifs dans le contexte métier, pas rester au réglage par défaut d'une bibliothèque.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+def bornes_iqr(serie, multiplicateur=1.5):
+    q1, q3 = serie.quantile(0.25), serie.quantile(0.75)
+    iqr = q3 - q1
+    return q1 - multiplicateur * iqr, q3 + multiplicateur * iqr
+
+serie = df["montant"]
+basse_moderee, haute_moderee = bornes_iqr(serie, 1.5)
+basse_extreme, haute_extreme = bornes_iqr(serie, 3.0)
+
+df["severite"] = "normal"
+df.loc[(serie < basse_moderee) | (serie > haute_moderee), "severite"] = "modérée"
+df.loc[(serie < basse_extreme) | (serie > haute_extreme), "severite"] = "extrême"
+print(df[["montant", "severite"]])</code></pre>
+
+      <h3>Lien direct avec le boxplot</h3>
+      <p>Ces mêmes bornes sont exactement celles utilisées pour dessiner les "moustaches" d'un boxplot — les points affichés individuellement au-delà des moustaches dans une visualisation matplotlib ou seaborn sont, par défaut, précisément les observations détectées par cette méthode. Visualiser un boxplot avant toute détection programmatique est une vérification rapide et recommandée pour valider intuitivement que les bornes calculées sont cohérentes avec ce que montre la distribution.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Appliquer la méthode IQR à une colonne fortement discrète ou bornée par construction (par exemple une note sur 5, ou un pourcentage entre 0 et 100) sans vérifier que les bornes calculées ont un sens. Sur une distribution très concentrée, l'IQR peut être si faible que même des variations mineures et parfaitement normales déclenchent un signalement en anomalie.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une colonne "âge" a Q1=28 et Q3=42. Calculez les bornes de détection standard (multiplicateur 1.5) et les bornes étendues (multiplicateur 3.0). Un âge de 68 ans serait-il détecté comme anomalie modérée, extrême, ou ni l'un ni l'autre ?
+      </div>
+    </section>
+
+    <section id="m2-l4">
+      <span class="lesson-kicker">Module 2 · Leçon 4</span>
+      <h2>Percentiles et Winsorisation</h2>
+
+      <p>Une troisième approche univariée, plus directe et moins dépendante d'une hypothèse sur la forme de la distribution, consiste à définir les anomalies simplement comme les observations situées au-delà de percentiles fixes choisis a priori (par exemple, en dessous du 1er percentile ou au-dessus du 99e). Cette méthode est particulièrement utile quand on souhaite <strong>garantir</strong> qu'une proportion connue et contrôlée des données sera traitée comme extrême, indépendamment de la forme exacte de la distribution sous-jacente.</p>
+
+      <h3>Détection par percentiles fixes</h3>
+      <pre><code class="language-python">import pandas as pd
+import numpy as np
+
+np.random.seed(0)
+df = pd.DataFrame({"revenu": np.random.lognormal(10.5, 0.6, 1000)})
+
+p01 = df["revenu"].quantile(0.01)
+p99 = df["revenu"].quantile(0.99)
+
+df["anomalie_percentile"] = (df["revenu"] < p01) | (df["revenu"] > p99)
+print(f"Bornes 1er/99e percentile : [{p01:.0f}, {p99:.0f}]")
+print(f"Nombre d'anomalies détectées : {df['anomalie_percentile'].sum()} (~1% attendu de chaque côté)")</code></pre>
+
+      <h3>La winsorisation : plafonner plutôt que supprimer</h3>
+      <p>La winsorisation, du nom du statisticien Charles Winsor, consiste à <strong>remplacer</strong> les valeurs au-delà d'un percentile donné par la valeur du percentile lui-même, plutôt qu'à les supprimer. C'est une alternative précieuse quand la suppression pure (Module 6) ferait perdre des lignes entières de données par ailleurs informatives sur d'autres colonnes, ou quand on souhaite réduire l'influence d'une valeur extrême sur une statistique agrégée (une moyenne, un modèle de régression) sans effacer complètement l'information qu'elle porte.</p>
+
+      <pre><code class="language-python">from scipy.stats.mstats import winsorize
+import numpy as np
+
+revenus = np.array([28000, 31000, 29000, 32000, 30000, 250000, 27000])
+
+# limits=(0.05, 0.05) : plafonne les 5% les plus bas ET les 5% les plus hauts
+revenus_winsorises = winsorize(revenus, limits=(0.05, 0.05))
+print(f"Original     : {revenus}")
+print(f"Winsorisé    : {np.array(revenus_winsorises)}")
+# La valeur 250000 est ramenée au niveau du 95e percentile plutôt que supprimée --
+# la ligne complète (et ses autres colonnes) reste exploitable, avec une influence réduite</code></pre>
+
+      <h3>Winsorisation vs suppression vs conservation : un choix qui dépend de l'objectif en aval</h3>
+      <p>La winsorisation n'est pas systématiquement préférable à la suppression ou à la conservation intacte — c'est un des trois leviers du Module 6, à choisir selon l'usage final des données. Pour un calcul de statistique descriptive robuste (une moyenne représentative "typique"), la winsorisation est souvent idéale. Pour un modèle de détection de fraude dont l'objectif est justement de repérer les valeurs extrêmes, winsoriser reviendrait à supprimer le signal même que l'on cherche à détecter — un contresens total.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Winsoriser des données en amont d'un pipeline sans documenter cette transformation, puis utiliser ces mêmes données plus tard pour une tâche où les valeurs extrêmes constituaient le signal recherché (détection de fraude, alerte qualité). La winsorisation est une transformation avec perte d'information choisie pour un objectif précis — elle doit être tracée (Module 6, leçon 3) pour éviter d'être appliquée hors de son contexte de validité.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous devez préparer un dataset de revenus pour calculer un revenu moyen "représentatif" à présenter dans un rapport public, en minimisant l'influence de quelques très hauts revenus. Choisiriez-vous plutôt la suppression, la winsorisation, ou la conservation intacte ? Justifiez, puis proposez la même question pour un dataset destiné à entraîner un modèle de détection de fraude fiscale.
+      </div>
+    </section>
+
+    <section id="m2-l5">
+      <span class="lesson-kicker">Module 2 · Leçon 5</span>
+      <h2>Limites : Distributions Asymétriques et Multimodales</h2>
+
+      <p>Cette dernière leçon du module univarié aborde de front une limite structurelle partagée, à des degrés divers, par toutes les méthodes vues jusqu'ici : elles supposent implicitement une distribution <strong>unimodale</strong> (un seul pic) et raisonnablement symétrique. Appliquées telles quelles à des distributions asymétriques ou multimodales, ces méthodes produisent des résultats trompeurs — un problème bien plus fréquent en pratique que ne le suggèrent la plupart des tutoriels, qui illustrent presque toujours ces méthodes sur des données synthétiques parfaitement gaussiennes.</p>
+
+      <h3>Le problème sur une distribution fortement asymétrique</h3>
+      <p>Une distribution de revenus, de temps d'attente, ou de montants de transaction est presque toujours asymétrique à droite (une longue traîne de valeurs élevées, peu fréquentes). Sur ce type de distribution, le Z-score classique signale un excès d'anomalies du côté de la traîne longue (car la queue épaisse "tire" naturellement de nombreux points au-delà de 3 écarts-types) tout en manquant des valeurs anormalement <strong>basses</strong>, pourtant tout aussi suspectes dans certains contextes (un montant de transaction à 0.01€, par exemple).</p>
+
+      <pre><code class="language-python">import numpy as np
+import pandas as pd
+from scipy import stats
+
+np.random.seed(0)
+revenus = np.random.lognormal(mean=10.5, sigma=0.6, size=2000)  # distribution fortement asymétrique
+
+z_scores = stats.zscore(revenus)
+nb_anomalies_hautes = (z_scores > 3).sum()
+nb_anomalies_basses = (z_scores < -3).sum()
+print(f"Anomalies hautes détectées : {nb_anomalies_hautes}")
+print(f"Anomalies basses détectées : {nb_anomalies_basses}")
+# Sur une distribution log-normale, le déséquilibre est flagrant :
+# de nombreuses vraies valeurs hautes légitimes sont signalées, très peu de valeurs basses le sont,
+# alors qu'une transaction anormalement basse peut être tout aussi suspecte (Module 5)
+
+# Une transformation logarithmique préalable, quand la variable le permet, rapproche
+# la distribution d'une forme normale et restaure la validité du Z-score classique
+z_scores_log = stats.zscore(np.log(revenus))
+print(f"Anomalies hautes (après log) : {(z_scores_log > 3).sum()}")
+print(f"Anomalies basses (après log) : {(z_scores_log < -3).sum()}")</code></pre>
+
+      <h3>Le problème sur une distribution multimodale</h3>
+      <p>Une distribution avec plusieurs pics distincts (par exemple, la taille d'une population mêlant deux espèces, ou un temps de traitement informatique avec un mode "cache hit" rapide et un mode "cache miss" lent) rend la notion même de "moyenne" ou de "médiane globale" trompeuse : un point situé exactement <strong>entre</strong> les deux modes peut être loin de chaque pic individuellement (donc statistiquement improbable) sans être une anomalie au sens métier, tandis qu'un point proche d'un des deux modes légitimes peut, à tort, sembler extrême par rapport à une moyenne globale qui ne représente aucun des deux sous-groupes réels.</p>
+
+      <pre><code class="language-python">import numpy as np
+import pandas as pd
+
+np.random.seed(0)
+groupe_a = np.random.normal(50, 5, 500)   # ex : temps de réponse "cache hit"
+groupe_b = np.random.normal(200, 15, 500) # ex : temps de réponse "cache miss"
+temps_reponse = np.concatenate([groupe_a, groupe_b])
+
+# Une moyenne globale calculée sur ce mélange ne représente NI l'un NI l'autre groupe réel
+print(f"Moyenne globale (trompeuse) : {temps_reponse.mean():.0f} ms")
+print(f"Moyenne groupe A : {groupe_a.mean():.0f} ms -- Moyenne groupe B : {groupe_b.mean():.0f} ms")
+# La bonne pratique : identifier le sous-groupe pertinent AVANT toute détection univariée
+# (souvent via une variable catégorielle disponible, ou un clustering préalable, Module 3)</code></pre>
+
+      <h3>La leçon à retenir : toujours visualiser avant de détecter</h3>
+      <p>Un histogramme ou un graphique de densité (KDE) de la distribution, examiné avant toute application automatique d'une méthode de détection, révèle en quelques secondes une asymétrie forte ou une multimodalité — deux signaux qui doivent immédiatement remettre en question l'usage direct du Z-score classique ou même de l'IQR sans adaptation (transformation logarithmique, segmentation préalable par sous-groupe, ou passage à des méthodes multivariées et de clustering, Module 3).</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Appliquer une méthode de détection univariée directement sur une colonne sans jamais avoir visualisé sa distribution au préalable. Sur des données réelles (financières, de performance, comportementales), l'asymétrie et la multimodalité sont la norme plutôt que l'exception — supposer une distribution "normale et unimodale" par défaut est le principal générateur de faux positifs et de faux négatifs combinés en détection univariée.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous disposez d'un histogramme montrant deux pics nets séparés par une vallée creuse, sur une variable de "durée de session utilisateur". Proposez une explication métier plausible pour cette bimodalité, et expliquez pourquoi appliquer directement un Z-score global sur cette variable produirait des résultats peu fiables.
+      </div>
+    </section>
+
+    <div class="module-divider">
+      <span class="num">MODULE 03 · DÉTECTION MULTIVARIÉE</span>
+      <span class="line"></span>
+    </div>
+
+    <section id="m3-l1">
+      <span class="lesson-kicker">Module 3 · Leçon 1</span>
+      <h2>Pourquoi l'Univarié Échoue en Plusieurs Dimensions</h2>
+
+      <p>Toutes les méthodes du Module 2 examinent une colonne à la fois. C'est une limite fondamentale dès qu'une anomalie ne se révèle que dans la <strong>relation</strong> entre plusieurs variables, et non dans la valeur individuelle d'aucune d'entre elles. Cette leçon établit, par un exemple construit, pourquoi la détection multivariée est un besoin réel et non un raffinement académique optionnel.</p>
+
+      <h3>L'exemple canonique : normal sur chaque axe, anormal ensemble</h3>
+      <p>Considérez une variable "surface du logement" (en m²) et une variable "nombre de pièces". Un logement de 20 m² est banal. Un logement avec 8 pièces est banal (dans un grand bien). Mais un logement de 20 m² avec 8 pièces est une <strong>combinaison</strong> quasiment impossible (des pièces de 2.5 m² chacune) — une anomalie évidente pour toute personne connaissant le domaine immobilier, mais totalement invisible à un Z-score ou un IQR appliqué séparément à chacune des deux colonnes, puisque chaque valeur prise isolément reste dans une plage parfaitement normale.</p>
+
+      <pre><code class="language-python">import pandas as pd
+from scipy import stats
+
+df = pd.DataFrame({
+    "surface_m2": [85, 45, 120, 20, 95, 60],
+    "nb_pieces": [4, 2, 5, 8, 4, 3],
+})
+
+# Détection univariée séparée : chaque colonne semble individuellement normale
+df["z_surface"] = stats.zscore(df["surface_m2"])
+df["z_pieces"] = stats.zscore(df["nb_pieces"])
+print(df)
+# Le logement (20 m², 8 pièces) n'a AUCUN Z-score individuel extrême sur les deux colonnes --
+# l'anomalie n'existe que dans la relation entre les deux variables (2.5 m²/pièce, valeur aberrante)
+df["surface_par_piece"] = df["surface_m2"] / df["nb_pieces"]
+print(df[["surface_m2", "nb_pieces", "surface_par_piece"]])</code></pre>
+
+      <h3>Deux stratégies possibles : le ratio métier, ou la vraie détection multivariée</h3>
+      <p>Face à ce problème, deux approches coexistent et se complètent. La première, illustrée ci-dessus, consiste à construire manuellement une variable dérivée (un ratio, une différence) qui capture la relation métier pertinente, puis à lui appliquer une détection univariée classique — c'est simple, interprétable, mais demande de deviner à l'avance quelle relation entre colonnes est susceptible de révéler une anomalie. La seconde, développée dans le reste de ce module, consiste à utiliser des méthodes conçues nativement pour raisonner sur l'espace multidimensionnel complet, sans avoir à définir manuellement chaque relation d'intérêt — au prix d'une interprétabilité généralement moindre.</p>
+
+      <div class="signal-row">
+        <span class="value-tag">surface = 20 m²</span>
+        <span class="arrow">seule</span>
+        <span class="ok-tag">normale</span>
+      </div>
+      <div class="signal-row">
+        <span class="value-tag">pièces = 8</span>
+        <span class="arrow">seule</span>
+        <span class="ok-tag">normale</span>
+      </div>
+      <div class="signal-row">
+        <span class="value-tag">20 m² + 8 pièces</span>
+        <span class="arrow">ensemble</span>
+        <span class="flag-tag">ANOMALIE</span>
+      </div>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Se limiter à une batterie de détections univariées colonne par colonne sur un dataset à nombreuses variables corrélées (données financières, capteurs industriels, comportement utilisateur), en supposant à tort qu'un dataset "propre colonne par colonne" est un dataset propre dans son ensemble. Ce faux sentiment de sécurité laisse passer précisément les anomalies les plus intéressantes — celles qui violent une relation métier entre variables plutôt qu'une plage de valeurs individuelle.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Pour un dataset de transactions bancaires avec les colonnes "montant" et "distance en km entre le lieu de la transaction et le domicile déclaré du client", proposez un exemple concret de valeurs individuellement normales sur chaque colonne mais dont la combinaison constituerait une anomalie métier plausible.
+      </div>
+    </section>
+
+    <section id="m3-l2">
+      <span class="lesson-kicker">Module 3 · Leçon 2</span>
+      <h2>La Distance de Mahalanobis</h2>
+
+      <p>La distance de Mahalanobis, introduite par Prasanta Chandra Mahalanobis en 1936, est l'extension multivariée directe du Z-score : elle mesure à quel point un point est éloigné du centre (le vecteur moyen) d'une distribution multivariée, mais en tenant compte à la fois des échelles différentes de chaque variable et des <strong>corrélations</strong> entre elles — une amélioration cruciale par rapport à une simple distance euclidienne, qui ignorerait ces deux aspects.</p>
+
+      <h3>Pourquoi la corrélation entre variables change tout</h3>
+      <p>Imaginez deux variables fortement corrélées (la taille et le poids d'une personne, par exemple). Un point avec une grande taille et un poids très faible est suspect précisément <strong>parce que</strong> ces deux variables sont normalement corrélées positivement — un poids faible est normal en absolu, une grande taille est normale en absolu, mais leur combinaison rompt la relation attendue entre les deux. La distance de Mahalanobis intègre cette structure de corrélation via la matrice de covariance, alors qu'une distance euclidienne brute traiterait les deux axes comme indépendants et manquerait cette anomalie relationnelle.</p>
+
+      <pre><code class="language-python">import numpy as np
+import pandas as pd
+from scipy.spatial.distance import mahalanobis
+
+np.random.seed(0)
+n = 500
+taille = np.random.normal(170, 8, n)
+poids = taille * 0.85 - 100 + np.random.normal(0, 5, n)  # poids fortement corrélé à la taille
+
+df = pd.DataFrame({"taille": taille, "poids": poids})
+# Point suspect : très grand ET très léger -- rompt la corrélation attendue
+df = pd.concat([df, pd.DataFrame({"taille": [195], "poids": [50]})], ignore_index=True)
+
+vecteur_moyen = df.mean().values
+matrice_cov = np.cov(df.values.T)
+inv_cov = np.linalg.inv(matrice_cov)
+
+def distance_mahalanobis(point, moyenne, inv_covariance):
+    return mahalanobis(point, moyenne, inv_covariance)
+
+df["distance_mahalanobis"] = df.apply(
+    lambda row: distance_mahalanobis(row.values, vecteur_moyen, inv_cov), axis=1
+)
+print(df.tail(3))
+# Le point (195, 50) obtient une distance de Mahalanobis très élevée,
+# alors qu'une distance euclidienne au centre serait bien plus modeste et moins révélatrice</code></pre>
+
+      <h3>Le seuil : la distribution du Chi-carré</h3>
+      <p>Sous hypothèse de normalité multivariée, le carré de la distance de Mahalanobis suit une distribution du Chi-carré avec un nombre de degrés de liberté égal au nombre de variables — ce qui permet de fixer un seuil de détection rigoureux correspondant à un niveau de confiance statistique choisi (par exemple, le 97.5e percentile de la distribution du Chi-carré), au lieu d'une convention arbitraire comme le "3 sigma" univarié.</p>
+
+      <pre><code class="language-python">from scipy.stats import chi2
+
+nb_variables = 2
+seuil_confiance = 0.975
+seuil_distance = np.sqrt(chi2.ppf(seuil_confiance, df=nb_variables))
+
+df["anomalie"] = df["distance_mahalanobis"] > seuil_distance
+print(f"Seuil de distance (confiance {seuil_confiance}) : {seuil_distance:.2f}")
+print(df[df["anomalie"]])</code></pre>
+
+      <h3>Limites : sensible aux mêmes fragilités que la moyenne et la covariance</h3>
+      <p>Comme le Z-score classique (Module 2, leçon 1), la distance de Mahalanobis standard souffre du même problème de masquage : la moyenne et la matrice de covariance utilisées sont calculées sur des données qui contiennent potentiellement les anomalies à détecter, ce qui peut atténuer leur propre signal. Des variantes robustes existent (l'estimateur MCD, Minimum Covariance Determinant, disponible via <code>sklearn.covariance.MinCovDet</code>), qui estiment le centre et la covariance à partir d'un sous-ensemble de points jugés les plus "typiques", résistant ainsi mieux à la contamination par les anomalies elles-mêmes.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Utiliser la distance de Mahalanobis classique (covariance non robuste) sur un dataset où l'on suspecte une proportion non négligeable d'anomalies (au-delà de quelques points isolés), sans recourir à un estimateur robuste comme le MCD. Le même effet de masquage qui affecte le Z-score univarié affecte la matrice de covariance multivariée, avec un risque encore plus élevé de sous-détection sur des données à forte dimensionnalité.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Expliquez avec vos propres mots pourquoi un point avec une taille et un poids chacun proches de leur moyenne respective peut malgré tout obtenir une distance de Mahalanobis élevée si ces deux variables sont normalement fortement corrélées. Indice : réfléchissez à ce qui se passe si le point rompt la relation attendue entre les deux variables sans être extrême sur aucune des deux individuellement.
+      </div>
+    </section>
+
+    <section id="m3-l3">
+      <span class="lesson-kicker">Module 3 · Leçon 3</span>
+      <h2>Isolation Forest</h2>
+
+      <p>L'Isolation Forest, proposée par Liu, Ting et Zhou (2008), part d'un principe radicalement différent des méthodes basées sur la distance ou la densité : plutôt que de mesurer à quel point un point est loin du centre ou de ses voisins, elle mesure à quel point ce point est <strong>facile à isoler</strong> du reste des données par des partitions aléatoires successives. L'intuition clé : une anomalie, étant rare et différente, se retrouve isolée dans une partition avec très peu de coupes aléatoires, tandis qu'un point normal, noyé dans une région dense, nécessite beaucoup plus de coupes pour être isolé seul.</p>
+
+      <h3>Le mécanisme : des arbres d'isolation aléatoires</h3>
+      <p>L'algorithme construit une forêt d'arbres, chacun généré en choisissant aléatoirement une variable puis une valeur de coupure aléatoire entre le min et le max de cette variable, de façon répétée jusqu'à isoler chaque point dans sa propre feuille. La profondeur moyenne nécessaire pour isoler un point à travers tous les arbres de la forêt devient le score d'anomalie : une profondeur courte (peu de coupes nécessaires) indique une forte probabilité d'anomalie.</p>
+
+      <pre><code class="language-python">import numpy as np
+import pandas as pd
+from sklearn.ensemble import IsolationForest
+
+np.random.seed(0)
+donnees_normales = np.random.normal(0, 1, (300, 2))
+anomalies_injectees = np.random.uniform(-6, 6, (15, 2))
+X = np.vstack([donnees_normales, anomalies_injectees])
+
+# contamination : proportion attendue d'anomalies dans le dataset -- un paramètre métier crucial,
+# pas un détail technique (voir Module 1, leçon 4 sur le coût des faux positifs/négatifs)
+modele = IsolationForest(n_estimators=200, contamination=0.05, random_state=0)
+predictions = modele.fit_predict(X)  # retourne -1 pour anomalie, 1 pour normal
+
+scores = modele.decision_function(X)  # plus le score est négatif, plus l'anomalie est marquée
+df = pd.DataFrame(X, columns=["x1", "x2"])
+df["anomalie"] = predictions == -1
+df["score"] = scores
+print(df.sort_values("score").head(10))</code></pre>
+
+      <h3>Avantages : haute dimension, pas d'hypothèse de distribution, scalabilité</h3>
+      <p>L'Isolation Forest ne fait aucune hypothèse sur la forme de la distribution (contrairement au Z-score ou à Mahalanobis), fonctionne bien en haute dimension (des dizaines voire centaines de variables), et sa complexité reste sous-linéaire en pratique — un avantage décisif sur de gros volumes par rapport aux méthodes basées sur des distances par paires (comme LOF, leçon suivante). C'est une des méthodes de référence recommandées par défaut pour un premier passage de détection multivariée sur données réelles hétérogènes.</p>
+
+      <h3>Le paramètre contamination : une hypothèse qui pèse lourd sur le résultat</h3>
+      <p>Le paramètre <code>contamination</code> fixe la proportion attendue d'anomalies, et détermine directement le seuil appliqué au score de décision pour classer les points. Une valeur mal calibrée (par exemple 0.05 alors que le taux réel d'anomalies est de 0.5%) forcera l'algorithme à signaler dix fois plus de points qu'il ne devrait, produisant un flot de faux positifs sans qu'aucune erreur ne soit visible dans le code lui-même.</p>
+
+      <pre><code class="language-python">from sklearn.ensemble import IsolationForest
+
+# En l'absence de connaissance a priori fiable sur le taux d'anomalies (cas fréquent, Module 7),
+# utiliser contamination="auto" applique un seuil basé sur la formule originale du papier de 2008,
+# un point de départ plus prudent que de deviner un pourcentage arbitraire
+modele_auto = IsolationForest(n_estimators=200, contamination="auto", random_state=0)</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Fixer le paramètre <code>contamination</code> à une valeur ronde arbitraire (0.01, 0.05, 0.1) sans aucune base empirique ou métier, puis interpréter le nombre d'anomalies détectées comme une mesure fiable du taux réel d'anomalies dans les données. Le paramètre contamination ne mesure rien — il l'impose. Le nombre de points signalés reflétera presque exactement ce paramètre, quel que soit le taux réel sous-jacent.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous exécutez un Isolation Forest avec <code>contamination=0.1</code> sur un dataset de 10 000 transactions et obtenez exactement 1 000 signalements. Un collègue conclut "notre taux de fraude réel est donc de 10%". Expliquez pourquoi ce raisonnement est incorrect.
+      </div>
+    </section>
+
+    <section id="m3-l4">
+      <span class="lesson-kicker">Module 3 · Leçon 4</span>
+      <h2>Local Outlier Factor (LOF)</h2>
+
+      <p>Le Local Outlier Factor, introduit par Breunig et al. (2000), répond à une limite partagée par la distance de Mahalanobis et, dans une moindre mesure, l'Isolation Forest : ces méthodes raisonnent souvent sur une notion globale de "centre" ou de densité moyenne des données. LOF introduit à la place une notion de densité <strong>locale</strong> : un point est anormal s'il est significativement moins dense que ses voisins immédiats, même si cette densité reste tout à fait normale à l'échelle globale du dataset.</p>
+
+      <h3>Le problème que LOF résout : des densités locales très différentes</h3>
+      <p>Considérez un dataset avec deux groupes bien distincts : un cluster dense de points très proches les uns des autres, et un second cluster plus diffus et étalé. Un point situé en périphérie du cluster diffus peut avoir une densité locale parfaitement normale <strong>pour son cluster</strong>, tout en étant statistiquement "loin du centre global" au sens d'une méthode comme Mahalanobis, qui le signalerait à tort. Inversement, un point légèrement excentré du cluster dense peut sembler proche du centre global tout en étant clairement anormal <strong>relativement à la densité très élevée de son voisinage immédiat</strong>. LOF compare chaque point à la densité de ses k plus proches voisins plutôt qu'à une référence globale, capturant précisément ce type de situation.</p>
+
+      <pre><code class="language-python">import numpy as np
+import pandas as pd
+from sklearn.neighbors import LocalOutlierFactor
+
+np.random.seed(0)
+cluster_dense = np.random.normal(0, 0.5, (200, 2))
+cluster_diffus = np.random.normal(8, 2, (100, 2))
+X = np.vstack([cluster_dense, cluster_diffus])
+
+modele = LocalOutlierFactor(n_neighbors=20, contamination=0.05)
+predictions = modele.fit_predict(X)  # -1 = anomalie, 1 = normal
+scores_lof = -modele.negative_outlier_factor_  # score LOF positif, plus haut = plus anormal
+
+df = pd.DataFrame(X, columns=["x1", "x2"])
+df["anomalie"] = predictions == -1
+df["score_lof"] = scores_lof
+print(df.sort_values("score_lof", ascending=False).head(10))
+# LOF évalue chaque point relativement à SES voisins locaux --
+# un point du cluster diffus n'est pas signalé juste parce qu'il est loin du cluster dense,
+# tant qu'il reste cohérent avec la densité propre à son propre voisinage</code></pre>
+
+      <h3>Le choix de n_neighbors : un compromis local/global</h3>
+      <p>Le paramètre <code>n_neighbors</code> (le nombre de voisins pris en compte pour estimer la densité locale) contrôle directement l'échelle à laquelle "local" est défini. Une valeur trop petite rend l'estimation de densité bruitée et instable (sensible à quelques voisins aléatoires) ; une valeur trop grande fait converger le comportement de LOF vers une notion plus globale, similaire aux méthodes basées sur la distance au centre, perdant l'avantage même de l'approche locale. Une plage de 10 à 50 est un point de départ raisonnable, à ajuster selon la taille et la structure du dataset.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Choisir un <code>n_neighbors</code> bien supérieur à la taille du plus petit cluster attendu dans les données. Si un cluster légitime ne compte que 8 points et que <code>n_neighbors=20</code>, chaque point de ce cluster sera comparé à des voisins appartenant en réalité à un cluster différent, faussant complètement l'estimation de densité locale et générant des faux positifs sur un groupe pourtant parfaitement cohérent.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un dataset contient un cluster dense de 500 points de clients "standards" et un cluster diffus de 30 points de clients "grand compte", naturellement plus dispersés dans leurs habitudes d'achat. Expliquez pourquoi une distance de Mahalanobis globale risquerait de signaler à tort une partie des clients grand compte comme anomalies, et pourquoi LOF serait plus adapté ici.
+      </div>
+    </section>
+
+    <section id="m3-l5">
+      <span class="lesson-kicker">Module 3 · Leçon 5</span>
+      <h2>DBSCAN comme Détecteur d'Anomalies</h2>
+
+      <p>DBSCAN (Density-Based Spatial Clustering of Applications with Noise), bien que conçu à l'origine comme un algorithme de clustering plutôt qu'un détecteur d'anomalies dédié, offre un sous-produit directement exploitable pour la détection : par construction, tout point qui n'appartient à aucun cluster dense est explicitement étiqueté comme "bruit" — une catégorie qui se recoupe très largement avec la notion d'anomalie multivariée.</p>
+
+      <h3>Le mécanisme : densité, voisinage, et points de bruit</h3>
+      <p>DBSCAN regroupe les points en clusters en fonction de deux paramètres : <code>eps</code> (le rayon de voisinage à considérer) et <code>min_samples</code> (le nombre minimal de points requis dans ce rayon pour qu'une zone soit considérée comme dense). Tout point qui ne peut être rattaché à aucune région suffisamment dense selon ces critères reçoit l'étiquette de cluster <code>-1</code>, réservée aux points de bruit — sans qu'aucun paramètre de "taux d'anomalie attendu" n'ait besoin d'être fixé a priori, à la différence de l'Isolation Forest ou de LOF.</p>
+
+      <pre><code class="language-python">import numpy as np
+import pandas as pd
+from sklearn.cluster import DBSCAN
+from sklearn.preprocessing import StandardScaler
+
+np.random.seed(0)
+cluster_a = np.random.normal(0, 0.5, (200, 2))
+cluster_b = np.random.normal(6, 0.5, (200, 2))
+bruit_disperse = np.random.uniform(-4, 10, (15, 2))
+X = np.vstack([cluster_a, cluster_b, bruit_disperse])
+
+# Standardiser est indispensable : DBSCAN se fonde sur une distance,
+# sensible à l'échelle relative des variables (voir aussi Module 2 sur la normalisation)
+X_standardise = StandardScaler().fit_transform(X)
+
+modele = DBSCAN(eps=0.3, min_samples=10)
+labels = modele.fit_predict(X_standardise)
+
+df = pd.DataFrame(X, columns=["x1", "x2"])
+df["cluster"] = labels
+df["anomalie"] = df["cluster"] == -1
+print(f"Nombre de clusters trouvés : {len(set(labels)) - (1 if -1 in labels else 0)}")
+print(f"Nombre de points de bruit (anomalies) : {df['anomalie'].sum()}")</code></pre>
+
+      <h3>Avantage distinctif : pas besoin de fixer le nombre de clusters, ni le taux d'anomalies</h3>
+      <p>Contrairement à des méthodes qui exigent de deviner un taux d'anomalie attendu (Isolation Forest, LOF), DBSCAN laisse ce nombre émerger naturellement de la structure de densité des données. C'est particulièrement utile en exploration initiale d'un nouveau dataset, quand on ne dispose d'aucune estimation fiable du taux d'anomalies réel (Module 7, leçon 1).</p>
+
+      <h3>La sensibilité extrême aux paramètres eps et min_samples</h3>
+      <p>Le revers de cette absence d'hypothèse a priori est une forte sensibilité aux deux paramètres <code>eps</code> et <code>min_samples</code> : un <code>eps</code> trop petit fragmente les clusters légitimes en de nombreux faux points de bruit ; un <code>eps</code> trop grand fusionne des clusters distincts et masque les vraies anomalies en les absorbant dans un cluster unique surdimensionné. Une méthode couramment utilisée pour calibrer <code>eps</code> consiste à tracer la distance au k-ième plus proche voisin de chaque point, triée par ordre croissant, et à repérer visuellement le "coude" de cette courbe.</p>
+
+      <pre><code class="language-python">from sklearn.neighbors import NearestNeighbors
+import numpy as np
+
+k = 10  # généralement égal à min_samples
+voisins = NearestNeighbors(n_neighbors=k).fit(X_standardise)
+distances, _ = voisins.kneighbors(X_standardise)
+distances_k = np.sort(distances[:, k - 1])
+# Tracer distances_k avec matplotlib et repérer le coude : c'est une estimation raisonnable de eps
+# (voir Module 7, leçon 3 pour les bibliothèques dédiées qui automatisent partiellement ce réglage)</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Appliquer DBSCAN sans standardiser préalablement les variables lorsque celles-ci ont des échelles très différentes (un montant en milliers d'euros et un âge en dizaines d'années, par exemple). Le rayon <code>eps</code>, exprimé dans une distance euclidienne brute, sera alors dominé par la variable à la plus grande échelle numérique, rendant la variable à petite échelle quasiment invisible dans le calcul de densité.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous exécutez DBSCAN et obtenez un unique cluster géant contenant 98% des points, les 2% restants étant étiquetés comme bruit. Un collègue s'en réjouit ("2% d'anomalies, exactement ce qu'on attendait"). Quel paramètre suspecteriez-vous en premier d'être mal calibré si ce résultat vous semblait, à l'inverse, trop peu granulaire pour révéler la structure réelle du dataset ?
+      </div>
+    </section>
+
+    <div class="module-divider">
+      <span class="num">MODULE 04 · SÉRIES TEMPORELLES</span>
+      <span class="line"></span>
+    </div>
+
+    <section id="m4-l1">
+      <span class="lesson-kicker">Module 4 · Leçon 1</span>
+      <h2>Tendance, Saisonnalité, Résidu : Décomposer avant de Détecter</h2>
+
+      <p>Appliquer directement une méthode univariée du Module 2 à une série temporelle brute est l'erreur la plus fréquente en détection d'anomalies temporelles — et elle produit systématiquement de mauvais résultats, car une série temporelle réelle n'est presque jamais stationnaire : sa moyenne et sa variance évoluent dans le temps par construction (croissance, saisonnalité), ce qui viole l'hypothèse implicite de toutes les méthodes du Module 2, conçues pour des observations indépendantes et identiquement distribuées.</p>
+
+      <h3>Les trois composantes d'une série temporelle</h3>
+      <p>Une décomposition classique sépare une série temporelle en trois composantes : la <strong>tendance</strong> (l'évolution de fond à long terme, croissante, décroissante, ou stable), la <strong>saisonnalité</strong> (un motif périodique qui se répète à intervalle fixe — journalier, hebdomadaire, annuel), et le <strong>résidu</strong> (ce qui reste une fois la tendance et la saisonnalité retirées — le "bruit" au sens de la Leçon 1 du Module 1, sur lequel les méthodes de détection classiques redeviennent pertinentes).</p>
+
+      <pre><code class="language-python">import pandas as pd
+import numpy as np
+from statsmodels.tsa.seasonal import seasonal_decompose
+
+np.random.seed(0)
+dates = pd.date_range("2022-01-01", periods=365 * 2, freq="D")
+tendance = np.linspace(100, 150, len(dates))
+saisonnalite = 20 * np.sin(2 * np.pi * dates.dayofyear / 365)
+bruit = np.random.normal(0, 5, len(dates))
+ventes = tendance + saisonnalite + bruit
+ventes[400] += 80  # anomalie ponctuelle injectée
+
+serie = pd.Series(ventes, index=dates)
+decomposition = seasonal_decompose(serie, model="additive", period=365)
+
+# La détection s'applique désormais au RÉSIDU, débarrassé de la tendance et de la saisonnalité --
+# c'est seulement à ce stade que les méthodes du Module 2 (Z-score, IQR) redeviennent valides
+residu = decomposition.resid.dropna()
+print(residu.describe())</code></pre>
+
+      <h3>Pourquoi détecter directement sur la série brute échoue</h3>
+      <p>Sur une série avec une tendance croissante et une forte saisonnalité, une valeur haute en pleine saison haute (par exemple, des ventes de décembre) peut sembler être un outlier statistique évident par rapport à la moyenne annuelle globale, alors qu'elle est parfaitement normale une fois la saisonnalité prise en compte. Inversement, une anomalie modérée en dehors des pics saisonniers peut passer totalement inaperçue, noyée dans l'amplitude naturelle des variations saisonnières légitimes. C'est un cas particulier de l'anomalie contextuelle du Module 1, leçon 2 — le contexte pertinent ici étant la position dans le cycle temporel.</p>
+
+      <pre><code class="language-python">import numpy as np
+from scipy import stats
+
+# Détection NAÏVE sur la série brute -- à éviter
+z_scores_bruts = stats.zscore(serie)
+print(f"Anomalies détectées sur série brute : {(np.abs(z_scores_bruts) > 3).sum()}")
+
+# Détection CORRECTE sur le résidu de la décomposition
+z_scores_residu = stats.zscore(residu)
+print(f"Anomalies détectées sur résidu    : {(np.abs(z_scores_residu) > 3).sum()}")
+# Le résultat sur le résidu isole bien mieux l'anomalie ponctuelle injectée à l'index 400,
+# sans faux positifs saisonniers ni faux négatifs noyés dans l'amplitude de la saisonnalité</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Appliquer un Z-score ou une IQR directement sur une série temporelle brute présentant une tendance ou une saisonnalité marquée, sans décomposition préalable. Le résultat mélange systématiquement des faux positifs (pics saisonniers légitimes signalés à tort) et des faux négatifs (anomalies modérées noyées dans l'amplitude saisonnière), rendant le détecteur inutilisable en pratique malgré une implémentation techniquement correcte.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une série de trafic web quotidien montre systématiquement un pic chaque samedi et dimanche. Un système de détection signale ces pics du week-end comme anomalies presque chaque semaine. Expliquez la cause probable de ce problème et la correction à apporter en une phrase.
+      </div>
+    </section>
+
+    <section id="m4-l2">
+      <span class="lesson-kicker">Module 4 · Leçon 2</span>
+      <h2>Moyennes Mobiles et Bandes de Bollinger</h2>
+
+      <p>Une alternative plus légère à la décomposition complète de la leçon précédente, très utilisée en pratique pour la surveillance temps réel (monitoring de métriques applicatives, cours financiers, capteurs IoT), consiste à comparer chaque nouvelle valeur non pas à une moyenne globale fixe, mais à une <strong>moyenne mobile locale</strong> qui s'adapte continuellement au niveau récent de la série.</p>
+
+      <h3>Le principe des bandes de Bollinger</h3>
+      <p>Popularisées en finance par John Bollinger dans les années 1980, les bandes de Bollinger calculent une moyenne mobile sur une fenêtre glissante récente, puis définissent une bande supérieure et inférieure à un multiple donné de l'écart-type mobile calculé sur cette même fenêtre. Toute valeur sortant de cette bande est considérée comme statistiquement anormale par rapport au comportement local et récent de la série — pas par rapport à l'historique complet, ce qui rend la méthode naturellement adaptative à une tendance progressive.</p>
+
+      <pre><code class="language-python">import pandas as pd
+import numpy as np
+
+np.random.seed(0)
+dates = pd.date_range("2024-01-01", periods=200, freq="D")
+valeurs = np.cumsum(np.random.normal(0.3, 2, 200)) + 100  # marche aléatoire avec dérive
+valeurs[150] += 25  # anomalie ponctuelle injectée
+
+serie = pd.Series(valeurs, index=dates)
+
+fenetre = 20
+moyenne_mobile = serie.rolling(window=fenetre).mean()
+ecart_type_mobile = serie.rolling(window=fenetre).std()
+
+bande_haute = moyenne_mobile + 2.5 * ecart_type_mobile
+bande_basse = moyenne_mobile - 2.5 * ecart_type_mobile
+
+anomalies = (serie > bande_haute) | (serie < bande_basse)
+print(f"Anomalies détectées : {anomalies.sum()}")
+print(serie[anomalies])</code></pre>
+
+      <h3>Le compromis central : la taille de la fenêtre</h3>
+      <p>Une fenêtre courte rend la moyenne et l'écart-type mobiles très réactifs aux changements récents — au risque de s'adapter si vite qu'une anomalie progressive et prolongée (une dérive lente d'un capteur, par exemple) soit progressivement absorbée dans la moyenne mobile elle-même et cesse d'être détectée après quelques pas de temps. Une fenêtre longue lisse davantage et reste plus stable, mais réagit plus lentement à un vrai changement de régime légitime de la série (une nouvelle tendance de fond), le signalant à tort comme anomalie pendant toute la période de transition.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+def detecter_avec_fenetre(serie, fenetre, multiplicateur=2.5):
+    moyenne = serie.rolling(window=fenetre).mean()
+    ecart = serie.rolling(window=fenetre).std()
+    return (serie > moyenne + multiplicateur * ecart) | (serie < moyenne - multiplicateur * ecart)
+
+for taille in [5, 20, 50]:
+    nb_anomalies = detecter_avec_fenetre(serie, taille).sum()
+    print(f"Fenêtre={taille} jours : {nb_anomalies} anomalies détectées")
+# Une fenêtre trop courte peut absorber l'anomalie ponctuelle elle-même dans sa propre moyenne mobile
+# si la fenêtre glisse suffisamment pour l'inclure -- vérifier toujours sur plusieurs tailles de fenêtre</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Utiliser une fenêtre trop courte par rapport à la durée de l'anomalie recherchée, au point que la moyenne mobile "absorbe" progressivement l'anomalie elle-même dans son propre calcul quelques pas de temps après son apparition — la valeur anormale finit par faire partie de sa propre référence de comparaison, la rendant invisible passé ce délai.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une métrique de latence serveur, surveillée avec une fenêtre mobile de 10 minutes, subit une dégradation progressive sur 3 heures (chaque minute légèrement pire que la précédente) avant de se stabiliser à un niveau dégradé. Expliquez pourquoi une détection par bandes de Bollinger à fenêtre courte risque de ne signaler aucune anomalie franche pendant cette dégradation progressive.
+      </div>
+    </section>
+
+    <section id="m4-l3">
+      <span class="lesson-kicker">Module 4 · Leçon 3</span>
+      <h2>Détection de Rupture (Changepoints)</h2>
+
+      <p>La détection de rupture (changepoint detection) répond à un type d'anomalie temporelle distinct de l'anomalie ponctuelle : non pas un pic isolé qui revient ensuite à la normale, mais un <strong>changement durable et net</strong> dans le comportement statistique de la série — un changement de niveau moyen, de variance, ou de tendance qui persiste après le point de rupture, plutôt qu'un retour immédiat à l'état antérieur.</p>
+
+      <h3>Pourquoi c'est un problème différent de la détection ponctuelle</h3>
+      <p>Un capteur de température qui dérive progressivement à cause d'un encrassement physique, un changement de politique tarifaire qui modifie durablement le volume de ventes, une mise à jour logicielle qui change le temps de réponse moyen d'une API de façon permanente — dans tous ces cas, il ne s'agit pas de repérer un point isolé extrême, mais d'identifier <strong>l'instant précis</strong> où le régime statistique de la série a changé, afin de traiter séparément les données avant et après ce point (et éviter par exemple qu'une décomposition ou une moyenne mobile calculée à cheval sur les deux régimes ne produise des résultats incohérents).</p>
+
+      <pre><code class="language-python">import numpy as np
+import ruptures as rpt
+
+np.random.seed(0)
+segment_1 = np.random.normal(50, 3, 150)
+segment_2 = np.random.normal(75, 3, 150)  # changement de niveau moyen durable
+serie = np.concatenate([segment_1, segment_2])
+
+# Pelt : algorithme de détection de rupture optimal sous contrainte de pénalité
+modele = rpt.Pelt(model="rbf").fit(serie)
+points_rupture = modele.predict(pen=10)
+print(f"Points de rupture détectés : {points_rupture}")
+# Le résultat attendu inclut un point proche de l'index 150, marquant la transition de régime</code></pre>
+
+      <h3>Le rôle de la pénalité : arbitrer sensibilité et sur-segmentation</h3>
+      <p>Le paramètre de pénalité (<code>pen</code> dans l'exemple ci-dessus) contrôle directement le nombre de ruptures détectées : une pénalité faible détecte de nombreuses ruptures, y compris des fluctuations mineures qui ne constituent pas de vrais changements de régime ; une pénalité forte ne détecte que les changements les plus francs, au risque de manquer des transitions plus subtiles mais réelles. Ce paramètre doit être calibré empiriquement — par exemple en observant le nombre de ruptures détectées pour différentes valeurs de pénalité et en cherchant un point de stabilisation, ou en s'appuyant sur une connaissance a priori du nombre de changements de régime attendus.</p>
+
+      <pre><code class="language-python">import ruptures as rpt
+
+for penalite in [1, 5, 10, 50]:
+    modele = rpt.Pelt(model="rbf").fit(serie)
+    points = modele.predict(pen=penalite)
+    print(f"Pénalité={penalite} : {len(points) - 1} rupture(s) détectée(s)")
+# Une pénalité trop faible sur-segmente en de nombreuses fausses ruptures ;
+# une pénalité trop élevée peut fusionner deux vrais régimes distincts en un seul segment</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Confondre une détection de rupture avec une détection d'anomalie ponctuelle et appliquer un algorithme de changepoint à un problème où l'on cherche en réalité des pics isolés qui reviennent à la normale, ou inversement. Un pic isolé suivi d'un retour au niveau antérieur ne sera généralement pas détecté comme une rupture durable par ces algorithmes, puisqu'il ne modifie pas le régime statistique de fond de la série sur la durée.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un serveur voit son temps de réponse moyen passer durablement de 80ms à 200ms après le déploiement d'une nouvelle version, sans jamais redescendre. Expliquez pourquoi ce cas relève de la détection de rupture plutôt que de la détection ponctuelle, et quelle action métier (Module 6) ce type de détection devrait typiquement déclencher.
+      </div>
+    </section>
+
+    <section id="m4-l4">
+      <span class="lesson-kicker">Module 4 · Leçon 4</span>
+      <h2>Pièges des Séries Temporelles : Saisonnalité Confondue avec Anomalie</h2>
+
+      <p>Cette dernière leçon du module rassemble les pièges transverses les plus fréquents et les plus coûteux en détection d'anomalies temporelles — des erreurs qui, contrairement aux limites méthodologiques des leçons précédentes, viennent souvent d'une mauvaise compréhension du calendrier métier plutôt que d'un mauvais choix d'algorithme.</p>
+
+      <h3>La saisonnalité à périodes multiples et imbriquées</h3>
+      <p>Une même série peut porter plusieurs saisonnalités superposées à des échelles différentes : un motif journalier (creux la nuit, pic en journée), un motif hebdomadaire (creux le week-end pour du trafic B2B, à l'inverse pour du trafic e-commerce grand public), et un motif annuel (pic aux fêtes de fin d'année). Une décomposition qui ne module qu'une seule période (comme <code>seasonal_decompose</code> de la Leçon 1, limité à une période unique) manquera les autres échelles de saisonnalité, laissant des motifs récurrents non capturés dans le résidu — qui seront alors, à tort, signalés comme des anomalies récurrentes.</p>
+
+      <pre><code class="language-python">import pandas as pd
+from statsmodels.tsa.seasonal import MSTL
+
+# MSTL (Multiple Seasonal-Trend decomposition using LOESS) gère plusieurs périodes simultanément,
+# contrairement à seasonal_decompose limité à une seule période
+dates = pd.date_range("2024-01-01", periods=24 * 90, freq="h")  # données horaires sur 90 jours
+modele = MSTL(pd.Series(range(len(dates)), index=dates), periods=(24, 24 * 7))  # journalière + hebdomadaire
+# result = modele.fit()
+# La décomposition sépare désormais la composante journalière ET hebdomadaire du résidu,
+# évitant que l'une des deux ne soit à tort interprétée comme un ensemble d'anomalies récurrentes</code></pre>
+
+      <h3>Les jours fériés et événements calendaires non-réguliers</h3>
+      <p>Certains motifs ne suivent aucune période fixe détectable automatiquement : les jours fériés varient chaque année (Pâques, le Black Friday), et certains événements métier ponctuels (une campagne marketing, une panne connue et déjà documentée par ailleurs) doivent être explicitement exclus ou signalés à l'algorithme plutôt que d'espérer qu'une décomposition statistique générique les détecte automatiquement. Des bibliothèques comme Prophet (Meta) permettent d'injecter explicitement un calendrier de jours spéciaux connus à l'avance, traités différemment du résidu générique.</p>
+
+      <pre><code class="language-python">import pandas as pd
+from prophet import Prophet
+
+jours_feries = pd.DataFrame({
+    "holiday": "solde_hiver",
+    "ds": pd.to_datetime(["2024-01-08", "2025-01-06"]),
+    "lower_window": 0,
+    "upper_window": 14,  # période de soldes de 2 semaines, pas juste le jour J
+})
+
+modele = Prophet(holidays=jours_feries)
+# modele.fit(df_ventes)  # df_ventes avec colonnes 'ds' (date) et 'y' (valeur)
+# Les pics de ventes pendant la période de soldes déclarée sont désormais attribués
+# à cet effet calendaire documenté plutôt qu'au résidu générique -- évitant qu'ils
+# soient signalés à tort comme des anomalies chaque année à la même période</code></pre>
+
+      <h3>Le changement d'heure et les fuseaux horaires : une source discrète mais réelle de faux signaux</h3>
+      <p>Un passage à l'heure d'été ou d'hiver introduit un jour de 23h ou 25h dans une série agrégée quotidiennement, créant un artefact de volume qui n'a rien d'une anomalie métier réelle. De même, agréger des données provenant de plusieurs fuseaux horaires sans harmonisation préalable en UTC peut créer de faux motifs de saisonnalité journalière, en particulier lors des transitions de changement d'heure qui ne sont pas synchronisées entre tous les pays au même instant.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Utiliser une décomposition à période unique sur une série qui porte en réalité plusieurs saisonnalités imbriquées (journalière ET hebdomadaire, par exemple), et interpréter le motif non capturé restant dans le résidu comme des anomalies récurrentes à investiguer individuellement, alors qu'il s'agit simplement d'une composante saisonnière non modélisée.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un système de détection d'anomalies sur le trafic web d'un site e-commerce signale systématiquement un pic anormal chaque dernier vendredi de novembre depuis trois ans. Expliquez pourquoi ce n'est probablement pas une anomalie, et proposez la correction méthodologique appropriée parmi celles vues dans cette leçon.
+      </div>
+    </section>
+
+    <div class="module-divider">
+      <span class="num">MODULE 05 · RÈGLES MÉTIER</span>
+      <span class="line"></span>
+    </div>
+
+    <section id="m5-l1">
+      <span class="lesson-kicker">Module 5 · Leçon 1</span>
+      <h2>Contraintes de Plage et Règles de Cohérence</h2>
+
+      <p>Toutes les méthodes des Modules 2 à 4 détectent des anomalies <strong>relatives</strong> à la distribution observée des données — un point est signalé parce qu'il est statistiquement rare par rapport aux autres. Mais une grande partie des anomalies les plus évidentes dans un dataset réel ne nécessitent aucune statistique : elles violent une contrainte <strong>absolue</strong>, connue à l'avance grâce au domaine métier, indépendamment de ce que montre la distribution. Un pourcentage de 150%, un âge négatif, une date de naissance dans le futur sont des anomalies certaines, quelle que soit leur fréquence dans le dataset — même si 40% des lignes présentaient un âge négatif, ce serait encore une anomalie sur chacune d'elles, pas une distribution normale à laquelle se fier.</p>
+
+      <h3>Pourquoi les règles métier sont complémentaires, pas redondantes, avec la statistique</h3>
+      <p>Une règle métier encode une connaissance du domaine qu'aucune méthode statistique ne peut déduire des données seules : la plage physiquement ou légalement valide d'une variable. Les méthodes statistiques (Modules 2 à 4) sont nécessaires pour détecter les anomalies qui restent <em>dans</em> une plage plausible mais qui sont malgré tout rares ou incohérentes avec le reste du contexte ; les règles métier sont nécessaires pour détecter, avec une certitude quasi absolue et sans le moindre calcul statistique, les violations de contraintes connues à l'avance. Un système de détection mature combine systématiquement les deux (leçon 3 de ce module).</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+df = pd.DataFrame({
+    "age": [34, -5, 22, 250, 45],
+    "pourcentage_remise": [10, 25, 150, 5, 0],
+    "date_naissance": pd.to_datetime(["1990-01-01", "1985-06-15", "2030-01-01", "1975-03-20", "1998-11-02"]),
+})
+
+# Règles de plage absolues, définies par la connaissance du domaine, PAS par la distribution observée
+regles = {
+    "age": (0, 120),
+    "pourcentage_remise": (0, 100),
+}
+
+for colonne, (borne_min, borne_max) in regles.items():
+    violations = (df[colonne] < borne_min) | (df[colonne] > borne_max)
+    df[f"violation_{colonne}"] = violations
+    if violations.any():
+        print(f"{colonne} : {violations.sum()} violation(s) -- {df.loc[violations, colonne].tolist()}")
+
+# Règle temporelle : une date de naissance ne peut jamais être dans le futur
+df["violation_date_naissance"] = df["date_naissance"] > pd.Timestamp.now()
+print(df[df["violation_date_naissance"]])</code></pre>
+
+      <h3>Construire un référentiel de règles documenté, pas des vérifications éparpillées</h3>
+      <p>La tentation courante est de disperser ces vérifications sous forme de conditions ad hoc dans le code, sans centralisation ni documentation de leur origine métier. Cela rend le référentiel de règles impossible à auditer, à faire évoluer collectivement, ou à réutiliser d'un pipeline à l'autre. Externaliser ces règles dans une structure déclarative dédiée — un dictionnaire, un fichier de configuration, ou un outil dédié comme Great Expectations (Module 7) — est la pratique recommandée dès qu'un projet dépasse quelques règles isolées.</p>
+
+      <pre><code class="language-python">REGLES_METIER = {
+    "age": {"min": 0, "max": 120, "justification": "Limite biologique plausible"},
+    "pourcentage_remise": {"min": 0, "max": 100, "justification": "Un pourcentage ne peut dépasser 100%"},
+    "quantite_commandee": {"min": 1, "max": None, "justification": "Une commande implique au moins 1 unité"},
+}
+
+def valider_plage(df, regles):
+    rapport = {}
+    for colonne, regle in regles.items():
+        if colonne not in df.columns:
+            continue
+        masque = pd.Series(False, index=df.index)
+        if regle["min"] is not None:
+            masque |= df[colonne] < regle["min"]
+        if regle["max"] is not None:
+            masque |= df[colonne] > regle["max"]
+        rapport[colonne] = {"nb_violations": masque.sum(), "index_violations": df.index[masque].tolist()}
+    return rapport
+
+print(valider_plage(df, REGLES_METIER))</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Déduire une plage de validité "acceptable" à partir de la distribution observée dans les données elles-mêmes (par exemple, "l'âge maximum observé est 95 ans, donc je fixe la borne à 95") plutôt qu'à partir d'une contrainte métier réelle et indépendante des données actuelles. Cette confusion transforme silencieusement une règle métier absolue en une simple règle statistique déguisée, qui échouera à détecter une future valeur de 130 ans si le dataset d'origine ne contenait par hasard aucune valeur aussi extrême pour calibrer la borne.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Pour un dataset de commandes e-commerce, proposez trois règles de plage absolues (indépendantes de la distribution observée) sur des colonnes plausibles (quantité, prix, délai de livraison), en justifiant chaque borne par une contrainte métier ou physique réelle plutôt que statistique.
+      </div>
+    </section>
+
+    <section id="m5-l2">
+      <span class="lesson-kicker">Module 5 · Leçon 2</span>
+      <h2>Règles Conditionnelles Inter-Colonnes</h2>
+
+      <p>Au-delà des contraintes de plage sur une seule colonne, un grand nombre d'anomalies métier ne se révèlent que dans la <strong>cohérence entre plusieurs colonnes</strong> — un problème structurellement proche de la détection multivariée du Module 3, mais résolu ici par une logique métier explicite plutôt que par un algorithme statistique. Une date de fin de contrat antérieure à sa date de début, une adresse de livraison dans un pays différent du pays de facturation pour une commande physique, un statut "livré" sans date de livraison renseignée — ce sont des incohérences logiques certaines, détectables sans aucune statistique.</p>
+
+      <h3>Exemples de règles conditionnelles fréquentes</h3>
+      <pre><code class="language-python">import pandas as pd
+
+df = pd.DataFrame({
+    "date_debut_contrat": pd.to_datetime(["2022-01-01", "2023-05-01", "2021-03-15"]),
+    "date_fin_contrat": pd.to_datetime(["2023-01-01", "2023-01-01", "2024-03-15"]),
+    "statut": ["livré", "en_attente", "livré"],
+    "date_livraison": [pd.Timestamp("2023-06-01"), pd.NaT, pd.NaT],
+    "pays_facturation": ["FR", "FR", "DE"],
+    "pays_livraison": ["FR", "BE", "US"],
+})
+
+# Règle 1 : la date de fin ne peut précéder la date de début
+df["violation_dates"] = df["date_fin_contrat"] < df["date_debut_contrat"]
+
+# Règle 2 : un statut "livré" implique nécessairement une date de livraison renseignée
+df["violation_statut_livraison"] = (df["statut"] == "livré") & df["date_livraison"].isna()
+
+print(df[["date_debut_contrat", "date_fin_contrat", "violation_dates"]])
+print(df[["statut", "date_livraison", "violation_statut_livraison"]])
+# La ligne 3 (statut "livré" mais date_livraison manquante) est une incohérence logique certaine --
+# indépendamment de toute considération statistique sur la fréquence de ce cas dans le dataset</code></pre>
+
+      <h3>Encoder la logique conditionnelle complète, pas seulement les cas évidents</h3>
+      <p>Les règles conditionnelles les plus utiles couvrent souvent des combinaisons à trois variables ou plus, où la violation n'apparaît que dans le croisement complet. Une commande avec pays de livraison différent du pays de facturation n'est pas nécessairement une anomalie (les envois internationaux existent), mais elle le devient si elle est combinée à un mode de paiement typiquement local et à un montant inhabituellement élevé pour ce profil — un exemple concret de règle métier composite, souvent utilisée en détection de fraude.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+def detecter_incoherence_livraison_fraude(df):
+    pays_different = df["pays_facturation"] != df["pays_livraison"]
+    montant_eleve = df["montant"] > df["montant"].quantile(0.9)  # combinaison avec un seuil statistique local
+    paiement_local_uniquement = df["mode_paiement"] == "virement_national"
+    return pays_different & montant_eleve & paiement_local_uniquement
+
+# Cette règle composite mélange volontairement logique métier stricte (pays différents,
+# mode de paiement incohérent avec un envoi international) ET un seuil statistique local
+# (quantile 0.9) -- illustrant la combinaison développée pleinement en leçon 3</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Écrire des règles conditionnelles isolées, colonne par colonne, sans jamais tester leurs interactions combinées. Une règle "pays différents = suspect" appliquée seule générerait un flot massif de faux positifs sur tout envoi international légitime — c'est la combinaison de plusieurs signaux faibles, chacun insuffisant seul, qui constitue un signal métier fiable (voir aussi le concept d'anomalie collective, Module 1 leçon 2).
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Pour un dataset RH, proposez une règle conditionnelle inter-colonnes détectant une incohérence entre "date d'embauche", "date de première évaluation annuelle", et "ancienneté déclarée en années". Formulez la condition logique complète.
+      </div>
+    </section>
+
+    <section id="m5-l3">
+      <span class="lesson-kicker">Module 5 · Leçon 3</span>
+      <h2>Combiner Règles Métier et Détection Statistique</h2>
+
+      <p>Cette leçon centrale du module articule explicitement pourquoi et comment les règles métier (leçons 1 et 2) et les méthodes statistiques (Modules 2 à 4) doivent être combinées plutôt que choisies l'une contre l'autre. Chacune détecte un type d'anomalie que l'autre ne peut pas capturer seule — les opposer revient à se priver délibérément d'une partie substantielle de la détection possible.</p>
+
+      <h3>Ce que chaque approche capture, et ce que l'autre manque</h3>
+      <table>
+        <tr><th>Situation</th><th>Détectée par une règle métier ?</th><th>Détectée par une méthode statistique ?</th></tr>
+        <tr><td>Âge de 250 ans</td><td>Oui, immédiatement (violation de plage)</td><td>Oui aussi, mais nécessite un calcul et un seuil</td></tr>
+        <tr><td>Salaire de 95 000€ pour un poste "Stagiaire"</td><td>Oui, si la règle encode les plages par poste</td><td>Non, sauf en croisant explicitement avec le poste (Module 3)</td></tr>
+        <tr><td>Transaction de 45€ répétée 200 fois en 1 minute</td><td>Non, chaque transaction seule est plausible</td><td>Oui, via une détection collective/séquentielle (Module 1, leçon 2)</td></tr>
+        <tr><td>Nouveau motif de fraude jamais vu auparavant</td><td>Non, aucune règle préexistante ne le couvre</td><td>Oui, potentiellement, s'il produit un écart statistique détectable</td></tr>
+      </table>
+
+      <h3>Architecture combinée : un score composite ou un système en couches</h3>
+      <p>Deux architectures courantes permettent de combiner les deux approches. La première, un <strong>score composite</strong>, agrège un signal de règles métier (souvent binaire : violée ou non) avec un score statistique continu (Z-score, score LOF, score Isolation Forest) en une seule mesure de risque pondérée. La seconde, un <strong>système en couches</strong>, applique d'abord les règles métier absolues comme filtre initial (rejet ou signalement immédiat, sans ambiguïté), puis applique une détection statistique uniquement sur les observations ayant passé ce premier filtre — réservant le calcul statistique, plus coûteux et plus nuancé, aux cas qui ne violent aucune règle certaine.</p>
+
+      <pre><code class="language-python">import pandas as pd
+import numpy as np
+from scipy import stats
+
+def detecter_anomalies_combine(df, colonne_montant, regles_plage):
+    resultat = df.copy()
+
+    # Couche 1 : règles métier absolues -- rejet immédiat, sans calcul statistique
+    resultat["violation_regle"] = False
+    for col, (mini, maxi) in regles_plage.items():
+        resultat["violation_regle"] |= (df[col] < mini) | (df[col] > maxi)
+
+    # Couche 2 : détection statistique, appliquée uniquement sur les lignes ayant passé la couche 1
+    lignes_valides = resultat[~resultat["violation_regle"]].copy()
+    lignes_valides["z_score"] = stats.zscore(lignes_valides[colonne_montant])
+    resultat.loc[lignes_valides.index, "z_score"] = lignes_valides["z_score"]
+    resultat["anomalie_statistique"] = resultat["z_score"].abs() > 3
+
+    resultat["anomalie_finale"] = resultat["violation_regle"] | resultat["anomalie_statistique"].fillna(False)
+    return resultat
+
+df = pd.DataFrame({"montant": [45, 52, 48, -10, 51, 620, 49], "age_client": [34, 28, 45, 30, 999, 22, 40]})
+resultat = detecter_anomalies_combine(df, "montant", {"age_client": (0, 120)})
+print(resultat[["montant", "age_client", "violation_regle", "anomalie_statistique", "anomalie_finale"]])</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Laisser une valeur ayant violé une règle métier absolue (un âge de 999, par exemple) contaminer le calcul de la détection statistique en aval — comme vu au Module 2 leçon 1, une seule valeur extrême non filtrée peut fausser la moyenne et l'écart-type utilisés pour juger toutes les autres observations. D'où l'intérêt de l'architecture en couches : filtrer d'abord par les règles certaines, calculer les statistiques ensuite sur les données déjà nettoyées de ces violations évidentes.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Expliquez pourquoi calculer un Z-score sur une colonne "âge" qui contient encore des valeurs de 999 (non filtrées au préalable) produirait un résultat trompeur pour les lignes restantes, même celles dont l'âge est parfaitement plausible.
+      </div>
+    </section>
+
+    <section id="m5-l4">
+      <span class="lesson-kicker">Module 5 · Leçon 4</span>
+      <h2>Construire un Moteur de Règles Maintenable</h2>
+
+      <p>Un ensemble de règles métier qui grandit organiquement au fil du temps, sans structure ni gouvernance, devient rapidement un fardeau : des règles contradictoires entre elles, des seuils périmés jamais révisés, et une impossibilité pour quiconque hors de l'équipe d'origine de comprendre pourquoi une règle existe. Cette dernière leçon du module couvre les pratiques d'ingénierie qui évitent cette dérive, essentielles dès qu'un projet dépasse la poignée de règles isolées des leçons précédentes.</p>
+
+      <h3>Séparer la définition des règles de leur exécution</h3>
+      <p>La bonne pratique consiste à définir les règles dans une structure déclarative externe (JSON, YAML, ou une table de base de données) plutôt que codées en dur dans la logique applicative — permettant à une personne non-développeuse (un analyste métier, un expert du domaine) de proposer, réviser, ou désactiver une règle sans toucher au code, et facilitant l'audit de l'ensemble du référentiel en un coup d'œil.</p>
+
+      <pre><code class="language-yaml">regles:
+  - nom: age_plage_valide
+    colonne: age
+    type: plage
+    min: 0
+    max: 120
+    severite: critique
+    justification: "Limite biologique plausible"
+    proprietaire: "equipe-qualite-donnees"
+    derniere_revision: "2026-03-01"
+
+  - nom: coherence_dates_contrat
+    type: conditionnelle
+    condition: "date_fin_contrat < date_debut_contrat"
+    severite: critique
+    justification: "Incohérence logique impossible"
+    proprietaire: "equipe-rh-data"
+    derniere_revision: "2025-11-15"</code></pre>
+
+      <pre><code class="language-python">import yaml
+
+with open("regles_metier.yaml") as f:
+    config = yaml.safe_load(f)
+
+def appliquer_regles_plage(df, regles):
+    violations = {}
+    for regle in regles:
+        if regle["type"] != "plage":
+            continue
+        col = regle["colonne"]
+        masque = (df[col] < regle["min"]) | (df[col] > regle["max"])
+        if masque.any():
+            violations[regle["nom"]] = {
+                "severite": regle["severite"],
+                "nb_violations": int(masque.sum()),
+                "justification": regle["justification"],
+            }
+    return violations
+
+print(appliquer_regles_plage(df, config["regles"]))</code></pre>
+
+      <h3>Versionner, dater, et attribuer un propriétaire à chaque règle</h3>
+      <p>Chaque règle devrait porter, au minimum, une justification métier explicite (pourquoi cette contrainte existe), un niveau de sévérité (bloquant vs simple avertissement), un propriétaire identifié (qui peut la faire évoluer), et une date de dernière révision. Sans ces métadonnées, un moteur de règles devient un ensemble de vérifications opaques qu'aucune équipe n'ose modifier ni supprimer, même quand elles sont devenues obsolètes — un phénomène de dette technique documentée mais jamais traitée.</p>
+
+      <h3>Tester les règles comme du code de production</h3>
+      <p>Un moteur de règles métier mérite une suite de tests unitaires au même titre que tout autre code de production critique : chaque règle devrait être testée avec un cas qui la viole clairement et un cas qui la respecte clairement, afin de détecter immédiatement toute régression lors d'une modification future (par exemple, un changement de borne qui casse silencieusement une autre règle qui en dépendait implicitement).</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Laisser les règles métier s'accumuler directement dans le code applicatif au fil des besoins ponctuels, sans jamais les centraliser ni les documenter. Après quelques mois, plus personne dans l'équipe ne sait avec certitude quelles règles sont actives, pourquoi elles ont été introduites, ni si elles sont encore pertinentes — un référentiel de règles non gouverné devient aussi risqué à modifier qu'à laisser tel quel.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une règle "montant_max = 10000€" pour les transactions a été introduite il y a deux ans par une personne qui a depuis quitté l'entreprise, et personne ne sait plus si ce seuil reflète encore une contrainte réelle. Décrivez les métadonnées de cette leçon qui, si elles avaient été présentes dès la création de la règle, auraient évité cette situation.
+      </div>
+    </section>
+
+    <div class="module-divider">
+      <span class="num">MODULE 06 · DÉCIDER ET AGIR</span>
+      <span class="line"></span>
+    </div>
+
+    <section id="m6-l1">
+      <span class="lesson-kicker">Module 6 · Leçon 1</span>
+      <h2>Investiguer avant d'Agir</h2>
+
+      <p>La détection (Modules 2 à 5) n'est que la moitié du travail. Une anomalie détectée n'est pas encore une anomalie <strong>comprise</strong> — et agir directement sur un signal de détection sans investigation préalable est une source majeure de décisions coûteuses et irréversibles. Cette leçon établit une checklist d'investigation systématique, à appliquer avant tout traitement (leçon 2) chaque fois que le volume d'anomalies détectées le permet.</p>
+
+      <h3>Les questions à se poser avant toute décision</h3>
+      <ul>
+        <li><strong>Cette anomalie est-elle reproductible ?</strong> Un problème ponctuel isolé n'appelle pas la même réponse qu'un problème systémique qui continuera à produire de nouvelles anomalies similaires si sa cause racine n'est pas traitée.</li>
+        <li><strong>Quelle est la cause probable ?</strong> Erreur de saisie, panne technique, ou signal métier réel (Module 1, leçon 3) — la réponse change radicalement selon la cause identifiée.</li>
+        <li><strong>Cette anomalie est-elle corrélée à un événement connu ?</strong> Un déploiement récent, une campagne marketing, un incident déjà documenté par une autre équipe peuvent expliquer immédiatement un pic ou une rupture (Module 4).</li>
+        <li><strong>Quel est l'impact si je me trompe dans un sens ou dans l'autre ?</strong> Un rappel direct du Module 1, leçon 4 — le coût d'un faux positif (supprimer une donnée légitime) versus celui d'un faux négatif (laisser passer une vraie erreur) doit être explicitement pesé, pas supposé.</li>
+        <li><strong>Cette anomalie est-elle isolée, ou fait-elle partie d'un motif plus large ?</strong> Une seule transaction suspecte peut être du bruit ; dix transactions similaires en quelques minutes changent radicalement l'interprétation (anomalie collective, Module 1 leçon 2).</li>
+      </ul>
+
+      <pre><code class="language-python">import pandas as pd
+
+def rapport_investigation(df, index_anomalie, colonnes_contexte):
+    """Rassemble le contexte nécessaire pour investiguer une anomalie AVANT toute décision."""
+    ligne = df.loc[index_anomalie]
+    voisinage_temporel = df.loc[max(0, index_anomalie - 5):index_anomalie + 5]  # si index temporel
+
+    print(f"--- Anomalie à l'index {index_anomalie} ---")
+    print(ligne[colonnes_contexte])
+    print("\n--- Contexte temporel proche (5 lignes avant/après) ---")
+    print(voisinage_temporel[colonnes_contexte])
+    print(f"\n--- Position dans la distribution globale ---")
+    for col in colonnes_contexte:
+        if pd.api.types.is_numeric_dtype(df[col]):
+            percentile = (df[col] < ligne[col]).mean() * 100
+            print(f"{col} : au {percentile:.1f}e percentile de la distribution")</code></pre>
+
+      <h3>Documenter l'investigation, pas seulement la décision finale</h3>
+      <p>Même quand l'investigation conclut à une erreur technique évidente ne nécessitant aucune analyse poussée, consigner brièvement le raisonnement (quelles questions ont été posées, quelle réponse a été apportée) crée une trace précieuse pour la prochaine occurrence d'une anomalie similaire — et pour toute personne qui audite plus tard la décision (Module 5, leçon 4 sur la gouvernance des règles s'applique de façon symétrique ici).</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Appliquer une action de correction automatique (suppression, capping) directement en sortie d'un détecteur statistique, sans jamais faire intervenir de jugement humain ou de contexte métier sur un échantillon des anomalies détectées — même à faible volume. Un détecteur, aussi bien calibré soit-il, ne connaît jamais le contexte complet ; l'automatisation totale sans aucune étape d'investigation, même partielle, est une source silencieuse de perte d'information ou de correction erronée.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une détection statistique signale une chute brutale à zéro du nombre de commandes enregistrées pour une région donnée, sur une seule journée. Listez, dans l'ordre, les trois premières vérifications d'investigation que vous mèneriez avant de conclure à une quelconque décision de traitement.
+      </div>
+    </section>
+
+    <section id="m6-l2">
+      <span class="lesson-kicker">Module 6 · Leçon 2</span>
+      <h2>Suppression, Capping, Transformation, Flag</h2>
+
+      <p>Une fois l'investigation de la leçon précédente menée, quatre grandes familles d'actions s'offrent face à une anomalie confirmée — chacune avec un coût et un bénéfice différents, et aucune n'étant "la bonne réponse par défaut" indépendamment du contexte d'usage en aval des données.</p>
+
+      <h3>Suppression : radicale, mais avec perte d'information totale</h3>
+      <p>Retirer complètement la ligne (ou la valeur, si les autres colonnes restent exploitables) du dataset. Approprié pour une erreur technique confirmée et non récupérable (une valeur physiquement impossible sans source de correction disponible), mais un choix risqué appliqué en masse : au-delà de quelques pourcents de lignes supprimées, l'impact sur la représentativité du dataset restant devient significatif et doit être explicitement mesuré, de la même façon que pour la suppression de valeurs manquantes (voir le cours précédent du Bloc 2 sur les valeurs manquantes).</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+df = pd.DataFrame({"age": [34, 28, 999, 45, 31], "montant": [45, 620, 52, 48, 51]})
+
+# Suppression : appropriée pour une erreur confirmée sans possibilité de correction
+avant = len(df)
+df_nettoye = df[df["age"] != 999].copy()
+print(f"Suppression : {avant - len(df_nettoye)} ligne(s) retirée(s) sur {avant}")</code></pre>
+
+      <h3>Capping (winsorisation ciblée) : conserver la ligne, plafonner la valeur</h3>
+      <p>Ramener une valeur extrême à une borne définie (par les règles métier du Module 5, ou statistiquement comme au Module 2 leçon 4) plutôt que de supprimer la ligne entière. Préserve l'information des autres colonnes et réduit l'influence disproportionnée d'une valeur extrême sur des statistiques agrégées, au prix de la perte de la valeur exacte d'origine — un choix pertinent quand l'objectif est une analyse descriptive robuste plutôt qu'une détection where la valeur exacte importe.</p>
+
+      <pre><code class="language-python">borne_max_montant = df["montant"].quantile(0.95)
+df["montant_plafonne"] = df["montant"].clip(upper=borne_max_montant)
+print(df[["montant", "montant_plafonne"]])</code></pre>
+
+      <h3>Transformation : atténuer l'influence sans effacer la valeur</h3>
+      <p>Une transformation mathématique (logarithme, racine carrée, Box-Cox) réduit l'impact relatif des valeurs extrêmes sur l'échelle transformée, sans jamais modifier ni supprimer la donnée d'origine elle-même — la valeur brute reste disponible, seule sa représentation pour un calcul ou un modèle spécifique change. C'est le choix le moins destructeur des quatre, mais il ne s'applique pas à toutes les analyses (une transformation logarithmique change l'interprétation d'un coefficient de régression, par exemple, et doit être documentée en conséquence).</p>
+
+      <pre><code class="language-python">import numpy as np
+
+df["montant_log"] = np.log1p(df["montant"])  # log1p : log(1+x), gère aussi les valeurs à 0
+print(df[["montant", "montant_log"]])
+# La valeur brute "montant" reste intacte et disponible -- seule une nouvelle colonne dérivée
+# porte la transformation, à utiliser spécifiquement pour les analyses qui en bénéficient</code></pre>
+
+      <h3>Flag : ne rien modifier, mais tracer explicitement</h3>
+      <p>La quatrième option, souvent la plus sous-utilisée, consiste à ne modifier aucune valeur mais à ajouter une colonne booléenne ou catégorielle signalant l'anomalie détectée, laissant la décision finale de traitement à une étape ou une équipe en aval mieux placée pour trancher (souvent une intervention humaine, Module 6 leçon 3). C'est le choix recommandé par défaut dès qu'il existe une incertitude réelle sur la nature de l'anomalie (erreur vs signal métier, Module 1 leçon 3) ou quand la donnée brute doit rester disponible pour un usage futur non encore défini.</p>
+
+      <pre><code class="language-python">df["flag_anomalie_age"] = df["age"] > 120
+df["flag_anomalie_montant"] = df["montant"] > df["montant"].quantile(0.99)
+# Aucune valeur n'est modifiée -- la décision de traitement est différée à une étape
+# ou une équipe mieux placée pour l'assumer, avec une traçabilité complète de la détection
+print(df[["age", "flag_anomalie_age", "montant", "flag_anomalie_montant"]])</code></pre>
+
+      <table>
+        <tr><th>Action</th><th>Perte d'information</th><th>Cas d'usage typique</th></tr>
+        <tr><td>Suppression</td><td>Totale</td><td>Erreur technique confirmée, non récupérable</td></tr>
+        <tr><td>Capping</td><td>Partielle (valeur exacte perdue)</td><td>Statistique descriptive robuste, entraînement de modèle sensible aux extrêmes</td></tr>
+        <tr><td>Transformation</td><td>Aucune sur la donnée brute</td><td>Modélisation statistique nécessitant une distribution plus symétrique</td></tr>
+        <tr><td>Flag</td><td>Aucune</td><td>Incertitude sur la nature de l'anomalie, décision différée</td></tr>
+      </table>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Choisir systématiquement la suppression par réflexe, parce que c'est l'option la plus simple à implémenter, sans considérer le capping, la transformation, ou le flag qui préserveraient davantage d'information pour un coût d'implémentation à peine supérieur. La suppression devrait être le dernier recours, pas le premier réflexe.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Pour chacun des cas suivants, choisissez l'action la plus appropriée parmi les quatre de cette leçon et justifiez : (1) un âge de 999 (valeur sentinelle confirmée, Module 1), (2) un salaire de 400 000€ pour un poste de direction générale (signal réel, Module 1 leçon 3), (3) une transaction dont on ne sait pas encore si elle est frauduleuse ou légitime.
+      </div>
+    </section>
+
+    <section id="m6-l3">
+      <span class="lesson-kicker">Module 6 · Leçon 3</span>
+      <h2>Documenter la Décision et Tracer l'Impact</h2>
+
+      <p>Chaque décision de traitement d'anomalie (leçon 2) modifie le dataset d'une façon qui doit rester traçable et réversible — non pas par excès de prudence bureaucratique, mais parce qu'une décision de traitement mal documentée devient, quelques mois plus tard, indiscernable d'une corruption de données non intentionnelle, rendant impossible tout audit ou toute correction ultérieure si le raisonnement d'origine s'avère erroné.</p>
+
+      <h3>Ce qu'une trace de traitement doit contenir</h3>
+      <ul>
+        <li><strong>La méthode de détection utilisée</strong> et ses paramètres exacts (seuil de Z-score, multiplicateur IQR, contamination de l'Isolation Forest) — sans cela, impossible de reproduire ou de faire évoluer la détection de façon cohérente.</li>
+        <li><strong>La valeur d'origine avant traitement</strong>, jamais écrasée silencieusement — une colonne dédiée conservant la valeur brute à côté de la valeur traitée.</li>
+        <li><strong>L'action appliquée</strong> (suppression, capping à quelle valeur, transformation, flag) et sa justification métier.</li>
+        <li><strong>La date et l'auteur (humain ou pipeline automatisé) de la décision</strong>, pour toute investigation future.</li>
+      </ul>
+
+      <pre><code class="language-python">import pandas as pd
+from datetime import datetime
+
+def traiter_avec_tracabilite(df, colonne, methode, parametres, action):
+    df = df.copy()
+    df[f"{colonne}_original"] = df[colonne]  # préserver la valeur brute, jamais l'écraser
+
+    if action == "capping":
+        borne = parametres["borne_max"]
+        df[colonne] = df[colonne].clip(upper=borne)
+    elif action == "flag_seulement":
+        pass  # aucune modification de la valeur elle-même
+
+    df[f"{colonne}_traitement_applique"] = action
+    df[f"{colonne}_methode_detection"] = methode
+    df[f"{colonne}_date_traitement"] = datetime.now().isoformat()
+    return df
+
+df = pd.DataFrame({"montant": [45, 52, 620, 48, 51]})
+df_trace = traiter_avec_tracabilite(
+    df, "montant",
+    methode="IQR", parametres={"borne_max": 100},
+    action="capping"
+)
+print(df_trace)</code></pre>
+
+      <h3>Un journal d'audit centralisé plutôt que des colonnes éparpillées</h3>
+      <p>Sur un pipeline de production traitant de nombreuses colonnes, ajouter des colonnes de traçabilité pour chacune devient vite ingérable. Une alternative plus scalable consiste à maintenir un journal d'audit séparé — une table dédiée enregistrant chaque décision de traitement (ligne affectée, colonne, ancienne valeur, nouvelle valeur, méthode, date) indépendamment du dataset principal, qui reste ainsi propre et lisible.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+journal_audit = []
+
+def enregistrer_traitement(index_ligne, colonne, valeur_avant, valeur_apres, methode, action):
+    journal_audit.append({
+        "index_ligne": index_ligne,
+        "colonne": colonne,
+        "valeur_avant": valeur_avant,
+        "valeur_apres": valeur_apres,
+        "methode_detection": methode,
+        "action": action,
+        "date_traitement": pd.Timestamp.now(),
+    })
+
+enregistrer_traitement(2, "montant", 620, 100, "IQR (multiplicateur 1.5)", "capping")
+journal_df = pd.DataFrame(journal_audit)
+print(journal_df)
+# Ce journal peut être stocké, requêté, et audité indépendamment --
+# le dataset principal reste lisible sans colonnes de traçabilité qui l'alourdissent</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Écraser directement la valeur d'origine lors du traitement (capping, correction manuelle) sans jamais conserver une copie de la valeur brute avant modification. Sans cette trace, il devient impossible de revenir en arrière si la méthode de détection s'avère mal calibrée a posteriori, ou de comprendre pourquoi une valeur particulière diffère de la source originale lors d'un futur audit de qualité de données.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Six mois après la mise en production d'un pipeline de nettoyage, un analyste remarque qu'une colonne "revenu" ne contient plus aucune valeur au-delà de 200 000€, alors que l'entreprise compte des cadres dirigeants dont le revenu dépasse largement ce montant. En l'absence de toute traçabilité, quelles hypothèses cet analyste devrait-il envisager, et comment la documentation de cette leçon aurait-elle immédiatement résolu son incertitude ?
+      </div>
+    </section>
+
+    <section id="m6-l4">
+      <span class="lesson-kicker">Module 6 · Leçon 4</span>
+      <h2>Anomalies comme Signal Métier (Fraude, Panne, Opportunité)</h2>
+
+      <p>Cette dernière leçon du module renverse la perspective adoptée depuis le début du cours : jusqu'ici, l'anomalie a été traitée principalement comme un problème de qualité de données à corriger ou neutraliser. Mais dans de nombreux contextes métier, l'anomalie <strong>est</strong> précisément l'information recherchée — la détecter n'est pas une étape de nettoyage préalable à une analyse, c'est l'objectif final de l'analyse elle-même.</p>
+
+      <h3>La détection de fraude : l'anomalie comme cible, pas comme bruit à éliminer</h3>
+      <p>En détection de fraude bancaire, en cybersécurité, ou en lutte anti-blanchiment, l'anomalie détectée par les méthodes des Modules 2 à 5 n'est jamais supprimée ou plafonnée — elle est au contraire mise en avant, priorisée, et transmise à une équipe d'investigation humaine. Ici, toutes les techniques de ce cours restent valides (Z-score, Isolation Forest, règles métier), mais leur finalité s'inverse complètement par rapport à un pipeline de nettoyage classique : maximiser le rappel (détecter un maximum de vraies anomalies) devient souvent prioritaire sur la précision, dans les limites du coût des faux positifs discuté au Module 1, leçon 4.</p>
+
+      <h3>La maintenance prédictive : l'anomalie comme alerte précoce</h3>
+      <p>Un capteur industriel qui commence à dériver légèrement de son comportement habituel, détecté par une bande de Bollinger (Module 4, leçon 2) ou un score LOF croissant (Module 3, leçon 4), peut signaler une panne mécanique imminente bien avant qu'elle ne devienne critique. Dans ce contexte, l'anomalie n'est ni supprimée ni corrigée : elle déclenche une action opérationnelle directe (une inspection programmée), et sa détection précoce a une valeur économique directe, proportionnelle au coût évité d'une panne non anticipée.</p>
+
+      <h3>L'anomalie comme opportunité commerciale</h3>
+      <p>Un pic de demande inattendu pour un produit, une hausse anormale de trafic sur une page produit spécifique, ou un comportement d'achat atypique mais très rentable peuvent constituer des anomalies positives à exploiter plutôt qu'à corriger — un segment de clientèle inattendu à mieux comprendre, un produit à réapprovisionner en urgence, une tendance émergente à capitaliser rapidement. Ce cas rappelle directement l'exemple du salaire de direction générale du Module 1 : une anomalie statistique n'est jamais automatiquement négative.</p>
+
+      <pre><code class="language-python">import pandas as pd
+from sklearn.ensemble import IsolationForest
+
+# Même outil technique (Isolation Forest, Module 3) mais objectif métier inversé :
+# ici on VEUT maximiser la détection des anomalies, pas les neutraliser
+df = pd.DataFrame({
+    "montant_vente": [120, 95, 110, 3800, 105, 98, 4200, 115],
+    "categorie_produit": ["A", "A", "B", "A", "B", "A", "B", "A"],
+})
+
+modele = IsolationForest(contamination=0.2, random_state=0)  # contamination plus élevée : on cherche activement le signal
+df["score_opportunite"] = -modele.fit(df[["montant_vente"]]).decision_function(df[["montant_vente"]])
+top_anomalies = df.sort_values("score_opportunite", ascending=False).head(3)
+print("Anomalies prioritaires à investiguer comme opportunités commerciales potentielles :")
+print(top_anomalies)
+# Ces lignes ne seront ni supprimées ni plafonnées -- elles sont transmises
+# directement à une équipe commerciale pour investigation et action</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Appliquer par réflexe un pipeline de nettoyage standard (suppression ou capping systématique des outliers) à un dataset dont l'objectif final est justement l'identification de ces mêmes outliers comme signal métier prioritaire — un contresens qui élimine silencieusement l'information la plus précieuse du dataset avant même qu'elle ait pu être exploitée.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Une équipe data reçoit un dataset de transactions et applique automatiquement une winsorisation à 1%/99% "pour nettoyer les valeurs extrêmes" avant de le transmettre à l'équipe de détection de fraude. Expliquez pourquoi cette étape de nettoyage, bien intentionnée, pourrait être activement contre-productive dans ce contexte précis.
+      </div>
+    </section>
+
+    <div class="module-divider">
+      <span class="num">MODULE 07 · VALIDATION ET PRODUCTION</span>
+      <span class="line"></span>
+    </div>
+
+    <section id="m7-l1">
+      <span class="lesson-kicker">Module 7 · Leçon 1</span>
+      <h2>Évaluer un Détecteur sans Vérité Terrain</h2>
+
+      <p>Toutes les métriques classiques de machine learning (précision, rappel, F1, aire sous la courbe ROC) nécessitent une vérité terrain — un étiquetage fiable indiquant quelles observations sont réellement des anomalies. Or, en détection d'anomalies, cette vérité terrain est presque toujours absente, partielle, ou elle-même de qualité douteuse : c'est précisément parce qu'on ne sait pas déjà où sont les anomalies qu'on construit un détecteur. Cette leçon couvre les stratégies pratiques pour évaluer un détecteur malgré cette absence structurelle de vérité terrain complète.</p>
+
+      <h3>Injection d'anomalies synthétiques</h3>
+      <p>Une stratégie robuste consiste à injecter délibérément des anomalies synthétiques dans un jeu de données par ailleurs propre (ou considéré comme tel), puis à mesurer la capacité du détecteur à les retrouver. C'est imparfait — une anomalie synthétique ne capture jamais toute la diversité des vraies anomalies réelles — mais cela fournit un signal quantitatif exploitable pour comparer différentes méthodes ou différents réglages de seuil entre eux, à défaut de mesurer une performance absolue fiable.</p>
+
+      <pre><code class="language-python">import numpy as np
+import pandas as pd
+from sklearn.ensemble import IsolationForest
+from sklearn.metrics import precision_score, recall_score
+
+np.random.seed(0)
+donnees_propres = np.random.normal(50, 5, (1000, 3))
+
+# Injection contrôlée d'anomalies synthétiques avec vérité terrain connue par construction
+nb_anomalies_injectees = 50
+anomalies_synthetiques = np.random.uniform(20, 80, (nb_anomalies_injectees, 3)) * np.random.choice([-1, 3], (nb_anomalies_injectees, 3))
+X = np.vstack([donnees_propres, anomalies_synthetiques])
+y_verite = np.concatenate([np.zeros(len(donnees_propres)), np.ones(nb_anomalies_injectees)])
+
+modele = IsolationForest(contamination=0.05, random_state=0)
+y_predit = (modele.fit_predict(X) == -1).astype(int)
+
+print(f"Précision : {precision_score(y_verite, y_predit):.2f}")
+print(f"Rappel    : {recall_score(y_verite, y_predit):.2f}")
+# Ces métriques mesurent la capacité à retrouver CES anomalies synthétiques précises --
+# à interpréter comme un indicateur relatif entre méthodes, pas une performance absolue garantie</code></pre>
+
+      <h3>Validation par échantillonnage et jugement humain</h3>
+      <p>Faire examiner manuellement, par un expert du domaine, un échantillon aléatoire des observations signalées comme anomalies (et, symétriquement, un échantillon des observations jugées normales) permet d'estimer un taux de faux positifs et de faux négatifs approché, sans nécessiter d'étiquetage exhaustif de l'ensemble du dataset — une pratique nettement plus réaliste en production que l'attente d'une vérité terrain complète.</p>
+
+      <h3>Validation par cohérence entre plusieurs méthodes indépendantes</h3>
+      <p>Faire tourner plusieurs méthodes conceptuellement différentes (par exemple Isolation Forest, LOF, et une règle métier) sur le même dataset et examiner le degré de recouvrement de leurs détections respectives donne un signal indirect de fiabilité : une anomalie détectée de façon convergente par plusieurs méthodes indépendantes est un candidat bien plus fiable qu'une anomalie détectée par une seule méthode isolée, même en l'absence de toute vérité terrain.</p>
+
+      <pre><code class="language-python">from sklearn.neighbors import LocalOutlierFactor
+
+lof = LocalOutlierFactor(n_neighbors=20, contamination=0.05)
+y_predit_lof = (lof.fit_predict(X) == -1).astype(int)
+
+accord = (y_predit == 1) & (y_predit_lof == 1)
+print(f"Anomalies détectées par les deux méthodes (Isolation Forest ET LOF) : {accord.sum()}")
+print(f"Anomalies détectées par Isolation Forest seul : {((y_predit == 1) & (y_predit_lof == 0)).sum()}")
+# Un fort recouvrement entre méthodes indépendantes renforce la confiance dans les anomalies communes</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Injecter des anomalies synthétiques trop faciles à détecter (extrêmement éloignées de la distribution normale) pour valider un détecteur, obtenir un score de rappel proche de 100%, et en conclure à tort que le détecteur fonctionnera aussi bien sur de vraies anomalies souvent bien plus subtiles. La difficulté des anomalies synthétiques doit être calibrée pour approcher la difficulté attendue des vraies anomalies du domaine, sans quoi la validation est optimiste de façon trompeuse.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Vous ne disposez d'aucune vérité terrain sur un dataset de capteurs industriels. Décrivez, en une ou deux phrases chacune, deux des trois stratégies de cette leçon que vous pourriez combiner pour obtenir une estimation raisonnable de la fiabilité de votre détecteur.
+      </div>
+    </section>
+
+    <section id="m7-l2">
+      <span class="lesson-kicker">Module 7 · Leçon 2</span>
+      <h2>Seuils Adaptatifs et Dérive (Drift)</h2>
+
+      <p>Un seuil de détection calibré une fois, au lancement d'un pipeline, n'a aucune garantie de rester pertinent dans le temps : la distribution sous-jacente des données évolue naturellement (une entreprise en croissance voit ses montants de transaction moyens augmenter légitimement d'année en année), un phénomène appelé <strong>dérive de données</strong> (data drift). Un seuil statique, jamais révisé, devient soit de plus en plus permissif (s'il était calibré sur une distribution passée à plus faible variance), soit de plus en plus strict et générateur de faux positifs (dans le cas inverse).</p>
+
+      <h3>Détecter la dérive avant qu'elle ne dégrade silencieusement le détecteur</h3>
+      <p>La détection de dérive compare la distribution des données récentes à celle utilisée lors de la calibration initiale du détecteur, à l'aide de tests statistiques dédiés comme le test de Kolmogorov-Smirnov (pour une variable continue) ou l'indice de stabilité de population (PSI, Population Stability Index, très utilisé en scoring de crédit). Une dérive significative détectée doit déclencher une réévaluation, voire un recalibrage, des seuils en place — plutôt que de laisser le détecteur continuer à opérer sur des hypothèses devenues obsolètes.</p>
+
+      <pre><code class="language-python">import numpy as np
+from scipy.stats import ks_2samp
+
+np.random.seed(0)
+distribution_reference = np.random.normal(50, 5, 1000)   # au moment de la calibration initiale
+distribution_recente = np.random.normal(58, 7, 1000)     # quelques mois plus tard -- dérive réelle
+
+statistique, p_valeur = ks_2samp(distribution_reference, distribution_recente)
+print(f"Statistique KS : {statistique:.3f}, p-valeur : {p_valeur:.5f}")
+if p_valeur < 0.01:
+    print("Dérive significative détectée -- recalibrage des seuils recommandé avant de continuer")</code></pre>
+
+      <h3>Fenêtres glissantes plutôt qu'un seuil figé à l'infini</h3>
+      <p>Une approche pragmatique et largement utilisée en production consiste à recalculer périodiquement les statistiques de référence (moyenne, écart-type, quantiles) sur une fenêtre glissante récente plutôt que sur l'historique complet ou une calibration figée à l'origine — un principe déjà rencontré au Module 4 avec les bandes de Bollinger, généralisable à toute méthode de détection univariée ou multivariée.</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+def seuils_glissants(serie, fenetre_jours, multiplicateur=3):
+    moyenne_mobile = serie.rolling(window=fenetre_jours, min_periods=fenetre_jours // 2).mean()
+    ecart_mobile = serie.rolling(window=fenetre_jours, min_periods=fenetre_jours // 2).std()
+    return moyenne_mobile + multiplicateur * ecart_mobile, moyenne_mobile - multiplicateur * ecart_mobile
+
+# Recalculer les bornes chaque jour à partir des 90 derniers jours plutôt que d'une calibration figée
+# permet au détecteur de suivre naturellement une croissance ou un changement de régime légitime</code></pre>
+
+      <h3>Le compromis : s'adapter à la dérive légitime sans s'adapter à l'anomalie elle-même</h3>
+      <p>Un risque symétrique existe : une fenêtre glissante trop réactive peut progressivement intégrer une vraie anomalie durable (une fraude qui s'installe progressivement, une dérive de capteur réelle à signaler) dans sa propre référence, la rendant invisible après quelques cycles — exactement le même piège de masquage rencontré au Module 4, leçon 2. La fréquence de recalibrage et la taille de fenêtre doivent être choisies en tenant compte de cette tension, pas uniquement de la vitesse de dérive légitime attendue.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Recalibrer automatiquement et sans supervision les seuils de détection sur une fenêtre glissante qui inclut potentiellement des anomalies non filtrées, laissant le détecteur "apprendre" progressivement à considérer une anomalie persistante comme la nouvelle normale. Un recalibrage automatique devrait toujours exclure, ou au moins pondérer différemment, les périodes où des anomalies confirmées ont été détectées.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Un détecteur de fraude recalibre ses seuils chaque semaine sur les transactions des 30 derniers jours. Une fraude progressive et discrète s'installe sur 6 semaines consécutives sans être bloquée. Expliquez comment le mécanisme même de recalibrage automatique pourrait avoir contribué à masquer cette fraude plutôt qu'à l'identifier.
+      </div>
+    </section>
+
+    <section id="m7-l3">
+      <span class="lesson-kicker">Module 7 · Leçon 3</span>
+      <h2>PyOD, scikit-learn et Alternatives</h2>
+
+      <p>Cette leçon fait le point sur l'écosystème logiciel disponible pour implémenter les méthodes de ce cours en production, afin d'éviter de réimplémenter manuellement des algorithmes déjà disponibles, testés, et optimisés dans des bibliothèques matures.</p>
+
+      <h3>scikit-learn : le socle généraliste, déjà largement utilisé dans ce cours</h3>
+      <p>scikit-learn fournit des implémentations robustes et bien maintenues d'Isolation Forest, de Local Outlier Factor, de DBSCAN, et de l'estimateur de covariance robuste MCD utilisé pour une distance de Mahalanobis résistante aux anomalies — l'ensemble des méthodes multivariées du Module 3 sont directement disponibles sans dépendance supplémentaire, avec une API cohérente (<code>fit</code>, <code>predict</code>, <code>decision_function</code>) qui facilite la comparaison entre méthodes.</p>
+
+      <h3>PyOD : une bibliothèque unifiée spécialisée en détection d'anomalies</h3>
+      <p>PyOD (Python Outlier Detection) regroupe plus de 40 algorithmes de détection d'anomalies sous une API unique et cohérente, incluant des méthodes non disponibles dans scikit-learn (des approches basées sur des autoencodeurs, des méthodes d'ensemble spécialisées comme COPOD ou ECOD, particulièrement efficaces sans nécessiter de réglage fin de paramètres). C'est la référence recommandée dès qu'un projet nécessite de comparer systématiquement de nombreuses méthodes entre elles pour un même problème.</p>
+
+      <pre><code class="language-python">from pyod.models.ecod import ECOD
+from pyod.models.copod import COPOD
+import numpy as np
+
+np.random.seed(0)
+X = np.random.normal(0, 1, (500, 5))
+X[490:] += 8  # anomalies injectées
+
+# ECOD (Empirical Cumulative Outlier Detection) : sans paramètre à régler, basé sur les distributions
+# marginales empiriques de chaque variable -- un excellent point de départ rapide
+modele_ecod = ECOD()
+modele_ecod.fit(X)
+scores = modele_ecod.decision_scores_
+labels = modele_ecod.labels_  # 0 = normal, 1 = anomalie (convention PyOD, inversée par rapport à sklearn)
+print(f"Anomalies détectées par ECOD : {labels.sum()}")</code></pre>
+
+      <h3>Bibliothèques spécialisées pour les séries temporelles et les règles métier</h3>
+      <p>Pour les séries temporelles (Module 4), Prophet (Meta) et la bibliothèque <code>ruptures</code> couvrent respectivement la décomposition avec calendrier métier et la détection de changepoints. Pour les règles métier (Module 5), Great Expectations et Pandera permettent de définir des règles de validation déclaratives, versionnées, et intégrables directement dans un pipeline de données comme un test automatisé plutôt qu'une vérification ad hoc.</p>
+
+      <pre><code class="language-python">import pandera as pa
+
+schema = pa.DataFrameSchema({
+    "age": pa.Column(int, pa.Check.in_range(0, 120)),
+    "pourcentage_remise": pa.Column(float, pa.Check.in_range(0, 100)),
+})
+
+# schema.validate(df) lève une exception détaillée si une règle est violée --
+# intégrable directement comme un test dans un pipeline CI/CD (voir leçon suivante)</code></pre>
+
+      <table>
+        <tr><th>Bibliothèque</th><th>Domaine couvert</th><th>Quand la choisir</th></tr>
+        <tr><td>scikit-learn</td><td>Multivarié généraliste</td><td>Déjà présent dans la stack, besoins standards</td></tr>
+        <tr><td>PyOD</td><td>Détection d'anomalies spécialisée, 40+ algorithmes</td><td>Comparaison systématique de méthodes, besoins avancés</td></tr>
+        <tr><td>ruptures</td><td>Détection de rupture temporelle</td><td>Changement de régime durable à identifier</td></tr>
+        <tr><td>Prophet</td><td>Décomposition temporelle avec calendrier métier</td><td>Saisonnalités multiples, jours fériés</td></tr>
+        <tr><td>Great Expectations / Pandera</td><td>Règles métier déclaratives et testables</td><td>Gouvernance de règles en production (Module 5)</td></tr>
+      </table>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Réimplémenter manuellement un algorithme déjà disponible et éprouvé (Isolation Forest, LOF) plutôt que d'utiliser l'implémentation de référence de scikit-learn ou PyOD, au prétexte de mieux comprendre l'algorithme. Comprendre le principe (ce que fait ce cours) est essentiel ; réimplémenter en production expose à des bugs subtils déjà résolus depuis longtemps dans les bibliothèques matures, sans bénéfice réel.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Pour un projet nécessitant de tester rapidement une dizaine d'algorithmes de détection différents sur le même dataset afin de comparer leurs résultats, quelle bibliothèque de cette leçon choisiriez-vous en priorité, et pourquoi par rapport à une implémentation manuelle méthode par méthode ?
+      </div>
+    </section>
+
+    <section id="m7-l4">
+      <span class="lesson-kicker">Module 7 · Leçon 4</span>
+      <h2>Un Pipeline de Détection Robuste et Monitorable</h2>
+
+      <p>Cette dernière leçon du cours synthétise l'ensemble des modules précédents en une architecture de pipeline de production complète — la différence entre un notebook d'exploration qui détecte des anomalies une fois, et un système fiable qui continue de le faire correctement des mois après sa mise en service, sans supervision constante.</p>
+
+      <h3>Les étapes d'un pipeline complet</h3>
+      <ol>
+        <li><strong>Ingestion et harmonisation</strong> des représentations d'absence et de type (rejoint le cours précédent du Bloc 2 sur les valeurs manquantes).</li>
+        <li><strong>Application des règles métier absolues</strong> (Module 5) comme premier filtre, avant tout calcul statistique.</li>
+        <li><strong>Détection statistique combinée</strong> (Modules 2 à 4), calibrée avec des seuils documentés et révisés périodiquement (leçon 2 de ce module).</li>
+        <li><strong>Investigation et décision</strong> (Module 6), avec une part d'intervention humaine proportionnée au volume et à l'enjeu.</li>
+        <li><strong>Traçabilité complète</strong> (Module 6, leçon 3) de chaque décision prise.</li>
+        <li><strong>Monitoring continu</strong> du taux d'anomalies détectées et de la dérive de distribution (leçon 2 de ce module), avec alerte si ce taux change significativement sans explication identifiée.</li>
+      </ol>
+
+      <pre><code class="language-python">import pandas as pd
+import numpy as np
+from datetime import datetime
+
+class PipelineDetectionAnomalies:
+    def __init__(self, regles_metier, seuil_zscore=3.5):
+        self.regles_metier = regles_metier
+        self.seuil_zscore = seuil_zscore
+        self.journal_audit = []
+        self.historique_taux_anomalies = []
+
+    def appliquer_regles(self, df):
+        violations = pd.Series(False, index=df.index)
+        for col, (mini, maxi) in self.regles_metier.items():
+            if col in df.columns:
+                violations |= (df[col] < mini) | (df[col] > maxi)
+        return violations
+
+    def detecter_statistique(self, df, colonne):
+        mediane = df[colonne].median()
+        mad = (df[colonne] - mediane).abs().median()
+        if mad == 0:
+            return pd.Series(False, index=df.index)  # basculer vers une méthode alternative (Module 2)
+        z_modifie = 0.6745 * (df[colonne] - mediane) / mad
+        return z_modifie.abs() > self.seuil_zscore
+
+    def executer(self, df, colonne_principale):
+        violations_regles = self.appliquer_regles(df)
+        df_valide = df[~violations_regles].copy()
+        anomalies_stat = self.detecter_statistique(df_valide, colonne_principale)
+
+        df["anomalie_regle"] = violations_regles
+        df["anomalie_statistique"] = False
+        df.loc[df_valide.index, "anomalie_statistique"] = anomalies_stat
+        df["anomalie_finale"] = df["anomalie_regle"] | df["anomalie_statistique"]
+
+        taux_actuel = df["anomalie_finale"].mean()
+        self.historique_taux_anomalies.append({"date": datetime.now(), "taux": taux_actuel})
+        self._verifier_derive(taux_actuel)
+        return df
+
+    def _verifier_derive(self, taux_actuel):
+        if len(self.historique_taux_anomalies) < 2:
+            return
+        taux_precedent = self.historique_taux_anomalies[-2]["taux"]
+        if taux_precedent > 0 and abs(taux_actuel - taux_precedent) / taux_precedent > 0.5:
+            print(f"ALERTE : le taux d'anomalies a varié de plus de 50% depuis la dernière exécution "
+                  f"({taux_precedent:.1%} -> {taux_actuel:.1%}) -- investigation recommandée")
+
+pipeline = PipelineDetectionAnomalies(regles_metier={"age": (0, 120)})
+df = pd.DataFrame({"age": [34, 999, 45, 31, 28], "montant": [45, 52, 620, 48, 51]})
+resultat = pipeline.executer(df, "montant")
+print(resultat)</code></pre>
+
+      <h3>Monitorer le détecteur lui-même, pas seulement les données</h3>
+      <p>Un pipeline mature surveille non seulement les données pour y détecter des anomalies, mais aussi le comportement du détecteur lui-même dans le temps : un taux d'anomalies détectées qui double soudainement peut signaler une vraie dégradation de la qualité des données en amont, mais tout aussi bien un bug introduit dans le pipeline d'ingestion, ou une dérive du seuil devenue inadaptée (leçon 2) — ambiguïté qui rappelle directement la nécessité d'investigation du Module 6, appliquée ici au niveau du système de détection lui-même plutôt qu'à une observation individuelle.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Considérer qu'un pipeline de détection d'anomalies, une fois déployé et validé initialement, ne nécessite plus aucune surveillance continue. Un pipeline non monitoré peut dériver silencieusement pendant des mois — soit en devenant trop permissif (anomalies réelles non détectées), soit trop strict (submergé de faux positifs, progressivement ignoré par les équipes qui le consomment) — sans qu'aucun signal n'alerte de cette dégradation avant qu'un incident majeur ne la révèle a posteriori.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        En vous appuyant sur les six étapes de pipeline de cette leçon, identifiez à quelle étape précise chacun des modules suivants de ce cours correspond : Module 5 (règles métier), Module 2-3-4 (détection statistique), Module 6 (décision et traçabilité). Puis proposez une métrique concrète que vous surveilleriez en continu pour détecter une dégradation du pipeline lui-même.
+      </div>
+    </section>
+
+    <section id="conclusion">
+      <span class="lesson-kicker">Bilan du cours</span>
+      <h2>Synthèse et Suite du Bloc 2</h2>
+      <p>Vous disposez désormais d'une méthode complète pour détecter des anomalies et des outliers : distinguer le bruit, l'écart statistique et le signal métier (Module 1), appliquer des méthodes univariées robustes à la forme réelle de la distribution (Module 2), passer à la détection multivariée quand l'anomalie n'existe que dans la relation entre variables (Module 3), adapter la détection aux spécificités des séries temporelles (Module 4), encoder et gouverner des règles métier absolues en complément de la statistique (Module 5), décider avec discernement du traitement à appliquer et le tracer (Module 6), et enfin valider, monitorer et industrialiser un pipeline de détection robuste dans le temps (Module 7). Le quatrième et dernier cours de ce Bloc 2 réunira nettoyage, valeurs manquantes et détection d'anomalies dans un pipeline de qualité de données unique, testé et industrialisé de bout en bout.</p>
+    </section>
+
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+  hljs.highlightAll();
+
+  const sidebar = document.getElementById('sidebar');
+  document.getElementById('menuToggle').addEventListener('click', () => {
+    sidebar.classList.toggle('open');
+  });
+
+  const lessonLinks = document.querySelectorAll('[data-lesson]');
+  const storageKey = 'course-progress-' + (document.title || 'default');
+  const done = JSON.parse(localStorage.getItem(storageKey) || '{}');
+
+  function updateProgressBar() {
+    const total = lessonLinks.length;
+    const completed = Object.values(done).filter(Boolean).length;
+    document.getElementById('progressFill').style.width = (completed / total * 100) + '%';
+  }
+
+  lessonLinks.forEach(link => {
+    const id = link.dataset.lesson;
+    if (done[id]) link.querySelector('.lesson-check').classList.add('done');
+
+    link.addEventListener('click', () => {
+      done[id] = true;
+      localStorage.setItem(storageKey, JSON.stringify(done));
+      link.querySelector('.lesson-check').classList.add('done');
+      lessonLinks.forEach(l => l.classList.remove('active'));
+      link.classList.add('active');
+      updateProgressBar();
+      sidebar.classList.remove('open');
+    });
+  });
+
+  updateProgressBar();
+</script>
+</body>
+</html>
