@@ -1,0 +1,2531 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Enrichissement de Métadonnées pour RAG — Structurer le Contexte pour Améliorer la Récupération</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<style>
+  :root {
+    --bg: #f4f6f8; --bg-alt: #e8edf1; --panel: #ffffff; --text: #1f2430; --text-muted: #5b6472;
+    --accent: #0891b2; --accent-dark: #0e7490; --pitfall: #f59e0b; --border: #dbe2e8;
+    --chunk-1: #7c5cff; --chunk-2: #17b8a6; --chunk-3: #ff6b6b; --chunk-4: #ffb020;
+    --font-display: "Space Grotesk", sans-serif; --font-body: "Inter", system-ui, sans-serif; --font-mono: "JetBrains Mono", monospace;
+    --sidebar-width: 300px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font-body); color: var(--text); background: var(--bg); line-height: 1.65; }
+  .layout { display: flex; min-height: 100vh; }
+  .sidebar { width: var(--sidebar-width); flex-shrink: 0; background: var(--panel); border-right: 1px solid var(--border); padding: 1.5rem 1rem 3rem; overflow-y: auto; position: sticky; top: 0; height: 100vh; }
+  .sidebar a.brand { display: block; font-family: var(--font-display); font-weight: 700; font-size: 1rem; margin-bottom: 1.5rem; color: var(--text); text-decoration: none; padding: 0.4rem 0.5rem; }
+  .sidebar a.brand span { color: var(--accent); }
+  .module-group { margin-bottom: 0.35rem; border-radius: 8px; }
+  .module-title { font-family: var(--font-display); font-weight: 600; font-size: 0.88rem; padding: 0.55rem 0.6rem; display: flex; gap: 0.5rem; align-items: baseline; color: var(--text); text-decoration: none; }
+  .module-title .n { font-family: var(--font-mono); font-size: 0.72rem; opacity: 0.7; }
+  .lesson-list { list-style: none; padding-left: 0.6rem; margin-bottom: 0.4rem; }
+  .lesson-list li a { display: flex; align-items: center; gap: 0.5rem; padding: 0.32rem 0.5rem; border-radius: 6px; color: var(--text-muted); text-decoration: none; font-size: 0.83rem; }
+  .lesson-list li a:hover { background: var(--bg-alt); color: var(--text); }
+  .lesson-list li a.active { color: var(--accent-dark); font-weight: 600; background: rgba(8,145,178,0.1); }
+  .lesson-check { width: 12px; height: 12px; flex-shrink: 0; border: 1.5px solid var(--text-muted); border-radius: 3px; }
+  .lesson-check.done { background: var(--chunk-2); border-color: var(--chunk-2); }
+  .progress-bar { height: 4px; background: var(--border); position: sticky; top: 0; z-index: 10; }
+  .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--chunk-1), var(--accent)); width: 0%; transition: width 0.2s ease; }
+  .content { flex: 1; max-width: 760px; margin: 0 auto; padding: 3rem 2rem 6rem; }
+  .module-kicker { font-family: var(--font-mono); font-size: 0.8rem; color: var(--accent-dark); background: rgba(8,145,178,0.08); border: 1px dashed var(--accent); display: inline-block; padding: 0.2rem 0.8rem; border-radius: 999px; margin-bottom: 1rem; }
+  section.lesson { border-top: 2px dashed var(--border); padding-top: 2rem; margin-top: 2rem; position: relative; padding-left: 1.1rem; border-left: 4px solid var(--lesson-color, var(--accent)); }
+  section.lesson h2 { font-family: var(--font-display); font-size: 1.5rem; margin-bottom: 1rem; }
+  section.lesson h2 .tag { font-family: var(--font-mono); font-size: 0.7rem; color: var(--lesson-color, var(--accent)); display: block; margin-bottom: 0.3rem; }
+  section.lesson h3 { font-family: var(--font-display); font-size: 1.1rem; margin: 1.4rem 0 0.6rem; }
+  section.lesson p, section.lesson ul, section.lesson ol { margin-bottom: 1rem; }
+  section.lesson li { margin-left: 1.3rem; margin-bottom: 0.35rem; }
+  pre { border-radius: 8px; padding: 1rem; overflow-x: auto; margin: 1rem 0; font-size: 0.85rem; }
+  code.inline { font-family: var(--font-mono); background: var(--bg-alt); padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.85em; }
+  .ascii { font-family: var(--font-mono); font-size: 0.78rem; background: #1e222b; color: #d7dce2; padding: 1rem 1.2rem; border-radius: 8px; overflow-x: auto; margin: 1rem 0; line-height: 1.5; white-space: pre; }
+  .callout { border-left: 4px solid var(--accent); background: var(--bg-alt); padding: 1rem 1.2rem; border-radius: 0 8px 8px 0; margin: 1.2rem 0; }
+  .callout strong { font-family: var(--font-display); display: block; margin-bottom: 0.3rem; font-size: 0.92rem; }
+  .callout.pitfall { border-left-color: var(--pitfall); }
+  .callout.exercise { border-left-color: var(--chunk-2); }
+  .menu-toggle { display: none; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.88rem; }
+  thead tr { text-align: left; border-bottom: 2px solid var(--border); }
+  th, td { padding: 0.5rem 0.6rem; }
+  tbody tr { border-bottom: 1px solid var(--border); }
+
+  .hero {
+    border-bottom: 2px dashed var(--border);
+    padding: 3rem 0 2.5rem;
+    text-align: center;
+    margin-bottom: 1rem;
+  }
+  .hero .tag {
+    display: inline-block; font-family: var(--font-mono); font-size: 0.8rem;
+    color: var(--accent-dark); background: rgba(8,145,178,0.1);
+    border: 1px dashed var(--accent); border-radius: 999px;
+    padding: 0.25rem 0.9rem; margin-bottom: 1.25rem;
+  }
+  .hero-title {
+    font-family: var(--font-display); font-size: clamp(1.8rem, 5vw, 2.6rem);
+    font-weight: 700; margin: 0 auto 1rem; letter-spacing: -0.01em;
+  }
+  .hero-title span {
+    background: linear-gradient(90deg, var(--chunk-1), var(--accent), var(--chunk-2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .hero-lead { max-width: 620px; margin: 0 auto; color: var(--text-muted); font-size: 1.02rem; }
+  .strip { display: flex; justify-content: center; gap: 0.4rem; margin: 2rem auto 0; max-width: 520px; }
+  .strip .seg { height: 8px; flex: 1; border-radius: 3px; }
+  .strip .seg:nth-child(1) { background: var(--chunk-1); }
+  .strip .seg:nth-child(2) { background: var(--chunk-2); }
+  .strip .seg:nth-child(3) { background: var(--chunk-3); }
+  .strip .seg:nth-child(4) { background: var(--chunk-4); }
+  .strip .seg:nth-child(5) { background: var(--chunk-1); }
+  .strip .seg:nth-child(6) { background: var(--chunk-2); }
+
+  .module-block { border-top: 3px solid var(--border); padding-top: 2.5rem; margin-top: 3rem; }
+  .module-block:first-of-type { border-top: none; margin-top: 0; }
+  .module-block > h1 { font-family: var(--font-display); font-size: 2rem; margin-bottom: 0.5rem; }
+  .module-block > p.intro { color: var(--text-muted); margin-bottom: 2rem; font-size: 1.02rem; }
+
+  .finale {
+    margin-top: 3rem; padding: 1.5rem; border-radius: 10px;
+    background: linear-gradient(135deg, rgba(124,92,255,0.08), rgba(23,184,166,0.08));
+    border: 1px dashed var(--accent);
+    text-align: center;
+  }
+  .finale p { color: var(--text-muted); margin-bottom: 0.8rem; }
+  .finale a {
+    display: inline-block; background: var(--accent); color: white;
+    text-decoration: none; padding: 0.6rem 1.4rem; border-radius: 6px;
+    font-family: var(--font-display); font-weight: 600; font-size: 0.9rem;
+  }
+
+  @media (max-width: 860px) {
+    .sidebar { position: fixed; left: -100%; z-index: 20; transition: left 0.2s ease; box-shadow: 4px 0 12px rgba(0,0,0,0.15); background: var(--panel); }
+    .sidebar.open { left: 0; }
+    .menu-toggle { display: block; position: fixed; top: 1rem; left: 1rem; z-index: 30; background: var(--accent); color: white; border: none; border-radius: 6px; padding: 0.5rem 0.75rem; cursor: pointer; font-size: 1rem; }
+    .content { padding: 4.5rem 1.25rem 3rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-bar-fill" id="progressFill"></div></div>
+<button class="menu-toggle" id="menuToggle">☰</button>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar">
+    <a class="brand" href="#top">Métadonnées<span>RAG</span></a>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-1"><span class="n">01</span> Fondamentaux des métadonnées</a>
+      <ul class="lesson-list">
+        <li><a href="#m1-l1" data-lesson="m1-l1"><span class="lesson-check"></span>Qu'est-ce qu'une métadonnée</a></li>
+        <li><a href="#m1-l2" data-lesson="m1-l2"><span class="lesson-check"></span>Où elle intervient dans le pipeline</a></li>
+        <li><a href="#m1-l3" data-lesson="m1-l3"><span class="lesson-check"></span>Structurelles, sémantiques, gouvernance</a></li>
+        <li><a href="#m1-l4" data-lesson="m1-l4"><span class="lesson-check"></span>Chunk isolé vs chunk enrichi</a></li>
+        <li><a href="#m1-l5" data-lesson="m1-l5"><span class="lesson-check"></span>Erreurs qui rendent tout inutile</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-2"><span class="n">02</span> Métadonnées structurelles et provenance</a>
+      <ul class="lesson-list">
+        <li><a href="#m2-l1" data-lesson="m2-l1"><span class="lesson-check"></span>Source, position, identifiants uniques</a></li>
+        <li><a href="#m2-l2" data-lesson="m2-l2"><span class="lesson-check"></span>Hiérarchie documentaire et breadcrumbs</a></li>
+        <li><a href="#m2-l3" data-lesson="m2-l3"><span class="lesson-check"></span>Dates : création, modification, ingestion</a></li>
+        <li><a href="#m2-l4" data-lesson="m2-l4"><span class="lesson-check"></span>Versionnage et documents obsolètes</a></li>
+        <li><a href="#m2-l5" data-lesson="m2-l5"><span class="lesson-check"></span>Construire un schéma cohérent</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-3"><span class="n">03</span> Filtrage et recherche restreinte</a>
+      <ul class="lesson-list">
+        <li><a href="#m3-l1" data-lesson="m3-l1"><span class="lesson-check"></span>Filtrage pré vs post-recherche</a></li>
+        <li><a href="#m3-l2" data-lesson="m3-l2"><span class="lesson-check"></span>Concevoir pour des cas réels</a></li>
+        <li><a href="#m3-l3" data-lesson="m3-l3"><span class="lesson-check"></span>Catégorielles, numériques, plages de dates</a></li>
+        <li><a href="#m3-l4" data-lesson="m3-l4"><span class="lesson-check"></span>Combiner des filtres multiples</a></li>
+        <li><a href="#m3-l5" data-lesson="m3-l5"><span class="lesson-check"></span>Pièges de performance</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-4"><span class="n">04</span> Enrichissement sémantique par LLM</a>
+      <ul class="lesson-list">
+        <li><a href="#m4-l1" data-lesson="m4-l1"><span class="lesson-check"></span>Résumés de chunk et de document</a></li>
+        <li><a href="#m4-l2" data-lesson="m4-l2"><span class="lesson-check"></span>Extraction d'entités nommées</a></li>
+        <li><a href="#m4-l3" data-lesson="m4-l3"><span class="lesson-check"></span>Classification automatique de chunks</a></li>
+        <li><a href="#m4-l4" data-lesson="m4-l4"><span class="lesson-check"></span>Questions hypothétiques (HyDE)</a></li>
+        <li><a href="#m4-l5" data-lesson="m4-l5"><span class="lesson-check"></span>Coûts et fiabilité de l'enrichissement</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-5"><span class="n">05</span> Contexte et désambiguïsation</a>
+      <ul class="lesson-list">
+        <li><a href="#m5-l1" data-lesson="m5-l1"><span class="lesson-check"></span>Contextual retrieval</a></li>
+        <li><a href="#m5-l2" data-lesson="m5-l2"><span class="lesson-check"></span>Résolution de coréférences</a></li>
+        <li><a href="#m5-l3" data-lesson="m5-l3"><span class="lesson-check"></span>Métadonnées de relation entre chunks</a></li>
+        <li><a href="#m5-l4" data-lesson="m5-l4"><span class="lesson-check"></span>Métadonnées pour tableaux/données</a></li>
+        <li><a href="#m5-l5" data-lesson="m5-l5"><span class="lesson-check"></span>Injecter dans le texte vs annexe</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-6"><span class="n">06</span> Graphes de connaissances</a>
+      <ul class="lesson-list">
+        <li><a href="#m6-l1" data-lesson="m6-l1"><span class="lesson-check"></span>Au-delà du chunk isolé</a></li>
+        <li><a href="#m6-l2" data-lesson="m6-l2"><span class="lesson-check"></span>Extraire des relations entre entités</a></li>
+        <li><a href="#m6-l3" data-lesson="m6-l3"><span class="lesson-check"></span>GraphRAG : principes et gains réels</a></li>
+        <li><a href="#m6-l4" data-lesson="m6-l4"><span class="lesson-check"></span>Métadonnées hiérarchiques multi-niveaux</a></li>
+        <li><a href="#m6-l5" data-lesson="m6-l5"><span class="lesson-check"></span>Compromis complexité/bénéfice</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-7"><span class="n">07</span> Outillage, schémas et gouvernance</a>
+      <ul class="lesson-list">
+        <li><a href="#m7-l1" data-lesson="m7-l1"><span class="lesson-check"></span>Concevoir un schéma réutilisable</a></li>
+        <li><a href="#m7-l2" data-lesson="m7-l2"><span class="lesson-check"></span>Outils et frameworks</a></li>
+        <li><a href="#m7-l3" data-lesson="m7-l3"><span class="lesson-check"></span>Validation et cohérence à l'échelle</a></li>
+        <li><a href="#m7-l4" data-lesson="m7-l4"><span class="lesson-check"></span>Gouvernance des métadonnées</a></li>
+        <li><a href="#m7-l5" data-lesson="m7-l5"><span class="lesson-check"></span>Conformité (RGPD, traçabilité)</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-8"><span class="n">08</span> Implémentation complète</a>
+      <ul class="lesson-list">
+        <li><a href="#m8-l1" data-lesson="m8-l1"><span class="lesson-check"></span>Pipeline complet chunk → chunk enrichi</a></li>
+        <li><a href="#m8-l2" data-lesson="m8-l2"><span class="lesson-check"></span>Mesurer l'impact sur le retrieval</a></li>
+        <li><a href="#m8-l3" data-lesson="m8-l3"><span class="lesson-check"></span>Déboguer des métadonnées nuisibles</a></li>
+        <li><a href="#m8-l4" data-lesson="m8-l4"><span class="lesson-check"></span>Étude de cas et exercice final</a></li>
+        <li><a href="#m8-l5" data-lesson="m8-l5"><span class="lesson-check"></span>Ressources pour aller plus loin</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main class="content">
+    <header class="hero" id="top">
+      <span class="tag">// data-for-ai · 3.prepa-data-pour-RAG · Formation 12</span>
+      <h1 class="hero-title">Enrichissement de <span>Métadonnées</span> pour RAG</h1>
+      <p class="hero-lead">Structurer le contexte pour améliorer la récupération — comment transformer un chunk nu en un fragment riche de contexte, filtrable, traçable et relié aux autres. 8 modules, 40 leçons.</p>
+      <div class="strip" aria-hidden="true">
+        <div class="seg"></div><div class="seg"></div><div class="seg"></div>
+        <div class="seg"></div><div class="seg"></div><div class="seg"></div>
+      </div>
+    </header>
+
+    <div class="module-block" id="module-1">
+      <span class="module-kicker">MODULE 01 / 08</span>
+      <h1>Fondamentaux des métadonnées pour RAG</h1>
+      <p class="intro">Un chunk de texte, seul, ne porte que son contenu. Une métadonnée bien conçue lui ajoute tout ce qui lui manque pour être trouvé au bon moment, compris hors contexte, filtré intelligemment et tracé jusqu'à sa source. Ce module pose les bases conceptuelles avant d'entrer dans la mise en œuvre.</p>
+
+      <section class="lesson" id="m1-l1" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 1.1</span>Qu'est-ce qu'une métadonnée et pourquoi elle change tout pour le retrieval</h2>
+
+        <p>Une <strong>métadonnée</strong> est une information <em>à propos</em> d'un chunk, distincte de son contenu textuel lui-même : sa source, sa date, son auteur, la section du document dont il provient, sa langue, son niveau de confidentialité. Dans les trois cours précédents de cette série (chunking, embeddings, nettoyage de texte), les métadonnées sont apparues à plusieurs reprises — mais toujours en périphérie du sujet principal. Ce cours leur consacre l'attention qu'elles méritent : elles ne sont pas un détail d'implémentation, mais un levier de qualité aussi déterminant que le choix de la stratégie de chunking ou du modèle d'embedding.</p>
+
+        <p>Pourquoi un tel impact ? Parce qu'un chunk embeddé et indexé (cours précédents) ne porte, par défaut, que ce qu'il contient textuellement. Si une information cruciale pour l'interpréter ou le retrouver correctement n'est pas dans le texte du chunk lui-même, elle est perdue au moment de la recherche — à moins d'avoir été explicitement capturée comme métadonnée.</p>
+
+        <div class="ascii">Chunk SANS métadonnée enrichie :
+
+"Le taux applicable est de 3,5% par an."
+
+→ De quel taux parle-t-on ? Applicable à quoi ? Depuis quand ?
+   Dans quel document ? Cette phrase, seule, est ambiguë.
+
+
+Chunk AVEC métadonnées enrichies :
+
+Texte    : "Le taux applicable est de 3,5% par an."
+Source   : contrat_pret_immobilier_dupont_2025.pdf
+Section  : "Conditions financières > Taux d'intérêt"
+Date     : signé le 2025-01-14
+Type     : clause_financiere
+
+→ Le même texte devient interprétable, filtrable et traçable.</div>
+
+        <p>Cette différence a des conséquences concrètes et mesurables sur trois plans distincts, qui structurent l'ensemble de ce cours : la <strong>récupération</strong> (pouvoir filtrer une recherche par département, date, langue — module 3), la <strong>compréhension</strong> (donner au chunk le contexte nécessaire pour être interprété correctement, y compris par le modèle d'embedding lui-même — modules 4 et 5), et la <strong>gouvernance</strong> (savoir d'où vient une information, la retrouver, la corriger ou la supprimer — module 7).</p>
+
+        <p>Un principe qui reviendra tout au long de ce cours : les métadonnées ne sont utiles que si elles sont exploitées quelque part en aval — au moment du filtrage, de l'affichage d'une citation, ou de l'enrichissement du texte avant embedding. Une métadonnée collectée mais jamais utilisée n'est qu'un coût de stockage et de maintenance sans contrepartie.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Traiter les métadonnées comme un "à-côté" technique à ajouter en fin de projet, une fois le chunking et l'embedding calés. En pratique, certaines métadonnées (comme le breadcrumb hiérarchique du cours chunking) doivent être capturées <em>pendant</em> l'extraction et le chunking eux-mêmes — les ajouter après coup nécessite souvent de retraiter tout le corpus depuis le document source.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Reprenez un chunk que vous auriez pu produire dans le cours chunking (une phrase ou un court paragraphe issu d'un document réel). Listez trois informations qui ne sont pas dans son texte mais qui seraient nécessaires pour l'interpréter correctement une fois isolé de son document d'origine.
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l2" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 1.2</span>Où interviennent les métadonnées dans un pipeline RAG</h2>
+
+        <p>Contrairement au chunking (une étape unique) ou à l'embedding (deux moments précis : ingestion et requête), les métadonnées interviennent à <strong>chaque étape</strong> du pipeline RAG construit au fil de cette série de cours — une différence de nature qui explique pourquoi ce sujet mérite d'être traité après les trois premiers, une fois que chaque étape du pipeline est bien comprise individuellement.</p>
+
+        <div class="ascii">Extraction        Chunking          Embedding         Recherche          Génération
+(cours nettoyage) (cours chunking)  (cours embeddings) (cours embeddings) (hors périmètre)
+
+Capture des      Capture du        Les métadonnées    Les métadonnées    Les métadonnées
+métadonnées de   breadcrumb,       peuvent enrichir    servent à FILTRER  servent à CITER
+provenance       position,         le texte avant      la recherche       la source dans
+(source, date,   relations         embedding           (module 3)         la réponse
+format)          parent/enfant     (contextual                            générée
+                                    retrieval, module 5)</div>
+
+        <p>Cette omniprésence transversale a une conséquence pratique importante : les métadonnées ne peuvent pas être conçues isolément à une seule étape du pipeline, comme cela a été possible pour le chunking ou l'embedding. Un schéma de métadonnées cohérent doit anticiper, dès sa conception, la façon dont chaque métadonnée sera utilisée en aval — filtrage, enrichissement de texte, citation, gouvernance — sous peine de collecter des informations jamais exploitées, ou d'oublier des informations qui s'avèrent indispensables une fois le système en production.</p>
+
+        <pre><code class="language-python"># Illustration : le cycle de vie d'une métadonnée à travers le pipeline complet
+document = {"source": "guide_rag.pdf", "date_publication": "2026-01-10"}
+
+# 1. Extraction (cours nettoyage) : capture des métadonnées de provenance
+chunks_extraits = extraire_avec_metadonnees(document)   # chaque chunk hérite de la source
+
+# 2. Chunking (cours chunking) : enrichissement avec breadcrumb et position
+chunks_avec_breadcrumb = [
+    {**c, "breadcrumb": f"{document['source']} > {c['section']}"}
+    for c in chunks_extraits
+]
+
+# 3. Embedding (cours embeddings) : le texte enrichi (breadcrumb inclus) est embeddé
+vecteurs = [embed(f"[{c['breadcrumb']}]\n{c['texte']}") for c in chunks_avec_breadcrumb]
+
+# 4. Recherche (CE COURS, module 3) : filtrage par métadonnée avant/après la recherche vectorielle
+resultats = rechercher(question, filtre={"date_publication": {"$gte": "2025-01-01"}})
+</code></pre>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Concevoir le schéma de métadonnées uniquement en pensant à l'étape d'ingestion (quelles informations sont disponibles au moment de l'extraction), sans se projeter sur les besoins réels de filtrage et d'enrichissement en aval. Un champ de métadonnée capturé "parce qu'il était disponible" mais jamais utilisé dans une requête de filtrage ou un enrichissement de texte est un coût sans bénéfice.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          En reprenant un pipeline RAG esquissé dans les cours précédents, identifiez à quelle étape (extraction, chunking, embedding, recherche) vous ajouteriez chacune des métadonnées suivantes : la langue du document, le nom de l'auteur, un résumé généré par LLM, un score de confidentialité.
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l3" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 1.3</span>Métadonnées structurelles, sémantiques et de gouvernance</h2>
+
+        <p>Toutes les métadonnées ne se ressemblent pas dans leur nature, leur méthode de production et leur usage. Cette taxonomie en trois catégories, utilisée tout au long de ce cours, aide à structurer la réflexion lors de la conception d'un schéma de métadonnées.</p>
+
+        <h3>Métadonnées structurelles</h3>
+        <p>Décrivent la position et l'origine physique d'un chunk : source, numéro de page, position dans le document, breadcrumb hiérarchique, identifiant unique. Ces métadonnées sont généralement disponibles <strong>gratuitement</strong> lors de l'extraction et du chunking (cours précédents) — il s'agit surtout de ne pas les perdre en chemin. Approfondi au module 2.</p>
+
+        <h3>Métadonnées sémantiques</h3>
+        <p>Décrivent le <em>sens</em> du contenu : résumé, entités mentionnées, catégorie thématique, sentiment, questions auxquelles le chunk répond. Contrairement aux métadonnées structurelles, celles-ci nécessitent généralement un traitement actif — le plus souvent via un LLM (module 4) — et ont donc un coût de calcul et un risque d'erreur (hallucination, mauvaise catégorisation) à prendre en compte.</p>
+
+        <h3>Métadonnées de gouvernance</h3>
+        <p>Décrivent le <em>statut</em> et les <em>droits</em> associés au contenu : niveau de confidentialité, permissions d'accès, statut de validation (brouillon/final), date d'expiration, obligations réglementaires. Ces métadonnées sont souvent définies par des processus métier externes au pipeline technique lui-même, et nécessitent une gouvernance dédiée (module 7).</p>
+
+        <div class="ascii">Catégorie          Exemple                        Méthode de production      Module
+──────────────────────────────────────────────────────────────────────────────────
+Structurelle        source, page, breadcrumb        Extraction/chunking          Module 2
+                                                      (quasi gratuite)
+
+Sémantique          résumé, entités, catégorie       Enrichissement LLM           Module 4
+                                                      (coût de calcul, risque
+                                                       d'erreur)
+
+Gouvernance          confidentialité, permissions,    Processus métier externe     Module 7
+                    validation                        (règles d'entreprise)</div>
+
+        <p>Cette classification n'est pas qu'un exercice académique : elle détermine directement la priorité et la méthode d'implémentation. Les métadonnées structurelles devraient être systématiquement capturées dès le départ (coût quasi nul, bénéfice immédiat) ; les métadonnées sémantiques méritent une évaluation coût/bénéfice avant d'être généralisées à tout un corpus (module 4, leçon 5) ; les métadonnées de gouvernance nécessitent une réflexion organisationnelle qui dépasse le seul périmètre technique.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Investir massivement dans des métadonnées sémantiques sophistiquées (résumés générés par LLM, classification fine) alors que les métadonnées structurelles de base (source, date, breadcrumb) sont encore mal capturées ou incohérentes. Les fondations structurelles devraient toujours être solides avant d'investir dans l'enrichissement sémantique plus coûteux.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre corpus (réel ou imaginé), listez une métadonnée de chaque catégorie (structurelle, sémantique, gouvernance) que vous jugez prioritaire à capturer. Laquelle des trois vous semble la plus simple à mettre en place immédiatement ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l4" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 1.4</span>Le chunk isolé vs le chunk enrichi : ce que ça change concrètement</h2>
+
+        <p>Pour ancrer l'intérêt des métadonnées de façon tangible, cette leçon compare, sur un exemple filé, le comportement d'un système RAG avec des chunks nus versus des chunks enrichis de métadonnées — en s'appuyant sur les mécanismes de recherche et de génération déjà vus dans les cours précédents.</p>
+
+        <h3>Scénario : une question de filtrage implicite</h3>
+        <p>Un utilisateur pose la question : "Quelle est la politique de remboursement pour les clients premium en 2025 ?" Cette question contient un filtre implicite (clients premium, année 2025) que le texte des chunks seuls ne permet pas nécessairement d'honorer avec précision.</p>
+
+        <pre><code class="language-python"># Sans métadonnées : la recherche vectorielle seule (cours embeddings)
+# peut remonter un chunk sur la politique de remboursement GÉNÉRALE
+# (pas spécifique aux clients premium), ou une version DE 2022 périmée,
+# simplement parce que le texte est sémantiquement proche de la question.
+
+resultats_sans_metadonnees = recherche_vectorielle(question, k=5)
+# → risque de mélanger politique standard et politique premium,
+#   version actuelle et version obsolète
+
+# Avec métadonnées : un filtrage explicite élimine ce risque en amont
+resultats_avec_metadonnees = recherche_vectorielle(
+    question,
+    filtre={"segment_client": "premium", "annee_validite": 2025}
+)
+# → seuls les chunks RÉELLEMENT pertinents pour ce segment et cette
+#   année sont candidats à la recherche vectorielle</code></pre>
+
+        <h3>Scénario : une citation vérifiable</h3>
+        <p>Sans métadonnées de provenance (module 2), une réponse générée ne peut pas indiquer précisément sa source — un problème de confiance et de vérifiabilité déjà évoqué dans le cours chunking (module 1, leçon 5) mais qui trouve sa solution concrète dans ce cours : chaque chunk enrichi de sa source, sa page, sa date permet de construire une citation exacte et vérifiable dans la réponse finale.</p>
+
+        <div class="ascii">Chunk isolé, sans métadonnées :          Chunk enrichi de métadonnées :
+
+"Le remboursement est possible          "Le remboursement est possible
+sous 30 jours."                          sous 30 jours."
+
+→ Réponse générée : "Vous pouvez        [source: CGV_premium_2025.pdf,
+   être remboursé sous 30 jours."        section: "Remboursements",
+   (affirmation non vérifiable,          segment: premium, année: 2025]
+    potentiellement hors contexte)
+                                          → Réponse générée : "Selon les CGV
+                                             premium 2025 (section
+                                             Remboursements), vous pouvez
+                                             être remboursé sous 30 jours."
+                                             (affirmation vérifiable et
+                                              contextualisée)</div>
+
+        <p>Ce contraste illustre le fil conducteur de tout ce cours : chaque module ajoute une dimension de richesse au chunk — sa position, son contexte sémantique, ses relations avec d'autres chunks, sa gouvernance — qui, cumulée, transforme un simple fragment de texte en une unité d'information fiable, filtrable et traçable.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Sous-estimer l'impact des métadonnées en pensant que "si le texte est sémantiquement pertinent, la métadonnée n'apporte rien de plus". Le scénario du filtrage implicite ci-dessus montre que la similarité sémantique seule (cours embeddings) ne suffit pas à distinguer deux versions d'une politique qui se ressemblent beaucoup textuellement mais s'appliquent à des contextes différents (segment, période).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre corpus, imaginez une question utilisateur qui contiendrait un filtre implicite similaire à l'exemple ci-dessus (par date, catégorie, département). Quelle métadonnée serait nécessaire pour honorer ce filtre correctement ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l5" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 1.5</span>Erreurs courantes qui rendent les métadonnées inutiles ou trompeuses</h2>
+
+        <p>Cette dernière leçon du module fondateur rassemble les erreurs les plus fréquentes qui transforment un effort d'enrichissement de métadonnées en un investissement stérile, voire contre-productif.</p>
+
+        <h3>1. Collecter des métadonnées jamais exploitées</h3>
+        <p>Comme évoqué en leçon 1.2, une métadonnée qui n'est utilisée dans aucun filtre, aucun enrichissement de texte, aucune citation, est un coût de stockage et de maintenance sans contrepartie. Chaque métadonnée du schéma devrait pouvoir répondre à la question "à quelle étape du pipeline, concrètement, est-elle utilisée ?".</p>
+
+        <h3>2. Des métadonnées incohérentes à travers le corpus</h3>
+        <p>Un champ <code class="inline">departement</code> rempli tantôt "RH", tantôt "Ressources Humaines", tantôt "rh" selon le document source rend le filtrage peu fiable — une variante non prévue échappe silencieusement à un filtre censé la couvrir. La cohérence du schéma (valeurs normalisées, vocabulaire contrôlé) est aussi importante que sa richesse.</p>
+
+        <h3>3. Faire confiance aveuglément à une métadonnée générée par LLM</h3>
+        <p>Un résumé ou une catégorie générés automatiquement (module 4) peuvent contenir des erreurs ou des approximations, exactement comme n'importe quelle sortie de LLM. Une métadonnée sémantique erronée peut activement induire en erreur un filtrage ou une réponse générée, alors qu'une métadonnée absente aurait simplement laissé le système s'appuyer sur d'autres signaux.</p>
+
+        <h3>4. Négliger la mise à jour des métadonnées</h3>
+        <p>Comme pour le contenu lui-même (rappel du cours embeddings, module 6, sur le cycle de vie des vecteurs), une métadonnée peut devenir obsolète (un statut "brouillon" qui n'a jamais été mis à jour vers "validé", une date de validité dépassée jamais actualisée) — un problème de gouvernance abordé en profondeur au module 7.</p>
+
+        <h3>5. Sur-ingénierer le schéma dès le départ</h3>
+        <p>À l'inverse, concevoir un schéma de métadonnées exhaustif avec des dizaines de champs avant même d'avoir un système RAG fonctionnel de base retarde inutilement la mise en production, pour des bénéfices souvent hypothétiques. Comme pour le chunking sémantique ou le reranking dans les cours précédents, la complexité doit être ajoutée progressivement, en fonction de besoins mesurés.</p>
+
+        <div class="ascii">Erreur                              Conséquence typique
+──────────────────────────────────────────────────────────────────────
+Métadonnées jamais exploitées        Coût de maintenance sans bénéfice
+Valeurs incohérentes                 Filtres qui ratent silencieusement
+                                      des résultats pertinents
+Confiance aveugle en métadonnée LLM  Filtrage ou citation basés sur
+                                      une information erronée
+Métadonnées non mises à jour         Dérive silencieuse entre l'état
+                                      réel et l'état indexé
+Schéma sur-ingénieré dès le départ   Retard de mise en production pour
+                                      un bénéfice hypothétique</div>
+
+        <p>Ces cinq erreurs reviendront sous des formes concrètes tout au long de ce cours — les garder à l'esprit permet d'aborder chaque nouvelle technique d'enrichissement avec un regard critique sur son coût réel et son bénéfice mesurable, plutôt que de l'appliquer par principe.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Ajouter une nouvelle métadonnée à chaque problème rencontré en production, sans jamais retirer les métadonnées devenues obsolètes ou inutilisées. Un schéma de métadonnées, comme tout schéma de données, mérite une revue périodique pour rester cohérent et utile dans la durée (approfondi au module 7).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : parmi les cinq erreurs listées, laquelle vous semble la plus probable dans votre propre contexte de travail ? Qu'est-ce qui vous permettrait de la détecter avant qu'elle ne dégrade silencieusement la qualité de votre système RAG ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-2">
+      <span class="module-kicker">MODULE 02 / 08</span>
+      <h1>Métadonnées structurelles et de provenance</h1>
+      <p class="intro">Ces métadonnées sont les plus simples à produire (souvent disponibles gratuitement lors de l'extraction et du chunking) et pourtant les plus souvent négligées. Ce module détaille comment les capturer systématiquement et les organiser en un schéma cohérent.</p>
+
+      <section class="lesson" id="m2-l1" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 2.1</span>Source, position et identifiants uniques : la base incompressible</h2>
+
+        <p>Trois métadonnées forment le socle minimal incompressible que tout chunk devrait porter, sans exception — leur absence rend impossible toute traçabilité, tout filtrage basique, et toute déduplication (rappel du cours nettoyage, module 6).</p>
+
+        <h3>La source</h3>
+        <p>L'identifiant du document d'origine (nom de fichier, URL, identifiant dans un système documentaire). Sans cette information, un chunk ne peut jamais être relié à son contexte d'origine ni cité de façon vérifiable — rappel direct de la leçon 1.4 sur la citation vérifiable.</p>
+
+        <h3>La position</h3>
+        <p>L'emplacement du chunk au sein du document : numéro de page (PDF, cours nettoyage module 2), index de section, offset de caractères. Cette information permet, entre autres, de reconstituer l'ordre de lecture original ou de naviguer directement vers la source exacte dans une interface utilisateur qui affiche les citations.</p>
+
+        <h3>L'identifiant unique</h3>
+        <p>Un identifiant stable et unique par chunk, indispensable pour la mise à jour et la suppression ciblées (rappel du cours embeddings, module 6, sur le cycle de vie des vecteurs) — sans identifiant fiable, il est impossible de retrouver puis remplacer précisément un chunk devenu obsolète sans risquer d'affecter d'autres chunks.</p>
+
+        <pre><code class="language-python">import hashlib
+
+def construire_identifiant_chunk(source: str, index_dans_document: int) -> str:
+    """Un identifiant déterministe : le même chunk du même document
+    produit toujours le même identifiant, ce qui simplifie
+    la mise à jour (module 2, leçon 4) et la déduplication."""
+    base = f"{source}::{index_dans_document}"
+    return hashlib.sha256(base.encode()).hexdigest()[:16]
+
+chunk_avec_socle_minimal = {
+    "id": construire_identifiant_chunk("guide_rag.pdf", 7),
+    "texte": "Le chunking est une étape essentielle...",
+    "source": "guide_rag.pdf",
+    "position": {"page": 3, "index_chunk_dans_doc": 7},
+}
+</code></pre>
+
+        <div class="ascii">Sans ces 3 métadonnées :               Avec ces 3 métadonnées :
+
+Un chunk retrouvé par la recherche      Le même chunk peut être cité
+vectorielle ne peut pas être cité       précisément ("source: guide_rag.pdf,
+ni localisé dans son document          page 3"), mis à jour de façon ciblée
+d'origine — une boîte noire            (via son id unique), et retracé
+                                        jusqu'à son emplacement exact</div>
+
+        <p>Un identifiant déterministe (basé sur un hash de la source et de la position, comme dans l'exemple ci-dessus) présente un avantage pratique important par rapport à un identifiant aléatoire : ré-exécuter le pipeline d'ingestion sur le même document produit les mêmes identifiants, ce qui permet une mise à jour idempotente (remplacer un chunk existant plutôt que d'en créer un doublon) sans logique supplémentaire complexe.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Utiliser un identifiant aléatoire (UUID généré à chaque exécution) plutôt que déterministe. Si le pipeline d'ingestion est ré-exécuté sur un corpus déjà indexé (mise à jour, correction d'un bug), un identifiant aléatoire crée des doublons plutôt que de remplacer proprement les chunks existants — un piège qui se découvre souvent bien après la mise en production initiale.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre corpus, quelle combinaison d'informations (nom de fichier, numéro de page, index de chunk, autre) utiliseriez-vous pour construire un identifiant déterministe et unique par chunk ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l2" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 2.2</span>Hiérarchie documentaire : breadcrumbs et relations parent/enfant</h2>
+
+        <p>Cette leçon prolonge directement une notion déjà introduite dans le cours chunking (module 5, leçon 5) : le breadcrumb hiérarchique, qui situe un chunk dans l'arborescence logique de son document d'origine (titres et sous-titres successifs).</p>
+
+        <h3>Construire un breadcrumb à partir de la hiérarchie de titres</h3>
+        <pre><code class="language-python">def construire_breadcrumb(hierarchie_titres: list[str]) -> str:
+    """hierarchie_titres : liste ordonnée des titres, du plus général
+    au plus spécifique, ex: ['Guide RAG', 'Chunking', 'Overlap']."""
+    return " > ".join(hierarchie_titres)
+
+breadcrumb = construire_breadcrumb(["Guide RAG", "Chunking", "Overlap"])
+print(breadcrumb)   # "Guide RAG > Chunking > Overlap"
+</code></pre>
+
+        <h3>Relations parent/enfant : au-delà du simple breadcrumb textuel</h3>
+        <p>Le Parent-Document Retriever, vu en détail dans le cours chunking (module 6), repose précisément sur une métadonnée de relation parent/enfant : chaque petit chunk "enfant" porte une référence vers son "parent" (une section ou un document plus large). Cette métadonnée doit être conçue dès l'étape de chunking, pas ajoutée après coup.</p>
+
+        <pre><code class="language-python">chunk_enfant = {
+    "id": "chunk_042",
+    "texte": "L'overlap recommandé se situe entre 10 et 20%.",
+    "breadcrumb": "Guide RAG > Chunking > Overlap",
+    "parent_id": "section_003",   # référence vers le chunk parent plus large
+    "niveau_hierarchie": 3,        # profondeur dans l'arborescence de titres
+}
+
+section_parente = {
+    "id": "section_003",
+    "texte": "Section complète sur l'overlap, incluant tous ses enfants...",
+    "breadcrumb": "Guide RAG > Chunking",
+    "enfants_ids": ["chunk_041", "chunk_042", "chunk_043"],
+}
+</code></pre>
+
+        <h3>Hiérarchie documentaire pour des formats sans titres explicites</h3>
+        <p>Pour des documents sans structure de titres claire (rappel du cours nettoyage, module 1 — documents non structurés), une hiérarchie peut être reconstituée artificiellement : par exemple, un numéro de page comme seul niveau de hiérarchie disponible, ou une segmentation thématique automatique (cours chunking, module 4, chunking sémantique) utilisée comme proxy de structure.</p>
+
+        <div class="ascii">Document bien structuré (titres Markdown) :    Document non structuré (PDF sans titres) :
+
+Guide RAG                                       Rapport.pdf
+  > Chunking                                      > Page 3
+    > Overlap                                        > (pas de sous-niveau
+                                                        disponible)
+
+Breadcrumb riche et précis                      Breadcrumb réduit à la position
+                                                 (moins informatif, mais mieux
+                                                 que rien)</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Construire le breadcrumb uniquement à partir des titres immédiatement visibles dans le chunk, sans remonter toute la hiérarchie parente. Un chunk sous un titre "Overlap" sans le contexte "Guide RAG > Chunking >" perd une partie de l'information de désambiguïsation — le breadcrumb doit toujours inclure le chemin complet depuis la racine du document.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un document de votre choix avec au moins deux niveaux de titres, construisez mentalement le breadcrumb complet pour un chunk pris au niveau le plus profond de la hiérarchie.
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l3" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 2.3</span>Dates : création, modification, ingestion — et pourquoi les distinguer</h2>
+
+        <p>Une erreur fréquente est de ne capturer qu'une seule "date" par document, alors que plusieurs dates distinctes coexistent et servent des usages très différents dans un système RAG.</p>
+
+        <h3>Date de création du contenu</h3>
+        <p>Quand l'information a été rédigée ou produite à l'origine — la date la plus pertinente pour juger de la fraîcheur d'une information factuelle (une politique commerciale, un tarif).</p>
+
+        <h3>Date de dernière modification</h3>
+        <p>Quand le document source a été modifié pour la dernière fois — utile pour distinguer un contenu figé depuis longtemps d'un contenu récemment révisé, indépendamment de sa date de création initiale.</p>
+
+        <h3>Date d'ingestion dans le pipeline RAG</h3>
+        <p>Quand le chunk a été traité et indexé par votre système — une métadonnée purement technique, utile pour le débogage (identifier quand un chunk a été ajouté) et la gouvernance (savoir depuis quand une information est exposée aux utilisateurs), indépendamment de l'âge réel du contenu.</p>
+
+        <pre><code class="language-python">chunk_avec_dates = {
+    "id": "chunk_101",
+    "texte": "Le tarif standard est de 49€ par mois.",
+    "date_creation_contenu": "2024-06-01",      # quand cette info a été rédigée
+    "date_derniere_modification": "2025-11-20",  # dernière révision du document
+    "date_ingestion": "2026-01-14T10:32:00Z",    # quand CE chunk a été indexé
+}
+</code></pre>
+
+        <h3>Usages distincts selon la date considérée</h3>
+        <div class="ascii">Question de filtrage                          Date à utiliser
+──────────────────────────────────────────────────────────────────────
+"Quelles sont les infos publiées cette         date_creation_contenu
+ année ?"
+
+"Quels documents ont été révisés récemment ?"  date_derniere_modification
+
+"Quels chunks ont été ajoutés depuis la        date_ingestion
+ dernière mise à jour du système ?"
+ (débogage, audit technique)</div>
+
+        <p>Confondre ces trois dates est une source fréquente de résultats de filtrage incorrects : filtrer par "date de création" pour répondre à une question sur la fraîcheur d'une révision, ou l'inverse, produit des résultats techniquement corrects sur le plan de la requête mais sémantiquement erronés par rapport à l'intention de l'utilisateur.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Ne capturer qu'un seul champ <code class="inline">date</code> générique, en mélangeant implicitement création, modification et ingestion selon ce qui était disponible au moment de l'extraction. Cette ambiguïté rend tout filtrage temporel précis impossible a posteriori, sans possibilité de corriger le problème sans retraiter l'ensemble du corpus.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre corpus, quelles des trois dates (création, modification, ingestion) sont réellement disponibles à l'extraction ? Laquelle serait la plus utile pour les questions typiques de vos utilisateurs ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l4" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 2.4</span>Versionnage et gestion des documents obsolètes</h2>
+
+        <p>Un corpus d'entreprise réel contient presque toujours plusieurs versions d'un même document au fil du temps — une politique mise à jour, un contrat renégocié, une documentation technique révisée. Sans métadonnée de version explicite, un système RAG peut retourner des informations provenant d'une version périmée sans que rien ne le signale.</p>
+
+        <h3>Marquer explicitement la version et le statut</h3>
+        <pre><code class="language-python">chunk_versionne = {
+    "id": "chunk_205",
+    "texte": "La politique de télétravail autorise 3 jours par semaine.",
+    "document_source": "politique_teletravail.docx",
+    "version": "3.2",
+    "statut": "actuel",   # vs "obsolete", "brouillon", "archive"
+    "remplace_version": "3.1",
+    "date_fin_validite": None,   # None = toujours en vigueur
+}
+</code></pre>
+
+        <h3>Filtrer systématiquement sur le statut "actuel"</h3>
+        <p>La bonne pratique par défaut : toute recherche destinée aux utilisateurs finaux devrait filtrer implicitement sur <code class="inline">statut: actuel</code>, sauf demande explicite de consulter un historique. Cela évite qu'une ancienne version, encore présente dans l'index pour des raisons d'audit ou d'historique, ne soit accidentellement retournée comme réponse actuelle.</p>
+
+        <pre><code class="language-python">def rechercher_contenu_actuel(question: str, k: int = 5):
+    return recherche_vectorielle(
+        question,
+        filtre={"statut": "actuel"},   # exclut systématiquement les versions obsolètes
+        k=k,
+    )
+</code></pre>
+
+        <h3>Gérer la transition entre deux versions</h3>
+        <p>Au moment où un document est mis à jour, la bonne séquence d'opérations (rappel du cours embeddings, module 6, leçon 4, sur la ré-indexation) consiste à : marquer l'ancienne version comme <code class="inline">obsolete</code> (pas la supprimer immédiatement, pour garder une traçabilité), indexer les nouveaux chunks avec <code class="inline">statut: actuel</code>, et référencer explicitement la version précédente via <code class="inline">remplace_version</code> pour garder un historique de la chaîne de versions.</p>
+
+        <div class="ascii">Cycle de vie d'un document versionné :
+
+v3.1 (statut: actuel)
+   │
+   │  ── nouvelle révision publiée ──►
+   ▼
+v3.1 (statut: obsolete, date_fin_validite: 2025-11-20)
+v3.2 (statut: actuel, remplace_version: "3.1")
+
+→ L'historique complet reste traçable, mais seule la version
+  "actuel" est retournée par défaut aux utilisateurs finaux.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Supprimer immédiatement les anciennes versions d'un document lors d'une mise à jour, perdant ainsi toute traçabilité historique — utile par exemple pour répondre à une question du type "quelle était la politique en vigueur au moment de cet incident, l'année dernière ?". Marquer comme obsolète plutôt que supprimer préserve cette capacité, moyennant un filtrage systématique sur le statut actuel pour les usages courants.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre corpus, existe-t-il des documents dont plusieurs versions pourraient coexister dans le temps ? Un filtrage systématique sur "statut actuel" serait-il suffisant, ou certains cas d'usage nécessiteraient-ils d'accéder explicitement à l'historique ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l5" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 2.5</span>Construire un schéma de métadonnées structurelles cohérent</h2>
+
+        <p>Cette dernière leçon du module synthétise les éléments précédents en une méthode concrète pour concevoir un schéma de métadonnées structurelles avant même de commencer à coder un pipeline d'ingestion.</p>
+
+        <h3>Un schéma minimal recommandé, à adapter</h3>
+        <pre><code class="language-python">SCHEMA_METADONNEES_STRUCTURELLES = {
+    "id": "identifiant unique et déterministe du chunk",
+    "source": "nom ou identifiant du document d'origine",
+    "position": {"page": "int ou None", "index_chunk": "int"},
+    "breadcrumb": "chemin hiérarchique complet depuis la racine du document",
+    "parent_id": "identifiant du chunk parent, si applicable (Parent-Document Retriever)",
+    "date_creation_contenu": "date ISO 8601",
+    "date_derniere_modification": "date ISO 8601",
+    "date_ingestion": "date-heure ISO 8601",
+    "version": "identifiant de version du document source",
+    "statut": "actuel | obsolete | brouillon | archive",
+}
+</code></pre>
+
+        <h3>Valider la cohérence du schéma à l'échelle du corpus</h3>
+        <p>Un schéma bien défini ne suffit pas si son application est incohérente à travers le corpus (rappel de la leçon 1.5, piège n°2). Une validation systématique, exécutée sur chaque nouveau chunk avant indexation, permet de détecter les écarts au schéma avant qu'ils ne polluent l'index.</p>
+
+        <pre><code class="language-python">def valider_metadonnees(chunk: dict, schema: dict) -> list[str]:
+    erreurs = []
+    for champ in schema:
+        if champ not in chunk.get("metadata", {}) and champ != "parent_id":
+            erreurs.append(f"Champ manquant : {champ}")
+
+    statuts_valides = {"actuel", "obsolete", "brouillon", "archive"}
+    statut = chunk.get("metadata", {}).get("statut")
+    if statut and statut not in statuts_valides:
+        erreurs.append(f"Statut invalide : {statut} (attendu : {statuts_valides})")
+
+    return erreurs
+
+def ingerer_avec_validation(chunk: dict) -> bool:
+    erreurs = valider_metadonnees(chunk, SCHEMA_METADONNEES_STRUCTURELLES)
+    if erreurs:
+        print(f"Chunk {chunk.get('id')} rejeté : {erreurs}")
+        return False
+    return True
+</code></pre>
+
+        <h3>Documenter le schéma comme un contrat d'équipe</h3>
+        <p>Au-delà du code, un schéma de métadonnées devrait être documenté explicitement (nom du champ, type attendu, valeurs possibles, exemple) et partagé comme un contrat entre toutes les personnes qui alimentent le pipeline d'ingestion — un rôle similaire à un schéma de base de données, avec les mêmes bénéfices de cohérence à long terme (approfondi au module 7).</p>
+
+        <p>Ce module clôt la partie "structurelle" du cours — la base incompressible et quasi gratuite à produire. Le module suivant montre comment exploiter concrètement ces métadonnées pour restreindre et filtrer une recherche, le premier bénéfice tangible de tout cet effort de structuration.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Concevoir un schéma isolément, sans le confronter aux besoins réels de filtrage identifiés dans le module suivant. La conception d'un schéma de métadonnées et la conception des cas de filtrage à supporter (module 3) devraient être menées de façon itérative et non strictement séquentielle.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : à partir du schéma minimal proposé ci-dessus, quels champs ajouteriez-vous ou retireriez-vous pour votre propre corpus ? Justifiez chaque ajout par un usage concret identifié dans les leçons précédentes.
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-3">
+      <span class="module-kicker">MODULE 03 / 08</span>
+      <h1>Filtrage par métadonnées et recherche restreinte</h1>
+      <p class="intro">Le bénéfice le plus immédiat et le plus mesurable des métadonnées structurelles (module 2) : pouvoir restreindre une recherche vectorielle à un sous-ensemble pertinent avant même de calculer une seule similarité. Ce module détaille comment concevoir et exploiter ce filtrage efficacement.</p>
+
+      <section class="lesson" id="m3-l1" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 3.1</span>Le filtrage pré-recherche vs post-recherche</h2>
+
+        <p>Cette distinction a été introduite dans le cours embeddings (module 6, leçon 2) — cette leçon l'approfondit spécifiquement sous l'angle de la conception des métadonnées elles-mêmes, pas seulement de leur exploitation technique.</p>
+
+        <h3>Filtrage pré-recherche</h3>
+        <p>La base vectorielle restreint d'abord l'espace de recherche aux vecteurs qui satisfont le filtre, puis calcule la similarité uniquement sur ce sous-ensemble. Avantage : garantit de recevoir k résultats qui respectent tous le filtre (si suffisamment de candidats existent). Inconvénient : sur un filtre très restrictif combiné à un index ANN (cours embeddings, module 5), la recherche peut devenir moins efficace si le sous-ensemble filtré est mal réparti dans la structure de l'index.</p>
+
+        <h3>Filtrage post-recherche</h3>
+        <p>La base vectorielle cherche d'abord les k vecteurs les plus proches globalement, puis élimine ceux qui ne satisfont pas le filtre. Avantage : plus rapide dans certains cas (l'index ANN reste pleinement efficace). Inconvénient majeur : si peu des k résultats initiaux satisfont le filtre, on peut se retrouver avec moins de résultats que souhaité, voire aucun, alors que des chunks pertinents existent bien dans le corpus mais n'étaient pas dans le top-k initial.</p>
+
+        <pre><code class="language-python"># Filtrage pré-recherche (la plupart des bases vectorielles modernes, cours embeddings module 6)
+resultats = vectorstore.search(
+    query_vector=vecteur_question,
+    filter={"departement": "RH", "statut": "actuel"},   # appliqué AVANT le calcul de similarité
+    k=5,
+)
+
+# Filtrage post-recherche (approche naïve, à éviter si possible)
+resultats_bruts = vectorstore.search(query_vector=vecteur_question, k=50)   # sur-échantillonner
+resultats_filtres = [r for r in resultats_bruts if r.metadata["departement"] == "RH"][:5]
+# → risque de récupérer MOINS de 5 résultats pertinents si le filtre est restrictif
+</code></pre>
+
+        <div class="ascii">Filtrage pré-recherche                     Filtrage post-recherche
+────────────────────────                   ────────────────────────
+1. Restreindre aux vecteurs qui             1. Chercher les k plus proches
+   satisfont le filtre                         globalement
+2. Chercher les k plus proches              2. Éliminer ceux qui ne
+   PARMI ce sous-ensemble                       satisfont pas le filtre
+
+Garantit k résultats filtrés                Risque d'obtenir moins de k
+(si assez de candidats)                     résultats si le filtre est
+                                             restrictif par rapport au top-k</div>
+
+        <p>La bonne pratique, déjà établie dans le cours embeddings mais qu'il convient de rappeler ici : privilégier le filtrage natif pré-recherche de la base de données vectorielle utilisée, plutôt que d'implémenter un filtrage post-recherche applicatif — un choix qui dépend directement de la richesse et de la cohérence du schéma de métadonnées défini au module 2.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Implémenter un filtrage post-recherche côté application par simplicité de développement, sans réaliser que cela peut retourner moins de résultats que demandé pour des filtres restrictifs — un bug silencieux qui n'est visible qu'en observant que certaines requêtes filtrées retournent anormalement peu de résultats.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un filtre très restrictif sur votre corpus (par exemple, un département qui ne représente que 2% des chunks), pourquoi le filtrage post-recherche serait-il particulièrement risqué dans ce cas précis ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l2" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 3.2</span>Concevoir des métadonnées pour des cas de filtrage réels</h2>
+
+        <p>Plutôt que de collecter des métadonnées de façon exhaustive "au cas où" (piège identifié en leçon 1.5), la bonne méthode consiste à partir des besoins de filtrage réels et concrets de votre cas d'usage, puis à remonter vers les métadonnées nécessaires pour les satisfaire.</p>
+
+        <h3>Cas 1 : permissions et contrôle d'accès</h3>
+        <p>Dans un contexte d'entreprise, différents utilisateurs ne devraient pas accéder aux mêmes documents (un chunk RH confidentiel ne devrait pas être visible par tous les employés). Une métadonnée de <strong>groupes autorisés</strong> permet de filtrer la recherche selon les droits de l'utilisateur qui pose la question, avant même que le LLM ne voie le contenu.</p>
+
+        <pre><code class="language-python">chunk_avec_permissions = {
+    "id": "chunk_310",
+    "texte": "Le bonus annuel est calculé sur la base de...",
+    "groupes_autorises": ["RH", "Direction"],   # liste de groupes ayant le droit de voir ce chunk
+}
+
+def rechercher_avec_permissions(question: str, groupes_utilisateur: list[str]):
+    return vectorstore.search(
+        query_vector=embed(question),
+        filter={"groupes_autorises": {"$in": groupes_utilisateur}},
+        k=5,
+    )
+</code></pre>
+
+        <h3>Cas 2 : département ou domaine métier</h3>
+        <p>Pour un corpus qui couvre plusieurs départements (juridique, RH, technique, commercial), un filtre par département permet de restreindre une recherche à un périmètre pertinent, réduisant le bruit potentiel d'une recherche vectorielle qui matcherait autrement des contenus similaires en surface mais hors périmètre.</p>
+
+        <h3>Cas 3 : langue du contenu</h3>
+        <p>Rappel du cours embeddings (module 4, leçon 4) : même avec un modèle d'embedding multilingue capable de recherche cross-lingue, il peut être souhaitable de filtrer explicitement par langue quand l'utilisateur souhaite des résultats dans une langue précise plutôt que la meilleure correspondance sémantique toutes langues confondues.</p>
+
+        <pre><code class="language-python">resultats_uniquement_francais = vectorstore.search(
+    query_vector=embed(question),
+    filter={"langue": "fr"},
+    k=5,
+)
+</code></pre>
+
+        <div class="ascii">Cas de filtrage           Métadonnée nécessaire        Priorité typique
+──────────────────────────────────────────────────────────────────────
+Permissions/sécurité       groupes_autorises             Très élevée (souvent
+                                                          non négociable)
+Périmètre métier           departement, domaine          Élevée (réduit le
+                                                          bruit significativement)
+Langue                     langue                        Moyenne (selon la
+                                                          diversité du corpus)</div>
+
+        <p>Cette méthode — partir des cas de filtrage réels avant de concevoir les métadonnées — évite le piège du sur-engineering identifié au module 1 : chaque champ de métadonnée ajouté au schéma répond à un besoin de filtrage identifié et concret, pas à une anticipation hypothétique.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Négliger le filtrage par permissions en considérant qu'il s'agit "juste d'une fonctionnalité de sécurité optionnelle". Dans un contexte d'entreprise avec des données sensibles, l'absence de filtrage par permissions au niveau du retrieval peut exposer des informations confidentielles à des utilisateurs non autorisés via les réponses générées — un risque de sécurité, pas seulement une question de pertinence.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre corpus, listez les 2-3 cas de filtrage les plus importants (permissions, périmètre métier, langue, ou autre spécifique à votre contexte). Pour chacun, quelle métadonnée serait nécessaire ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l3" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 3.3</span>Métadonnées catégorielles, numériques et plages de dates</h2>
+
+        <p>Le type de donnée d'une métadonnée détermine les opérations de filtrage possibles — une distinction technique importante à anticiper dès la conception du schéma (module 2), car elle conditionne directement la richesse des filtres exploitables en aval.</p>
+
+        <h3>Métadonnées catégorielles</h3>
+        <p>Un ensemble fini et connu de valeurs possibles (département, langue, statut, type de document). Permettent des filtres d'égalité stricte ou d'appartenance à un ensemble.</p>
+
+        <pre><code class="language-python">filtre_categoriel = {"departement": "RH"}                        # égalité stricte
+filtre_categoriel_multiple = {"departement": {"$in": ["RH", "Juridique"]}}   # appartenance
+</code></pre>
+
+        <h3>Métadonnées numériques</h3>
+        <p>Des valeurs continues ou discrètes ordonnées (montant, score de confiance, nombre de pages). Permettent des comparaisons (supérieur à, inférieur à, dans une plage).</p>
+
+        <pre><code class="language-python">filtre_numerique = {"montant": {"$gte": 1000, "$lte": 5000}}    # plage de valeurs
+filtre_score = {"score_confiance_extraction": {"$gte": 0.8}}      # rappel cours nettoyage, module 7
+</code></pre>
+
+        <h3>Plages de dates</h3>
+        <p>Un cas particulier de métadonnée numérique (une date se compare comme un nombre une fois convertie en timestamp), mais avec des subtilités propres : fuseaux horaires, granularité (jour vs heure), et périodes relatives ("cette année", "le mois dernier") qui nécessitent une conversion explicite en bornes absolues avant le filtrage.</p>
+
+        <pre><code class="language-python">from datetime import datetime, timedelta
+
+def filtre_periode_relative(periode: str) -> dict:
+    maintenant = datetime.utcnow()
+    if periode == "cette_annee":
+        debut = datetime(maintenant.year, 1, 1)
+    elif periode == "30_derniers_jours":
+        debut = maintenant - timedelta(days=30)
+    else:
+        raise ValueError(f"Période non reconnue : {periode}")
+
+    return {"date_derniere_modification": {"$gte": debut.isoformat()}}
+
+filtre = filtre_periode_relative("30_derniers_jours")
+resultats = vectorstore.search(query_vector=vecteur_question, filter=filtre, k=5)
+</code></pre>
+
+        <div class="ascii">Type de métadonnée     Opérations de filtrage possibles         Exemple
+──────────────────────────────────────────────────────────────────────────
+Catégorielle            égalité, appartenance à un ensemble       departement = "RH"
+Numérique               égalité, comparaison, plage               montant entre 1000-5000
+Date/plage temporelle    comparaison, plage, période relative      derniers 30 jours
+
+→ Le type choisi au moment de la conception du schéma (module 2)
+  détermine directement la richesse des filtres possibles ensuite.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Stocker une métadonnée numérique ou une date sous forme de chaîne de caractères non structurée (par exemple, "15 janvier 2025" en texte libre plutôt qu'un format ISO 8601 structuré), rendant impossible toute comparaison ou plage de filtrage fiable. Toujours stocker les dates dans un format structuré et normalisé (ISO 8601) et les nombres comme de vrais types numériques, jamais comme du texte libre.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour le schéma de métadonnées structurelles esquissé au module 2, classez chaque champ selon son type (catégoriel, numérique, date). Un champ vous semble-t-il mal typé ou ambigu ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l4" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 3.4</span>Combiner filtres multiples et gérer leur complexité</h2>
+
+        <p>Un cas d'usage réel combine rarement un seul filtre — une question utilisateur implique souvent plusieurs contraintes simultanées (permissions ET département ET période), ce qui nécessite de composer les filtres de façon logique et lisible.</p>
+
+        <h3>Combiner des filtres avec des opérateurs logiques</h3>
+        <pre><code class="language-python">filtre_combine = {
+    "$and": [
+        {"groupes_autorises": {"$in": groupes_utilisateur}},
+        {"departement": "RH"},
+        {"date_derniere_modification": {"$gte": "2025-01-01"}},
+        {"statut": "actuel"},
+    ]
+}
+
+resultats = vectorstore.search(query_vector=vecteur_question, filter=filtre_combine, k=5)
+</code></pre>
+
+        <h3>Construire les filtres dynamiquement selon le contexte de la requête</h3>
+        <p>En pratique, tous les filtres ne sont pas toujours applicables à chaque requête — certains sont systématiques (permissions), d'autres optionnels selon la question posée (département, si mentionné explicitement). Une fonction de construction dynamique de filtre, plutôt qu'un filtre statique codé en dur, permet de composer les contraintes pertinentes au cas par cas.</p>
+
+        <pre><code class="language-python">def construire_filtre(groupes_utilisateur: list[str], departement: str = None,
+                       depuis: str = None) -> dict:
+    conditions = [
+        {"groupes_autorises": {"$in": groupes_utilisateur}},   # toujours appliqué
+        {"statut": "actuel"},                                    # toujours appliqué
+    ]
+    if departement:
+        conditions.append({"departement": departement})
+    if depuis:
+        conditions.append({"date_derniere_modification": {"$gte": depuis}})
+
+    return {"$and": conditions}
+</code></pre>
+
+        <h3>Le rôle d'un LLM pour extraire les filtres implicites d'une question</h3>
+        <p>Une technique de plus en plus répandue : utiliser un LLM pour analyser la question de l'utilisateur et en extraire automatiquement les filtres implicites ("politique de remboursement pour les clients premium en 2025" → <code class="inline">{"segment": "premium", "annee": 2025}</code>), avant de construire le filtre de recherche vectorielle — une approche qui rejoint les techniques d'enrichissement par LLM approfondies au module 4.</p>
+
+        <pre><code class="language-python">def extraire_filtres_depuis_question(question: str) -> dict:
+    prompt = f"""Extrait les filtres de métadonnées implicites dans cette question,
+au format JSON avec les clés possibles : segment_client, annee, departement.
+Question : {question}
+Réponds uniquement avec le JSON, ou {{}} si aucun filtre n'est détecté."""
+
+    reponse = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}],
+        response_format={"type": "json_object"},
+    )
+    return json.loads(reponse.choices[0].message.content)
+</code></pre>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Coder en dur une combinaison de filtres fixe pour tous les cas d'usage, sans mécanisme de construction dynamique. Cela rend le système rigide face à la diversité réelle des questions utilisateurs, où certains filtres sont pertinents et d'autres non selon le contexte précis de chaque requête.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour la fonction <code class="inline">construire_filtre</code> ci-dessus, quel filtre supplémentaire ajouteriez-vous pour votre propre cas d'usage, et serait-il toujours appliqué ou seulement de façon conditionnelle ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l5" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 3.5</span>Pièges de performance liés à un mauvais schéma de filtrage</h2>
+
+        <p>Cette dernière leçon du module traite un aspect souvent négligé : un schéma de métadonnées mal conçu peut dégrader significativement les performances de recherche, indépendamment de sa richesse fonctionnelle.</p>
+
+        <h3>Champs à cardinalité très élevée utilisés comme filtre principal</h3>
+        <p>Filtrer sur un champ dont chaque valeur est quasi unique (comme l'identifiant du chunk lui-même) n'apporte aucun bénéfice de réduction de l'espace de recherche et ajoute un coût de traitement du filtre pour rien. Les filtres les plus efficaces portent sur des champs à cardinalité modérée (quelques dizaines à quelques centaines de valeurs distinctes), comme un département ou un statut.</p>
+
+        <h3>Index de métadonnées manquants</h3>
+        <p>Comme pour une base de données relationnelle classique, la plupart des bases vectorielles nécessitent la création explicite d'un index sur les champs de métadonnées fréquemment filtrés, sous peine d'un scan linéaire coûteux sur l'ensemble des métadonnées à chaque requête filtrée.</p>
+
+        <pre><code class="language-python"># Exemple avec Qdrant (rappel cours embeddings, module 6) : création
+# explicite d'un index sur un champ de métadonnée fréquemment filtré
+from qdrant_client.models import PayloadSchemaType
+
+client.create_payload_index(
+    collection_name="mes_chunks",
+    field_name="departement",
+    field_schema=PayloadSchemaType.KEYWORD,
+)
+</code></pre>
+
+        <h3>Filtres trop restrictifs combinés à un index ANN</h3>
+        <p>Rappel de la leçon 3.1 : un filtre pré-recherche très restrictif (qui ne conserve qu'une infime fraction du corpus) peut réduire l'efficacité d'un index HNSW (cours embeddings, module 5) conçu pour naviguer efficacement dans l'espace vectoriel complet — dans ce cas, une recherche exhaustive sur le sous-ensemble filtré peut parfois être plus rapide qu'une recherche ANN mal adaptée à un filtre très sélectif.</p>
+
+        <div class="ascii">Piège de performance                  Symptôme                       Solution
+──────────────────────────────────────────────────────────────────────────────
+Champ à cardinalité très élevée        Filtre inutile, coût ajouté     Filtrer sur des champs
+utilisé comme filtre principal         sans bénéfice                   à cardinalité modérée
+
+Absence d'index sur les métadonnées    Latence élevée sur les          Créer explicitement les
+fréquemment filtrées                   requêtes filtrées                index nécessaires
+
+Filtre très restrictif + index ANN     Recall dégradé ou latence       Envisager une recherche
+                                       anormale sur ce cas précis       exhaustive pour ce
+                                                                        sous-ensemble filtré</div>
+
+        <p>Ce module clôt la partie "filtrage" du cours — le bénéfice le plus direct et mesurable des métadonnées structurelles. Le module suivant aborde une dimension différente : l'enrichissement sémantique, qui ne sert plus à restreindre la recherche mais à améliorer la compréhension et la représentation du contenu lui-même.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Ajouter des index sur tous les champs de métadonnées "par précaution", sans discernement. Chaque index a un coût de stockage et de maintenance lors des mises à jour — à réserver aux champs réellement utilisés fréquemment comme filtre, identifiés empiriquement plutôt qu'anticipés systématiquement.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : parmi les métadonnées de votre schéma (module 2), lesquelles ont une cardinalité modérée (bonnes candidates pour un filtre indexé) et lesquelles ont une cardinalité très élevée (peu utiles comme filtre principal) ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-4">
+      <span class="module-kicker">MODULE 04 / 08</span>
+      <h1>Enrichissement sémantique automatisé par LLM</h1>
+      <p class="intro">Contrairement aux métadonnées structurelles (module 2), les métadonnées sémantiques nécessitent un traitement actif du contenu. Ce module montre comment un LLM peut générer ces métadonnées automatiquement — et à quel coût, avec quels risques.</p>
+
+      <section class="lesson" id="m4-l1" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 4.1</span>Générer des résumés de chunk et de document via LLM</h2>
+
+        <p>Un résumé généré par LLM, attaché comme métadonnée à un chunk ou à un document entier, sert plusieurs usages : faciliter un aperçu rapide dans une interface utilisateur, alimenter un niveau de hiérarchie supérieur dans un chunking hiérarchique (rappel du cours chunking, module 6), ou enrichir le texte embeddé lui-même pour améliorer la recherche (approfondi au module 5).</p>
+
+        <h3>Résumé de chunk individuel</h3>
+        <pre><code class="language-python">from openai import OpenAI
+
+client = OpenAI()
+
+def generer_resume_chunk(texte_chunk: str) -> str:
+    reponse = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content":
+            f"Résume ce texte en une phrase concise (moins de 20 mots) :\n\n{texte_chunk}"}],
+    )
+    return reponse.choices[0].message.content
+
+chunk = {
+    "id": "chunk_042",
+    "texte": "L'overlap recommandé se situe entre 10 et 20% de la taille du chunk. "
+             "Un overlap trop faible risque de couper des idées importantes...",
+}
+chunk["resume"] = generer_resume_chunk(chunk["texte"])
+# "L'overlap idéal se situe entre 10 et 20% pour éviter de couper des idées."
+</code></pre>
+
+        <h3>Résumé de document entier</h3>
+        <p>Pour un document long, un résumé global (généré à partir d'un résumé de chaque section, une approche hiérarchique similaire à RAPTOR déjà vue dans le cours chunking, module 6) permet de répondre efficacement à des questions générales sur "de quoi parle ce document", sans avoir à parcourir l'ensemble de ses chunks détaillés.</p>
+
+        <pre><code class="language-python">def generer_resume_document(resumes_de_sections: list[str]) -> str:
+    texte_combine = "\n".join(resumes_de_sections)
+    reponse = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content":
+            f"À partir de ces résumés de sections, rédige un résumé global du document "
+            f"en 2-3 phrases :\n\n{texte_combine}"}],
+    )
+    return reponse.choices[0].message.content
+</code></pre>
+
+        <div class="ascii">Résumé de chunk                        Résumé de document
+────────────────────────               ────────────────────────
+Court (une phrase), spécifique         Plus long (2-3 phrases), global
+à un fragment précis                    à l'ensemble du document
+
+Utile pour : aperçu rapide dans        Utile pour : questions générales
+une UI, enrichissement de texte        ("de quoi parle ce document"),
+avant embedding (module 5)             niveau supérieur d'un chunking
+                                        hiérarchique (cours chunking, module 6)</div>
+
+        <p>Un point de vigilance : générer un résumé pour <em>chaque</em> chunk d'un corpus volumineux représente un coût d'appels LLM non négligeable (approfondi en leçon 4.5) — cette technique se justifie surtout pour des cas d'usage où le résumé est réellement exploité en aval (affichage utilisateur, enrichissement de recherche), pas systématiquement par défaut.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Générer des résumés pour tous les chunks d'un corpus volumineux sans vérifier au préalable si ce résumé sera réellement utilisé quelque part dans le pipeline (rappel du piège n°1 de la leçon 1.5 : une métadonnée jamais exploitée est un coût sans bénéfice) — un cas particulièrement coûteux ici, vu le prix des appels LLM à cette échelle.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre corpus, un résumé de chunk serait-il utile pour un usage concret (affichage, enrichissement de recherche) ? Si oui, lequel des deux niveaux (chunk ou document) serait le plus prioritaire à mettre en place en premier ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l2" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 4.2</span>Extraction d'entités nommées comme métadonnées</h2>
+
+        <p>La <strong>reconnaissance d'entités nommées</strong> (Named Entity Recognition, NER) identifie et catégorise les mentions d'entités spécifiques dans un texte : personnes, organisations, lieux, dates, montants. Attachées comme métadonnées à un chunk, ces entités permettent un filtrage précis ("tous les chunks qui mentionnent l'organisation X") impossible à obtenir par la seule recherche vectorielle sémantique.</p>
+
+        <h3>Extraction via un modèle NER dédié</h3>
+        <pre><code class="language-python">import spacy
+
+nlp = spacy.load("fr_core_news_lg")
+
+def extraire_entites(texte: str) -> dict:
+    doc = nlp(texte)
+    entites = {"personnes": [], "organisations": [], "lieux": [], "dates": []}
+
+    for ent in doc.ents:
+        if ent.label_ == "PER":
+            entites["personnes"].append(ent.text)
+        elif ent.label_ == "ORG":
+            entites["organisations"].append(ent.text)
+        elif ent.label_ == "LOC":
+            entites["lieux"].append(ent.text)
+        elif ent.label_ == "DATE":
+            entites["dates"].append(ent.text)
+
+    return entites
+
+texte = "Le contrat entre Acme Corp et Jean Dupont a été signé à Lyon en janvier 2025."
+print(extraire_entites(texte))
+# {'personnes': ['Jean Dupont'], 'organisations': ['Acme Corp'],
+#  'lieux': ['Lyon'], 'dates': ['janvier 2025']}
+</code></pre>
+
+        <h3>Extraction via un LLM (plus flexible, mais plus coûteuse)</h3>
+        <p>Un modèle NER dédié (comme spaCy) est rapide et peu coûteux, mais limité aux catégories d'entités pour lesquelles il a été entraîné. Un LLM offre plus de flexibilité — extraire des entités spécifiques à un domaine (références de contrat, codes produits) — au prix d'un coût et d'une latence plus élevés.</p>
+
+        <pre><code class="language-python">def extraire_entites_via_llm(texte: str, categories_personnalisees: list[str]) -> dict:
+    prompt = f"""Extrait les entités suivantes de ce texte : {', '.join(categories_personnalisees)}.
+Réponds au format JSON avec ces catégories comme clés.
+
+Texte : {texte}"""
+
+    reponse = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}],
+        response_format={"type": "json_object"},
+    )
+    return json.loads(reponse.choices[0].message.content)
+
+entites = extraire_entites_via_llm(
+    "La clause 4.2 du contrat REF-2025-0847 s'applique.",
+    categories_personnalisees=["reference_contrat", "numero_clause"],
+)
+</code></pre>
+
+        <h3>Exploiter les entités extraites pour le filtrage</h3>
+        <pre><code class="language-python">chunk_avec_entites = {
+    "id": "chunk_512",
+    "texte": "Le contrat entre Acme Corp et Jean Dupont...",
+    "entites_organisations": ["Acme Corp"],
+    "entites_personnes": ["Jean Dupont"],
+}
+
+resultats = vectorstore.search(
+    query_vector=vecteur_question,
+    filter={"entites_organisations": {"$in": ["Acme Corp"]}},
+    k=5,
+)
+</code></pre>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Utiliser un modèle NER généraliste (entraîné sur des textes journalistiques ou encyclopédiques standard) sur un domaine très spécialisé (jargon juridique, terminologie médicale) sans validation — les modèles NER généralistes sous-performent souvent sur des entités spécifiques à un domaine, un piège similaire à celui déjà rencontré avec les modèles d'embedding généralistes (cours embeddings, module 4).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre corpus, quelles catégories d'entités (au-delà des catégories standard personnes/organisations/lieux/dates) seraient spécifiquement utiles à extraire — des références de contrat, des codes produits, des numéros de ticket ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l3" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 4.3</span>Classification automatique de chunks</h2>
+
+        <p>Au-delà de l'extraction d'entités, un LLM (ou un modèle de classification plus léger) peut assigner à chaque chunk une ou plusieurs catégories issues d'une taxonomie prédéfinie — une métadonnée catégorielle (rappel module 3, leçon 3) directement exploitable pour le filtrage.</p>
+
+        <h3>Classification par catégories prédéfinies (taxonomie fermée)</h3>
+        <pre><code class="language-python">CATEGORIES_POSSIBLES = ["support_technique", "facturation", "conditions_generales", "produit"]
+
+def classifier_chunk(texte: str) -> str:
+    prompt = f"""Classe ce texte dans UNE SEULE de ces catégories : {', '.join(CATEGORIES_POSSIBLES)}.
+Réponds uniquement avec le nom exact de la catégorie.
+
+Texte : {texte}"""
+
+    reponse = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}],
+    )
+    categorie = reponse.choices[0].message.content.strip()
+    return categorie if categorie in CATEGORIES_POSSIBLES else "non_classifie"
+</code></pre>
+
+        <h3>Classification multi-labels</h3>
+        <p>Certains chunks appartiennent légitimement à plusieurs catégories simultanément (un chunk qui parle à la fois de facturation et de conditions générales) — une classification multi-labels, plutôt qu'une catégorie unique forcée, reflète mieux cette réalité et permet un filtrage plus souple ("appartient à AU MOINS une des catégories recherchées").</p>
+
+        <pre><code class="language-python">def classifier_chunk_multilabel(texte: str) -> list[str]:
+    prompt = f"""Identifie TOUTES les catégories pertinentes parmi : {', '.join(CATEGORIES_POSSIBLES)}.
+Réponds avec une liste JSON de catégories (peut en contenir plusieurs, ou une seule).
+
+Texte : {texte}"""
+
+    reponse = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}],
+        response_format={"type": "json_object"},
+    )
+    return json.loads(reponse.choices[0].message.content).get("categories", [])
+</code></pre>
+
+        <h3>Valider la cohérence de la taxonomie</h3>
+        <p>Comme pour toute métadonnée catégorielle (rappel module 2, leçon 5), une taxonomie de classification doit rester stable et cohérente dans le temps — ajouter ou renommer des catégories après coup nécessite de reclassifier rétroactivement les chunks déjà traités, sous peine d'incohérence entre anciens et nouveaux chunks.</p>
+
+        <div class="ascii">Classification simple                  Classification multi-labels
+(1 catégorie par chunk)                  (0 à N catégories par chunk)
+────────────────────────                ──────────────────────────────
+Plus simple à filtrer                    Reflète mieux la réalité de
+("categorie = X")                        contenus qui couvrent plusieurs
+                                          sujets à la fois
+
+Risque de forcer un choix               Filtrage légèrement plus complexe
+artificiel sur un contenu               ("categorie contient X")
+qui couvre plusieurs sujets</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Imposer une classification à catégorie unique sur un corpus dont le contenu couvre naturellement plusieurs sujets à la fois, forçant le LLM à choisir arbitrairement une seule catégorie parmi plusieurs légitimes — ce qui dégrade la fiabilité du filtrage ultérieur basé sur cette métadonnée.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre corpus, esquissez une taxonomie de 4-6 catégories pertinentes. Certains contenus vous semblent-ils naturellement multi-catégories, justifiant une classification multi-labels plutôt que simple ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l4" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 4.4</span>Génération de questions hypothétiques (HyDE et variantes)</h2>
+
+        <p>Une technique différente des précédentes : au lieu d'enrichir un chunk avec des métadonnées décrivant son contenu, on génère des <strong>questions</strong> auxquelles ce chunk répondrait probablement — puis on embedde (cours embeddings) ces questions plutôt que (ou en complément de) le texte du chunk lui-même.</p>
+
+        <h3>Le principe : rapprocher l'espace des questions de celui des réponses</h3>
+        <p>L'intuition : une question utilisateur ("Comment annuler mon abonnement ?") ressemble souvent davantage, en termes de structure et de vocabulaire, à d'autres <em>questions</em> qu'à un <em>paragraphe de documentation</em> qui contient la réponse. En générant des questions hypothétiques pour chaque chunk et en les embeddant, on rapproche artificiellement l'espace vectoriel des questions et des réponses.</p>
+
+        <pre><code class="language-python">def generer_questions_hypothetiques(texte_chunk: str, nb_questions: int = 3) -> list[str]:
+    prompt = f"""Génère {nb_questions} questions différentes auxquelles ce texte
+répond directement. Réponds avec une liste JSON de questions.
+
+Texte : {texte_chunk}"""
+
+    reponse = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}],
+        response_format={"type": "json_object"},
+    )
+    return json.loads(reponse.choices[0].message.content).get("questions", [])
+
+chunk_texte = "Pour annuler votre abonnement, rendez-vous dans Paramètres > Facturation > Annuler."
+questions = generer_questions_hypothetiques(chunk_texte)
+# ["Comment annuler mon abonnement ?", "Où trouver l'option d'annulation ?",
+#  "Puis-je résilier mon abonnement depuis les paramètres ?"]
+</code></pre>
+
+        <h3>HyDE : générer une réponse hypothétique plutôt que des questions</h3>
+        <p><strong>HyDE</strong> (Hypothetical Document Embeddings) inverse la logique côté requête plutôt que côté indexation : au moment de la question utilisateur, on demande d'abord à un LLM de générer une réponse hypothétique plausible (même si elle n'est pas garantie factuellement correcte), puis on embedde <em>cette réponse générée</em> plutôt que la question brute pour la recherche vectorielle — le texte généré ressemblant structurellement davantage aux vrais chunks de documentation que la question elle-même.</p>
+
+        <pre><code class="language-python">def recherche_avec_hyde(question: str, k: int = 5):
+    reponse_hypothetique = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content":
+            f"Réponds brièvement à cette question, même approximativement : {question}"}],
+    ).choices[0].message.content
+
+    vecteur_recherche = embed(reponse_hypothetique)   # PAS embed(question) directement
+    return vectorstore.search(query_vector=vecteur_recherche, k=k)
+</code></pre>
+
+        <div class="ascii">Approche standard                       HyDE                          Questions hypothétiques
+(cours embeddings)                                                    (indexation)
+────────────────────────                ──────────────────────       ──────────────────────
+embed(question) directement              LLM génère une réponse       LLM génère des questions
+comparé aux chunks embeddés               hypothétique, puis on        À L'INGESTION, embeddées
+                                          embedde CETTE réponse         en plus du chunk lui-même
+
+Simple, rapide                           Ajoute une latence (appel     Ajoute un coût d'ingestion
+                                          LLM à CHAQUE requête)         (par chunk), mais aucune
+                                                                        latence supplémentaire à
+                                                                        la requête</div>
+
+        <p>Le choix entre ces approches dépend d'un compromis déjà rencontré à plusieurs reprises dans cette série de cours : HyDE ajoute un coût et une latence à <em>chaque</em> requête (comme le reranking, cours embeddings module 7), alors que les questions hypothétiques ajoutent un coût unique à l'ingestion (comme le chunking sémantique, cours chunking module 4) — un arbitrage à valider empiriquement plutôt qu'à choisir par défaut.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Faire confiance au contenu factuel de la réponse hypothétique générée par HyDE, en oubliant qu'elle sert uniquement de vecteur de recherche intermédiaire — son contenu peut être factuellement faux (hallucination du LLM), ce qui n'est pas un problème tant qu'elle n'est jamais montrée à l'utilisateur ni utilisée autrement que pour orienter la recherche vectorielle.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre cas d'usage, le volume de requêtes utilisateurs est-il élevé (favorisant les questions hypothétiques à l'ingestion, coût unique) ou plutôt faible avec un besoin de fraîcheur immédiate (où HyDE, malgré sa latence par requête, pourrait être acceptable) ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l5" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 4.5</span>Coûts et fiabilité de l'enrichissement par LLM</h2>
+
+        <p>Cette dernière leçon du module traite la question qui devrait précéder l'adoption de toute technique vue précédemment : l'enrichissement par LLM a un coût réel et un risque d'erreur qu'il faut évaluer avant de le déployer à l'échelle d'un corpus entier.</p>
+
+        <h3>Estimer le coût à l'échelle du corpus</h3>
+        <pre><code class="language-python">def estimer_cout_enrichissement(nb_chunks: int, tokens_entree_moyen: int,
+                                  tokens_sortie_moyen: int, prix_par_million_entree: float,
+                                  prix_par_million_sortie: float) -> float:
+    cout_entree = (nb_chunks * tokens_entree_moyen / 1_000_000) * prix_par_million_entree
+    cout_sortie = (nb_chunks * tokens_sortie_moyen / 1_000_000) * prix_par_million_sortie
+    return cout_entree + cout_sortie
+
+# Exemple : 100 000 chunks, résumé de ~200 tokens en entrée, ~30 tokens en sortie
+cout = estimer_cout_enrichissement(
+    nb_chunks=100_000, tokens_entree_moyen=200, tokens_sortie_moyen=30,
+    prix_par_million_entree=0.15, prix_par_million_sortie=0.60,
+)
+print(f"Coût estimé de l'enrichissement : {cout:.2f}$")
+</code></pre>
+
+        <h3>Le risque d'hallucination dans les métadonnées elles-mêmes</h3>
+        <p>Contrairement à une hallucination dans une réponse générée (visible et potentiellement corrigible par l'utilisateur), une hallucination dans une métadonnée (une entité mal extraite, une catégorie mal assignée) s'intègre silencieusement dans l'index et peut fausser des filtres ou des résultats de recherche sans qu'aucune alerte ne le signale — un risque particulièrement insidieux car invisible.</p>
+
+        <h3>Valider un échantillon avant de généraliser</h3>
+        <p>Comme pour toute technique introduite dans cette série de cours (chunking sémantique, reranking, filtrage), la bonne pratique consiste à valider la qualité de l'enrichissement sur un échantillon représentatif avant de le déployer sur l'ensemble du corpus — en comparant les métadonnées générées à une vérité de référence établie manuellement sur un petit ensemble de documents.</p>
+
+        <pre><code class="language-python">def valider_echantillon_classification(echantillon: list[dict]) -> float:
+    """echantillon : liste de {'texte': str, 'categorie_attendue': str}"""
+    corrects = 0
+    for item in echantillon:
+        categorie_predite = classifier_chunk(item["texte"])
+        if categorie_predite == item["categorie_attendue"]:
+            corrects += 1
+    return corrects / len(echantillon)
+
+precision = valider_echantillon_classification(echantillon_annote_manuellement)
+print(f"Précision de la classification automatique : {precision:.1%}")
+</code></pre>
+
+        <h3>Arbitrer entre modèle léger et modèle puissant</h3>
+        <p>Pour de l'enrichissement à grande échelle, un modèle plus léger et économique (comme les variantes "mini" des grandes familles de modèles) offre souvent un bon compromis coût/qualité pour des tâches d'enrichissement relativement simples (résumé court, classification), réservant les modèles les plus puissants aux tâches qui le justifient réellement (extraction d'entités complexes dans un domaine très spécialisé).</p>
+
+        <div class="ascii">Avant de généraliser un enrichissement LLM à tout le corpus :
+
+[ ] Coût estimé calculé pour le volume réel du corpus
+[ ] Échantillon validé manuellement (précision mesurée, pas supposée)
+[ ] Impact d'une éventuelle erreur évalué (filtrage faussé ? citation
+    erronée ? risque limité à un affichage secondaire ?)
+[ ] Modèle le plus léger possible testé en premier avant d'escalader
+    vers un modèle plus coûteux si nécessaire</div>
+
+        <p>Ce module clôt la partie "enrichissement sémantique automatisé" du cours. Le module suivant montre comment exploiter concrètement ces enrichissements (résumés, entités, contexte) pour améliorer la représentation du chunk lui-même au moment de l'embedding — le contextual retrieval déjà évoqué dans les cours précédents, développé ici en profondeur.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Déployer un enrichissement LLM à l'échelle du corpus entier sans validation préalable sur un échantillon, découvrant seulement en production que le taux d'erreur est trop élevé pour l'usage prévu — un coût de re-traitement bien plus élevé qu'une validation anticipée sur quelques dizaines de cas.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : parmi les techniques vues (résumés, entités, classification, questions hypothétiques), laquelle vous semble présenter le meilleur rapport bénéfice/coût pour votre propre corpus, et laquelle mériterait le plus de prudence avant généralisation ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-5">
+      <span class="module-kicker">MODULE 05 / 08</span>
+      <h1>Contexte et désambiguïsation des chunks</h1>
+      <p class="intro">Un chunk isolé perd souvent des références implicites à son environnement — un pronom, une clause référencée, une suite logique. Ce module montre comment restaurer ce contexte perdu, directement dans le texte ou via des métadonnées de relation.</p>
+
+      <section class="lesson" id="m5-l1" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 5.1</span>Contextual retrieval : enrichir un chunk avec son contexte document</h2>
+
+        <p>Le <strong>contextual retrieval</strong> a été introduit dans le cours chunking (module 6, leçon 3) : une technique qui consiste à faire générer par un LLM une courte explication contextuelle pour chaque chunk, puis à préfixer le texte du chunk avec cette explication avant de l'embedder. Cette leçon l'approfondit sous l'angle spécifique des métadonnées.</p>
+
+        <h3>Rappel du principe et extension</h3>
+        <pre><code class="language-python">def contextualiser_chunk(document_complet: str, chunk: str) -> dict:
+    prompt = f"""Voici un document entier :
+{document_complet}
+
+Voici un extrait de ce document :
+{chunk}
+
+Rédige une phrase de contexte situant cet extrait dans le document."""
+
+    contexte = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}],
+    ).choices[0].message.content
+
+    return {
+        "texte_original": chunk,
+        "contexte_genere": contexte,
+        "texte_enrichi": f"{contexte}\n\n{chunk}",   # ce texte enrichi sera embeddé
+    }
+</code></pre>
+
+        <p>Ce qui distingue cette leçon du traitement déjà vu dans le cours chunking : ici, le contexte généré devient lui-même une <strong>métadonnée explicite</strong> (<code class="inline">contexte_genere</code>), stockée séparément du texte enrichi utilisé pour l'embedding. Cette séparation permet un usage double : le texte enrichi améliore la qualité de la recherche vectorielle (cours embeddings), tandis que le contexte stocké séparément peut être affiché à l'utilisateur final ou réutilisé pour d'autres traitements (résumés, classification, module 4) sans avoir à le régénérer.</p>
+
+        <h3>Combiner le contextual retrieval avec les métadonnées structurelles</h3>
+        <p>Le contexte généré par LLM et le breadcrumb structurel (module 2, leçon 2) ne sont pas redondants mais complémentaires : le breadcrumb donne la position formelle ("Guide RAG > Chunking > Overlap"), tandis que le contexte généré par LLM peut capturer des nuances non réductibles à une simple hiérarchie de titres ("Ce paragraphe fait suite à une mise en garde sur les limites du chunking par taille fixe").</p>
+
+        <pre><code class="language-python">chunk_completement_enrichi = {
+    "id": "chunk_042",
+    "texte_original": "L'overlap recommandé se situe entre 10 et 20%.",
+    "breadcrumb": "Guide RAG > Chunking > Overlap",              # module 2 (structurel)
+    "contexte_genere": "Fait suite à une mise en garde sur les    # module 5 (sémantique,
+                        chunks trop grands ou trop petits.",       ce module)
+    "texte_pour_embedding": (
+        "[Guide RAG > Chunking > Overlap] Fait suite à une mise en garde "
+        "sur les chunks trop grands ou trop petits.\n\n"
+        "L'overlap recommandé se situe entre 10 et 20%."
+    ),
+}
+</code></pre>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer le breadcrumb structurel (module 2) et le contexte généré par LLM comme deux techniques concurrentes dont il faudrait choisir une seule. En pratique, elles se combinent naturellement : le breadcrumb est quasi gratuit et systématique, le contexte LLM est plus coûteux mais capture des nuances que la seule hiérarchie de titres ne peut exprimer.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un chunk de votre choix, imaginez le breadcrumb structurel et une phrase de contexte générée par LLM. En quoi les deux informations sont-elles complémentaires plutôt que redondantes ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l2" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 5.2</span>Résolution de références et de coréférences</h2>
+
+        <p>Un chunk isolé de son contexte contient souvent des références qui ne se comprennent qu'en connaissant ce qui précède : des pronoms ("il", "cette clause", "ledit contrat"), des références numérotées ("l'article précédent", "la section 3.2"). Sans résolution, ces références restent des impasses pour un lecteur (humain ou LLM) qui ne voit que le chunk isolé.</p>
+
+        <h3>Le problème concrètement</h3>
+        <div class="ascii">Texte du document original (deux phrases consécutives) :
+
+"Le locataire doit notifier son départ trois mois à l'avance.
+ Cette clause ne s'applique pas en cas de force majeure."
+
+Si le chunking (cours chunking) sépare ces deux phrases en
+deux chunks distincts :
+
+Chunk A : "Le locataire doit notifier son départ trois mois à l'avance."
+Chunk B : "Cette clause ne s'applique pas en cas de force majeure."
+
+→ Le chunk B, isolé, est incompréhensible : QUELLE clause ?</div>
+
+        <h3>Résolution de coréférences via un LLM</h3>
+        <p>Une technique consiste à demander à un LLM de réécrire un chunk en remplaçant ses références ambiguës par leur antécédent explicite, en lui donnant accès au contexte environnant (le chunk précédent, ou le document complet) pour résoudre la référence correctement.</p>
+
+        <pre><code class="language-python">def resoudre_coreferences(chunk_precedent: str, chunk_courant: str) -> str:
+    prompt = f"""Voici deux extraits consécutifs d'un document :
+
+Extrait précédent : {chunk_precedent}
+Extrait à réécrire : {chunk_courant}
+
+Réécris l'extrait à réécrire en remplaçant les références ambiguës
+("cette clause", "il", "ledit contrat"...) par leur signification
+explicite, déduite de l'extrait précédent. Garde le reste inchangé."""
+
+    return client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}],
+    ).choices[0].message.content
+
+chunk_b_resolu = resoudre_coreferences(
+    "Le locataire doit notifier son départ trois mois à l'avance.",
+    "Cette clause ne s'applique pas en cas de force majeure.",
+)
+print(chunk_b_resolu)
+# "La clause de notification de départ à trois mois ne s'applique pas
+#  en cas de force majeure."
+</code></pre>
+
+        <h3>Stocker la version résolue comme métadonnée, pas comme remplacement</h3>
+        <p>Une bonne pratique : conserver le texte original du chunk intact, et stocker la version avec coréférences résolues comme une métadonnée séparée (ou comme texte utilisé spécifiquement pour l'embedding) — plutôt que d'écraser définitivement le texte source, ce qui rendrait impossible de vérifier ou corriger une résolution erronée du LLM.</p>
+
+        <pre><code class="language-python">chunk_avec_resolution = {
+    "id": "chunk_B",
+    "texte_original": "Cette clause ne s'applique pas en cas de force majeure.",
+    "texte_coreferences_resolues": (
+        "La clause de notification de départ à trois mois ne s'applique pas "
+        "en cas de force majeure."
+    ),
+}
+</code></pre>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Remplacer irréversiblement le texte original par la version résolue par le LLM, sans conserver l'original. Une résolution de coréférence erronée (le LLM se trompe sur l'antécédent réel d'une référence ambiguë) devient alors indétectable et impossible à corriger sans retraiter le document depuis sa source.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre corpus, quel type de référence ambiguë (pronoms, "ledit", références à des articles/clauses numérotées) rencontrez-vous le plus fréquemment ? Le chunking actuel de vos documents (cours chunking) risque-t-il de séparer fréquemment une référence de son antécédent ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l3" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 5.3</span>Métadonnées de relation entre chunks</h2>
+
+        <p>Au-delà de la relation parent/enfant déjà vue (module 2, leçon 2), d'autres types de relations entre chunks méritent d'être capturés explicitement comme métadonnées — des relations qui ne sont pas hiérarchiques mais séquentielles, ou de dépendance logique.</p>
+
+        <h3>Relations séquentielles (chunk précédent/suivant)</h3>
+        <p>Une métadonnée simple mais précieuse : chaque chunk référence explicitement son prédécesseur et son successeur immédiats dans le document d'origine — utile pour reconstituer un contexte élargi au moment de la génération (récupérer aussi le chunk précédent quand un chunk est retourné par la recherche), ou pour la résolution de coréférences vue en leçon 5.2.</p>
+
+        <pre><code class="language-python">def ajouter_relations_sequentielles(chunks_ordonnes: list[dict]) -> list[dict]:
+    for i, chunk in enumerate(chunks_ordonnes):
+        chunk["chunk_precedent_id"] = chunks_ordonnes[i - 1]["id"] if i > 0 else None
+        chunk["chunk_suivant_id"] = chunks_ordonnes[i + 1]["id"] if i < len(chunks_ordonnes) - 1 else None
+    return chunks_ordonnes
+</code></pre>
+
+        <h3>Relations de dépendance logique</h3>
+        <p>Certains chunks dépendent explicitement d'un autre pour être pleinement compris, sans que cette relation soit purement séquentielle — une clause d'exception qui dépend d'une clause générale située ailleurs dans le document, un tableau référencé par une note de bas de page distante. Ces relations, plus riches qu'une simple séquence, se rapprochent des graphes de connaissances approfondis au module 6.</p>
+
+        <pre><code class="language-python">chunk_avec_dependance = {
+    "id": "chunk_exception_042",
+    "texte": "Cette exception ne s'applique qu'aux contrats signés avant 2024.",
+    "depend_de_chunk_id": "chunk_clause_generale_017",   # référence explicite
+    "type_relation": "exception_de",
+}
+</code></pre>
+
+        <h3>Récupérer les chunks liés au moment de la génération</h3>
+        <p>Une fois ces relations capturées, le pipeline de génération (hors périmètre technique de ce cours, mais directement alimenté par lui) peut enrichir le contexte transmis au LLM en récupérant automatiquement les chunks liés à ceux retournés par la recherche vectorielle, plutôt que de se limiter strictement aux k résultats de la similarité seule.</p>
+
+        <pre><code class="language-python">def enrichir_resultats_avec_relations(resultats_recherche: list[dict], tous_les_chunks: dict) -> list[dict]:
+    resultats_enrichis = list(resultats_recherche)
+    for resultat in resultats_recherche:
+        if resultat.get("depend_de_chunk_id"):
+            chunk_dependance = tous_les_chunks.get(resultat["depend_de_chunk_id"])
+            if chunk_dependance and chunk_dependance not in resultats_enrichis:
+                resultats_enrichis.append(chunk_dependance)
+    return resultats_enrichis
+</code></pre>
+
+        <div class="ascii">Type de relation           Usage principal                     Module de référence
+──────────────────────────────────────────────────────────────────────────────
+Parent/enfant               Small-to-big retrieval               Module 2 (ce cours)
+                                                                  + cours chunking module 6
+Séquentielle                Contexte élargi, résolution de       Cette leçon
+(précédent/suivant)         coréférences
+
+Dépendance logique          Récupération de clauses liées non    Cette leçon,
+                             adjacentes dans le document           prolongé au module 6</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Capturer des relations de dépendance logique de façon exhaustive et systématique pour tout le corpus, alors que cette information est coûteuse à extraire fiablement (nécessite souvent un LLM ou une analyse manuelle) et n'est utile que pour une minorité de chunks réellement interdépendants. Réserver cet effort aux documents où ces dépendances sont fréquentes et significatives (contrats juridiques complexes, par exemple).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre corpus, les relations séquentielles (précédent/suivant) suffiraient-elles, ou identifiez-vous des cas de dépendance logique non séquentielle qui justifieraient un traitement plus riche ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l4" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 5.4</span>Métadonnées pour les tableaux et données structurées</h2>
+
+        <p>Rappel des cours chunking (module 5) et nettoyage (module 6) : les tableaux nécessitent un traitement spécifique pour préserver leur structure. Cette leçon complète cette approche par des métadonnées dédiées qui facilitent leur retrieval et leur interprétation.</p>
+
+        <h3>Métadonnées décrivant la structure du tableau</h3>
+        <pre><code class="language-python">chunk_tableau = {
+    "id": "chunk_tableau_089",
+    "type_contenu": "tableau",   # distingue ce chunk du texte narratif classique
+    "texte": "| Trimestre | Ventes | Marge |\n|---|---|---|\n| Q1 | 4.2M€ | 18% |...",
+    "nb_lignes": 4,
+    "nb_colonnes": 3,
+    "noms_colonnes": ["Trimestre", "Ventes", "Marge"],
+    "contexte_narratif_precedent": "Résultats financiers du premier semestre 2025",
+}
+</code></pre>
+
+        <h3>Pourquoi une métadonnée "type_contenu" change le comportement du retrieval</h3>
+        <p>Marquer explicitement qu'un chunk est un tableau (plutôt que du texte narratif) permet des stratégies de retrieval différenciées : une question qui demande une valeur chiffrée précise ("quelle était la marge au Q1 ?") peut être orientée préférentiellement vers les chunks de type tableau, via un filtre ou une pondération de score, plutôt que vers des paragraphes narratifs qui mentionnent le sujet sans donner la valeur exacte.</p>
+
+        <pre><code class="language-python">def rechercher_avec_priorite_tableaux(question: str, contient_probablement_un_chiffre: bool) -> list:
+    if contient_probablement_un_chiffre:
+        # Chercher en priorité parmi les tableaux, avec repli sur le reste si besoin
+        resultats_tableaux = vectorstore.search(
+            query_vector=embed(question), filter={"type_contenu": "tableau"}, k=3,
+        )
+        if resultats_tableaux:
+            return resultats_tableaux
+    return vectorstore.search(query_vector=embed(question), k=5)
+</code></pre>
+
+        <h3>Lier un tableau à son texte narratif environnant</h3>
+        <p>Comme évoqué dans le cours chunking (module 5, leçon 4), un tableau perd souvent son sens sans le paragraphe qui l'introduit. Une métadonnée de relation (similaire à celles de la leçon 5.3) reliant explicitement le chunk-tableau à son contexte narratif précédent permet de reconstituer cette continuité au moment de la génération, même si les deux ont été indexés comme des chunks séparés.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Indexer un tableau extrait comme un chunk de texte générique indifférencié, sans métadonnée signalant sa nature tabulaire. Le système de retrieval traite alors ce chunk exactement comme n'importe quel paragraphe narratif, perdant l'opportunité de stratégies de recherche différenciées pour les questions factuelles chiffrées.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre corpus, quelle proportion de chunks correspond probablement à des tableaux ou données structurées ? Cette proportion justifierait-elle une métadonnée <code class="inline">type_contenu</code> dédiée avec une stratégie de retrieval différenciée ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l5" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 5.5</span>Injecter les métadonnées dans le texte embeddé vs les garder en annexe</h2>
+
+        <p>Cette dernière leçon du module traite une décision de conception transversale à toutes les techniques vues jusqu'ici : une métadonnée doit-elle être injectée directement dans le texte qui sera embeddé (cours embeddings), ou rester une métadonnée séparée consultable uniquement au moment du filtrage ou de l'affichage ?</p>
+
+        <h3>Injecter dans le texte embeddé : quand cela améliore la recherche</h3>
+        <p>Rappel du principe du contextual retrieval (leçon 5.1) : injecter le breadcrumb ou le contexte généré directement dans le texte avant embedding permet au modèle d'embedding de "voir" cette information au moment de vectoriser — utile quand l'information contribue directement à désambiguïser le <em>sens</em> du chunk pour la recherche sémantique.</p>
+
+        <h3>Garder en annexe : quand l'information sert au filtrage ou à l'affichage</h3>
+        <p>À l'inverse, une métadonnée purement structurelle utilisée pour le filtrage (module 3) — comme un département ou une date — n'a généralement aucun intérêt à être injectée dans le texte embeddé : elle ne contribue pas au sens sémantique du chunk, et l'injecter inutilement pourrait même diluer légèrement le signal d'embedding utile (rappel du cours embeddings, module 1, sur la dilution du signal dans des chunks trop chargés).</p>
+
+        <div class="ascii">Métadonnée                    Injecter dans le texte embeddé ?    Pourquoi
+──────────────────────────────────────────────────────────────────────────────
+Breadcrumb hiérarchique         Oui                                  Désambiguïse le sens
+Contexte généré par LLM         Oui                                  Désambiguïse le sens
+Département (filtrage)          Non (métadonnée seule)                N'apporte rien au sens,
+                                                                       sert uniquement au filtre
+Date de modification            Non (métadonnée seule)                Idem
+Résumé de chunk (module 4)      Parfois (selon usage)                 Utile si le résumé aide
+                                                                       la recherche ; sinon annexe
+Entités extraites (module 4)    Rarement dans le texte,               Généralement plus utile
+                                 plutôt en filtre                      comme filtre structuré</div>
+
+        <h3>Une règle de décision simple</h3>
+        <p>Poser systématiquement la question : "cette information aide-t-elle un modèle d'embedding à mieux positionner ce chunk dans l'espace sémantique (cours embeddings, module 1), ou sert-elle uniquement à restreindre ou décrire le chunk après coup ?" Dans le premier cas, injecter dans le texte ; dans le second, garder en métadonnée annexe consultée uniquement au filtrage ou à l'affichage.</p>
+
+        <pre><code class="language-python">def construire_texte_pour_embedding(chunk: dict) -> str:
+    """N'injecte QUE les métadonnées qui contribuent au sens sémantique,
+    laisse les autres en annexe pour le filtrage (module 3)."""
+    prefixe = f"[{chunk['breadcrumb']}] {chunk.get('contexte_genere', '')}".strip()
+    return f"{prefixe}\n\n{chunk['texte_original']}" if prefixe else chunk["texte_original"]
+
+# Les métadonnées de filtrage (departement, date, statut) restent
+# disponibles séparément dans le schéma, SANS être injectées ici
+</code></pre>
+
+        <p>Ce module clôt la partie "contexte et désambiguïsation" du cours. Le module suivant va plus loin encore dans la structuration des relations entre chunks, en introduisant les graphes de connaissances — une approche qui généralise les relations vues en leçon 5.3 à une échelle bien plus riche.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Injecter systématiquement toutes les métadonnées disponibles dans le texte embeddé "pour être sûr de ne rien perdre", sans discernement. Un chunk surchargé de métadonnées non pertinentes pour le sens dilue le signal d'embedding utile — rappel direct d'un piège déjà identifié dans le cours embeddings pour les chunks trop volumineux en général.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : reprenez le schéma de métadonnées esquissé aux modules 2 et 4. Pour chaque champ, décidez s'il devrait être injecté dans le texte embeddé ou rester en annexe, en appliquant la règle de décision de cette leçon.
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-6">
+      <span class="module-kicker">MODULE 06 / 08</span>
+      <h1>Graphes de connaissances et métadonnées relationnelles</h1>
+      <p class="intro">Les métadonnées de relation vues au module 5 restent locales (un chunk lié à un autre). Ce module généralise cette idée à l'échelle du corpus entier, sous forme de graphe de connaissances — une approche puissante mais dont le coût doit être mis en balance avec son bénéfice réel.</p>
+
+      <section class="lesson" id="m6-l1" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 6.1</span>Au-delà du chunk isolé : introduction aux graphes de connaissances légers</h2>
+
+        <p>Toutes les techniques vues jusqu'ici (modules 2 à 5) enrichissent un chunk <em>individuellement</em>, avec éventuellement quelques relations vers d'autres chunks spécifiques. Un <strong>graphe de connaissances</strong> (knowledge graph) change de perspective : au lieu de raisonner chunk par chunk, on modélise l'ensemble du corpus comme un réseau d'<strong>entités</strong> (personnes, organisations, concepts) reliées entre elles par des <strong>relations</strong> explicites, indépendamment des chunks qui les mentionnent.</p>
+
+        <div class="ascii">Approche par chunk (modules 2-5) :          Approche par graphe (ce module) :
+
+Chunk 1 : "Acme Corp a signé un contrat      Acme_Corp --[a_signé]--> Contrat_2025
+           avec Jean Dupont en 2025."              │
+Chunk 2 : "Jean Dupont dirige la filiale           └--[dirige]--> Filiale_Lyon
+           de Lyon depuis 2023."                                        │
+                                                                    Jean_Dupont
+→ Chaque chunk est une île, reliée              → Les entités sont reliées entre
+  éventuellement à ses voisins directs             elles indépendamment des chunks,
+  (module 5)                                        formant un réseau navigable</div>
+
+        <p>L'intérêt principal : un graphe permet de répondre à des questions qui nécessitent de <strong>traverser plusieurs relations</strong>, potentiellement à travers plusieurs chunks ou documents différents — un type de question que la recherche vectorielle seule (cours embeddings), même combinée aux métadonnées de relation locales (module 5), peine à satisfaire efficacement.</p>
+
+        <pre><code class="language-python"># Question nécessitant une traversée de graphe :
+# "Quelles filiales sont dirigées par des personnes ayant signé
+#  un contrat avec Acme Corp ?"
+#
+# Cette question nécessite de suivre CHAÎNE de relations :
+# Acme_Corp -[a_signé]-> Contrat -[avec]-> Personne -[dirige]-> Filiale
+#
+# La recherche vectorielle seule trouverait difficilement cette réponse
+# si l'information est répartie sur plusieurs chunks/documents distincts,
+# car aucun chunk unique ne contient la chaîne complète de raisonnement.
+</code></pre>
+
+        <p>Cette approche n'est pas un remplacement du retrieval vectoriel — elle le complète pour une catégorie spécifique de questions (celles qui nécessitent de connecter des informations dispersées à travers le corpus), tout en restant nettement plus coûteuse à construire et maintenir que les métadonnées vues jusqu'ici. La suite du module aidera à juger quand cet investissement est justifié.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer un graphe de connaissances comme une évolution naturelle et systématique de tout système RAG mature, indépendamment du type de questions réellement posées par les utilisateurs. Comme pour le chunking sémantique ou le reranking dans les cours précédents, cette sophistication supplémentaire ne se justifie que pour des besoins spécifiques mesurés, pas par défaut.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre corpus, imaginez une question qui nécessiterait de connecter des informations dispersées entre plusieurs documents différents (comme l'exemple des filiales et contrats ci-dessus). Ce type de question est-il fréquent dans votre cas d'usage réel ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l2" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 6.2</span>Extraire des relations entre entités pour enrichir le retrieval</h2>
+
+        <p>Construire un graphe de connaissances nécessite d'extraire, en plus des entités elles-mêmes (module 4, leçon 2), les <strong>relations</strong> qui les connectent — une tâche plus complexe que la simple extraction d'entités isolées, généralement confiée à un LLM.</p>
+
+        <h3>Extraction de triplets (sujet, relation, objet)</h3>
+        <pre><code class="language-python">def extraire_triplets(texte: str) -> list[tuple[str, str, str]]:
+    prompt = f"""Extrait les relations sous forme de triplets (sujet, relation, objet)
+à partir de ce texte. Réponds au format JSON, une liste de triplets.
+
+Texte : {texte}"""
+
+    reponse = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}],
+        response_format={"type": "json_object"},
+    )
+    return json.loads(reponse.choices[0].message.content).get("triplets", [])
+
+texte = "Acme Corp a signé un contrat avec Jean Dupont en 2025. Jean Dupont dirige la filiale de Lyon."
+triplets = extraire_triplets(texte)
+# [("Acme Corp", "a_signé_contrat_avec", "Jean Dupont"),
+#  ("Jean Dupont", "dirige", "Filiale de Lyon")]
+</code></pre>
+
+        <h3>Construire le graphe à partir des triplets extraits</h3>
+        <pre><code class="language-python">import networkx as nx
+
+def construire_graphe(tous_les_triplets: list[tuple[str, str, str]]) -> nx.DiGraph:
+    graphe = nx.DiGraph()
+    for sujet, relation, objet in tous_les_triplets:
+        graphe.add_edge(sujet, objet, relation=relation)
+    return graphe
+
+graphe_connaissances = construire_graphe(triplets)
+
+# Traverser le graphe pour répondre à une question relationnelle
+def trouver_chemins(graphe: nx.DiGraph, depart: str, arrivee: str) -> list:
+    return list(nx.all_simple_paths(graphe, depart, arrivee, cutoff=3))
+</code></pre>
+
+        <h3>Relier chaque triplet à son chunk source</h3>
+        <p>Pour rester exploitable dans un système RAG (et pas seulement comme une structure de données abstraite), chaque relation extraite devrait conserver une référence vers le chunk d'où elle provient — permettant, une fois une relation pertinente identifiée dans le graphe, de retrouver le texte original qui la justifie pour l'inclure dans le contexte de génération.</p>
+
+        <pre><code class="language-python">triplet_avec_source = {
+    "sujet": "Jean Dupont",
+    "relation": "dirige",
+    "objet": "Filiale de Lyon",
+    "chunk_source_id": "chunk_042",   # traçabilité vers le texte d'origine
+}
+</code></pre>
+
+        <div class="ascii">Entité extraite seule            Triplet de relation              Triplet + traçabilité
+(module 4, leçon 2)               (ce module)                      (recommandé)
+────────────────────────         ────────────────────────         ─────────────────────
+"Jean Dupont" (personne)          Jean_Dupont -dirige-> Filiale    + référence au chunk
+                                                                    source pour vérifier
+Utile pour : filtrage             Utile pour : traversée de        et citer l'origine
+(module 3)                        graphe, questions complexes       de la relation</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Faire confiance aveuglément aux triplets extraits par un LLM sans validation, alors que l'extraction de relations est une tâche plus complexe et plus sujette à erreur que la simple extraction d'entités (module 4) — une relation mal extraite ou inventée peut orienter un raisonnement de traversée de graphe vers une conclusion complètement fausse.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un texte de votre choix contenant au moins deux entités liées, essayez d'identifier mentalement le triplet (sujet, relation, objet) qui en découle.
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l3" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 6.3</span>GraphRAG : principes et quand ça apporte un vrai gain</h2>
+
+        <p><strong>GraphRAG</strong> désigne une famille d'approches (popularisée notamment par Microsoft Research) qui combine un graphe de connaissances construit automatiquement à partir du corpus avec le retrieval vectoriel classique, pour répondre à des questions qui nécessitent une synthèse à travers de nombreux documents plutôt qu'une réponse localisée dans un seul chunk.</p>
+
+        <h3>Le principe général de GraphRAG</h3>
+        <ol>
+          <li>Extraire les entités et relations de l'ensemble du corpus (leçon 6.2), à grande échelle.</li>
+          <li>Regrouper les entités fortement connectées en "communautés" (clusters du graphe), souvent via des algorithmes de détection de communauté (comme Louvain).</li>
+          <li>Générer, pour chaque communauté, un résumé de haut niveau via LLM — un peu comme les résumés hiérarchiques du cours chunking (module 6, RAPTOR), mais organisés par thème relationnel plutôt que par structure documentaire.</li>
+          <li>Au moment de la question, chercher parmi ces résumés de communautés (pour des questions globales/synthétiques) ou parmi les chunks individuels (pour des questions précises), selon la nature de la question.</li>
+        </ol>
+
+        <pre><code class="language-python"># Illustration conceptuelle simplifiée du principe GraphRAG
+import networkx as nx
+from networkx.algorithms import community
+
+def detecter_communautes(graphe: nx.Graph) -> list[set]:
+    return list(community.greedy_modularity_communities(graphe))
+
+def generer_resume_communaute(entites_de_la_communaute: set, graphe: nx.Graph) -> str:
+    relations_internes = [
+        f"{a} -{graphe[a][b]['relation']}-> {b}"
+        for a, b in graphe.edges(entites_de_la_communaute)
+        if a in entites_de_la_communaute and b in entites_de_la_communaute
+    ]
+    prompt = f"Résume les relations suivantes en un paragraphe cohérent :\n{relations_internes}"
+    return client.chat.completions.create(
+        model="gpt-4o-mini", messages=[{"role": "user", "content": prompt}]
+    ).choices[0].message.content
+</code></pre>
+
+        <h3>Le type de question où GraphRAG excelle</h3>
+        <p>GraphRAG apporte un gain mesurable principalement sur des questions <strong>globales et synthétiques</strong> ("quels sont les principaux thèmes de risque mentionnés à travers l'ensemble de nos contrats ?"), où la réponse nécessite d'agréger de l'information dispersée sur de nombreux documents — un cas où le retrieval vectoriel classique, limité à retourner k chunks individuels, peine structurellement à donner une synthèse complète.</p>
+
+        <h3>Le type de question où GraphRAG n'apporte rien</h3>
+        <p>Pour des questions factuelles précises et localisées ("quel est le délai de préavis dans le contrat X ?"), le retrieval vectoriel classique (cours embeddings), éventuellement combiné aux métadonnées structurelles (modules 2-3) et au contextual retrieval (module 5), reste largement suffisant et bien moins coûteux à mettre en œuvre et maintenir.</p>
+
+        <div class="ascii">Type de question                              Approche recommandée
+──────────────────────────────────────────────────────────────────────────
+Factuelle précise et localisée                 Retrieval vectoriel + métadonnées
+("quel est le délai de préavis du              (cours embeddings + modules 2-5
+ contrat X ?")                                  de ce cours) — suffisant
+
+Synthétique et globale, nécessitant            GraphRAG (ce module) — apporte
+d'agréger de l'information dispersée            un gain mesurable
+("quels sont les thèmes récurrents à
+ travers tous nos contrats ?")</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Adopter GraphRAG pour l'ensemble d'un système RAG alors que la grande majorité des questions réelles des utilisateurs sont factuelles et localisées, pas synthétiques. Le coût de construction et de maintenance d'un graphe de connaissances à l'échelle d'un corpus entier ne se justifie que si une part significative des questions relève réellement du type "synthèse globale".
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Parmi les questions typiques de vos utilisateurs (réelles ou imaginées), quelle proportion relèverait du type "factuelle précise" versus "synthétique globale" ? Cette proportion justifie-t-elle un investissement dans GraphRAG ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l4" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 6.4</span>Métadonnées hiérarchiques multi-niveaux (résumés, sections, corpus)</h2>
+
+        <p>Une approche intermédiaire entre les métadonnées locales (modules 2-5) et un graphe de connaissances complet (leçons 6.1-6.3) : organiser les métadonnées de résumé selon une hiérarchie à plusieurs niveaux, du chunk individuel jusqu'au corpus entier — une extension directe du chunking hiérarchique déjà vu dans le cours chunking (module 6).</p>
+
+        <pre><code class="language-python">structure_hierarchique_metadonnees = {
+    "niveau_corpus": {
+        "resume": "Ensemble de la documentation RAG interne, couvrant chunking, "
+                  "embeddings, nettoyage et métadonnées.",
+    },
+    "niveau_document": {
+        "guide_rag.pdf": {
+            "resume": "Guide complet sur les techniques de préparation de données pour RAG.",
+        },
+    },
+    "niveau_section": {
+        "guide_rag.pdf::chunking": {
+            "resume": "Section sur les stratégies de découpage de documents.",
+        },
+    },
+    "niveau_chunk": {
+        "chunk_042": {
+            "resume": "L'overlap recommandé se situe entre 10 et 20%.",
+        },
+    },
+}
+</code></pre>
+
+        <h3>Router une question vers le bon niveau de métadonnée</h3>
+        <p>Comme pour le chunking hiérarchique (cours chunking, module 6), une question large ("de quoi parle cette documentation ?") devrait matcher un résumé de niveau corpus ou document, tandis qu'une question précise devrait descendre jusqu'au niveau chunk — un routage qui peut lui-même être orienté par un LLM classifiant la portée de la question avant la recherche.</p>
+
+        <pre><code class="language-python">def classifier_portee_question(question: str) -> str:
+    prompt = f"""Cette question porte-t-elle sur un détail précis, une section,
+un document entier, ou l'ensemble du corpus ? Réponds par un seul mot :
+"chunk", "section", "document" ou "corpus".
+
+Question : {question}"""
+
+    return client.chat.completions.create(
+        model="gpt-4o-mini", messages=[{"role": "user", "content": prompt}]
+    ).choices[0].message.content.strip().lower()
+
+def rechercher_avec_routage_hierarchique(question: str):
+    portee = classifier_portee_question(question)
+    if portee in ("corpus", "document"):
+        return rechercher_parmi_resumes(question, niveau=portee)
+    return rechercher_vectoriel_standard(question)   # niveau chunk classique
+</code></pre>
+
+        <p>Cette approche hiérarchique, moins coûteuse et complexe qu'un graphe de connaissances complet, couvre déjà une partie significative des besoins de questions "globales" évoqués en leçon 6.3 — elle mérite souvent d'être tentée en premier avant d'investir dans une approche GraphRAG complète.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Passer directement à une architecture GraphRAG complexe (leçon 6.3) sans avoir d'abord essayé une hiérarchie de résumés multi-niveaux, plus simple à mettre en œuvre et suffisante pour une grande partie des questions synthétiques courantes.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre corpus, esquissez les 3-4 niveaux de hiérarchie de résumés qui seraient pertinents (corpus, document, section, chunk ou une variante adaptée à votre structure documentaire).
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l5" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 6.5</span>Compromis complexité/bénéfice des approches à base de graphe</h2>
+
+        <p>Cette dernière leçon du module synthétise un principe de décision qui traverse l'ensemble du cours : chaque niveau de sophistication supplémentaire (relations locales, hiérarchie de résumés, graphe de connaissances complet) a un coût croissant qui doit être justifié par un bénéfice mesuré, pas supposé.</p>
+
+        <table>
+          <thead>
+            <tr><th>Approche</th><th>Coût de construction</th><th>Maintenance</th><th>Gain principal</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Métadonnées de relation locales (module 5)</td><td>Faible à modéré</td><td>Faible</td><td>Contexte immédiat, coréférences</td></tr>
+            <tr><td>Hiérarchie de résumés multi-niveaux (leçon 6.4)</td><td>Modéré</td><td>Modéré (mise à jour en cascade)</td><td>Questions globales/synthétiques</td></tr>
+            <tr><td>Graphe de connaissances complet (leçons 6.1-6.3)</td><td>Élevé</td><td>Élevé (relations à maintenir à jour)</td><td>Questions multi-sauts complexes</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Une méthode de décision progressive</h3>
+        <div class="ascii">1. Commencer par les métadonnées structurelles (module 2) et le
+   filtrage (module 3) — coût faible, bénéfice quasi systématique
+
+2. Ajouter des métadonnées de relation locales (module 5) si des
+   problèmes de contexte perdu sont mesurés (coréférences, dépendances)
+
+3. Évaluer le besoin réel de questions "synthétiques globales"
+   (leçon 6.3) — si rare, s'arrêter ici
+
+4. Si les questions synthétiques sont fréquentes, tenter d'abord
+   une hiérarchie de résumés (leçon 6.4) — plus simple qu'un graphe
+
+5. Réserver un graphe de connaissances complet (GraphRAG) aux cas
+   où des questions multi-sauts complexes sont fréquentes ET où
+   les approches plus simples ont été mesurées comme insuffisantes</div>
+
+        <p>Ce module clôt la partie "relations et connaissances structurées" du cours — la dimension la plus avancée et la plus coûteuse des métadonnées. Le module suivant revient à des préoccupations plus opérationnelles : comment organiser, outiller et gouverner l'ensemble des métadonnées vues jusqu'ici à l'échelle d'un projet réel.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Justifier un investissement dans un graphe de connaissances complet par des cas d'usage hypothétiques ("on pourrait un jour avoir besoin de...") plutôt que par des besoins réellement observés et mesurés dans les questions posées par les utilisateurs actuels du système.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : en suivant la méthode de décision progressive ci-dessus, à quelle étape vous arrêteriez-vous pour votre propre projet (réel ou imaginé) ? Justifiez en une phrase.
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-7">
+      <span class="module-kicker">MODULE 07 / 08</span>
+      <h1>Outillage, schémas et gouvernance des métadonnées</h1>
+      <p class="intro">Ce module passe des techniques d'enrichissement (modules 2-6) à leur mise en œuvre opérationnelle durable : comment concevoir un schéma qui tienne dans le temps, quels outils utiliser, et comment gouverner qui a le droit de créer, modifier ou invalider une métadonnée.</p>
+
+      <section class="lesson" id="m7-l1" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 7.1</span>Concevoir un schéma de métadonnées réutilisable et évolutif</h2>
+
+        <p>Un schéma de métadonnées conçu pour un projet unique, sans anticipation de son évolution, devient rapidement une source de dette technique — chaque nouveau besoin forçant une migration complète du corpus déjà indexé. Cette leçon propose une méthode de conception qui limite ce risque.</p>
+
+        <h3>Séparer le socle commun des extensions spécifiques</h3>
+        <pre><code class="language-python">SCHEMA_SOCLE_COMMUN = {
+    # Ce socle (module 2) devrait rester stable quel que soit le projet
+    "id": "str", "source": "str", "breadcrumb": "str",
+    "date_creation_contenu": "date", "date_ingestion": "datetime", "statut": "str",
+}
+
+SCHEMA_EXTENSION_PROJET_SPECIFIQUE = {
+    # Ces champs varient selon le domaine métier du corpus
+    "segment_client": "str",       # spécifique à un contexte commercial
+    "reference_contrat": "str",     # spécifique à un contexte juridique
+    "code_produit": "str",          # spécifique à un contexte e-commerce
+}
+</code></pre>
+
+        <p>Cette séparation permet de faire évoluer les extensions spécifiques à un projet sans jamais toucher au socle commun partagé — une pratique directement inspirée de la conception de schémas de bases de données, appliquée ici aux métadonnées de chunks.</p>
+
+        <h3>Versionner le schéma lui-même</h3>
+        <p>Comme le contenu documentaire (module 2, leçon 4), le schéma de métadonnées évolue avec le temps — un nouveau champ ajouté, un champ renommé. Associer une version de schéma à chaque chunk permet de savoir, lors d'une migration ou d'un audit, quels chunks respectent l'ancien schéma et lesquels le nouveau.</p>
+
+        <pre><code class="language-python">chunk_avec_version_schema = {
+    "id": "chunk_042",
+    "schema_version": "2.1",   # permet de savoir quelle validation appliquer
+    "texte": "...",
+    # ... autres métadonnées selon le schéma v2.1
+}
+
+def migrer_vers_nouveau_schema(chunk: dict, version_cible: str) -> dict:
+    if chunk["schema_version"] == "2.0" and version_cible == "2.1":
+        chunk["nouveau_champ"] = valeur_par_defaut_ou_deduite(chunk)
+        chunk["schema_version"] = "2.1"
+    return chunk
+</code></pre>
+
+        <h3>Prévoir l'extensibilité sans sur-ingénierer</h3>
+        <p>Rappel du piège identifié au module 1 (leçon 5) : anticiper une extensibilité illimitée dès le départ, avec des dizaines de champs optionnels "au cas où", retombe dans le sur-engineering. La bonne pratique : concevoir une structure qui <em>permet</em> l'ajout futur de champs (par exemple, un espace de noms clair pour les extensions), sans pour autant définir ces champs avant qu'un besoin réel ne soit identifié.</p>
+
+        <div class="ascii">Schéma rigide                          Schéma extensible bien conçu
+(anti-pattern)                          (recommandé)
+────────────────────────                ──────────────────────────────
+Tous les champs possibles               Socle commun stable +
+définis dès le départ,                  namespace clair pour les
+beaucoup jamais utilisés                extensions ajoutées au besoin
+
+Toute évolution nécessite               Le socle reste intact ;
+une migration complète                  seules les extensions évoluent</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Modifier directement le socle commun de métadonnées pour répondre à un besoin ponctuel d'un seul projet ou d'une seule équipe, plutôt que de l'ajouter comme extension spécifique. Cela rend le socle instable et complexifie sa réutilisation pour d'autres corpus ou projets qui partageraient la même infrastructure.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          À partir des métadonnées vues dans les modules précédents (structurelles, sémantiques, relationnelles), classez-les entre "socle commun" (utile à tout projet RAG) et "extension spécifique" (propre à votre contexte métier).
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l2" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 7.2</span>Outils et frameworks pour la gestion des métadonnées</h2>
+
+        <p>Comme pour le chunking et l'embedding dans les cours précédents, plusieurs frameworks facilitent la gestion des métadonnées sans avoir à réimplémenter chaque mécanisme depuis zéro.</p>
+
+        <h3>LlamaIndex : métadonnées natives et filtrage intégré</h3>
+        <p>LlamaIndex (déjà mentionné dans les cours précédents) modélise nativement les métadonnées à travers ses objets <code class="inline">Node</code>, avec un support intégré pour le filtrage lors de la recherche et des extracteurs de métadonnées prêts à l'emploi (titres, résumés, questions générées — rappel du module 4).</p>
+
+        <pre><code class="language-python">from llama_index.core import Document
+from llama_index.core.extractors import SummaryExtractor, QuestionsAnsweredExtractor
+from llama_index.core.ingestion import IngestionPipeline
+
+document = Document(text="...", metadata={"source": "guide_rag.pdf", "departement": "RH"})
+
+pipeline = IngestionPipeline(
+    transformations=[
+        SummaryExtractor(summaries=["self"]),           # résumé automatique (module 4)
+        QuestionsAnsweredExtractor(questions=3),          # questions hypothétiques (module 4)
+    ]
+)
+noeuds_enrichis = pipeline.run(documents=[document])
+</code></pre>
+
+        <h3>LangChain : métadonnées et filtrage par retriever</h3>
+        <p>LangChain expose les métadonnées à travers l'objet <code class="inline">Document</code> et permet un filtrage direct via les retrievers connectés aux bases vectorielles (rappel du cours embeddings, module 6), avec un support pour construire dynamiquement des filtres complexes (module 3, leçon 4).</p>
+
+        <pre><code class="language-python">from langchain_core.documents import Document
+
+document = Document(
+    page_content="L'overlap recommandé se situe entre 10 et 20%.",
+    metadata={"source": "guide_rag.pdf", "departement": "technique", "statut": "actuel"},
+)
+</code></pre>
+
+        <h3>Bases vectorielles : indexation native de métadonnées</h3>
+        <p>Rappel du cours embeddings (module 6) : Qdrant, Weaviate, Pinecone et pgvector supportent tous nativement le stockage et le filtrage de métadonnées structurées, avec des capacités d'indexation variables selon la base — un critère de choix supplémentaire à considérer lors du choix de la base vectorielle (cours embeddings, module 6, leçon 5), en fonction de la richesse du schéma de métadonnées prévu.</p>
+
+        <div class="ascii">Outil               Rôle principal pour les métadonnées
+──────────────────────────────────────────────────────────────────────
+LlamaIndex           Extracteurs prêts à l'emploi (résumés, questions,
+                     titres), modélisation native via Node
+
+LangChain            Structuration via Document.metadata, filtrage
+                     via les retrievers connectés aux bases vectorielles
+
+Bases vectorielles    Stockage, indexation et filtrage natif des
+(Qdrant, Weaviate...) métadonnées au niveau de la recherche elle-même</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Réimplémenter à la main des extracteurs de métadonnées (résumé, questions hypothétiques) déjà disponibles nativement dans LlamaIndex, en dupliquant un effort déjà résolu et testé par la communauté — à réserver aux besoins réellement spécifiques non couverts par ces outils.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre pipeline (réel ou imaginé), quel framework parmi ceux cités couvrirait le mieux vos besoins de gestion de métadonnées identifiés dans les modules précédents ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l3" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 7.3</span>Validation et cohérence des métadonnées à l'échelle</h2>
+
+        <p>Rappel du piège n°2 identifié au module 1 : des métadonnées incohérentes (valeurs mal orthographiées, formats variables) rendent le filtrage peu fiable. Cette leçon détaille comment prévenir ce problème systématiquement, à l'échelle d'un corpus qui grandit en continu.</p>
+
+        <h3>Valider un schéma avec des outils dédiés</h3>
+        <p>Des librairies de validation de données comme <strong>Pydantic</strong> permettent de définir formellement un schéma de métadonnées avec ses types et contraintes, puis de valider automatiquement chaque nouveau chunk avant son indexation — une pratique similaire à la validation de schéma déjà évoquée dans d'autres cours de cette série.</p>
+
+        <pre><code class="language-python">from pydantic import BaseModel, Field
+from enum import Enum
+from datetime import datetime
+
+class StatutChunk(str, Enum):
+    ACTUEL = "actuel"
+    OBSOLETE = "obsolete"
+    BROUILLON = "brouillon"
+
+class MetadonneesChunk(BaseModel):
+    id: str
+    source: str
+    breadcrumb: str
+    date_ingestion: datetime
+    statut: StatutChunk
+    departement: str = Field(pattern=r"^(RH|Juridique|Technique|Commercial)$")
+
+def valider_chunk(donnees_brutes: dict) -> MetadonneesChunk | None:
+    try:
+        return MetadonneesChunk(**donnees_brutes)
+    except Exception as erreur:
+        print(f"Métadonnées invalides : {erreur}")
+        return None
+</code></pre>
+
+        <h3>Normaliser les valeurs catégorielles à l'ingestion</h3>
+        <pre><code class="language-python">MAPPING_NORMALISATION_DEPARTEMENT = {
+    "ressources humaines": "RH", "rh": "RH", "human resources": "RH",
+    "juridique": "Juridique", "legal": "Juridique",
+}
+
+def normaliser_departement(valeur_brute: str) -> str:
+    valeur_normalisee = MAPPING_NORMALISATION_DEPARTEMENT.get(valeur_brute.lower().strip())
+    if valeur_normalisee is None:
+        raise ValueError(f"Département non reconnu : {valeur_brute}")
+    return valeur_normalisee
+</code></pre>
+
+        <h3>Surveiller la dérive de cohérence dans le temps</h3>
+        <p>Comme pour les métriques de qualité de texte (rappel du cours nettoyage, module 7), une surveillance continue des valeurs de métadonnées observées dans le corpus (par exemple, la liste des valeurs distinctes réellement présentes pour chaque champ catégoriel) permet de détecter une dérive — une nouvelle variante orthographique qui serait passée inaperçue à travers la validation, ou un champ de plus en plus souvent laissé vide.</p>
+
+        <pre><code class="language-python">def auditer_coherence_metadonnees(tous_les_chunks: list[dict], champ: str) -> dict:
+    from collections import Counter
+    valeurs = Counter(c.get("metadata", {}).get(champ) for c in tous_les_chunks)
+    return dict(valeurs)
+
+print(auditer_coherence_metadonnees(chunks, "departement"))
+# {'RH': 1200, 'Juridique': 800, None: 45}  → 45 chunks sans département : à investiguer
+</code></pre>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Valider les métadonnées uniquement au moment du développement initial du pipeline, sans validation continue à chaque nouvelle ingestion. Un corpus qui grandit avec de nouvelles sources documentaires introduit régulièrement de nouvelles variantes de valeurs non anticipées — la validation doit être un contrôle systématique, pas une vérification ponctuelle.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un champ catégoriel de votre schéma (département, statut, catégorie), esquissez la table de normalisation (comme <code class="inline">MAPPING_NORMALISATION_DEPARTEMENT</code>) qui couvrirait les variantes probables rencontrées dans votre corpus réel.
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l4" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 7.4</span>Gouvernance : qui peut enrichir, modifier, invalider une métadonnée</h2>
+
+        <p>Au-delà de la validation technique (leçon 7.3), une gouvernance organisationnelle définit qui a le droit de créer, modifier ou invalider une métadonnée — une question souvent négligée jusqu'à ce qu'un incident (une métadonnée de confidentialité modifiée par erreur, une classification contestée) en révèle l'importance.</p>
+
+        <h3>Distinguer les métadonnées auto-générées des métadonnées validées par un humain</h3>
+        <p>Rappel du module 4 (leçon 5) : les métadonnées générées par LLM comportent un risque d'erreur. Une bonne pratique de gouvernance consiste à distinguer explicitement, via une métadonnée de méta-niveau, si une valeur a été générée automatiquement ou validée par un humain — une distinction qui informe le niveau de confiance à accorder à cette métadonnée en aval.</p>
+
+        <pre><code class="language-python">chunk_avec_provenance_metadonnee = {
+    "id": "chunk_042",
+    "categorie": "support_technique",
+    "categorie_origine": "llm_auto",      # vs "validee_humain"
+    "categorie_confiance": 0.87,           # score de confiance du LLM, si disponible
+}
+
+def filtrer_selon_confiance(chunks: list[dict], seuil_min_confiance: float = 0.9) -> list[dict]:
+    """Pour des usages sensibles, ne retenir que les métadonnées de confiance élevée
+    ou validées par un humain."""
+    return [
+        c for c in chunks
+        if c.get("categorie_origine") == "validee_humain"
+        or c.get("categorie_confiance", 0) >= seuil_min_confiance
+    ]
+</code></pre>
+
+        <h3>Définir des rôles et permissions sur les métadonnées elles-mêmes</h3>
+        <p>Certaines métadonnées critiques (niveau de confidentialité, permissions d'accès — module 3, leçon 2) ne devraient pouvoir être modifiées que par des rôles spécifiques (un administrateur de sécurité, pas n'importe quel contributeur du pipeline d'ingestion) — une gouvernance qui rejoint les pratiques classiques de contrôle d'accès, appliquées ici spécifiquement aux métadonnées d'un système RAG.</p>
+
+        <pre><code class="language-python">ROLES_AUTORISES_PAR_CHAMP = {
+    "groupes_autorises": ["administrateur_securite"],
+    "statut": ["administrateur_securite", "gestionnaire_contenu"],
+    "categorie": ["gestionnaire_contenu", "pipeline_automatise"],
+    "resume": ["pipeline_automatise"],   # généré automatiquement, moins critique
+}
+
+def verifier_permission_modification(champ: str, role_utilisateur: str) -> bool:
+    return role_utilisateur in ROLES_AUTORISES_PAR_CHAMP.get(champ, [])
+</code></pre>
+
+        <h3>Tracer les modifications de métadonnées (audit trail)</h3>
+        <p>Comme pour le logging du pipeline de nettoyage (cours nettoyage, module 7, leçon 4), conserver un historique des modifications apportées aux métadonnées (qui a modifié quoi, quand) permet d'investiguer une incohérence ou une erreur constatée après coup, en particulier pour les métadonnées de gouvernance les plus sensibles.</p>
+
+        <div class="ascii">Métadonnée                    Origine typique            Niveau de gouvernance requis
+──────────────────────────────────────────────────────────────────────────────
+Résumé auto-généré (module 4)  Pipeline automatisé         Faible (erreur peu risquée)
+Catégorie de contenu           LLM ou validation humaine   Moyen
+Groupes autorisés/permissions  Décision métier/sécurité    Élevé (accès contrôlé)
+Statut (actuel/obsolète)       Processus de publication    Élevé (impact direct sur
+                                                            ce qui est exposé)</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Laisser le pipeline d'ingestion automatisé avoir les pleins droits de modification sur toutes les métadonnées, y compris les plus sensibles (permissions, confidentialité), sans distinction de rôle. Une erreur de configuration ou un bug dans le pipeline pourrait alors accidentellement exposer du contenu confidentiel à un public non autorisé.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre schéma de métadonnées, identifiez les 2-3 champs les plus sensibles qui mériteraient une restriction de modification à des rôles spécifiques, plutôt qu'un accès ouvert à tout le pipeline d'ingestion.
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l5" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 7.5</span>Métadonnées et conformité (RGPD, traçabilité, droit à l'oubli)</h2>
+
+        <p>Cette dernière leçon du module traite un usage des métadonnées à forte valeur mais souvent sous-estimé : leur rôle central dans la conformité réglementaire, notamment pour les systèmes RAG qui traitent des données personnelles.</p>
+
+        <h3>Traçabilité complète pour répondre à une demande de droit d'accès</h3>
+        <p>Le RGPD (et les réglementations équivalentes) prévoit un droit d'accès : une personne peut demander quelles informations la concernant sont détenues par une organisation. Sans métadonnées de traçabilité complètes (source, date, chunk exact), il devient très difficile de répondre précisément à une telle demande pour un système RAG qui a indexé des milliers de documents.</p>
+
+        <pre><code class="language-python">def rechercher_toutes_mentions_personne(nom_personne: str) -> list[dict]:
+    """Nécessite des métadonnées d'entités extraites (module 4, leçon 2)
+    pour retrouver fiablement toutes les mentions d'une personne donnée."""
+    return vectorstore.search_by_metadata_filter(
+        filter={"entites_personnes": {"$in": [nom_personne]}}
+    )
+</code></pre>
+
+        <h3>Le droit à l'oubli et la suppression ciblée</h3>
+        <p>Rappel du cours embeddings (module 6, leçon 4) : la suppression fiable de tous les chunks associés à une source donnée dépend directement de métadonnées de traçabilité systématiques (module 2, leçon 1 — identifiants et source). Pour une demande de droit à l'oubli concernant une personne spécifique (pas un document entier), les métadonnées d'entités extraites (module 4) deviennent indispensables pour identifier précisément quels chunks contiennent des informations personnelles à supprimer ou anonymiser.</p>
+
+        <pre><code class="language-python">def traiter_demande_droit_a_loubli(nom_personne: str):
+    chunks_concernes = rechercher_toutes_mentions_personne(nom_personne)
+
+    for chunk in chunks_concernes:
+        if mentionne_uniquement_cette_personne(chunk, nom_personne):
+            supprimer_chunk(chunk["id"])
+        else:
+            # Le chunk mentionne aussi d'autres informations à conserver :
+            # anonymiser plutôt que supprimer entièrement
+            texte_anonymise = anonymiser_mentions(chunk["texte"], nom_personne)
+            mettre_a_jour_chunk(chunk["id"], texte_anonymise)
+</code></pre>
+
+        <h3>Documenter la durée de conservation via les métadonnées</h3>
+        <p>Une métadonnée de <strong>date d'expiration</strong> ou de <strong>durée de conservation légale</strong>, définie selon les obligations réglementaires propres à chaque type de document (données RH, données financières, données de santé ayant chacune leurs propres délais légaux), permet d'automatiser la purge ou l'archivage des chunks qui dépassent leur durée de conservation autorisée.</p>
+
+        <pre><code class="language-python">chunk_avec_conservation = {
+    "id": "chunk_512",
+    "categorie_donnees": "donnees_rh",
+    "date_ingestion": "2020-03-15",
+    "duree_conservation_legale_annees": 5,
+    "date_purge_prevue": "2025-03-15",   # calculée automatiquement
+}
+
+def identifier_chunks_a_purger(chunks: list[dict], date_actuelle: str) -> list[dict]:
+    return [c for c in chunks if c["date_purge_prevue"] <= date_actuelle]
+</code></pre>
+
+        <p>Ce module clôt la partie "outillage et gouvernance" du cours. Le dernier module assemble l'ensemble des techniques vues (structurelles, filtrage, enrichissement LLM, contexte, graphes, gouvernance) dans un pipeline complet, avec une méthode d'évaluation de leur impact réel et un exercice de synthèse.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Traiter la conformité réglementaire comme une préoccupation à traiter "plus tard, une fois le système en production", plutôt que de concevoir les métadonnées de traçabilité et de conservation dès la conception du schéma (module 2). Ajouter cette traçabilité rétroactivement sur un corpus déjà indexé sans ces métadonnées peut nécessiter un retraitement complet et coûteux.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : votre corpus contient-il des données personnelles soumises à des obligations réglementaires (RGPD ou équivalent) ? Si oui, quelles métadonnées de ce module seraient prioritaires à mettre en place pour répondre à une demande de droit d'accès ou de suppression ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-8">
+      <span class="module-kicker">MODULE 08 / 08 — FINAL</span>
+      <h1>Implémentation complète et évaluation</h1>
+      <p class="intro">Ce dernier module assemble l'ensemble des techniques d'enrichissement vues dans ce cours en un pipeline exécutable, propose une méthode pour mesurer leur impact réel, et clôt le cours avec un exercice de synthèse.</p>
+
+      <section class="lesson" id="m8-l1" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 8.1</span>Pipeline complet : du chunk brut au chunk enrichi indexé</h2>
+
+        <p>Voici un pipeline complet qui relie le chunk produit par le cours chunking aux différentes couches d'enrichissement vues dans ce cours, avant indexation finale dans la base vectorielle du cours embeddings.</p>
+
+        <pre><code class="language-python">def enrichir_chunk_complet(chunk_brut: dict, document_complet: str,
+                            chunk_precedent: dict | None) -> dict:
+    chunk = dict(chunk_brut)
+
+    # 1. Métadonnées structurelles (module 2) — quasi gratuites, systématiques
+    chunk["id"] = construire_identifiant_chunk(chunk["source"], chunk["index_dans_doc"])
+    chunk["breadcrumb"] = construire_breadcrumb(chunk["hierarchie_titres"])
+    chunk["date_ingestion"] = datetime.utcnow().isoformat()
+    chunk["statut"] = "actuel"
+
+    # 2. Enrichissement sémantique par LLM (module 4) — coût à valider (leçon 4.5)
+    chunk["resume"] = generer_resume_chunk(chunk["texte"])
+    chunk["entites"] = extraire_entites(chunk["texte"])
+    chunk["categorie"] = classifier_chunk(chunk["texte"])
+
+    # 3. Contexte et désambiguïsation (module 5)
+    contexte = contextualiser_chunk(document_complet, chunk["texte"])
+    chunk["contexte_genere"] = contexte["contexte_genere"]
+    if chunk_precedent:
+        chunk["texte_coreferences_resolues"] = resoudre_coreferences(
+            chunk_precedent["texte"], chunk["texte"]
+        )
+
+    # 4. Texte final pour embedding : injecte SEULEMENT ce qui aide le sens (module 5, leçon 5)
+    chunk["texte_pour_embedding"] = construire_texte_pour_embedding(chunk)
+
+    # 5. Validation avant indexation (module 7, leçon 3)
+    erreurs = valider_metadonnees(chunk, SCHEMA_METADONNEES_STRUCTURELLES)
+    chunk["pret_pour_indexation"] = len(erreurs) == 0
+
+    return chunk
+
+# Utilisation sur l'ensemble d'un document chunké (cours chunking)
+chunks_enrichis = []
+chunk_precedent = None
+for chunk_brut in chunks_du_document:
+    chunk_enrichi = enrichir_chunk_complet(chunk_brut, document_complet, chunk_precedent)
+    chunks_enrichis.append(chunk_enrichi)
+    chunk_precedent = chunk_brut
+</code></pre>
+
+        <p>Ce pipeline illustre la continuité complète entre les quatre cours de cette série : l'extraction et le nettoyage produisent un texte propre (cours nettoyage) ; le chunking le découpe en fragments cohérents (cours chunking) ; ce cours les enrichit de métadonnées structurelles, sémantiques et contextuelles ; et le texte enrichi final est embeddé et indexé (cours embeddings) pour une recherche filtrable et contextualisée.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Appliquer systématiquement toutes les étapes d'enrichissement (résumé, entités, classification, contextualisation, résolution de coréférences) à chaque chunk d'un corpus volumineux, sans avoir validé au préalable, comme recommandé au module 4, que chaque étape est réellement rentable pour votre cas d'usage. Ce pipeline complet est un catalogue de possibilités, pas une prescription à appliquer intégralement par défaut.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Dans le pipeline ci-dessus, identifiez à quel module de ce cours correspond chaque bloc numéroté (1 à 5). Pour votre propre projet, lesquels de ces blocs retireriez-vous pour une première version minimale ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l2" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 8.2</span>Mesurer l'impact des métadonnées sur la qualité du retrieval</h2>
+
+        <p>Comme pour chaque technique introduite dans cette série de cours, l'impact réel des métadonnées devrait être mesuré empiriquement plutôt que supposé — en réutilisant directement la méthode d'évaluation du cours chunking (module 7) et du cours embeddings (module 7).</p>
+
+        <pre><code class="language-python">configurations_a_comparer = {
+    "sans_metadonnees": lambda q: recherche_vectorielle_simple(q, k=5),
+    "avec_filtrage_structurel": lambda q: recherche_avec_filtre(q, filtre=extraire_filtres(q), k=5),
+    "avec_contextual_retrieval": lambda q: recherche_sur_texte_enrichi(q, k=5),
+    "avec_tout_l_enrichissement": lambda q: recherche_complete(q, k=5),
+}
+
+resultats_comparaison = {}
+for nom, fonction_recherche in configurations_a_comparer.items():
+    resultats_comparaison[nom] = {
+        "recall_at_5": recall_at_k(jeu_eval, fonction_recherche, k=5),
+        "mrr": mrr(jeu_eval, fonction_recherche, k=10),
+    }
+
+for nom, r in resultats_comparaison.items():
+    print(f"{nom:30s} | recall@5={r['recall_at_5']:.1%} | mrr={r['mrr']:.3f}")
+</code></pre>
+
+        <div class="ascii">Exemple illustratif de résultat comparatif (données fictives, à
+reproduire sur VOTRE corpus et VOTRE jeu de questions) :
+
+Configuration                    recall@5   MRR
+──────────────────────────────────────────────
+sans_metadonnees                   64%      0.49
+avec_filtrage_structurel            76%      0.61
+avec_contextual_retrieval           79%      0.65
+avec_tout_l_enrichissement           83%      0.70
+
+→ Chaque couche d'enrichissement apporte un gain mesurable ici,
+  mais l'écart entre "filtrage structurel" et "tout l'enrichissement"
+  est plus modeste que l'écart entre "sans métadonnées" et "filtrage
+  structurel" — suggérant que le filtrage structurel (module 2-3)
+  est la priorité la plus rentable, cohérent avec le principe de
+  progression du module 6, leçon 5.</div>
+
+        <h3>Isoler l'effet de chaque catégorie de métadonnée</h3>
+        <p>Au-delà d'une comparaison globale, isoler l'effet d'une seule catégorie à la fois (uniquement le filtrage structurel, uniquement le contextual retrieval) permet de prioriser les investissements futurs sur les techniques qui apportent le meilleur rapport bénéfice/coût pour votre corpus spécifique — plutôt que d'adopter aveuglément l'ensemble du catalogue de techniques de ce cours.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Mesurer uniquement l'effet de l'ensemble des techniques combinées, sans isoler la contribution de chacune. Cela empêche de savoir laquelle des techniques (filtrage, contextualisation, entités) justifie réellement son coût d'implémentation et de maintenance, et laquelle pourrait être abandonnée sans perte significative de qualité.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          En reprenant le jeu d'évaluation construit dans les cours précédents, esquissez comment vous mesureriez spécifiquement l'apport du filtrage par métadonnées structurelles (module 2-3), indépendamment de l'enrichissement sémantique (module 4).
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l3" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 8.3</span>Débogage d'un système où les métadonnées nuisent plutôt qu'elles n'aident</h2>
+
+        <p>Contre-intuitivement, des métadonnées mal conçues peuvent dégrader la qualité d'un système RAG plutôt que l'améliorer — cette leçon synthétise, sous forme de grille de diagnostic, les causes les plus fréquentes rencontrées tout au long de ce cours.</p>
+
+        <table>
+          <thead>
+            <tr><th>Symptôme observé</th><th>Cause probable</th><th>Module de référence</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Un filtre légitime ne retourne aucun résultat</td><td>Valeurs de métadonnées incohérentes (variantes non normalisées)</td><td>Module 7, leçon 3</td></tr>
+            <tr><td>Chunks pertinents jamais retrouvés malgré un bon score sémantique</td><td>Filtre trop restrictif appliqué par défaut</td><td>Module 3, leçon 1</td></tr>
+            <tr><td>Réponses citant des informations obsolètes</td><td>Statut "actuel" non filtré systématiquement</td><td>Module 2, leçon 4</td></tr>
+            <tr><td>Catégorisation incohérente entre chunks similaires</td><td>Confiance excessive en une classification LLM non validée</td><td>Module 4, leçon 5</td></tr>
+            <tr><td>Recherche vectorielle dégradée après enrichissement du texte</td><td>Trop de métadonnées injectées dans le texte embeddé, signal dilué</td><td>Module 5, leçon 5</td></tr>
+            <tr><td>Accès non autorisé à du contenu sensible</td><td>Permissions mal configurées ou absentes du filtrage</td><td>Module 3, leçon 2</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Méthode de diagnostic étape par étape</h3>
+        <ol>
+          <li><strong>Isoler si le problème vient du filtrage ou de la recherche sémantique</strong> : reproduire la même requête sans aucun filtre pour voir si le chunk attendu apparaît dans les résultats bruts.</li>
+          <li><strong>Vérifier la cohérence des valeurs de métadonnées</strong> impliquées dans le filtre (leçon 7.3) — une valeur mal orthographiée ou un format incohérent est une cause fréquente de filtre "vide".</li>
+          <li><strong>Comparer le texte embeddé avec et sans enrichissement</strong> pour vérifier si l'ajout de contexte (module 5) améliore ou dégrade réellement la similarité pour des questions représentatives.</li>
+          <li><strong>Vérifier l'origine de chaque métadonnée impliquée</strong> (auto-générée vs validée humainement, leçon 7.4) pour évaluer si une erreur de LLM pourrait expliquer le symptôme.</li>
+        </ol>
+
+        <pre><code class="language-python">def debug_recherche_avec_metadonnees(question: str, filtre_applique: dict):
+    print("--- Sans aucun filtre ---")
+    for c in recherche_vectorielle_simple(question, k=5):
+        print(f"  {c['texte'][:80]}... (metadata: {c.get('metadata')})")
+
+    print(f"\n--- Avec le filtre {filtre_applique} ---")
+    resultats_filtres = recherche_avec_filtre(question, filtre=filtre_applique, k=5)
+    if not resultats_filtres:
+        print("  AUCUN résultat — vérifier la cohérence des valeurs du filtre")
+    for c in resultats_filtres:
+        print(f"  {c['texte'][:80]}...")
+</code></pre>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Diagnostiquer un problème de retrieval en modifiant directement le modèle d'embedding ou la stratégie de chunking, alors que la cause réelle se situe dans une métadonnée mal conçue ou incohérente — un réflexe similaire au piège déjà identifié dans les cours précédents de toujours inspecter le comportement réel avant de changer un composant au hasard.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          En utilisant le tableau de diagnostic ci-dessus, pour chacun des 3 symptômes qui vous semblent les plus probables sur votre projet, notez la première vérification concrète que vous feriez.
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l4" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 8.4</span>Étude de cas et exercice final</h2>
+
+        <p>Cet exercice de synthèse mobilise l'ensemble des concepts vus dans ce cours — prenez le temps de le traiter sérieusement, c'est l'exercice qui ancre le plus durablement l'apprentissage.</p>
+
+        <div class="callout exercise">
+          <strong>Énoncé</strong>
+          Une compagnie d'assurance veut enrichir son système RAG interne, qui indexe : (a) 10 000 contrats d'assurance de plusieurs types (auto, habitation, santé), avec des clauses qui se réfèrent fréquemment les unes aux autres ; (b) une base de sinistres traités, contenant des informations personnelles clients (noms, adresses) soumises au RGPD ; (c) un wiki interne de procédures, consulté par des équipes de service client avec des niveaux d'habilitation différents.
+          <br><br>
+          Concevez un schéma de métadonnées complet pour ce corpus : pour chaque source (a, b, c), identifiez les métadonnées structurelles, sémantiques, relationnelles et de gouvernance prioritaires (en citant les modules pertinents), et justifiez l'ordre dans lequel vous les mettriez en œuvre.
+        </div>
+
+        <p>Quelques pistes de réflexion pour vous guider (à consulter après avoir tenté l'exercice vous-même) :</p>
+
+        <h3>Piste pour (a) les contrats avec clauses interréférencées</h3>
+        <p>Les métadonnées de relation entre chunks (module 5, leçon 3) sont ici prioritaires — une clause d'exception qui référence une clause générale ailleurs dans le contrat bénéficierait directement de la métadonnée <code class="inline">depend_de_chunk_id</code>. Une métadonnée <code class="inline">type_contrat</code> (auto/habitation/santé, module 3, leçon 3) permettrait un filtrage rapide par type.</p>
+
+        <h3>Piste pour (b) la base de sinistres avec données personnelles</h3>
+        <p>La priorité absolue ici est la gouvernance et la conformité (module 7, leçons 4-5) : métadonnées de traçabilité complètes (module 2, leçon 1) pour répondre aux demandes de droit d'accès, extraction d'entités personnes (module 4, leçon 2) pour permettre une recherche et une suppression ciblées en cas de demande de droit à l'oubli, et une durée de conservation légale explicite par métadonnée.</p>
+
+        <h3>Piste pour (c) le wiki avec habilitations différenciées</h3>
+        <p>Le filtrage par permissions (module 3, leçon 2) est ici la priorité numéro un, avant même l'enrichissement sémantique — un mauvais filtrage de permissions pourrait exposer des procédures internes sensibles à des équipes non habilitées, un risque de sécurité qui prime sur toute considération de qualité de retrieval.</p>
+
+        <h3>Ordre global recommandé</h3>
+        <ol>
+          <li>Métadonnées structurelles de base pour les trois sources (module 2) — socle commun</li>
+          <li>Filtrage par permissions pour (c), priorité de sécurité immédiate (module 3)</li>
+          <li>Métadonnées de gouvernance et conformité pour (b) — traçabilité RGPD (module 7)</li>
+          <li>Métadonnées de relation entre chunks pour (a) — une fois le socle stable (module 5)</li>
+          <li>Enrichissement sémantique optionnel (résumés, classification) pour les trois sources, évalué au cas par cas (module 4)</li>
+        </ol>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Traiter les trois sources de cet exercice avec exactement le même schéma de métadonnées uniforme. La diversité des enjeux (relations complexes, conformité réglementaire, contrôle d'accès) illustre précisément pourquoi un schéma de métadonnées doit être adapté aux besoins réels de chaque source, avec un socle commun partagé (module 7, leçon 1) mais des extensions spécifiques différenciées.
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l5" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 8.5</span>Ressources pour aller plus loin</h2>
+
+        <p>Pour approfondir au-delà de ce cours, quelques pistes organisées par thème.</p>
+
+        <h3>Documentation officielle des outils</h3>
+        <ul>
+          <li>Documentation LlamaIndex sur les extracteurs de métadonnées et les <code class="inline">Node</code> — référence pour l'enrichissement automatisé (module 4) et la modélisation de relations (module 5).</li>
+          <li>Documentation Pydantic — référence pour la validation formelle de schémas de métadonnées (module 7).</li>
+          <li>Documentation des bases vectorielles (Qdrant, Weaviate) sur le filtrage par métadonnées — approfondit le module 3.</li>
+        </ul>
+
+        <h3>Publications et projets de référence</h3>
+        <ul>
+          <li>La publication de Microsoft Research sur GraphRAG — pour approfondir les principes du module 6 avec le détail complet de l'implémentation de référence.</li>
+          <li>Le papier original sur HyDE (Hypothetical Document Embeddings) — pour approfondir la technique du module 4, leçon 4.</li>
+        </ul>
+
+        <h3>Pour la suite logique de cette série de cours</h3>
+        <ul>
+          <li>Le cours "Bases de Données Vectorielles" (à venir dans cette série) approfondira spécifiquement les capacités d'indexation et de filtrage de métadonnées propres à chaque solution (Chroma, Pinecone, Weaviate), en complément du module 3 de ce cours et du module 6 du cours embeddings.</li>
+        </ul>
+
+        <h3>Pour la pratique</h3>
+        <ul>
+          <li>Reproduire l'étude de cas de la leçon 8.4 sur un corpus personnel ou professionnel réel — la meilleure façon de transformer ce cours en compétence opérationnelle durable.</li>
+          <li>Construire le jeu d'évaluation comparatif de la leçon 8.2 sur votre propre corpus, pour mesurer objectivement l'apport de chaque catégorie de métadonnée avant de généraliser une technique à l'ensemble de votre pipeline.</li>
+        </ul>
+
+        <p>Ce cours, associé aux trois précédents (chunking, embeddings, nettoyage de texte), complète la chaîne de préparation de données pour un système RAG : de l'extraction d'un fichier brut jusqu'à un chunk enrichi, filtrable, traçable et relié aux autres. La qualité de chaque maillon — extraction propre, découpage cohérent, représentation vectorielle fidèle, métadonnées riches et gouvernées — détermine collectivement la fiabilité et la pertinence des réponses générées par le système final.</p>
+
+        <div class="finale">
+          <p>Vous avez terminé les 8 modules du cours sur l'enrichissement de métadonnées pour RAG.</p>
+          <a href="#top">← Retour en haut de la formation</a>
+        </div>
+      </section>
+    </div>
+
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+  hljs.highlightAll();
+  const sidebar = document.getElementById('sidebar');
+  document.getElementById('menuToggle').addEventListener('click', () => { sidebar.classList.toggle('open'); });
+  const lessonLinks = document.querySelectorAll('[data-lesson]');
+  const storageKey = 'metadonnees-rag-course-progress';
+  const done = JSON.parse(localStorage.getItem(storageKey) || '{}');
+  function updateProgressBar() {
+    const total = 40;
+    const completed = Object.values(done).filter(Boolean).length;
+    document.getElementById('progressFill').style.width = Math.min(100, (completed / total * 100)) + '%';
+  }
+  lessonLinks.forEach(link => {
+    const id = link.dataset.lesson;
+    if (done[id]) link.querySelector('.lesson-check').classList.add('done');
+    link.addEventListener('click', () => {
+      done[id] = true;
+      localStorage.setItem(storageKey, JSON.stringify(done));
+      link.querySelector('.lesson-check').classList.add('done');
+      updateProgressBar();
+      sidebar.classList.remove('open');
+    });
+  });
+  updateProgressBar();
+</script>
+</body>
+</html>

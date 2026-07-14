@@ -1,0 +1,2430 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Embeddings et Recherche Vectorielle — Comprendre la Transformation Texte vers Vecteur</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<style>
+  :root {
+    --bg: #f4f6f8; --bg-alt: #e8edf1; --panel: #ffffff; --text: #1f2430; --text-muted: #5b6472;
+    --accent: #0891b2; --accent-dark: #0e7490; --pitfall: #f59e0b; --border: #dbe2e8;
+    --chunk-1: #7c5cff; --chunk-2: #17b8a6; --chunk-3: #ff6b6b; --chunk-4: #ffb020;
+    --font-display: "Space Grotesk", sans-serif; --font-body: "Inter", system-ui, sans-serif; --font-mono: "JetBrains Mono", monospace;
+    --sidebar-width: 300px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font-body); color: var(--text); background: var(--bg); line-height: 1.65; }
+  .layout { display: flex; min-height: 100vh; }
+  .sidebar { width: var(--sidebar-width); flex-shrink: 0; background: var(--panel); border-right: 1px solid var(--border); padding: 1.5rem 1rem 3rem; overflow-y: auto; position: sticky; top: 0; height: 100vh; }
+  .sidebar a.brand { display: block; font-family: var(--font-display); font-weight: 700; font-size: 1rem; margin-bottom: 1.5rem; color: var(--text); text-decoration: none; padding: 0.4rem 0.5rem; }
+  .sidebar a.brand span { color: var(--accent); }
+  .module-group { margin-bottom: 0.35rem; border-radius: 8px; }
+  .module-title { font-family: var(--font-display); font-weight: 600; font-size: 0.88rem; padding: 0.55rem 0.6rem; display: flex; gap: 0.5rem; align-items: baseline; color: var(--text); text-decoration: none; }
+  .module-title .n { font-family: var(--font-mono); font-size: 0.72rem; opacity: 0.7; }
+  .lesson-list { list-style: none; padding-left: 0.6rem; margin-bottom: 0.4rem; }
+  .lesson-list li a { display: flex; align-items: center; gap: 0.5rem; padding: 0.32rem 0.5rem; border-radius: 6px; color: var(--text-muted); text-decoration: none; font-size: 0.83rem; }
+  .lesson-list li a:hover { background: var(--bg-alt); color: var(--text); }
+  .lesson-list li a.active { color: var(--accent-dark); font-weight: 600; background: rgba(8,145,178,0.1); }
+  .lesson-check { width: 12px; height: 12px; flex-shrink: 0; border: 1.5px solid var(--text-muted); border-radius: 3px; }
+  .lesson-check.done { background: var(--chunk-2); border-color: var(--chunk-2); }
+  .progress-bar { height: 4px; background: var(--border); position: sticky; top: 0; z-index: 10; }
+  .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--chunk-1), var(--accent)); width: 0%; transition: width 0.2s ease; }
+  .content { flex: 1; max-width: 760px; margin: 0 auto; padding: 3rem 2rem 6rem; }
+  .module-kicker { font-family: var(--font-mono); font-size: 0.8rem; color: var(--accent-dark); background: rgba(8,145,178,0.08); border: 1px dashed var(--accent); display: inline-block; padding: 0.2rem 0.8rem; border-radius: 999px; margin-bottom: 1rem; }
+  section.lesson { border-top: 2px dashed var(--border); padding-top: 2rem; margin-top: 2rem; position: relative; padding-left: 1.1rem; border-left: 4px solid var(--lesson-color, var(--accent)); }
+  section.lesson h2 { font-family: var(--font-display); font-size: 1.5rem; margin-bottom: 1rem; }
+  section.lesson h2 .tag { font-family: var(--font-mono); font-size: 0.7rem; color: var(--lesson-color, var(--accent)); display: block; margin-bottom: 0.3rem; }
+  section.lesson h3 { font-family: var(--font-display); font-size: 1.1rem; margin: 1.4rem 0 0.6rem; }
+  section.lesson p, section.lesson ul, section.lesson ol { margin-bottom: 1rem; }
+  section.lesson li { margin-left: 1.3rem; margin-bottom: 0.35rem; }
+  pre { border-radius: 8px; padding: 1rem; overflow-x: auto; margin: 1rem 0; font-size: 0.85rem; }
+  code.inline { font-family: var(--font-mono); background: var(--bg-alt); padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.85em; }
+  .ascii { font-family: var(--font-mono); font-size: 0.78rem; background: #1e222b; color: #d7dce2; padding: 1rem 1.2rem; border-radius: 8px; overflow-x: auto; margin: 1rem 0; line-height: 1.5; white-space: pre; }
+  .callout { border-left: 4px solid var(--accent); background: var(--bg-alt); padding: 1rem 1.2rem; border-radius: 0 8px 8px 0; margin: 1.2rem 0; }
+  .callout strong { font-family: var(--font-display); display: block; margin-bottom: 0.3rem; font-size: 0.92rem; }
+  .callout.pitfall { border-left-color: var(--pitfall); }
+  .callout.exercise { border-left-color: var(--chunk-2); }
+  .menu-toggle { display: none; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.88rem; }
+  thead tr { text-align: left; border-bottom: 2px solid var(--border); }
+  th, td { padding: 0.5rem 0.6rem; }
+  tbody tr { border-bottom: 1px solid var(--border); }
+
+  .hero {
+    border-bottom: 2px dashed var(--border);
+    padding: 3rem 0 2.5rem;
+    text-align: center;
+    margin-bottom: 1rem;
+  }
+  .hero .tag {
+    display: inline-block; font-family: var(--font-mono); font-size: 0.8rem;
+    color: var(--accent-dark); background: rgba(8,145,178,0.1);
+    border: 1px dashed var(--accent); border-radius: 999px;
+    padding: 0.25rem 0.9rem; margin-bottom: 1.25rem;
+  }
+  .hero-title {
+    font-family: var(--font-display); font-size: clamp(1.8rem, 5vw, 2.6rem);
+    font-weight: 700; margin: 0 auto 1rem; letter-spacing: -0.01em;
+  }
+  .hero-title span {
+    background: linear-gradient(90deg, var(--chunk-1), var(--accent), var(--chunk-2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .hero-lead { max-width: 620px; margin: 0 auto; color: var(--text-muted); font-size: 1.02rem; }
+  .strip { display: flex; justify-content: center; gap: 0.4rem; margin: 2rem auto 0; max-width: 520px; }
+  .strip .seg { height: 8px; flex: 1; border-radius: 3px; }
+  .strip .seg:nth-child(1) { background: var(--chunk-1); }
+  .strip .seg:nth-child(2) { background: var(--chunk-2); }
+  .strip .seg:nth-child(3) { background: var(--chunk-3); }
+  .strip .seg:nth-child(4) { background: var(--chunk-4); }
+  .strip .seg:nth-child(5) { background: var(--chunk-1); }
+  .strip .seg:nth-child(6) { background: var(--chunk-2); }
+
+  .module-block { border-top: 3px solid var(--border); padding-top: 2.5rem; margin-top: 3rem; }
+  .module-block:first-of-type { border-top: none; margin-top: 0; }
+  .module-block > h1 { font-family: var(--font-display); font-size: 2rem; margin-bottom: 0.5rem; }
+  .module-block > p.intro { color: var(--text-muted); margin-bottom: 2rem; font-size: 1.02rem; }
+
+  .finale {
+    margin-top: 3rem; padding: 1.5rem; border-radius: 10px;
+    background: linear-gradient(135deg, rgba(124,92,255,0.08), rgba(23,184,166,0.08));
+    border: 1px dashed var(--accent);
+    text-align: center;
+  }
+  .finale p { color: var(--text-muted); margin-bottom: 0.8rem; }
+  .finale a {
+    display: inline-block; background: var(--accent); color: white;
+    text-decoration: none; padding: 0.6rem 1.4rem; border-radius: 6px;
+    font-family: var(--font-display); font-weight: 600; font-size: 0.9rem;
+  }
+
+  @media (max-width: 860px) {
+    .sidebar { position: fixed; left: -100%; z-index: 20; transition: left 0.2s ease; box-shadow: 4px 0 12px rgba(0,0,0,0.15); background: var(--panel); }
+    .sidebar.open { left: 0; }
+    .menu-toggle { display: block; position: fixed; top: 1rem; left: 1rem; z-index: 30; background: var(--accent); color: white; border: none; border-radius: 6px; padding: 0.5rem 0.75rem; cursor: pointer; font-size: 1rem; }
+    .content { padding: 4.5rem 1.25rem 3rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-bar-fill" id="progressFill"></div></div>
+<button class="menu-toggle" id="menuToggle">☰</button>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar">
+    <a class="brand" href="#top">Embeddings<span>&amp;Vecteurs</span></a>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-1"><span class="n">01</span> Fondamentaux des embeddings</a>
+      <ul class="lesson-list">
+        <li><a href="#m1-l1" data-lesson="m1-l1"><span class="lesson-check"></span>Qu'est-ce qu'un embedding</a></li>
+        <li><a href="#m1-l2" data-lesson="m1-l2"><span class="lesson-check"></span>Symbolique vs dense</a></li>
+        <li><a href="#m1-l3" data-lesson="m1-l3"><span class="lesson-check"></span>Anatomie d'un vecteur</a></li>
+        <li><a href="#m1-l4" data-lesson="m1-l4"><span class="lesson-check"></span>Embeddings dans un pipeline RAG</a></li>
+        <li><a href="#m1-l5" data-lesson="m1-l5"><span class="lesson-check"></span>Erreurs de compréhension</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-2"><span class="n">02</span> Comment un modèle apprend à embedder</a>
+      <ul class="lesson-list">
+        <li><a href="#m2-l1" data-lesson="m2-l1"><span class="lesson-check"></span>De Word2Vec aux embeddings contextuels</a></li>
+        <li><a href="#m2-l2" data-lesson="m2-l2"><span class="lesson-check"></span>Transformers et attention</a></li>
+        <li><a href="#m2-l3" data-lesson="m2-l3"><span class="lesson-check"></span>Sentence vs word vs token embeddings</a></li>
+        <li><a href="#m2-l4" data-lesson="m2-l4"><span class="lesson-check"></span>Contrastive learning et fine-tuning</a></li>
+        <li><a href="#m2-l5" data-lesson="m2-l5"><span class="lesson-check"></span>Panorama des modèles actuels</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-3"><span class="n">03</span> Mesurer la similarité entre vecteurs</a>
+      <ul class="lesson-list">
+        <li><a href="#m3-l1" data-lesson="m3-l1"><span class="lesson-check"></span>Similarité cosinus</a></li>
+        <li><a href="#m3-l2" data-lesson="m3-l2"><span class="lesson-check"></span>Cosinus vs euclidienne vs produit scalaire</a></li>
+        <li><a href="#m3-l3" data-lesson="m3-l3"><span class="lesson-check"></span>Normalisation des vecteurs</a></li>
+        <li><a href="#m3-l4" data-lesson="m3-l4"><span class="lesson-check"></span>Visualiser en haute dimension</a></li>
+        <li><a href="#m3-l5" data-lesson="m3-l5"><span class="lesson-check"></span>Pièges d'interprétation</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-4"><span class="n">04</span> Choisir et utiliser un modèle d'embedding</a>
+      <ul class="lesson-list">
+        <li><a href="#m4-l1" data-lesson="m4-l1"><span class="lesson-check"></span>Critères de choix d'un modèle</a></li>
+        <li><a href="#m4-l2" data-lesson="m4-l2"><span class="lesson-check"></span>Propriétaire vs open-source</a></li>
+        <li><a href="#m4-l3" data-lesson="m4-l3"><span class="lesson-check"></span>Lire le benchmark MTEB</a></li>
+        <li><a href="#m4-l4" data-lesson="m4-l4"><span class="lesson-check"></span>Multilingue vs monolingue</a></li>
+        <li><a href="#m4-l5" data-lesson="m4-l5"><span class="lesson-check"></span>Fine-tuner son propre modèle</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-5"><span class="n">05</span> Recherche vectorielle : concepts et algorithmes</a>
+      <ul class="lesson-list">
+        <li><a href="#m5-l1" data-lesson="m5-l1"><span class="lesson-check"></span>Le problème du plus proche voisin</a></li>
+        <li><a href="#m5-l2" data-lesson="m5-l2"><span class="lesson-check"></span>Brute-force vs ANN</a></li>
+        <li><a href="#m5-l3" data-lesson="m5-l3"><span class="lesson-check"></span>Index HNSW</a></li>
+        <li><a href="#m5-l4" data-lesson="m5-l4"><span class="lesson-check"></span>IVF et Product Quantization</a></li>
+        <li><a href="#m5-l5" data-lesson="m5-l5"><span class="lesson-check"></span>Comparaison des approches</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-6"><span class="n">06</span> Bases de données vectorielles</a>
+      <ul class="lesson-list">
+        <li><a href="#m6-l1" data-lesson="m6-l1"><span class="lesson-check"></span>Panorama des bases vectorielles</a></li>
+        <li><a href="#m6-l2" data-lesson="m6-l2"><span class="lesson-check"></span>Filtrage et recherche hybride</a></li>
+        <li><a href="#m6-l3" data-lesson="m6-l3"><span class="lesson-check"></span>Dimensionnement et scalabilité</a></li>
+        <li><a href="#m6-l4" data-lesson="m6-l4"><span class="lesson-check"></span>Cycle de vie des vecteurs</a></li>
+        <li><a href="#m6-l5" data-lesson="m6-l5"><span class="lesson-check"></span>Choisir sa base vectorielle</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-7"><span class="n">07</span> Recherche hybride et pertinence</a>
+      <ul class="lesson-list">
+        <li><a href="#m7-l1" data-lesson="m7-l1"><span class="lesson-check"></span>Limites du tout-vectoriel</a></li>
+        <li><a href="#m7-l2" data-lesson="m7-l2"><span class="lesson-check"></span>Hybride BM25 + vectoriel</a></li>
+        <li><a href="#m7-l3" data-lesson="m7-l3"><span class="lesson-check"></span>Reranking par cross-encoders</a></li>
+        <li><a href="#m7-l4" data-lesson="m7-l4"><span class="lesson-check"></span>Fusion de scores (RRF)</a></li>
+        <li><a href="#m7-l5" data-lesson="m7-l5"><span class="lesson-check"></span>Évaluer la qualité du retrieval</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-8"><span class="n">08</span> Implémentation complète et bonnes pratiques</a>
+      <ul class="lesson-list">
+        <li><a href="#m8-l1" data-lesson="m8-l1"><span class="lesson-check"></span>Pipeline complet en production</a></li>
+        <li><a href="#m8-l2" data-lesson="m8-l2"><span class="lesson-check"></span>Coûts, latence et cache</a></li>
+        <li><a href="#m8-l3" data-lesson="m8-l3"><span class="lesson-check"></span>Débogage d'un retrieval faible</a></li>
+        <li><a href="#m8-l4" data-lesson="m8-l4"><span class="lesson-check"></span>Comparaison empirique de configs</a></li>
+        <li><a href="#m8-l5" data-lesson="m8-l5"><span class="lesson-check"></span>Ressources pour aller plus loin</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main class="content">
+    <header class="hero" id="top">
+      <span class="tag">// data-for-ai · 3.prepa-data-pour-RAG · Formation 10</span>
+      <h1 class="hero-title">Embeddings et Recherche <span>Vectorielle</span></h1>
+      <p class="hero-lead">Comprendre la transformation texte vers vecteur — de l'intuition géométrique d'un embedding jusqu'aux index de recherche approximative et aux bases de données vectorielles de production. 8 modules, 40 leçons.</p>
+      <div class="strip" aria-hidden="true">
+        <div class="seg"></div><div class="seg"></div><div class="seg"></div>
+        <div class="seg"></div><div class="seg"></div><div class="seg"></div>
+      </div>
+    </header>
+
+    <div class="module-block" id="module-1">
+      <span class="module-kicker">MODULE 01 / 08</span>
+      <h1>Fondamentaux des embeddings</h1>
+      <p class="intro">Avant de comparer des modèles ou des index de recherche, il faut comprendre précisément ce qu'est un embedding, pourquoi cette représentation a révolutionné le traitement du texte, et comment elle s'inscrit dans un pipeline RAG complet — la suite naturelle du cours sur le chunking.</p>
+
+      <section class="lesson" id="m1-l1" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 1.1</span>Qu'est-ce qu'un embedding et pourquoi transformer du texte en vecteurs</h2>
+
+        <p>Un <strong>embedding</strong> est une représentation numérique d'un morceau de texte (un mot, une phrase, un paragraphe) sous forme de vecteur — une liste de nombres flottants, typiquement entre 384 et 4096 dimensions selon le modèle. L'idée centrale : deux textes dont le <em>sens</em> est proche doivent avoir des vecteurs proches dans cet espace numérique, et deux textes dont le sens est éloigné doivent avoir des vecteurs éloignés.</p>
+
+        <p>Pourquoi transformer du texte en nombres ? Parce que les ordinateurs ne peuvent comparer directement des chaînes de caractères que sur leur forme exacte (égalité, sous-chaîne, distance d'édition) — pas sur leur <em>signification</em>. La phrase "Le chat dort sur le canapé" et la phrase "Un félin fait la sieste sur le sofa" n'ont presque aucun mot en commun, mais un humain reconnaît immédiatement qu'elles disent la même chose. Un embedding bien entraîné place ces deux phrases à des positions très proches dans l'espace vectoriel, alors qu'une comparaison textuelle brute (recherche de mots-clés) échouerait à les rapprocher.</p>
+
+        <div class="ascii">Texte brut                          Espace des embeddings (simplifié en 2D)
+
+"Le chat dort sur le canapé"   ──►        ● (0.82, 0.31)
+"Un félin fait la sieste          ──►     ● (0.79, 0.28)   ← très proche !
+ sur le sofa"
+"La bourse a chuté de 3%"      ──►                              ● (-0.41, 0.65)
+                                                                  ← loin des deux premiers</div>
+
+        <p>C'est cette propriété — <strong>la proximité géométrique reflète la proximité sémantique</strong> — qui rend les embeddings si utiles pour la recherche d'information : au lieu de chercher des mots-clés exacts, on cherche des vecteurs proches, ce qui capture des reformulations, des synonymes, et même des relations conceptuelles plus abstraites (une question et sa réponse, par exemple, peuvent être rapprochées si le modèle a été entraîné pour cela).</p>
+
+        <pre><code class="language-python">from openai import OpenAI
+
+client = OpenAI()
+
+def embed(texte: str) -> list[float]:
+    resp = client.embeddings.create(model="text-embedding-3-small", input=texte)
+    return resp.data[0].embedding
+
+vecteur = embed("Le chat dort sur le canapé")
+print(len(vecteur))    # 1536 dimensions pour ce modèle
+print(vecteur[:5])     # [0.0123, -0.0456, 0.0789, ...] — juste des nombres flottants
+</code></pre>
+
+        <p>Un embedding, pris isolément, n'a <strong>aucun sens interprétable</strong> pour un humain — on ne peut pas regarder la valeur d'une dimension et dire "ça représente le concept d'animal". C'est la position <em>relative</em> par rapport à d'autres vecteurs qui porte l'information, pas la valeur absolue d'une coordonnée. C'est une différence fondamentale avec des représentations "expliquables" comme un sac de mots ou des catégories manuelles.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Penser qu'un embedding "comprend" le texte comme le ferait un humain. Un embedding capture des régularités statistiques apprises sur d'immenses corpus d'entraînement — il peut se tromper sur des nuances (négation, ironie, ambiguïté) que le contexte général ne suffit pas à résoudre. Un embedding est un outil de similarité statistique, pas un moteur de compréhension sémantique au sens fort.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Imaginez trois phrases : deux qui reformulent la même idée avec des mots différents, et une troisième complètement différente. Sans calculer quoi que ce soit, prédisez laquelle des trois serait la plus "éloignée" des deux autres dans un espace d'embeddings — puis justifiez votre intuition.
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l2" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 1.2</span>De la représentation symbolique aux représentations denses</h2>
+
+        <p>Pour apprécier ce qu'apportent les embeddings, il faut comparer avec les approches qui les ont précédés. Historiquement, représenter du texte numériquement pour du machine learning est passé par plusieurs étapes, chacune corrigeant les limites de la précédente.</p>
+
+        <h3>One-hot encoding : la représentation la plus naïve</h3>
+        <p>Chaque mot du vocabulaire est représenté par un vecteur de la taille du vocabulaire entier, avec un seul "1" à la position correspondant à ce mot et des "0" partout ailleurs. Pour un vocabulaire de 50 000 mots, chaque mot est un vecteur de 50 000 dimensions, presque entièrement rempli de zéros (on parle de représentation <strong>creuse</strong>, "sparse").</p>
+
+        <pre><code class="language-python"># Vocabulaire simplifié : ["chat", "chien", "voiture", "sofa"]
+chat    = [1, 0, 0, 0]
+chien   = [0, 1, 0, 0]
+voiture = [0, 0, 1, 0]
+sofa    = [0, 0, 0, 1]
+
+# Problème : la distance entre "chat" et "chien" est IDENTIQUE
+# à la distance entre "chat" et "voiture" — aucune notion de sens n'est capturée.
+</code></pre>
+
+        <h3>Sac de mots (Bag of Words) et TF-IDF</h3>
+        <p>On représente un document entier par les fréquences de ses mots (pondérées par leur rareté dans le corpus pour TF-IDF). C'est la base historique des moteurs de recherche par mots-clés — efficace pour retrouver des documents qui contiennent des termes exacts, mais toujours aveugle au sens : "voiture" et "automobile" restent deux dimensions complètement indépendantes.</p>
+
+        <h3>Représentations denses (embeddings)</h3>
+        <p>Contrairement au one-hot (creux, haute dimension, sans notion de similarité), un embedding est <strong>dense</strong> : toutes les dimensions portent de l'information, dans un espace beaucoup plus compact (quelques centaines à quelques milliers de dimensions au lieu de la taille du vocabulaire). Cette compacité n'est pas qu'un gain de mémoire — c'est ce qui force le modèle à "généraliser" : pour représenter des dizaines de milliers de mots dans seulement 768 dimensions, le modèle doit apprendre à regrouper les mots proches en sens dans des régions proches de l'espace.</p>
+
+        <div class="ascii">One-hot (sparse)                    Embedding (dense)
+
+chat    [1,0,0,0,0,0,...,0]          chat    [0.12, -0.45, 0.78, ...]
+chien   [0,1,0,0,0,0,...,0]          chien   [0.15, -0.42, 0.81, ...]  ← proche de "chat" !
+voiture [0,0,1,0,0,0,...,0]          voiture [-0.67, 0.23, -0.11, ...] ← loin des animaux
+
+taille = taille du vocabulaire       taille = fixe (ex: 768), indépendante
+(souvent > 50 000)                   du vocabulaire</div>
+
+        <p>Cette transition du "sparse" vers le "dense" est l'une des avancées conceptuelles majeures qui a permis les progrès du NLP moderne — des premiers word embeddings (Word2Vec, GloVe, module 2) jusqu'aux embeddings contextuels produits par des transformers aujourd'hui.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Confondre TF-IDF et embeddings modernes en pensant que "les deux transforment du texte en vecteurs, donc c'est pareil". TF-IDF reste fondamentalement une représentation lexicale (basée sur la présence de mots exacts) — c'est pour cela qu'elle reste complémentaire aux embeddings dans les approches de recherche hybride (module 7), et non remplacée par eux.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un vocabulaire de 10 000 mots, calculez la taille d'un vecteur one-hot par mot, puis comparez à la taille typique d'un embedding dense (768 dimensions, valeur courante pour beaucoup de modèles open-source). Quel est le facteur de réduction ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l3" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 1.3</span>Anatomie d'un vecteur d'embedding : dimensions, espace sémantique, distance</h2>
+
+        <p>Cette leçon détaille la structure concrète d'un embedding et les propriétés géométriques qui rendent l'espace vectoriel exploitable pour la recherche.</p>
+
+        <h3>Les dimensions</h3>
+        <p>Chaque modèle d'embedding produit des vecteurs d'une taille fixe : 384 pour des modèles légers (<code class="inline">all-MiniLM-L6-v2</code>), 768 ou 1024 pour des modèles de taille moyenne (BGE-base, E5-large), 1536 ou 3072 pour les modèles OpenAI récents. Plus de dimensions permet théoriquement de capturer plus de nuances sémantiques, mais augmente aussi le coût de stockage et de calcul — un compromis qui rappelle celui de la taille de chunk (cours précédent).</p>
+
+        <pre><code class="language-python">import numpy as np
+
+vecteur = np.array(embed("Le chunking est essentiel pour un bon RAG"))
+print(vecteur.shape)      # (1536,)
+print(vecteur.dtype)      # float32 généralement
+print(np.linalg.norm(vecteur))   # la "longueur" du vecteur dans l'espace
+</code></pre>
+
+        <h3>L'espace sémantique</h3>
+        <p>On peut se représenter l'ensemble des embeddings possibles comme un espace à N dimensions, où chaque texte occupe une position. Ce n'est pas un espace euclidien "normal" au sens intuitif (impossible à visualiser directement au-delà de 3 dimensions), mais les mêmes notions géométriques (distance, angle, direction) s'y appliquent mathématiquement et se sont révélées porter du sens linguistique — l'exemple le plus célèbre étant l'arithmétique vectorielle sur les word embeddings : <code class="inline">roi - homme + femme ≈ reine</code>, observée sur les modèles Word2Vec historiques (module 2).</p>
+
+        <div class="ascii">Espace sémantique à 2 dimensions (simplifié pour l'illustration —
+en réalité, 384 à 3072 dimensions selon le modèle) :
+
+        ▲ dimension 2
+        │
+        │      ● "chat"
+        │    ● "chien"          ● "roi"
+        │  ● "animal de           ╲
+        │     compagnie"           ╲  (direction "genre")
+        │                           ▼
+        │                         ● "reine"
+        │
+        │                                    ● "voiture"
+        │                                  ● "moto"
+        └──────────────────────────────────────────────▶ dimension 1
+                                                      (regroupement par
+                                                       proximité sémantique)</div>
+
+        <h3>La distance comme mesure de similarité</h3>
+        <p>Une fois les textes plongés dans cet espace, la question "ces deux textes sont-ils similaires ?" devient une question purement géométrique : "quelle est la distance (ou l'angle) entre leurs deux vecteurs ?". C'est ce calcul de distance — détaillé en profondeur au module 3 — qui alimente directement la recherche vectorielle : retrouver les documents pertinents pour une question revient à chercher les vecteurs les plus proches du vecteur de la question.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Croire que plus de dimensions signifie toujours "meilleur" embedding. Au-delà d'un certain point, des dimensions supplémentaires apportent des gains marginaux décroissants tout en augmentant le coût de stockage et de calcul de similarité — un modèle à 1024 dimensions bien entraîné bat souvent un modèle à 3072 dimensions moins bien entraîné. La qualité de l'entraînement (module 2) compte plus que la taille brute du vecteur.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Calculez avec le code ci-dessus (ou mentalement à partir de la formule) la norme d'un vecteur imaginaire à 3 dimensions <code class="inline">[3, 4, 0]</code>. Cette notion de "longueur du vecteur" sera reprise au module 3 pour comprendre la normalisation.
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l4" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 1.4</span>Où interviennent les embeddings dans une architecture RAG</h2>
+
+        <p>Ce cours fait suite au cours sur le chunking — rappelons où les embeddings s'insèrent précisément dans le pipeline RAG en quatre phases (ingestion, embedding, retrieval, génération) déjà présenté.</p>
+
+        <div class="ascii">Phase 1 : Ingestion              Phase 2 : Embedding            Phase 3 : Retrieval
+(chunking, cours précédent)      (CE COURS)                     (CE COURS, module 5-7)
+
+Document                          chaque chunk                   question utilisateur
+   │                                 │                                │
+   ▼                                 ▼                                ▼
+[chunk 1][chunk 2][chunk 3]  ──►  embed()  ──►  vecteurs         embed(question) ──► vecteur
+                                     │                                │
+                                     ▼                                ▼
+                              stockés dans un index          recherche des vecteurs
+                              vectoriel (module 6)            les plus proches (module 5)
+                                                                       │
+                                                                       ▼
+                                                              Phase 4 : Génération
+                                                              (chunks pertinents → LLM)</div>
+
+        <p>Deux usages distincts des embeddings coexistent dans ce pipeline, et il est important de ne pas les confondre : (1) l'embedding des <strong>chunks</strong>, calculé une fois à l'ingestion et stocké dans l'index vectoriel ; (2) l'embedding de la <strong>question</strong> de l'utilisateur, calculé à chaque requête, en temps réel. Les deux doivent impérativement utiliser le <em>même modèle d'embedding</em> — comparer un vecteur produit par un modèle A à un vecteur produit par un modèle B n'a aucun sens, les deux espaces vectoriels ne sont pas alignés entre eux.</p>
+
+        <pre><code class="language-python"># Phase 2 — Embedding des chunks à l'ingestion (une fois, en batch)
+chunks = ["Le chunking...", "L'overlap permet...", "Un modèle d'embedding..."]
+vecteurs_chunks = [embed(c) for c in chunks]   # stockés dans l'index vectoriel
+
+# Phase 3 — Embedding de la question à chaque requête (temps réel)
+question = "Comment calibrer l'overlap ?"
+vecteur_question = embed(question)             # MÊME modèle que pour les chunks !
+
+# La recherche compare vecteur_question aux vecteurs_chunks stockés
+</code></pre>
+
+        <p>Cette leçon boucle avec le cours précédent : la qualité du chunking détermine <em>ce qui</em> est embeddé (un chunk cohérent produit un embedding "propre" ; un chunk mal découpé produit un embedding bruité, cf. module 1 du cours chunking) ; la qualité du modèle d'embedding détermine <em>comment fidèlement</em> ce contenu est transformé en position dans l'espace vectoriel. Les deux briques sont complémentaires — améliorer l'une sans l'autre plafonne rapidement la qualité globale du retrieval.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Changer de modèle d'embedding pour l'un des deux usages (ingestion ou requête) sans changer l'autre — par exemple mettre à jour le modèle utilisé pour les nouvelles requêtes sans ré-indexer les chunks existants avec le même modèle. Les vecteurs deviennent alors incomparables entre eux, et la recherche retourne des résultats incohérents sans erreur explicite, ce qui rend ce bug particulièrement difficile à diagnostiquer.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          En reprenant un exemple de pipeline RAG que vous avez esquissé au cours précédent, identifiez précisément les deux moments où un appel au modèle d'embedding a lieu, et notez pourquoi ils doivent impérativement utiliser la même configuration de modèle.
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l5" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 1.5</span>Erreurs de compréhension courantes sur les embeddings</h2>
+
+        <p>Cette dernière leçon du module fondateur rassemble les malentendus les plus fréquents sur les embeddings — à reconnaître avant d'aborder les modules suivants, plus techniques.</p>
+
+        <h3>1. "Un embedding plus grand est toujours meilleur"</h3>
+        <p>Comme vu en leçon 1.3, la dimension du vecteur n'est qu'un facteur parmi d'autres (qualité et volume des données d'entraînement, architecture du modèle, objectif d'entraînement). Un petit modèle bien entraîné sur un domaine spécifique peut surperformer un grand modèle généraliste sur ce domaine précis.</p>
+
+        <h3>2. "Les embeddings capturent la vérité, pas juste la forme du texte"</h3>
+        <p>Un embedding reflète des régularités statistiques apprises sur des données d'entraînement — si ces données contiennent des biais, des erreurs factuelles répétées, ou une couverture inégale de certains domaines, l'embedding hérite de ces limites. Deux affirmations peuvent être proches en embedding tout en étant l'une vraie et l'autre fausse : la proximité sémantique n'est pas une garantie de véracité.</p>
+
+        <h3>3. "Un même modèle d'embedding fonctionne aussi bien pour toutes les langues"</h3>
+        <p>De nombreux modèles sont entraînés majoritairement sur de l'anglais ; leur performance sur d'autres langues (même largement parlées comme le français) peut être significativement dégradée, sauf à choisir explicitement un modèle multilingue ou spécifiquement entraîné sur la langue cible (approfondi au module 4).</p>
+
+        <h3>4. "La similarité cosinus proche de 1 signifie que les textes disent la même chose"</h3>
+        <p>Une similarité élevée signifie que les textes sont proches dans l'espace appris par le modèle — ce qui peut refléter une similarité de sujet plutôt qu'une équivalence de sens précise. Deux phrases sur le même sujet mais avec des conclusions opposées ("Le produit fonctionne bien" vs "Le produit ne fonctionne pas bien") peuvent avoir une similarité cosinus étonnamment élevée, car elles partagent le même vocabulaire et le même sujet — la négation est une des faiblesses connues des embeddings (approfondi au module 3).</p>
+
+        <h3>5. "Il suffit d'avoir de bons embeddings pour avoir un bon RAG"</h3>
+        <p>Les embeddings ne sont qu'une des briques du pipeline (rappel du cours chunking) : un mauvais chunking, une mauvaise stratégie d'indexation (module 5-6), l'absence de reranking (module 7) ou un mauvais prompt de génération peuvent tous dégrader la qualité finale même avec le meilleur modèle d'embedding du marché.</p>
+
+        <div class="ascii">Idée reçue                              Réalité plus nuancée
+──────────────────────────────────────────────────────────────────────
+"Plus de dimensions = mieux"            Dépend surtout de l'entraînement
+"Les embeddings comprennent le texte"   Ils capturent des régularités
+                                         statistiques, pas une compréhension
+"Un modèle marche pour toute langue"    Souvent biaisé vers l'anglais
+"Similarité haute = même sens"          Peut refléter juste le même sujet
+"Bons embeddings = bon RAG"             Une brique parmi plusieurs</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Diagnostiquer un mauvais résultat RAG en changeant immédiatement de modèle d'embedding, en supposant que "le modèle n'est pas assez bon", sans avoir vérifié si le problème vient plutôt du chunking, de l'absence de reranking, ou d'un cas structurel comme la sensibilité à la négation. Comme pour le chunking, le premier réflexe de diagnostic devrait être d'inspecter concrètement ce qui est récupéré, pas de changer de composant au hasard.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : parmi les 5 idées reçues listées ci-dessus, laquelle vous semblait la plus intuitive avant cette leçon ? Expliquez en une phrase pourquoi la réalité est plus nuancée que l'intuition initiale.
+        </div>
+      </section>
+    </div>
+    <div class="module-block" id="module-2">
+      <span class="module-kicker">MODULE 02 / 08</span>
+      <h1>Comment un modèle apprend à embedder du texte</h1>
+      <p class="intro">Comprendre comment un modèle d'embedding est entraîné permet de mieux interpréter ses forces et ses limites — et d'éviter de le traiter comme une boîte noire magique quand vient le moment de le choisir (module 4) ou de déboguer un résultat inattendu.</p>
+
+      <section class="lesson" id="m2-l1" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 2.1</span>Des word embeddings classiques aux embeddings contextuels</h2>
+
+        <p>L'histoire des embeddings de texte est celle d'une résolution progressive d'une limite fondamentale : au départ, un mot avait <strong>un seul vecteur fixe</strong>, quel que soit son contexte d'utilisation. Aujourd'hui, les modèles produisent des représentations qui s'adaptent au contexte. Comprendre cette évolution éclaire pourquoi les modèles modernes sont si supérieurs aux approches historiques.</p>
+
+        <h3>Word2Vec et GloVe (2013-2014) : un vecteur par mot</h3>
+        <p>Word2Vec (Google, 2013) a été l'une des premières approches à produire des embeddings denses de bonne qualité, entraînés en prédisant un mot à partir de son contexte (ou l'inverse). GloVe (Stanford, 2014) s'appuie sur des statistiques de co-occurrence de mots à l'échelle d'un corpus entier. Les deux approches partagent une limite majeure : chaque mot a <strong>un seul vecteur</strong>, indépendant de la phrase dans laquelle il apparaît.</p>
+
+        <pre><code class="language-python"># Avec Word2Vec/GloVe : le mot "avocat" a UN SEUL vecteur,
+# qu'il désigne le fruit ou la profession juridique.
+
+vecteur_avocat = word2vec_model["avocat"]
+# Utilisé dans "j'ai mangé un avocat" ET "j'ai consulté un avocat"
+# → même représentation, alors que le sens diffère complètement !
+</code></pre>
+
+        <h3>Les embeddings contextuels (2018 et après) : un vecteur par occurrence</h3>
+        <p>Avec l'arrivée des modèles basés sur les transformers (BERT en 2018, puis toute la génération suivante), un mot n'a plus un vecteur fixe : son embedding est calculé <strong>en tenant compte de la phrase entière</strong> qui l'entoure. Le mot "avocat" produit un vecteur différent selon qu'il apparaît à côté de "salade" ou de "tribunal".</p>
+
+        <pre><code class="language-python"># Avec un modèle contextuel (BERT et après) :
+embedding_1 = modele_contextuel("J'ai mangé un avocat au petit-déjeuner")
+embedding_2 = modele_contextuel("J'ai consulté un avocat pour mon contrat")
+
+# Les représentations du mot "avocat" dans ces deux phrases sont DIFFÉRENTES,
+# chacune influencée par le contexte environnant.
+</code></pre>
+
+        <div class="ascii">Word2Vec / GloVe (2013-2014)         Modèles contextuels (2018+)
+─────────────────────────────       ──────────────────────────────
+1 mot → 1 vecteur FIXE               1 mot + contexte → 1 vecteur
+                                      qui varie selon la phrase
+
+"avocat" (fruit) = "avocat" (métier) "avocat" (fruit) ≠ "avocat" (métier)
+        (même vecteur)                      (vecteurs différents)
+
+Limite : ambiguïté non résolue       Avantage : désambiguïsation
+                                      automatique par le contexte</div>
+
+        <p>Les modèles d'embedding actuels utilisés pour la recherche vectorielle (module 4) sont tous construits sur cette base contextuelle — généralement en ajoutant, par-dessus un transformer de type BERT, un mécanisme pour agréger les représentations de tous les tokens d'une phrase en <strong>un seul vecteur</strong> représentant la phrase entière (approfondi en leçon 2.3).</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Penser que Word2Vec et GloVe sont complètement obsolètes et inutiles à connaître. Ils restent pertinents dans des contextes à faible ressource de calcul (embeddings très légers, calculables sans GPU), pour certaines tâches de classification simples, et surtout pour comprendre par contraste ce qu'apporte réellement la contextualisation — une notion essentielle pour bien interpréter les modèles modernes.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Trouvez un autre exemple de mot ambigu en français (comme "avocat") dont le sens change radicalement selon le contexte. Décrivez les deux contextes qui donneraient des embeddings très différents avec un modèle contextuel, mais identiques avec Word2Vec.
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l2" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 2.2</span>Les transformers et l'attention comme base des embeddings modernes</h2>
+
+        <p>Le mécanisme qui permet à un modèle de contextualiser la représentation d'un mot en fonction des mots qui l'entourent s'appelle l'<strong>attention</strong> — le composant central de l'architecture transformer, introduite en 2017 et depuis à la base de la quasi-totalité des modèles de langage et d'embedding modernes.</p>
+
+        <h3>L'intuition de l'attention</h3>
+        <p>Pour chaque mot d'une phrase, le mécanisme d'attention calcule un score d'importance envers <em>tous les autres mots</em> de la phrase, puis construit la représentation de ce mot comme une moyenne pondérée des représentations de tous les mots, pondérée par ces scores. Concrètement, pour désambiguïser "avocat" dans "j'ai consulté un avocat pour mon contrat", le modèle apprend à donner un poids élevé au mot "contrat" (qui est fortement lié au sens juridique) et un poids faible aux mots moins informatifs ("un", "pour", "mon").</p>
+
+        <div class="ascii">Phrase : "J'ai consulté un avocat pour mon contrat"
+
+Poids d'attention calculés POUR le mot "avocat" :
+
+  J'ai      : 0.03
+  consulté  : 0.18   ← contribue à la désambiguïsation (sens "consulter qqn")
+  un        : 0.01
+  avocat    : —  (le mot lui-même)
+  pour      : 0.02
+  mon       : 0.02
+  contrat   : 0.74   ← poids fort, signale fortement le sens juridique
+
+→ La représentation finale de "avocat" est une combinaison pondérée
+  de tous les mots de la phrase, dominée ici par "contrat".</div>
+
+        <h3>Empilement de couches</h3>
+        <p>Un transformer empile plusieurs couches d'attention successives (souvent 12 à 24 couches pour des modèles de taille moyenne), chaque couche affinant un peu plus la représentation contextuelle. Les premières couches capturent des relations syntaxiques simples (accord grammatical, proximité immédiate) ; les couches plus profondes capturent des relations sémantiques plus abstraites et à plus longue distance dans la phrase.</p>
+
+        <pre><code class="language-python"># Illustration conceptuelle très simplifiée (pas du code exécutable réel)
+# d'une couche d'attention
+
+def couche_attention(representations_mots: list, poids_appris) -> list:
+    nouvelles_representations = []
+    for mot in representations_mots:
+        # Calcule un score d'attention entre ce mot et TOUS les mots
+        scores = [similarite(mot, autre_mot, poids_appris) for autre_mot in representations_mots]
+        scores_normalises = softmax(scores)
+        # Nouvelle représentation = moyenne pondérée de tous les mots
+        nouvelle_repr = sum(s * m for s, m in zip(scores_normalises, representations_mots))
+        nouvelles_representations.append(nouvelle_repr)
+    return nouvelles_representations
+</code></pre>
+
+        <p>Il n'est pas nécessaire de maîtriser les détails mathématiques de l'attention pour utiliser efficacement des modèles d'embedding en pratique — mais comprendre ce principe explique pourquoi les modèles contextuels excellent à capturer des relations à distance dans une phrase (une négation en début de phrase qui inverse le sens d'un mot en fin de phrase, par exemple), là où des approches plus anciennes (fenêtre de mots fixe) échouaient.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Croire qu'il faut comprendre en détail les transformers pour bien utiliser des embeddings en production. Dans la pratique quotidienne d'un ingénieur RAG, ce qui compte le plus est de savoir choisir un modèle adapté (module 4) et d'interpréter correctement ses résultats de similarité (module 3) — l'architecture interne reste utile à connaître pour l'intuition, mais rarement nécessaire à manipuler directement.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Prenez la phrase "Le rapport que l'équipe a rendu la semaine dernière n'était pas satisfaisant." Identifiez à quel mot lointain de la phrase le mot "n'était pas" (la négation) doit "prêter attention" pour inverser correctement le sens du mot "satisfaisant".
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l3" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 2.3</span>Sentence embeddings vs word embeddings vs token embeddings</h2>
+
+        <p>Un point de confusion fréquent : un transformer produit nativement un vecteur <em>par token</em> (approximativement par mot ou sous-mot), pas un vecteur unique pour toute la phrase. Pour obtenir un seul vecteur représentant un chunk entier (ce dont on a besoin pour la recherche vectorielle), il faut une étape supplémentaire d'agrégation.</p>
+
+        <h3>Token embeddings : la sortie brute d'un transformer</h3>
+        <p>Pour une phrase de 10 mots (découpée en, disons, 14 tokens après tokenization sous-mot), un transformer produit 14 vecteurs — un par token, chacun contextualisé par l'attention (leçon 2.2). C'est la sortie "brute" du modèle, avant toute agrégation.</p>
+
+        <pre><code class="language-python">from transformers import AutoTokenizer, AutoModel
+import torch
+
+tokenizer = AutoTokenizer.from_pretrained("BAAI/bge-base-en-v1.5")
+modele = AutoModel.from_pretrained("BAAI/bge-base-en-v1.5")
+
+entrees = tokenizer("Le chunking est essentiel pour un bon RAG", return_tensors="pt")
+sortie = modele(**entrees)
+
+token_embeddings = sortie.last_hidden_state  # forme : (1, nb_tokens, 768)
+print(token_embeddings.shape)   # ex: torch.Size([1, 12, 768]) — 12 tokens, 768 dims chacun
+</code></pre>
+
+        <h3>Sentence/chunk embeddings : agréger les tokens en un seul vecteur</h3>
+        <p>Trois stratégies principales d'agrégation coexistent :</p>
+
+        <ul>
+          <li><strong>CLS pooling</strong> : utiliser uniquement le vecteur du premier token spécial <code class="inline">[CLS]</code>, entraîné spécifiquement pour résumer toute la phrase (technique historique de BERT).</li>
+          <li><strong>Mean pooling</strong> : faire la moyenne de tous les vecteurs de tokens de la phrase — la méthode la plus répandue aujourd'hui pour les modèles d'embedding de phrase (utilisée par la famille Sentence-BERT et la plupart des modèles modernes comme BGE, E5).</li>
+          <li><strong>Last-token pooling</strong> : utiliser uniquement le vecteur du dernier token, pratique courante pour les modèles d'embedding dérivés de LLM décodeurs (qui traitent le texte de gauche à droite).</li>
+        </ul>
+
+        <pre><code class="language-python">import torch
+
+def mean_pooling(token_embeddings: torch.Tensor, attention_mask: torch.Tensor) -> torch.Tensor:
+    mask = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
+    somme = torch.sum(token_embeddings * mask, dim=1)
+    compte = torch.clamp(mask.sum(dim=1), min=1e-9)
+    return somme / compte
+
+sentence_embedding = mean_pooling(token_embeddings, entrees["attention_mask"])
+print(sentence_embedding.shape)   # torch.Size([1, 768]) — UN SEUL vecteur pour toute la phrase
+</code></pre>
+
+        <div class="ascii">Transformer (sortie brute)              Agrégation (pooling)          Résultat final
+
+token 1 → [0.1, 0.4, ...]  ─┐
+token 2 → [0.2, 0.3, ...]  ─┤
+token 3 → [0.5, 0.1, ...]  ─┼──► mean pooling / CLS / last-token ──► [0.27, 0.28, ...]
+   ...                      │                                        UN SEUL vecteur
+token N → [0.3, 0.2, ...]  ─┘                                        pour tout le chunk</div>
+
+        <p>C'est ce vecteur final agrégé — le "sentence embedding" ou "chunk embedding" — qui est effectivement stocké dans l'index vectoriel et utilisé pour la recherche (modules 5-6). Heureusement, dans la pratique quotidienne, les API de modèles d'embedding (OpenAI, Cohere, etc.) et les librairies comme <code class="inline">sentence-transformers</code> gèrent cette agrégation automatiquement — mais comprendre ce qui se passe "sous le capot" aide à interpréter certains comportements, notamment sur des textes très longs (leçon suivante et module 4).</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Utiliser un modèle de token embeddings brut (comme les couches internes de BERT) directement sans pooling adapté, en pensant obtenir un bon embedding de phrase. Un CLS token non fine-tuné pour cet usage, ou une moyenne mal masquée (incluant les tokens de padding), produit des embeddings de piètre qualité. Toujours privilégier un modèle explicitement entraîné et packagé pour produire des sentence embeddings (comme ceux listés au module 4), plutôt que de réimplémenter le pooling à la main sur un modèle générique.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour une phrase de votre choix, comptez approximativement le nombre de tokens qu'elle produirait (rappel du cours chunking : environ 0,75 mot par token en anglais, un peu moins en français). Si un modèle produit un vecteur de 768 dimensions par token, combien de nombres flottants bruts le transformer produit-il avant l'étape de pooling ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l4" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 2.4</span>Contrastive learning et fine-tuning : comment on entraîne un bon modèle d'embedding</h2>
+
+        <p>Un transformer pré-entraîné (comme BERT de base) ne produit pas nativement de bons embeddings de similarité — il a été entraîné pour prédire des mots manquants, pas pour rapprocher des phrases similaires dans l'espace vectoriel. Une étape d'entraînement supplémentaire, spécifiquement dédiée à cet objectif, est nécessaire : c'est le <strong>contrastive learning</strong>.</p>
+
+        <h3>Le principe du contrastive learning</h3>
+        <p>L'idée : entraîner le modèle sur des paires (ou triplets) de textes en lui apprenant explicitement à rapprocher les paires similaires et à éloigner les paires dissimilaires dans l'espace vectoriel. Un triplet typique d'entraînement comprend une <strong>ancre</strong> (le texte de référence), un <strong>positif</strong> (un texte qui devrait être considéré comme similaire — une paraphrase, une question et sa réponse) et un ou plusieurs <strong>négatifs</strong> (des textes qui ne devraient pas être considérés comme similaires).</p>
+
+        <pre><code class="language-python"># Exemple de triplet d'entraînement (contrastive learning)
+ancre    = "Comment calibrer l'overlap dans un chunking ?"
+positif  = "Quelle est la bonne valeur de chevauchement entre chunks ?"   # paraphrase
+negatif  = "Quel est le prix d'une base de données vectorielle managée ?"  # sujet différent
+
+# Objectif d'entraînement (perte contrastive, simplifiée) :
+# minimiser distance(embed(ancre), embed(positif))
+# ET maximiser distance(embed(ancre), embed(negatif))
+</code></pre>
+
+        <h3>La fonction de perte contrastive (intuition)</h3>
+        <p>Concrètement, l'entraînement ajuste les poids du modèle pour que la similarité cosinus (module 3) entre l'ancre et le positif soit élevée, tout en maintenant la similarité entre l'ancre et les négatifs basse — souvent avec plusieurs négatifs par ancre dans un même batch d'entraînement, ce qui pousse le modèle à discriminer finement entre de nombreux candidats simultanément (technique dite des "negatifs in-batch").</p>
+
+        <div class="ascii">Avant l'entraînement contrastif :          Après l'entraînement contrastif :
+
+     ● positif                                    ● positif
+              ● négatif                          (proche de l'ancre)
+   ● ancre                          ──►      ● ancre
+        ● négatif                                        ● négatif
+                                                      ● négatif
+(positions quasi aléatoires,               (positif rapproché,
+ pas de structure de similarité             négatifs repoussés —
+ exploitable)                               structure exploitable pour
+                                             la recherche vectorielle)</div>
+
+        <h3>D'où viennent les données d'entraînement</h3>
+        <p>Les paires positives peuvent provenir de sources variées : paires question/réponse extraites de forums (StackExchange, Quora), résumés associés à leurs articles, traductions d'une même phrase dans différentes langues, ou paires générées synthétiquement par un LLM (technique de plus en plus répandue pour les modèles récents). La qualité et la diversité de ces paires d'entraînement sont déterminantes pour la qualité finale du modèle — un modèle entraîné uniquement sur des paires de questions/réponses de support technique généralisera mal à des textes juridiques, par exemple.</p>
+
+        <p>C'est également ce mécanisme de contrastive learning qui permet le <strong>fine-tuning</strong> d'un modèle d'embedding existant sur un domaine spécifique (approfondi au module 4, leçon 5) : au lieu d'entraîner un modèle depuis zéro, on poursuit l'entraînement d'un modèle déjà performant avec des paires positives/négatives spécifiques à son propre domaine (jargon juridique, vocabulaire médical, terminologie interne d'entreprise).</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Penser qu'un modèle d'embedding "comprend" intrinsèquement la similarité sans avoir été spécifiquement entraîné pour cela. Un transformer pré-entraîné brut (sans étape de contrastive learning) produit généralement de mauvais résultats pour la recherche de similarité — toujours vérifier qu'un modèle candidat a explicitement été entraîné/fine-tuné pour la tâche d'embedding de similarité (souvent indiqué dans sa fiche modèle), pas seulement pré-entraîné pour du langage général.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un futur assistant RAG spécialisé en recettes de cuisine, proposez un exemple de triplet (ancre, positif, négatif) qui pourrait servir à fine-tuner un modèle d'embedding sur ce domaine.
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l5" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 2.5</span>Panorama des modèles d'embedding actuels</h2>
+
+        <p>Un tour d'horizon des familles de modèles d'embedding les plus utilisées en 2026, pour situer les options disponibles avant le choix détaillé du module 4.</p>
+
+        <h3>Modèles propriétaires (API)</h3>
+        <ul>
+          <li><strong>OpenAI</strong> — <code class="inline">text-embedding-3-small</code> (1536 dimensions, économique) et <code class="inline">text-embedding-3-large</code> (3072 dimensions, plus performant) ; supportent la réduction de dimension à la volée (Matryoshka embeddings).</li>
+          <li><strong>Cohere</strong> — <code class="inline">embed-v4</code>, orienté entreprise, avec un fort support multilingue et des variantes spécialisées pour la recherche vs le clustering.</li>
+          <li><strong>Voyage AI</strong> — modèles réputés pour leurs performances sur des domaines spécialisés (code, juridique, finance), souvent utilisés en complément d'Anthropic Claude dans des pipelines RAG.</li>
+          <li><strong>Google (Gemini embeddings)</strong> — intégrés à l'écosystème Vertex AI, bon support multilingue.</li>
+        </ul>
+
+        <h3>Modèles open-source (auto-hébergeables)</h3>
+        <ul>
+          <li><strong>BGE (BAAI General Embedding)</strong> — famille très populaire (bge-small/base/large), fréquemment en tête des benchmarks MTEB (module 4) pour sa taille.</li>
+          <li><strong>E5 (Microsoft)</strong> — famille multilingue (multilingual-e5), robuste et largement adoptée.</li>
+          <li><strong>GTE (Alibaba)</strong> — bon compromis performance/taille, disponible en plusieurs tailles.</li>
+          <li><strong>Nomic Embed, Mixedbread, Jina Embeddings</strong> — modèles plus récents, souvent optimisés pour des contextes longs ou des cas d'usage spécifiques (multimodal pour Jina, par exemple).</li>
+          <li><strong>all-MiniLM-L6-v2</strong> — modèle historique très léger (384 dimensions), toujours utilisé pour des prototypes rapides ou des contraintes de ressources fortes.</li>
+        </ul>
+
+        <pre><code class="language-python"># Utilisation d'un modèle open-source via sentence-transformers
+from sentence_transformers import SentenceTransformer
+
+modele = SentenceTransformer("BAAI/bge-base-en-v1.5")
+vecteurs = modele.encode([
+    "Le chunking est essentiel pour un bon RAG",
+    "Comment calibrer l'overlap entre chunks ?",
+])
+print(vecteurs.shape)   # (2, 768)
+
+# Utilisation d'un modèle propriétaire via API
+from openai import OpenAI
+client = OpenAI()
+resp = client.embeddings.create(model="text-embedding-3-small", input="Le chunking...")
+</code></pre>
+
+        <div class="ascii">Panorama simplifié (2026) :
+
+Propriétaire (API)              Open-source (auto-hébergé)
+────────────────────           ──────────────────────────
+OpenAI text-embedding-3         BGE (BAAI)
+Cohere embed-v4                 E5 (Microsoft)
+Voyage AI                       GTE (Alibaba)
+Google Gemini embeddings        Nomic / Mixedbread / Jina
+
+Avantages : simplicité,         Avantages : contrôle total,
+pas d'infra à gérer,            pas de coût par appel,
+mises à jour automatiques       données ne quittent pas
+                                 votre infrastructure</div>
+
+        <p>Ce panorama évolue rapidement — de nouveaux modèles apparaissent régulièrement, et les classements de performance (benchmark MTEB, module 4) changent au fil des publications. La bonne pratique n'est pas de mémoriser "le meilleur modèle du moment" mais de savoir où consulter les benchmarks à jour et comment interpréter les critères de choix pertinents pour son propre cas d'usage — c'est précisément l'objet du module 4.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Choisir un modèle d'embedding uniquement sur la base de sa popularité ou de son ancienneté (ex: rester sur <code class="inline">all-MiniLM-L6-v2</code> par habitude) sans revérifier les benchmarks récents. Le domaine évolue vite : un modèle open-source considéré comme état de l'art il y a 18 mois peut être largement dépassé par des modèles plus récents et souvent plus légers.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : à partir de ce panorama, listez un avantage et un inconvénient d'opter pour un modèle propriétaire (API) plutôt qu'un modèle open-source auto-hébergé, dans le contexte spécifique de votre projet (réel ou imaginé).
+        </div>
+      </section>
+    </div>
+    <div class="module-block" id="module-3">
+      <span class="module-kicker">MODULE 03 / 08</span>
+      <h1>Mesurer la similarité entre vecteurs</h1>
+      <p class="intro">Une fois le texte transformé en vecteurs (modules 1-2), toute la recherche vectorielle repose sur une seule opération répétée des millions de fois : mesurer à quel point deux vecteurs sont proches. Ce module explique en profondeur comment cette mesure fonctionne, et où elle peut induire en erreur.</p>
+
+      <section class="lesson" id="m3-l1" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 3.1</span>Similarité cosinus : intuition géométrique et calcul</h2>
+
+        <p>La <strong>similarité cosinus</strong> est la mesure de référence pour comparer deux embeddings. Son principe : au lieu de mesurer la distance "en ligne droite" entre deux vecteurs, elle mesure l'<strong>angle</strong> qui les sépare. Deux vecteurs pointant dans la même direction ont une similarité cosinus de 1, deux vecteurs perpendiculaires ont une similarité de 0, et deux vecteurs opposés ont une similarité de -1.</p>
+
+        <div class="ascii">Représentation géométrique (espace simplifié en 2D) :
+
+        ▲
+        │      ╱ vecteur A ("chat qui dort")
+        │    ╱
+        │  ╱  θ (angle petit → similarité cosinus proche de 1)
+        │╱_______╱
+        │       ╱ vecteur B ("félin qui somnole")
+        │     ╱
+        │   ╱
+        └──────────────────────────────▶
+
+Un angle petit (θ) entre A et B signifie que les deux textes
+pointent dans une direction similaire de l'espace sémantique
+→ ils sont considérés comme sémantiquement proches.</div>
+
+        <p>Mathématiquement, la similarité cosinus entre deux vecteurs A et B se calcule comme le produit scalaire des deux vecteurs, divisé par le produit de leurs normes (longueurs) :</p>
+
+        <div class="ascii">similarité_cosinus(A, B) = (A · B) / (||A|| × ||B||)
+
+où :
+  A · B   = somme des produits terme à terme (produit scalaire)
+  ||A||   = norme (longueur) du vecteur A
+  ||B||   = norme (longueur) du vecteur B
+
+Résultat toujours compris entre -1 et 1 :
+  1  → vecteurs identiques en direction (très similaires)
+  0  → vecteurs orthogonaux (aucune relation)
+  -1 → vecteurs opposés (rarement observé en pratique sur du texte)</div>
+
+        <pre><code class="language-python">import numpy as np
+
+def similarite_cosinus(a: np.ndarray, b: np.ndarray) -> float:
+    produit_scalaire = np.dot(a, b)
+    norme_a = np.linalg.norm(a)
+    norme_b = np.linalg.norm(b)
+    return produit_scalaire / (norme_a * norme_b)
+
+vecteur_chat = np.array(embed("Le chat dort sur le canapé"))
+vecteur_felin = np.array(embed("Un félin fait la sieste sur le sofa"))
+vecteur_bourse = np.array(embed("La bourse a chuté de 3%"))
+
+print(similarite_cosinus(vecteur_chat, vecteur_felin))   # ex: 0.89 — très proche
+print(similarite_cosinus(vecteur_chat, vecteur_bourse))  # ex: 0.12 — presque sans rapport
+</code></pre>
+
+        <p>Pourquoi privilégier l'angle plutôt que la distance brute ? Parce que la longueur d'un vecteur d'embedding peut varier pour des raisons qui n'ont rien à voir avec le sens (longueur du texte source, fréquence des mots utilisés), alors que sa <em>direction</em> dans l'espace capture plus fidèlement le contenu sémantique. C'est pour cette raison que la similarité cosinus est devenue le standard de facto pour comparer des embeddings de texte, bien plus que la distance euclidienne brute (approfondi en leçon 3.2).</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Confondre "similarité cosinus" et "distance cosinus" — ce sont deux notions liées mais inverses. La similarité cosinus est élevée quand les textes sont proches (proche de 1) ; la distance cosinus (souvent définie comme 1 moins la similarité) est élevée quand les textes sont éloignés. De nombreuses librairies et bases vectorielles utilisent l'une ou l'autre convention selon leur API — toujours vérifier la documentation avant d'interpréter un score retourné.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Sans calculer précisément, ordonnez ces trois paires de phrases de la similarité cosinus la plus élevée à la plus faible : (a) "Bonjour" / "Salut", (b) "Bonjour" / "Le ciel est bleu", (c) "Bonjour" / "Bonsoir". Justifiez votre intuition.
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l2" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 3.2</span>Distance euclidienne vs produit scalaire vs cosinus : quand utiliser quoi</h2>
+
+        <p>Trois mesures de similarité/distance coexistent dans les librairies de recherche vectorielle, et le choix entre elles n'est pas anodin — il peut changer les résultats de recherche de façon significative selon le modèle d'embedding utilisé.</p>
+
+        <h3>Distance euclidienne (L2)</h3>
+        <p>La distance "en ligne droite" classique entre deux points dans l'espace, généralisée à N dimensions. Contrairement à la similarité cosinus, elle est sensible à la fois à la direction <em>et</em> à la longueur des vecteurs.</p>
+
+        <pre><code class="language-python">def distance_euclidienne(a: np.ndarray, b: np.ndarray) -> float:
+    return np.linalg.norm(a - b)
+
+# Plus la distance est PETITE, plus les vecteurs sont proches
+# (contrairement à la similarité cosinus où une valeur ÉLEVÉE = proche)
+</code></pre>
+
+        <h3>Produit scalaire (dot product)</h3>
+        <p>Le calcul le plus simple et le moins coûteux (pas de division, pas de calcul de norme) — mais son résultat dépend directement de la longueur des vecteurs, ce qui le rend risqué à utiliser si les vecteurs ne sont pas normalisés (leçon suivante).</p>
+
+        <pre><code class="language-python">def produit_scalaire(a: np.ndarray, b: np.ndarray) -> float:
+    return np.dot(a, b)
+
+# Si les vecteurs sont normalisés (norme = 1), le produit scalaire
+# devient MATHÉMATIQUEMENT ÉQUIVALENT à la similarité cosinus.
+</code></pre>
+
+        <h3>Quand utiliser quoi</h3>
+        <div class="ascii">Mesure               Sensible à la      Coût de calcul   Cas d'usage typique
+                      longueur du vecteur
+──────────────────────────────────────────────────────────────────────────
+Cosinus               Non (normalisée)   Moyen           Standard pour texte,
+                                                          la plupart des modèles
+                                                          d'embedding modernes
+
+Produit scalaire       Oui (sauf si       Faible          Vecteurs déjà normalisés,
+                       normalisé)                          recherche à grande échelle
+                                                            (le plus rapide)
+
+Distance euclidienne   Oui                Moyen           Données géométriques réelles,
+                                                            embeddings d'images, clustering</div>
+
+        <p>Dans la pratique, la plupart des modèles d'embedding de texte modernes sont entraînés (via le contrastive learning, module 2) en optimisant directement la similarité cosinus — c'est donc presque toujours la mesure à privilégier pour comparer leurs sorties, sauf indication contraire explicite dans la documentation du modèle. Certains modèles (notamment ceux d'OpenAI) produisent déjà des vecteurs normalisés, ce qui rend le produit scalaire et la similarité cosinus mathématiquement identiques — dans ce cas, les bases vectorielles utilisent souvent le produit scalaire par défaut car il est plus rapide à calculer à grande échelle (module 5).</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Utiliser la distance euclidienne par défaut (souvent le choix par défaut de certaines librairies génériques de nearest-neighbor non spécialisées pour le texte) sans vérifier que c'est la mesure adaptée au modèle d'embedding utilisé. Un modèle entraîné et optimisé pour la similarité cosinus peut donner des résultats de recherche significativement moins bons si on le compare avec une distance euclidienne — toujours aligner la métrique de recherche sur la métrique d'entraînement du modèle.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour deux vecteurs normalisés (de norme 1), écrivez la relation mathématique qui relie leur distance euclidienne à leur similarité cosinus. (Indice : partez de la formule <code class="inline">||a - b||² = ||a||² + ||b||² - 2(a·b)</code> et simplifiez sachant que les normes valent 1.)
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l3" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 3.3</span>Normalisation des vecteurs et son impact</h2>
+
+        <p>La <strong>normalisation</strong> consiste à redimensionner un vecteur pour que sa norme (longueur) devienne exactement 1, tout en conservant sa direction. C'est une étape simple mais dont l'impact sur les calculs de similarité est déterminant — comprendre pourquoi permet d'éviter des bugs de recherche difficiles à diagnostiquer.</p>
+
+        <pre><code class="language-python">import numpy as np
+
+def normaliser(vecteur: np.ndarray) -> np.ndarray:
+    norme = np.linalg.norm(vecteur)
+    return vecteur / norme
+
+v = np.array([3.0, 4.0])
+v_normalise = normaliser(v)
+print(np.linalg.norm(v))             # 5.0 (norme originale)
+print(np.linalg.norm(v_normalise))   # 1.0 (toujours 1 après normalisation)
+print(v_normalise)                   # [0.6, 0.8] — même direction, longueur différente
+</code></pre>
+
+        <div class="ascii">Avant normalisation :                Après normalisation :
+
+        ▲                                     ▲
+        │      ╱ v (longueur 5)               │      ╱ v_normalisé (longueur 1)
+        │    ╱                                 │    ╱
+        │  ╱                                    │  ╱
+        │╱_____________▶                        │╱_______▶
+                                                  (même direction,
+                                                   longueur ramenée à 1)</div>
+
+        <p>Pourquoi normaliser ? Trois raisons principales :</p>
+
+        <ul>
+          <li><strong>Rendre le produit scalaire équivalent à la similarité cosinus</strong> — comme vu en leçon 3.2, une fois les vecteurs normalisés, le calcul le plus rapide (produit scalaire) donne exactement le même résultat que le calcul le plus robuste (cosinus), sans le coût supplémentaire de division par les normes à chaque comparaison.</li>
+          <li><strong>Éliminer un biais de longueur de texte</strong> — sans normalisation, des textes plus longs peuvent systématiquement produire des vecteurs de norme différente de celle des textes courts, ce qui fausserait une comparaison basée sur la distance euclidienne ou le produit scalaire brut.</li>
+          <li><strong>Accélérer la recherche à grande échelle</strong> — de nombreux index de recherche vectorielle (module 5) sont optimisés spécifiquement pour des vecteurs normalisés, ce qui permet des calculs de similarité plus rapides sur des millions de vecteurs.</li>
+        </ul>
+
+        <pre><code class="language-python"># La plupart des librairies de bases vectorielles gèrent la normalisation
+# automatiquement, mais il est utile de vérifier explicitement :
+
+vecteur = np.array(embed("Exemple de texte"))
+print(np.linalg.norm(vecteur))
+# Si proche de 1.0 → déjà normalisé par le modèle (cas d'OpenAI, par exemple)
+# Si très différent de 1.0 → normalisation à faire manuellement avant indexation
+</code></pre>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Mélanger des vecteurs normalisés et non normalisés dans un même index de recherche — par exemple si une partie du corpus a été indexée avec une version du pipeline qui normalisait les vecteurs et une autre partie avec une version qui ne le faisait pas. Les comparaisons deviennent alors incohérentes silencieusement, un bug particulièrement difficile à détecter car aucune erreur n'est levée, seuls les résultats de recherche deviennent subtilement dégradés.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Reprenez le vecteur <code class="inline">[3.0, 4.0]</code> de l'exemple ci-dessus. Calculez à la main sa norme (rappel : racine carrée de la somme des carrés), puis vérifiez que le vecteur normalisé obtenu a bien une norme de 1.
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l4" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 3.4</span>Visualiser des embeddings en haute dimension (PCA, t-SNE, UMAP)</h2>
+
+        <p>Un embedding vit dans un espace à 384, 768 ou 1536+ dimensions — impossible à visualiser directement. Pour autant, inspecter visuellement la structure d'un ensemble d'embeddings (repérer des regroupements, des anomalies, des chevauchements inattendus) est un outil de débogage précieux. Des techniques de <strong>réduction de dimension</strong> permettent de projeter ces vecteurs en 2D ou 3D tout en préservant au mieux leur structure relative.</p>
+
+        <h3>PCA (Analyse en Composantes Principales)</h3>
+        <p>Une méthode linéaire et rapide qui trouve les axes de variance maximale dans les données et projette les points sur ces axes. Simple à calculer et déterministe (toujours le même résultat), mais peut mal préserver les structures non linéaires complexes de l'espace d'embedding original.</p>
+
+        <pre><code class="language-python">from sklearn.decomposition import PCA
+import matplotlib.pyplot as plt
+
+textes = ["Le chat dort", "Le chien court", "La bourse chute", "Les actions montent"]
+vecteurs = np.array([embed(t) for t in textes])
+
+pca = PCA(n_components=2)
+vecteurs_2d = pca.fit_transform(vecteurs)
+
+plt.scatter(vecteurs_2d[:, 0], vecteurs_2d[:, 1])
+for i, t in enumerate(textes):
+    plt.annotate(t, (vecteurs_2d[i, 0], vecteurs_2d[i, 1]))
+plt.show()
+</code></pre>
+
+        <h3>t-SNE (t-distributed Stochastic Neighbor Embedding)</h3>
+        <p>Une méthode non linéaire, plus lente que PCA mais souvent bien meilleure pour révéler des regroupements ("clusters") naturels dans les données. Attention : les distances <em>absolues</em> et la taille des clusters dans une visualisation t-SNE ne sont pas directement interprétables — seule la structure de voisinage relative (quels points sont proches de quels autres) est fiable.</p>
+
+        <pre><code class="language-python">from sklearn.manifold import TSNE
+
+tsne = TSNE(n_components=2, perplexity=30, random_state=42)
+vecteurs_2d = tsne.fit_transform(vecteurs)
+</code></pre>
+
+        <h3>UMAP (Uniform Manifold Approximation and Projection)</h3>
+        <p>Une alternative plus récente à t-SNE, généralement plus rapide sur de grands volumes de données et considérée comme préservant mieux à la fois la structure locale (voisins proches) et globale (relations entre clusters éloignés) de l'espace original.</p>
+
+        <pre><code class="language-python">import umap
+
+reducer = umap.UMAP(n_components=2, random_state=42)
+vecteurs_2d = reducer.fit_transform(vecteurs)
+</code></pre>
+
+        <div class="ascii">Comparaison rapide :
+
+PCA      : rapide, déterministe, linéaire — bon premier réflexe
+           pour un aperçu global rapide
+
+t-SNE    : lent, non déterministe (sauf seed fixée), excellent
+           pour révéler des clusters locaux
+
+UMAP     : bon compromis vitesse/qualité, préserve mieux la
+           structure globale que t-SNE, de plus en plus le
+           standard recommandé pour explorer des embeddings</div>
+
+        <p>Ces visualisations sont particulièrement utiles pour du débogage exploratoire : si des chunks qui devraient sémantiquement se regrouper (ex: toutes les sections d'un même sujet dans une documentation) apparaissent dispersés de façon incohérente dans la projection, c'est un signal qu'il faut creuser — soit le chunking a produit des fragments de mauvaise qualité (cours précédent), soit le modèle d'embedding est mal adapté au contenu (module 4).</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Sur-interpréter une visualisation t-SNE ou UMAP comme si les distances et surfaces occupées par les clusters représentaient fidèlement les distances réelles dans l'espace d'embedding original à haute dimension. Ces techniques déforment délibérément l'espace pour le rendre visualisable — elles sont un outil d'exploration qualitative, pas une mesure quantitative fiable de similarité.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un petit corpus imaginaire de 20 phrases couvrant 3 sujets distincts, décrivez ce que vous vous attendriez à observer visuellement dans une projection PCA ou UMAP réussie — et ce qui indiquerait au contraire un problème de qualité des embeddings.
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l5" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 3.5</span>Pièges d'interprétation de la similarité</h2>
+
+        <p>Cette dernière leçon du module rassemble les cas où la similarité cosinus (ou toute autre mesure) peut induire en erreur si elle est interprétée trop littéralement — un prolongement direct de la leçon 1.5 sur les erreurs de compréhension générales.</p>
+
+        <h3>La sensibilité limitée à la négation</h3>
+        <p>Comme évoqué au module 1, deux phrases qui partagent le même sujet mais expriment des conclusions opposées peuvent avoir une similarité cosinus étonnamment élevée, car le modèle capture surtout le sujet commun plutôt que la polarité exacte du propos.</p>
+
+        <pre><code class="language-python">a = embed("Ce produit fonctionne très bien et je le recommande")
+b = embed("Ce produit ne fonctionne pas bien et je ne le recommande pas")
+
+print(similarite_cosinus(np.array(a), np.array(b)))
+# Résultat typique : une similarité étonnamment élevée (souvent > 0.85),
+# alors que les deux phrases expriment des avis opposés.
+</code></pre>
+
+        <h3>L'absence de seuil universel</h3>
+        <p>Il n'existe pas de valeur de similarité cosinus universellement "bonne" ou "mauvaise" (ex: "0.8 = pertinent, 0.5 = pas pertinent") — la distribution des scores de similarité varie selon le modèle d'embedding utilisé, la longueur des textes comparés, et le domaine. Un seuil de pertinence doit être calibré empiriquement sur son propre corpus et jeu de questions (rappel de la méthode d'évaluation du cours chunking), jamais copié d'un tutoriel générique.</p>
+
+        <h3>La similarité au niveau du chunk vs la pertinence pour répondre à la question</h3>
+        <p>Un chunk peut être très similaire sémantiquement à une question (même sujet, même vocabulaire) sans pour autant contenir l'information nécessaire pour y répondre. Exemple : la question "Quel est le prix de l'abonnement premium ?" peut avoir une similarité élevée avec un chunk qui parle du produit premium en détail, mais qui ne mentionne jamais explicitement de prix. La similarité cosinus mesure une proximité de <em>sujet</em>, pas une garantie de <em>réponse effective</em> — ce qui justifie l'ajout d'une étape de reranking (module 7) dans les pipelines exigeants.</p>
+
+        <h3>Le biais de longueur résiduel</h3>
+        <p>Même avec des vecteurs normalisés, certains modèles présentent un biais résiduel où des textes de longueurs très différentes (une question courte de 5 mots vs un chunk de 400 mots) ont tendance à avoir des similarités systématiquement plus basses que deux textes de longueurs comparables — un artefact à connaître si vos questions et chunks ont des longueurs très disparates.</p>
+
+        <div class="ascii">Situation                                    Piège d'interprétation
+──────────────────────────────────────────────────────────────────────────
+Phrases avec négation opposée                Similarité élevée malgré
+                                              un sens contraire
+
+Score de similarité à "0.6" sans référence   Aucun seuil universel —
+                                              dépend du modèle et du corpus
+
+Chunk sur le bon sujet, sans la réponse      Similarité élevée ≠
+précise                                      garantie de réponse présente
+
+Question courte vs chunk très long           Biais de longueur résiduel
+                                              possible selon le modèle</div>
+
+        <p>Ces limites ne remettent pas en cause l'utilité de la similarité cosinus — elles rappellent qu'elle doit être utilisée comme un <strong>filtre de candidats</strong> (retrouver un ensemble de textes probablement pertinents) plutôt que comme un <strong>arbitre final absolu</strong> de pertinence. C'est précisément le rôle que joue le reranking en aval (module 7) : affiner le classement des meilleurs candidats retournés par la recherche vectorielle avec un modèle plus précis (mais plus coûteux) qui évalue directement la paire question-chunk.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Fixer un seuil de similarité cosinus fixe dans le code (ex: "ignorer tout résultat sous 0.75") sans l'avoir calibré empiriquement sur son propre corpus et modèle d'embedding. Ce seuil peut être totalement inadapté — trop strict (on perd des résultats pertinents) ou trop permissif (on garde du bruit) — selon la distribution réelle des scores observés sur vos données.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : reprenez l'exemple de la négation ci-dessus. Comment pourriez-vous, en pratique, réduire ce risque dans un système RAG réel (au niveau du chunking, du modèle utilisé, ou d'une étape supplémentaire du pipeline) ? Proposez une piste concrète.
+        </div>
+      </section>
+    </div>
+    <div class="module-block" id="module-4">
+      <span class="module-kicker">MODULE 04 / 08</span>
+      <h1>Choisir et utiliser un modèle d'embedding</h1>
+      <p class="intro">Face à des dizaines de modèles disponibles (module 2, leçon 5), ce module donne une méthode concrète pour choisir, en fonction de critères mesurables plutôt que de la popularité du moment.</p>
+
+      <section class="lesson" id="m4-l1" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 4.1</span>Critères de choix : dimension, langue, domaine, coût, latence</h2>
+
+        <p>Choisir un modèle d'embedding est un arbitrage multi-critères — rarement une décision évidente à trancher par un seul facteur. Voici les cinq critères les plus déterminants, à évaluer systématiquement pour tout projet.</p>
+
+        <h3>Dimension du vecteur</h3>
+        <p>Impacte directement le coût de stockage (une base de 10 millions de chunks en 1536 dimensions occupe environ 60 Go rien qu'en vecteurs float32, contre 15 Go en 384 dimensions) et la vitesse de recherche. Certains modèles récents (technique dite "Matryoshka") permettent de tronquer le vecteur à une dimension plus faible avec une perte de qualité limitée — un bon compromis si le stockage est une contrainte forte.</p>
+
+        <h3>Support de la langue cible</h3>
+        <p>Comme évoqué au module 1, tous les modèles ne sont pas égaux face au français ou à d'autres langues non-anglaises. Toujours vérifier explicitement les benchmarks multilingues (leçon 4.4) plutôt que de supposer qu'un modèle performant en anglais le sera automatiquement dans une autre langue.</p>
+
+        <h3>Adéquation au domaine</h3>
+        <p>Un modèle généraliste peut sous-performer sur un vocabulaire très spécialisé (juridique, médical, code source) par rapport à un modèle fine-tuné ou spécifiquement entraîné sur ce domaine (Voyage AI propose par exemple des modèles dédiés au code et à la finance).</p>
+
+        <h3>Coût</h3>
+        <p>Les modèles propriétaires facturent à l'appel (souvent par million de tokens traités), un coût récurrent qui croît avec le volume. Les modèles open-source auto-hébergés ont un coût d'infrastructure (GPU ou CPU, selon la taille du modèle) mais pas de coût variable par appel — l'arbitrage dépend du volume prévu et de l'équipe disponible pour opérer l'infrastructure.</p>
+
+        <h3>Latence</h3>
+        <p>Critique pour l'embedding de la requête utilisateur en temps réel (moins pour l'ingestion en batch, plus tolérante à la latence). Un modèle local de petite taille peut répondre en quelques millisecondes, alors qu'un appel API a systématiquement une latence réseau incompressible (souvent 50-200ms).</p>
+
+        <pre><code class="language-python"># Grille de décision simplifiée à remplir pour son propre projet
+criteres = {
+    "dimension_max_acceptable": 1024,       # contrainte de stockage
+    "langue_principale": "français",
+    "domaine": "support client e-commerce",
+    "budget_mensuel_estime": "500 appels/jour",
+    "latence_max_acceptable_ms": 150,
+    "besoin_auto_hebergement": False,       # pas d'équipe infra dédiée
+}
+</code></pre>
+
+        <div class="ascii">Grille d'arbitrage rapide :
+
+Volume élevé + équipe infra disponible   → open-source auto-hébergé
+Volume faible/moyen + pas d'équipe infra → API propriétaire
+Domaine très spécialisé                  → modèle dédié ou fine-tuné
+Contrainte de confidentialité forte      → open-source auto-hébergé
+                                            (données ne quittent jamais
+                                             votre infrastructure)</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Optimiser un seul critère (souvent la performance brute sur un benchmark) en ignorant les autres. Un modèle en tête du classement MTEB mais dont la dimension est énorme (donc coûteux à stocker et lent à interroger à grande échelle) peut être un mauvais choix pratique par rapport à un modèle légèrement moins performant mais bien plus économe.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Remplissez la grille de critères ci-dessus pour votre propre projet (réel ou imaginé). Lequel des cinq critères est le plus contraignant dans votre cas — celui qui élimine le plus d'options ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l2" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 4.2</span>Modèles propriétaires vs open-source : avantages et compromis</h2>
+
+        <p>Au-delà du panorama de modèles vu au module 2, cette leçon détaille l'arbitrage stratégique entre les deux grandes familles d'options.</p>
+
+        <h3>Modèles propriétaires (API)</h3>
+        <p><strong>Avantages</strong> : mise en place immédiate (un appel API), pas d'infrastructure à gérer, mises à jour du modèle transparentes pour l'utilisateur, souvent parmi les meilleurs scores sur les benchmarks généralistes. <strong>Inconvénients</strong> : coût récurrent qui croît linéairement avec le volume, dépendance à un fournisseur externe (disponibilité, changements de tarification), les données transitent par un tiers (question de confidentialité selon le secteur), latence réseau incompressible.</p>
+
+        <pre><code class="language-python">from openai import OpenAI
+
+client = OpenAI()
+resp = client.embeddings.create(model="text-embedding-3-small", input="Exemple de texte")
+vecteur = resp.data[0].embedding
+# Simplicité maximale, mais chaque appel a un coût et une latence réseau
+</code></pre>
+
+        <h3>Modèles open-source (auto-hébergés)</h3>
+        <p><strong>Avantages</strong> : pas de coût par appel une fois l'infrastructure en place, contrôle total sur les données (rien ne quitte votre environnement), possibilité de fine-tuner librement sur son propre domaine (module 2, leçon 4), latence potentiellement plus faible si hébergé localement. <strong>Inconvénients</strong> : nécessite une infrastructure (GPU recommandé pour de bonnes performances à volume élevé), responsabilité de la maintenance et des mises à jour, courbe d'apprentissage pour l'exploitation en production.</p>
+
+        <pre><code class="language-python">from sentence_transformers import SentenceTransformer
+
+modele = SentenceTransformer("BAAI/bge-base-en-v1.5", device="cuda")  # ou "cpu"
+vecteurs = modele.encode(["Exemple de texte"], normalize_embeddings=True)
+# Pas de coût par appel, mais infrastructure et maintenance à votre charge
+</code></pre>
+
+        <h3>Une troisième voie : les fournisseurs d'inférence managée</h3>
+        <p>Des services comme Hugging Face Inference Endpoints, Together AI ou Fireworks AI permettent d'exécuter des modèles open-source sans gérer soi-même l'infrastructure GPU — un compromis intéressant entre les deux approches, avec un coût par appel généralement inférieur aux modèles propriétaires les plus performants, tout en gardant l'accès à la richesse de l'écosystème open-source.</p>
+
+        <div class="ascii">                    Propriétaire (API)    Open-source          Inférence managée
+                                          (auto-hébergé)        (3e voie)
+──────────────────────────────────────────────────────────────────────────────
+Mise en place        Immédiate            Complexe              Rapide
+Coût à petit volume  Faible               Élevé (infra fixe)    Moyen
+Coût à gros volume   Élevé (linéaire)     Faible (marginal)     Moyen
+Confidentialité      Données chez un      Totale                Partielle
+                     tiers                                      (selon fournisseur)
+Contrôle/fine-tuning Limité               Total                 Bon</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Décider de l'auto-hébergement uniquement sur l'argument du "coût zéro par appel", en oubliant de comptabiliser le coût réel de l'infrastructure (GPU, disponibilité, maintenance, temps d'ingénierie) face au volume réellement prévu. En dessous d'un certain volume d'appels, une API reste souvent moins chère en coût total qu'une infrastructure auto-hébergée sous-utilisée.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre projet, estimez approximativement le nombre d'appels d'embedding par mois (ingestion + requêtes). À partir de cette estimation, penchez-vous plutôt vers une API propriétaire, l'auto-hébergement, ou une inférence managée ? Justifiez.
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l3" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 4.3</span>Le benchmark MTEB : comment le lire et l'interpréter</h2>
+
+        <p><strong>MTEB</strong> (Massive Text Embedding Benchmark) est le benchmark de référence pour comparer objectivement les modèles d'embedding, couvrant plusieurs dizaines de tâches réparties en catégories : classification, clustering, recherche (retrieval), similarité sémantique (STS), reranking, et plus. Son classement public (hébergé sur Hugging Face) est le premier réflexe pour explorer les options disponibles — à condition de savoir le lire correctement.</p>
+
+        <h3>Les catégories de tâches et pourquoi elles comptent différemment selon votre cas</h3>
+        <ul>
+          <li><strong>Retrieval</strong> — la catégorie la plus pertinente pour un système RAG : elle mesure directement la capacité d'un modèle à retrouver le bon document pour une requête donnée, dans des conditions proches de la recherche vectorielle en production.</li>
+          <li><strong>STS (Semantic Textual Similarity)</strong> — mesure la corrélation entre la similarité prédite par le modèle et un jugement humain de similarité ; pertinent mais moins directement représentatif d'un cas d'usage RAG que le retrieval.</li>
+          <li><strong>Clustering</strong> — pertinent si votre cas d'usage implique de regrouper des documents automatiquement, moins pertinent pour de la recherche question/réponse pure.</li>
+          <li><strong>Classification</strong> — généralement peu pertinent pour un système RAG, plus utile pour des tâches de catégorisation de texte.</li>
+        </ul>
+
+        <p>L'erreur la plus fréquente dans la lecture de MTEB : se fier au score moyen global toutes catégories confondues, plutôt qu'au score spécifique de la catégorie "Retrieval" — pour un système RAG, c'est ce sous-score qui doit primer dans la décision.</p>
+
+        <h3>Le score n'est qu'un point de départ, pas une décision finale</h3>
+        <p>Les tâches de retrieval de MTEB sont menées sur des corpus publics génériques (Wikipedia, articles scientifiques, forums) qui ne reflètent pas nécessairement la nature de votre propre corpus (jargon interne, documents juridiques, code source). Un modèle en tête de MTEB peut sous-performer sur votre domaine spécifique par rapport à un modèle moins bien classé mais mieux adapté — d'où l'importance de toujours valider par une évaluation empirique sur son propre corpus (méthode du cours chunking, module 7, directement réutilisable ici).</p>
+
+        <pre><code class="language-python"># Une fois deux ou trois candidats présélectionnés via MTEB,
+# reproduire la méthode d'évaluation du cours précédent :
+
+def comparer_modeles_embedding(modeles: list[str], jeu_eval: list[dict]) -> dict:
+    resultats = {}
+    for nom_modele in modeles:
+        vectorstore = construire_index(chunks, modele=nom_modele)
+        retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
+        resultats[nom_modele] = {
+            "recall_at_5": recall_at_k(jeu_eval, retriever, k=5),
+            "mrr": mrr(jeu_eval, retriever, k=10),
+        }
+    return resultats
+</code></pre>
+
+        <div class="ascii">Méthode recommandée pour choisir un modèle :
+
+1. Filtrer MTEB par la catégorie "Retrieval" (pas le score global)
+2. Filtrer par support de la langue cible (multilingual ou français)
+3. Présélectionner 2-3 candidats compatibles avec vos contraintes
+   (dimension, coût, licence)
+4. Évaluer empiriquement sur VOTRE corpus et VOS questions
+   (recall@k, MRR — méthode du cours chunking, module 7)
+5. Trancher sur la base de CETTE mesure, pas du classement MTEB seul</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Choisir un modèle uniquement parce qu'il est numéro 1 du classement MTEB général au moment de la recherche, sans vérifier ni la pertinence de la catégorie "Retrieval" spécifiquement, ni la présence de votre langue cible dans les tâches évaluées, ni sans validation empirique sur votre propre corpus.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Si vous avez accès au classement MTEB (consultable publiquement), identifiez le modèle en tête de la catégorie "Retrieval" pour le français ou le multilingue. Notez sa dimension et son nombre de paramètres — sont-ils compatibles avec les contraintes que vous aviez notées en leçon 4.1 ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l4" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 4.4</span>Embeddings multilingues vs monolingues</h2>
+
+        <p>Le choix entre un modèle spécialisé dans une seule langue et un modèle multilingue dépend directement de la composition réelle de votre corpus et de vos utilisateurs — une décision à ne pas prendre par défaut.</p>
+
+        <h3>Modèles monolingues</h3>
+        <p>Entraînés et optimisés sur une seule langue (souvent l'anglais, parfois le français spécifiquement pour certains modèles comme CamemBERT-based embeddings). Avantage : performance maximale sur cette langue précise, car toute la capacité du modèle est dédiée à ses spécificités (morphologie, expressions idiomatiques, ordre des mots). Inconvénient : inutilisable ou fortement dégradé sur d'autres langues.</p>
+
+        <h3>Modèles multilingues</h3>
+        <p>Entraînés simultanément sur des dizaines voire une centaine de langues (E5-multilingual, BGE-M3, Cohere embed multilingual). Avantage majeur : permettent la <strong>recherche cross-lingue</strong> — une question posée en français peut retrouver un chunk pertinent rédigé en anglais, car les deux langues partagent un espace vectoriel commun où les concepts similaires se rapprochent indépendamment de la langue de surface.</p>
+
+        <pre><code class="language-python"># Avec un bon modèle multilingue, ceci fonctionne :
+vecteur_question_fr = embed_multilingue("Comment calibrer l'overlap ?")
+vecteur_chunk_en = embed_multilingue("How to calibrate the chunk overlap value")
+
+print(similarite_cosinus(vecteur_question_fr, vecteur_chunk_en))
+# Résultat attendu : similarité élevée malgré les langues différentes
+</code></pre>
+
+        <div class="ascii">Corpus 100% français,           Corpus mixte (FR + EN),         Corpus multilingue
+utilisateurs français            besoin de retrouver du          large (10+ langues)
+                                  contenu dans les deux langues
+──────────────────────────────  ──────────────────────────────  ─────────────────────
+Modèle monolingue français       Modèle multilingue              Modèle multilingue
+recommandé (performance          nécessaire (recherche           large échelle
+maximale sur cette langue)       cross-lingue)                   (E5-multilingual,
+                                                                   BGE-M3, Cohere...)</div>
+
+        <p>Un compromis à connaître : les modèles multilingues, en répartissant leur capacité sur de nombreuses langues, peuvent légèrement sous-performer un modèle monolingue dédié <em>sur cette langue spécifique</em> — un arbitrage à valider empiriquement si votre corpus est réellement mono-langue et que la recherche cross-lingue n'est pas un besoin réel.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Utiliser par défaut un modèle multilingue "au cas où", même quand le corpus et les utilisateurs sont exclusivement dans une seule langue, ce qui sacrifie potentiellement de la performance sans bénéfice réel. À l'inverse, utiliser un modèle strictement monolingue anglais sur un corpus français en pensant que "l'anglais est la langue de référence en IA" — un contresens fréquent qui dégrade fortement la qualité du retrieval.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Votre corpus contient-il, ou contiendra-t-il probablement, plusieurs langues ? Vos utilisateurs pourraient-ils poser des questions dans une langue différente de celle des documents sources ? Ces deux réponses déterminent directement votre besoin (ou non) d'un modèle multilingue.
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l5" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 4.5</span>Fine-tuner son propre modèle d'embedding sur un domaine spécifique</h2>
+
+        <p>Quand un modèle généraliste (même bien classé sur MTEB) ne capture pas correctement le vocabulaire ou les nuances spécifiques d'un domaine (jargon juridique, terminologie médicale, noms de produits internes), le fine-tuning permet d'adapter un modèle existant plutôt que d'en entraîner un depuis zéro — une opération bien plus légère et accessible.</p>
+
+        <h3>Quand envisager le fine-tuning</h3>
+        <p>Le fine-tuning se justifie quand l'évaluation empirique (leçon 4.3) montre un écart de performance significatif entre les meilleurs modèles génériques disponibles et les besoins réels du corpus — typiquement observable par des synonymes de domaine mal rapprochés (ex: dans un corpus médical, "IDM" et "infarctus du myocarde" pourraient ne pas être suffisamment proches avec un modèle généraliste) ou des faux positifs fréquents sur du vocabulaire ambigu propre au domaine.</p>
+
+        <h3>Construire un jeu de données de fine-tuning</h3>
+        <p>Le fine-tuning s'appuie sur le même principe de contrastive learning vu au module 2 : des paires (ou triplets) ancre/positif/négatif, mais cette fois spécifiques à votre domaine. Ces paires peuvent être construites à partir de vos propres données (paires question/réponse de support client historiques, paires de documents liés dans votre base de connaissance) ou générées synthétiquement par un LLM.</p>
+
+        <pre><code class="language-python">from sentence_transformers import SentenceTransformer, InputExample, losses
+from torch.utils.data import DataLoader
+
+# Jeu de données de fine-tuning spécifique au domaine
+exemples_entrainement = [
+    InputExample(texts=["Comment réinitialiser mon mot de passe ?",
+                          "Procédure de réinitialisation des identifiants"]),
+    InputExample(texts=["Délai de livraison standard",
+                          "Combien de temps prend une expédition classique ?"]),
+    # ... des centaines à quelques milliers de paires idéalement
+]
+
+modele = SentenceTransformer("BAAI/bge-base-en-v1.5")
+dataloader = DataLoader(exemples_entrainement, shuffle=True, batch_size=16)
+perte = losses.MultipleNegativesRankingLoss(modele)   # negatifs in-batch (module 2)
+
+modele.fit(
+    train_objectives=[(dataloader, perte)],
+    epochs=3,
+    warmup_steps=100,
+    output_path="mon-modele-embedding-domaine-specifique",
+)
+</code></pre>
+
+        <h3>Évaluer le gain du fine-tuning</h3>
+        <p>Comme pour tout choix de modèle (leçon 4.3), le fine-tuning doit être validé par une comparaison empirique avant/après sur le même jeu d'évaluation (recall@k, MRR) — un fine-tuning mal exécuté (données de mauvaise qualité, sur-apprentissage sur un jeu trop petit) peut dégrader les performances plutôt que les améliorer, notamment sur des questions qui sortent du périmètre exact des données d'entraînement utilisées.</p>
+
+        <div class="ascii">Avant de fine-tuner, se poser ces questions :
+
+Le meilleur modèle générique disponible               → si non, tester d'autres
+a-t-il été essayé et évalué empiriquement d'abord ?      modèles avant de fine-tuner
+
+Dispose-t-on d'assez de données de qualité              → sans données de qualité
+(idéalement 1000+ paires) pour le domaine ?                suffisante, risque de
+                                                             dégrader le modèle
+
+L'écart de performance mesuré justifie-t-il             → si l'écart est faible,
+l'investissement (données, calcul, maintenance) ?           le gain ne justifie
+                                                             souvent pas l'effort</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Se lancer dans le fine-tuning comme première option, avant même d'avoir comparé empiriquement plusieurs modèles génériques existants sur son corpus. Le fine-tuning est une opération coûteuse en temps d'ingénierie et en données — c'est un dernier recours après avoir épuisé les options de modèles pré-entraînés, pas un premier réflexe.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : à partir de la grille de décision ci-dessus, votre projet (réel ou imaginé) justifierait-il un investissement en fine-tuning à ce stade ? Si non, quel signal concret (mesuré, pas supposé) vous ferait changer d'avis ?
+        </div>
+      </section>
+    </div>
+    <div class="module-block" id="module-5">
+      <span class="module-kicker">MODULE 05 / 08</span>
+      <h1>Recherche vectorielle : concepts et algorithmes</h1>
+      <p class="intro">Une fois des millions de chunks transformés en vecteurs (modules 1-4), comment retrouver rapidement les plus proches d'une question donnée ? Ce module explique les algorithmes qui rendent cette recherche possible à grande échelle, en quelques millisecondes.</p>
+
+      <section class="lesson" id="m5-l1" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 5.1</span>Le problème du plus proche voisin (nearest neighbor search)</h2>
+
+        <p>La recherche vectorielle résout un problème algorithmique précis : étant donné un vecteur requête et un ensemble de N vecteurs stockés, trouver les k vecteurs les plus proches selon une mesure de similarité (module 3). Ce problème s'appelle la recherche du <strong>plus proche voisin</strong> (Nearest Neighbor Search, ou k-NN pour k voisins).</p>
+
+        <p>Ce qui rend ce problème difficile n'est pas sa définition (simple à énoncer) mais son passage à l'échelle. Comparer un vecteur requête à 1000 vecteurs stockés est trivial et quasi instantané. Le comparer à 100 millions de vecteurs, en maintenant un temps de réponse de quelques millisecondes compatible avec une expérience utilisateur fluide, est un défi d'ingénierie à part entière — c'est précisément ce que résolvent les structures d'index étudiées dans ce module.</p>
+
+        <div class="ascii">Requête : vecteur Q (768 dimensions)
+
+Base de vecteurs stockés :
+  V1, V2, V3, ..., V100 000 000
+
+Objectif : trouver les k=5 vecteurs les plus proches de Q
+selon la similarité cosinus (ou une autre mesure, module 3)
+
+           ┌─────────────────────────────┐
+    Q  ──► │   Algorithme de recherche   │ ──► [V47291, V8832, V991042, V12, V775003]
+           └─────────────────────────────┘      (les 5 plus proches, triés)
+
+Défi : faire cela en quelques millisecondes, pas en
+parcourant naïvement les 100 millions de vecteurs un par un.</div>
+
+        <p>Deux grandes familles de solutions existent pour ce problème, qui structurent l'ensemble de ce module : la recherche <strong>exhaustive</strong> (comparer réellement à tous les vecteurs, garantissant le résultat exact mais lentement) et la recherche <strong>approximative</strong> (accepter de perdre une petite fraction de précision en échange d'un gain de vitesse considérable, souvent de plusieurs ordres de grandeur).</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Sous-estimer la difficulté de ce problème en pensant qu'une simple boucle de comparaison suffira toujours. Cela fonctionne pour des corpus de quelques milliers de chunks (prototypes, projets personnels), mais devient rapidement le goulot d'étranglement principal d'un système RAG dès que le corpus atteint des centaines de milliers ou des millions de chunks — un dimensionnement à anticiper dès la conception du pipeline (module 6).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un corpus de 500 000 chunks et un vecteur de 768 dimensions (float32, donc 4 octets par dimension), estimez la quantité de mémoire nécessaire pour stocker tous les vecteurs bruts, avant même de parler d'index de recherche.
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l2" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 5.2</span>Recherche exhaustive (brute-force) vs recherche approximative (ANN)</h2>
+
+        <h3>Recherche exhaustive (brute-force / flat index)</h3>
+        <p>La méthode la plus simple : calculer la similarité entre le vecteur requête et <strong>chacun</strong> des vecteurs stockés, puis trier pour garder les k meilleurs. Garantit un résultat exact à 100% (on ne peut pas rater le vrai plus proche voisin), mais son coût de calcul croît linéairement avec le nombre de vecteurs — ce qui devient impraticable au-delà de quelques centaines de milliers de vecteurs si la latence est une contrainte.</p>
+
+        <pre><code class="language-python">import numpy as np
+
+def recherche_exhaustive(requete: np.ndarray, base: np.ndarray, k: int = 5) -> list[int]:
+    # base : matrice de forme (N, dimensions)
+    similarites = base @ requete   # produit scalaire avec CHAQUE vecteur de la base
+    indices_top_k = np.argsort(similarites)[::-1][:k]
+    return indices_top_k.tolist()
+
+# Coût : O(N × dimensions) — croît linéairement avec le nombre de vecteurs N
+</code></pre>
+
+        <h3>Recherche approximative (ANN — Approximate Nearest Neighbor)</h3>
+        <p>Plutôt que de comparer à tous les vecteurs, les algorithmes ANN construisent une structure d'index qui permet d'éliminer rapidement de larges portions de l'espace de recherche sans les examiner individuellement — au prix d'un risque faible (mais non nul) de manquer le vrai plus proche voisin exact, en échange d'un gain de vitesse considérable (souvent 100x à 1000x plus rapide sur de grands volumes).</p>
+
+        <div class="ascii">Recherche exhaustive                    Recherche approximative (ANN)
+────────────────────────                ─────────────────────────────
+Compare à TOUS les vecteurs              Compare à un SOUS-ENSEMBLE
+                                          intelligemment sélectionné
+
+Précision : 100% garantie                Précision : ~95-99% typiquement
+                                          (paramétrable, compromis réglable)
+
+Coût : O(N)                              Coût : O(log N) typiquement
+                                          (bien plus rapide à grande échelle)
+
+Cas d'usage : petits corpus              Cas d'usage : corpus de production
+(< 100k vecteurs), besoin de             à grande échelle (millions de
+précision absolue                        vecteurs), latence critique</div>
+
+        <p>La quasi-totalité des bases de données vectorielles de production (module 6) utilisent des index ANN par défaut, la recherche exhaustive étant réservée aux petits volumes ou aux cas où l'exactitude parfaite est non négociable (rare en pratique pour du RAG, où une légère imprécision dans le top-k a un impact minime sur la qualité de réponse finale).</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Craindre que la nature "approximative" de l'ANN dégrade significativement la qualité du RAG. En pratique, un bon index ANN bien paramétré atteint un rappel de 95-99% par rapport à la recherche exacte — un écart largement compensé par le gain de vitesse qui permet des architectures plus riches en aval (reranking, module 7) dans le même budget de latence total.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un système de recherche de documents juridiques où l'exhaustivité est légalement critique (ne jamais manquer un précédent pertinent), dans quel cas garderiez-vous malgré tout une recherche exhaustive plutôt qu'approximative ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l3" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 5.3</span>Index HNSW : principe et fonctionnement</h2>
+
+        <p><strong>HNSW</strong> (Hierarchical Navigable Small World) est l'algorithme ANN le plus largement adopté aujourd'hui dans les bases de données vectorielles (Qdrant, Weaviate, pgvector, Pinecone l'utilisent tous, sous une forme ou une autre). Il combine d'excellentes performances de recherche avec une bonne qualité de résultats.</p>
+
+        <h3>L'intuition : un graphe de voisinage à plusieurs niveaux</h3>
+        <p>HNSW construit un graphe où chaque vecteur est un nœud connecté à ses voisins les plus proches. La recherche démarre à un point d'entrée et "navigue" de proche en proche vers la zone du graphe la plus proche de la requête, sans jamais examiner l'ensemble des nœuds — un peu comme chercher une adresse en demandant son chemin de proche en proche plutôt qu'en consultant un annuaire complet.</p>
+
+        <p>La partie "hiérarchique" du nom vient d'une structure à plusieurs couches, inspirée des <em>skip lists</em> : les couches supérieures contiennent peu de nœuds mais des connexions à longue portée (pour se déplacer rapidement dans l'espace global), les couches inférieures contiennent tous les nœuds avec des connexions locales fines (pour affiner la recherche une fois dans la bonne zone).</p>
+
+        <div class="ascii">Couche 2 (peu de nœuds, connexions longues) :
+    ●───────────────●──────────────●
+    (point d'entrée de la recherche, navigation rapide et grossière)
+
+Couche 1 (plus de nœuds, connexions moyennes) :
+    ●──●────●──●──────●───●──●────●
+    (raffinement progressif)
+
+Couche 0 (TOUS les nœuds, connexions locales fines) :
+    ●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●
+    (couche la plus dense, résultat final précis)
+
+La recherche descend de la couche 2 vers la couche 0,
+en se rapprochant progressivement de la vraie zone
+la plus proche du vecteur requête — sans jamais parcourir
+l'intégralité de la couche 0 directement.</div>
+
+        <pre><code class="language-python"># Utilisation typique via une librairie qui implémente HNSW (ex: hnswlib)
+import hnswlib
+import numpy as np
+
+dimension = 768
+nb_vecteurs = 100_000
+
+index = hnswlib.Index(space="cosine", dim=dimension)
+index.init_index(max_elements=nb_vecteurs, ef_construction=200, M=16)
+
+vecteurs = np.random.rand(nb_vecteurs, dimension).astype(np.float32)
+index.add_items(vecteurs, ids=np.arange(nb_vecteurs))
+
+index.set_ef(50)   # paramètre de recherche : compromis précision/vitesse
+requete = np.random.rand(1, dimension).astype(np.float32)
+labels, distances = index.knn_query(requete, k=5)
+</code></pre>
+
+        <h3>Les paramètres clés de HNSW</h3>
+        <ul>
+          <li><strong>M</strong> — le nombre de connexions par nœud ; plus élevé donne une meilleure précision mais plus de mémoire et un index plus long à construire.</li>
+          <li><strong>ef_construction</strong> — la qualité de la construction du graphe ; plus élevé donne un meilleur graphe mais une construction plus lente.</li>
+          <li><strong>ef (search)</strong> — la largeur de recherche au moment de la requête ; plus élevé donne une meilleure précision mais une recherche plus lente. C'est le paramètre le plus facile à ajuster après coup, sans reconstruire l'index.</li>
+        </ul>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Laisser les paramètres HNSW à leurs valeurs par défaut sans les ajuster au cas d'usage. Un <code class="inline">ef</code> de recherche trop bas peut significativement dégrader le rappel (le bon résultat existe dans l'index mais n'est pas retrouvé) sans qu'aucune erreur ne soit levée — un piège similaire à un mauvais seuil de similarité (module 3), à diagnostiquer avec les mêmes méthodes d'évaluation empirique (recall@k).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Sans consulter de documentation supplémentaire, formulez une hypothèse : pourquoi augmenter le paramètre <code class="inline">ef</code> de recherche améliore-t-il la précision mais ralentit-il la recherche ? (Indice : réfléchissez à ce que "chercher plus large" signifie concrètement dans le graphe de navigation décrit ci-dessus.)
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l4" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 5.4</span>Index IVF et Product Quantization : compromis mémoire/vitesse/précision</h2>
+
+        <p>HNSW n'est pas la seule famille d'algorithmes ANN. Pour des volumes extrêmement grands (centaines de millions à milliards de vecteurs) où même HNSW devient coûteux en mémoire, une autre famille d'approches, souvent combinées entre elles, prend le relais.</p>
+
+        <h3>IVF (Inverted File Index)</h3>
+        <p>Le principe : partitionner l'espace vectoriel en un nombre fixe de "cellules" (clusters), typiquement via un algorithme k-means appliqué sur un échantillon de vecteurs. Au moment de la recherche, on identifie d'abord les quelques cellules les plus proches de la requête, puis on ne compare le vecteur requête qu'aux vecteurs de ces cellules — au lieu de la totalité de la base.</p>
+
+        <div class="ascii">Espace vectoriel partitionné en cellules (IVF) :
+
+  ┌─────┬─────┬─────┐
+  │  C1 │  C2 │  C3 │     Requête Q se situe près du centre de C2
+  ├─────┼─────┼─────┤     → on ne cherche QUE dans C2 (et éventuellement
+  │  C4 │ C5●Q│  C6 │        les cellules voisines les plus proches),
+  ├─────┼─────┼─────┤        pas dans les 9 cellules entières.
+  │  C7 │  C8 │  C9 │
+  └─────┴─────┴─────┘
+
+Paramètre clé : nprobe = nombre de cellules explorées
+  nprobe petit → recherche rapide, risque de manquer des résultats
+                 si le vrai plus proche voisin est dans une cellule
+                 voisine non explorée
+  nprobe grand → recherche plus précise, mais plus lente</div>
+
+        <h3>Product Quantization (PQ) : compresser les vecteurs eux-mêmes</h3>
+        <p>Alors qu'IVF réduit le nombre de comparaisons, la Product Quantization réduit la <strong>taille</strong> de chaque vecteur comparé, en le découpant en sous-vecteurs plus petits et en remplaçant chaque sous-vecteur par l'identifiant du "centroïde" le plus proche dans un dictionnaire pré-appris — une forme de compression avec perte, spécifiquement conçue pour rester efficace pour le calcul de distances approximatives.</p>
+
+        <pre><code class="language-python"># Illustration conceptuelle de Product Quantization
+# Un vecteur de 768 dimensions est découpé en 8 sous-vecteurs de 96 dimensions
+
+vecteur_original = [0.12, -0.45, 0.78, ...]   # 768 valeurs float32 (3072 octets)
+
+# Chaque sous-vecteur de 96 dims est remplacé par l'ID de son centroïde
+# le plus proche dans un dictionnaire de 256 centroïdes appris à l'avance
+vecteur_quantifie = [42, 187, 3, 91, 12, 205, 88, 156]  # 8 IDs (8 octets seulement !)
+
+# Gain mémoire : 3072 octets → 8 octets, soit ~384x moins de mémoire,
+# au prix d'une perte de précision dans le calcul de distance.
+</code></pre>
+
+        <p>IVF et PQ sont fréquemment combinés (IVF-PQ) : IVF réduit le nombre de vecteurs à examiner, PQ réduit le coût de chaque comparaison individuelle — une combinaison qui permet de faire tenir des index de plusieurs milliards de vecteurs dans une mémoire raisonnable, un cas d'usage typique des très grandes plateformes (moteurs de recherche, réseaux sociaux) plus que des projets RAG d'entreprise classiques.</p>
+
+        <div class="ascii">Comparaison des approches pour des volumes croissants :
+
+Volume de vecteurs        Approche typiquement recommandée
+────────────────────────────────────────────────────────────
+< 100 000                 Brute-force (exhaustif) suffit souvent
+100 000 - 10 millions      HNSW (bon compromis précision/vitesse)
+10 millions - 100+ millions HNSW avec paramètres optimisés,
+                            ou IVF-PQ si la mémoire est très contrainte
+Milliards                  IVF-PQ ou variantes hybrides
+                            (rare pour un RAG d'entreprise classique)</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Adopter IVF-PQ par anticipation d'une future croissance massive du corpus, alors que le volume réel actuel (et prévisible à moyen terme) resterait parfaitement géré par HNSW seul. La complexité de configuration et la perte de précision de PQ ne se justifient que pour des volumes réellement massifs — pour la grande majorité des projets RAG d'entreprise (quelques centaines de milliers à quelques millions de chunks), HNSW seul est largement suffisant et plus simple à opérer.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre corpus (réel ou imaginé), estimez le nombre de chunks attendu à horizon 1-2 ans. En vous référant au tableau ci-dessus, quelle famille d'index (HNSW seul, ou IVF-PQ) correspondrait à ce volume ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l5" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 5.5</span>Comparaison des approches d'indexation</h2>
+
+        <p>Cette dernière leçon synthétise les approches vues dans ce module sous forme de guide de décision pratique, à mobiliser lors du choix d'une base de données vectorielle (module 6, où ces index sont utilisés concrètement en coulisses).</p>
+
+        <table>
+          <thead>
+            <tr><th>Approche</th><th>Précision</th><th>Vitesse</th><th>Mémoire</th><th>Cas d'usage typique</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Brute-force</td><td>100% (exacte)</td><td>Lente à grande échelle</td><td>Élevée</td><td>Petits corpus, prototypes, besoin d'exactitude</td></tr>
+            <tr><td>HNSW</td><td>~95-99%</td><td>Très rapide</td><td>Élevée (graphe)</td><td>Standard pour la plupart des projets RAG</td></tr>
+            <tr><td>IVF</td><td>~90-98%</td><td>Rapide</td><td>Moyenne</td><td>Gros volumes, mémoire plus contrainte</td></tr>
+            <tr><td>IVF-PQ</td><td>~85-95%</td><td>Très rapide</td><td>Très faible</td><td>Volumes massifs (milliards), mémoire critique</td></tr>
+          </tbody>
+        </table>
+
+        <p>Un point important à retenir : en tant qu'utilisateur d'une base de données vectorielle managée (module 6), vous n'implémentez presque jamais ces algorithmes vous-même — ils sont fournis et optimisés par la base de données choisie. Ce qui compte dans la pratique, c'est de <strong>comprendre les compromis</strong> pour choisir intelligemment la configuration proposée par votre base (souvent HNSW par défaut, avec des paramètres ajustables comme <code class="inline">ef_search</code>, <code class="inline">M</code>, ou <code class="inline">nprobe</code> selon l'algorithme sous-jacent).</p>
+
+        <div class="ascii">Question à se poser en priorité (dans cet ordre) :
+
+1. Mon volume de vecteurs dépasse-t-il quelques millions ?
+   → Non : HNSW par défaut suffit, ne pas sur-optimiser
+   → Oui : passer à la question 2
+
+2. La mémoire disponible est-elle une contrainte forte
+   (coût d'infrastructure, hébergement limité) ?
+   → Non : HNSW avec plus de mémoire allouée reste viable
+   → Oui : envisager IVF-PQ ou une réduction de dimension
+            (Matryoshka embeddings, module 4)
+
+3. Ai-je mesuré empiriquement l'impact sur le recall@k
+   (méthode du cours chunking) avant de changer de config ?
+   → Toujours répondre OUI avant de déployer en production</div>
+
+        <p>Ce module clôt la dimension purement algorithmique de la recherche vectorielle. Le module suivant aborde comment ces algorithmes sont packagés et exposés par des bases de données vectorielles concrètes, avec toutes les fonctionnalités additionnelles nécessaires en production (filtrage par métadonnées, mises à jour, recherche hybride).</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Passer beaucoup de temps à choisir "le meilleur" algorithme d'indexation avant même d'avoir un système RAG fonctionnel et évalué. Pour la grande majorité des projets, la configuration par défaut de la base de données vectorielle choisie (généralement HNSW) est un point de départ largement suffisant — l'optimisation fine de l'index est une préoccupation de scale-up, pas de mise en route initiale.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : en une phrase, résumez pourquoi la recherche approximative (ANN) est presque toujours préférable à la recherche exhaustive pour un système RAG de production, malgré sa perte de précision théorique.
+        </div>
+      </section>
+    </div>
+    <div class="module-block" id="module-6">
+      <span class="module-kicker">MODULE 06 / 08</span>
+      <h1>Bases de données vectorielles</h1>
+      <p class="intro">Les algorithmes d'indexation (module 5) sont rarement implémentés à la main en production — ils sont packagés dans des bases de données vectorielles qui ajoutent tout ce dont un système RAG a besoin : filtrage, mises à jour, scalabilité, API. Ce module fait le tour des options disponibles et des critères pour choisir.</p>
+
+      <section class="lesson" id="m6-l1" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 6.1</span>Panorama des bases de données vectorielles</h2>
+
+        <p>Le paysage des bases de données vectorielles s'est considérablement enrichi ces dernières années, allant de bases spécialisées "vector-native" à des extensions ajoutées à des bases de données relationnelles existantes.</p>
+
+        <h3>Bases vectorielles managées (cloud)</h3>
+        <ul>
+          <li><strong>Pinecone</strong> — entièrement managée, très simple à démarrer, populaire pour les projets qui veulent éviter toute gestion d'infrastructure.</li>
+          <li><strong>Weaviate Cloud</strong> — offre à la fois une version cloud managée et une version open-source auto-hébergeable, avec un fort accent sur la recherche hybride (module 7) et le filtrage.</li>
+          <li><strong>Qdrant Cloud</strong> — écrit en Rust, réputé pour ses performances, disponible en cloud managé ou auto-hébergé.</li>
+        </ul>
+
+        <h3>Bases vectorielles open-source auto-hébergeables</h3>
+        <ul>
+          <li><strong>Qdrant</strong>, <strong>Weaviate</strong>, <strong>Milvus</strong> — solutions "vector-native" complètes, pensées dès le départ pour la recherche vectorielle à grande échelle, avec filtrage riche et bonnes performances.</li>
+          <li><strong>Chroma</strong> — orientée simplicité et expérience développeur, très populaire pour le prototypage rapide et les projets de taille petite à moyenne.</li>
+        </ul>
+
+        <h3>Extensions vectorielles sur bases existantes</h3>
+        <ul>
+          <li><strong>pgvector</strong> — extension PostgreSQL qui ajoute un type de colonne vectoriel et des index HNSW/IVF directement dans une base relationnelle classique. Particulièrement adapté si votre infrastructure utilise déjà PostgreSQL, permettant de garder les données métier et les vecteurs dans le même système transactionnel.</li>
+          <li><strong>Redis (RediSearch)</strong>, <strong>Elasticsearch/OpenSearch</strong> — ajoutent des capacités de recherche vectorielle à des systèmes déjà largement déployés pour d'autres usages (cache, recherche textuelle).</li>
+        </ul>
+
+        <pre><code class="language-python"># Exemple avec Chroma (simple, bon pour démarrer)
+import chromadb
+
+client = chromadb.PersistentClient(path="./ma_base_vectorielle")
+collection = client.create_collection(name="mes_chunks")
+
+collection.add(
+    embeddings=[[0.1, 0.2, ...], [0.3, 0.1, ...]],
+    documents=["Le chunking est essentiel...", "L'overlap permet..."],
+    metadatas=[{"source": "guide.md"}, {"source": "faq.txt"}],
+    ids=["chunk_1", "chunk_2"],
+)
+
+resultats = collection.query(query_embeddings=[[0.15, 0.18, ...]], n_results=5)
+</code></pre>
+
+        <pre><code class="language-sql">-- Exemple avec pgvector (dans une base PostgreSQL existante)
+CREATE EXTENSION IF NOT EXISTS vector;
+
+CREATE TABLE chunks (
+    id SERIAL PRIMARY KEY,
+    contenu TEXT,
+    source TEXT,
+    embedding VECTOR(768)
+);
+
+CREATE INDEX ON chunks USING hnsw (embedding vector_cosine_ops);
+
+SELECT contenu, source
+FROM chunks
+ORDER BY embedding &lt;=&gt; '[0.15, 0.18, ...]'
+LIMIT 5;
+</code></pre>
+
+        <div class="ascii">Catégorie                     Exemples                    Bon pour
+──────────────────────────────────────────────────────────────────────
+Managée cloud                 Pinecone, Weaviate Cloud     Démarrage rapide,
+                                                            zéro gestion infra
+
+Vector-native open-source     Qdrant, Weaviate, Milvus     Performance, contrôle,
+                                                            filtrage riche
+
+Simplicité / prototypage      Chroma                       Petits projets,
+                                                            expérimentation
+
+Extension d'une base          pgvector, Redis, ES/OS       Infra déjà existante,
+existante                                                  cohérence transactionnelle</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Choisir une base vectorielle dédiée et complexe (Milvus, par exemple, connu pour sa richesse fonctionnelle mais aussi sa complexité opérationnelle) pour un projet qui aurait pu se contenter de pgvector sur une base PostgreSQL déjà en place, ajoutant une brique d'infrastructure et un point de défaillance supplémentaire sans bénéfice proportionnel.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Votre infrastructure actuelle (ou celle du projet que vous imaginez) utilise-t-elle déjà PostgreSQL ou une autre base compatible avec une extension vectorielle ? Si oui, cela change-t-il votre inclination vers une base vector-native dédiée ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l2" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 6.2</span>Indexation, filtrage par métadonnées et recherche hybride</h2>
+
+        <p>Une base de données vectorielle de production ne se contente pas de retourner les k vecteurs les plus proches — elle doit aussi permettre de restreindre cette recherche selon des critères structurés (métadonnées), un besoin quasi systématique en pratique.</p>
+
+        <h3>Pourquoi le filtrage par métadonnées est essentiel</h3>
+        <p>Rappel du cours chunking (module 5) : chaque chunk devrait porter des métadonnées (source, date, type de contenu, département propriétaire...). Le filtrage permet de restreindre la recherche vectorielle à un sous-ensemble pertinent avant même de calculer les similarités — par exemple, "cherche uniquement dans les documents de la catégorie RH, publiés après janvier 2025".</p>
+
+        <pre><code class="language-python"># Exemple avec Qdrant : recherche vectorielle + filtre sur métadonnées
+from qdrant_client import QdrantClient
+from qdrant_client.models import Filter, FieldCondition, MatchValue, Range
+
+client = QdrantClient(url="http://localhost:6333")
+
+resultats = client.search(
+    collection_name="mes_chunks",
+    query_vector=vecteur_question,
+    query_filter=Filter(
+        must=[
+            FieldCondition(key="categorie", match=MatchValue(value="RH")),
+            FieldCondition(key="date_publication", range=Range(gte="2025-01-01")),
+        ]
+    ),
+    limit=5,
+)
+</code></pre>
+
+        <h3>Filtrage pré vs post recherche</h3>
+        <p>Un point technique important : certaines bases appliquent le filtre <em>avant</em> la recherche vectorielle (ne considérer que les vecteurs qui matchent le filtre, potentiellement plus lent si le filtre est très restrictif car l'index ANN est moins efficace sur un sous-ensemble arbitraire), d'autres l'appliquent <em>après</em> (chercher les k plus proches globalement, puis filtrer — risquant de retourner moins de k résultats si le filtre élimine une partie des candidats trouvés). Ce comportement varie selon la base choisie et impacte directement la qualité des résultats sur des requêtes fortement filtrées.</p>
+
+        <h3>Recherche hybride : combiner vecteurs et mots-clés</h3>
+        <p>De nombreuses bases modernes (Weaviate, Qdrant, Elasticsearch) supportent nativement la <strong>recherche hybride</strong> : combiner un score de similarité vectorielle avec un score de correspondance lexicale classique (BM25) dans une même requête. C'est un thème central du module 7 — cette leçon se contente d'introduire que la capacité technique existe au niveau de la base de données elle-même, pas seulement comme une logique applicative à coder à la main.</p>
+
+        <pre><code class="language-python"># Exemple conceptuel de recherche hybride (API simplifiée)
+resultats = client.hybrid_search(
+    collection_name="mes_chunks",
+    query_text="politique de remboursement",     # utilisé pour le score BM25
+    query_vector=vecteur_question,                # utilisé pour le score vectoriel
+    alpha=0.5,   # pondération entre les deux scores (0 = full lexical, 1 = full vectoriel)
+    limit=5,
+)
+</code></pre>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Implémenter son propre filtrage applicatif (récupérer un grand nombre de résultats vectoriels puis filtrer côté code applicatif) au lieu d'utiliser le filtrage natif de la base de données. Cette approche est nettement moins performante (on paie le coût de récupérer et transférer bien plus de résultats que nécessaire) et peut aussi retourner moins de résultats que souhaité si le filtre élimine une grande partie des candidats.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Listez 3 métadonnées sur lesquelles vos utilisateurs voudraient probablement filtrer une recherche (ex: date, département, type de document). Pour chacune, un filtrage pré-recherche serait-il plus adapté qu'un filtrage post-recherche dans votre cas ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l3" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 6.3</span>Dimensionnement et scalabilité</h2>
+
+        <p>Anticiper la croissance d'un système RAG en production nécessite de raisonner sur trois axes : le volume de vecteurs, la latence de recherche, et le débit de requêtes simultanées.</p>
+
+        <h3>Estimer l'empreinte mémoire</h3>
+        <p>Le calcul de base : nombre de vecteurs × dimension × taille du type numérique (4 octets pour du float32), auquel s'ajoute l'overhead de l'index (HNSW ajoute généralement 20 à 50% de mémoire supplémentaire pour stocker le graphe de connexions) et les métadonnées associées à chaque vecteur.</p>
+
+        <pre><code class="language-python">def estimer_memoire_go(nb_vecteurs: int, dimensions: int, overhead_index: float = 0.3) -> float:
+    octets_par_vecteur = dimensions * 4   # float32
+    memoire_vecteurs = nb_vecteurs * octets_par_vecteur
+    memoire_avec_index = memoire_vecteurs * (1 + overhead_index)
+    return memoire_avec_index / (1024 ** 3)   # conversion en Go
+
+print(estimer_memoire_go(nb_vecteurs=5_000_000, dimensions=768))
+# Exemple : environ 19 Go rien que pour les vecteurs et leur index HNSW
+</code></pre>
+
+        <h3>Latence et débit</h3>
+        <p>La latence d'une recherche unique dépend du volume, des paramètres d'index (module 5) et de la puissance de calcul allouée. Le débit (nombre de requêtes simultanées supportées) dépend en plus du nombre de réplicas ou de shards disponibles pour paralléliser la charge. Un dimensionnement réaliste doit être testé en charge (load testing) sur des volumes proches de la production, pas seulement estimé théoriquement.</p>
+
+        <h3>Sharding et réplication</h3>
+        <p>Pour des volumes très importants ou un débit élevé, les bases vectorielles de production supportent généralement : le <strong>sharding</strong> (répartir les vecteurs sur plusieurs nœuds, chaque nœud ne portant qu'une partie de l'index, ce qui permet de dépasser la mémoire d'une seule machine) et la <strong>réplication</strong> (dupliquer l'index sur plusieurs nœuds pour absorber plus de requêtes simultanées et assurer une tolérance aux pannes).</p>
+
+        <div class="ascii">Sans sharding (un seul nœud) :          Avec sharding (plusieurs nœuds) :
+
+┌─────────────────────────┐            ┌───────────┐ ┌───────────┐
+│  Index complet           │            │  Shard 1  │ │  Shard 2  │
+│  (limité par la mémoire  │    ──►     │ (moitié   │ │ (moitié   │
+│   d'une seule machine)   │            │  des      │ │  des      │
+└─────────────────────────┘            │  vecteurs)│ │  vecteurs)│
+                                        └───────────┘ └───────────┘
+                                        Une requête interroge les 2 shards
+                                        en parallèle, puis fusionne les résultats.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Ne dimensionner l'infrastructure que sur le volume de vecteurs actuel, sans marge pour la croissance prévue, forçant une migration ou une re-architecture douloureuse quelques mois plus tard. À l'inverse, sur-dimensionner massivement "au cas où" dès le lancement génère des coûts d'infrastructure inutiles pendant potentiellement de longs mois. Un dimensionnement réaliste se base sur une projection de croissance documentée, pas sur une extrapolation arbitraire.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          En utilisant la formule ci-dessus, estimez l'empreinte mémoire pour votre corpus actuel (ou imaginé) et sa dimension d'embedding choisie. Cette estimation change-t-elle votre choix entre une base managée (qui gère le dimensionnement pour vous) et de l'auto-hébergement ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l4" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 6.4</span>Mise à jour, suppression et gestion du cycle de vie des vecteurs</h2>
+
+        <p>Un corpus de production n'est jamais statique : des documents sont ajoutés, modifiés, retirés. Gérer correctement ce cycle de vie dans une base vectorielle est souvent sous-estimé par rapport à l'attention portée à l'indexation initiale.</p>
+
+        <h3>Ajout incrémental</h3>
+        <p>La plupart des bases vectorielles supportent l'ajout de nouveaux vecteurs sans reconstruire l'intégralité de l'index — un ajout incrémental efficace est essentiel pour un corpus qui grandit en continu (nouveaux tickets de support, nouveaux articles publiés).</p>
+
+        <h3>Mise à jour d'un document modifié</h3>
+        <p>Quand un document source change, ses chunks doivent être re-générés (potentiellement avec des frontières différentes selon la stratégie de chunking, cours précédent) et ré-embeddés. La bonne pratique : identifier tous les anciens chunks associés à ce document via leurs métadonnées de source, les supprimer, puis insérer les nouveaux chunks — plutôt que de tenter une mise à jour partielle complexe et sujette à erreurs.</p>
+
+        <pre><code class="language-python">def reindexer_document(document_id: str, nouveau_contenu: str, collection):
+    # 1. Supprimer tous les anciens chunks de ce document
+    collection.delete(where={"document_id": document_id})
+
+    # 2. Re-chunker et ré-embedder le nouveau contenu (cours précédent + module 1-4)
+    nouveaux_chunks = pipeline_chunking(nouveau_contenu)
+    nouveaux_vecteurs = [embed(c.texte) for c in nouveaux_chunks]
+
+    # 3. Insérer les nouveaux chunks
+    collection.add(
+        embeddings=nouveaux_vecteurs,
+        documents=[c.texte for c in nouveaux_chunks],
+        metadatas=[{"document_id": document_id, **c.metadata} for c in nouveaux_chunks],
+        ids=[f"{document_id}_chunk_{i}" for i in range(len(nouveaux_chunks))],
+    )
+</code></pre>
+
+        <h3>Suppression et conformité (RGPD et équivalents)</h3>
+        <p>Pour des cas d'usage soumis à des obligations de suppression de données (droit à l'oubli, RGPD), il est essentiel de savoir supprimer <em>tous</em> les chunks associés à une source donnée de façon fiable et vérifiable — ce qui suppose d'avoir conservé une métadonnée de traçabilité systématique (rappel du cours chunking, module 5, leçon sur les métadonnées) permettant de retrouver et supprimer l'ensemble des fragments dérivés d'un document source.</p>
+
+        <h3>Index périmé (stale index)</h3>
+        <p>Un piège fréquent : un pipeline d'ingestion qui échoue silencieusement sur une partie des documents, laissant l'index dans un état partiellement à jour sans que personne ne s'en aperçoive avant qu'un utilisateur signale une réponse basée sur des informations obsolètes. Un monitoring de fraîcheur de l'index (date de dernière mise à jour par source, alertes sur échec d'ingestion) est une pratique de production essentielle mais souvent négligée en phase de prototype.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Oublier de supprimer les anciens chunks lors d'une mise à jour de document, ce qui fait coexister dans l'index une ancienne version et une nouvelle version potentiellement contradictoires du même contenu — un système RAG peut alors retourner des informations obsolètes à côté d'informations à jour, sans qu'aucune erreur ne signale cette incohérence.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre projet, à quelle fréquence les documents sources changent-ils (quotidien, hebdomadaire, rare) ? Cette fréquence justifie-t-elle un pipeline de ré-indexation automatisé, ou une ré-indexation manuelle ponctuelle suffit-elle ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l5" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 6.5</span>Choisir sa base vectorielle selon le cas d'usage</h2>
+
+        <p>Cette dernière leçon synthétise les critères vus dans ce module sous forme de guide de décision pratique.</p>
+
+        <table>
+          <thead>
+            <tr><th>Situation</th><th>Recommandation</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Prototype rapide, petit corpus, pas d'infra dédiée</td><td>Chroma (local ou embarqué)</td></tr>
+            <tr><td>Infrastructure PostgreSQL déjà en place</td><td>pgvector</td></tr>
+            <tr><td>Zéro gestion d'infrastructure souhaitée</td><td>Base managée cloud (Pinecone, Weaviate Cloud)</td></tr>
+            <tr><td>Besoin de recherche hybride riche et de filtrage avancé</td><td>Weaviate ou Qdrant</td></tr>
+            <tr><td>Très haute performance, contrôle fin, équipe infra dédiée</td><td>Qdrant ou Milvus auto-hébergés</td></tr>
+            <tr><td>Confidentialité stricte, aucune donnée externalisée</td><td>Solution open-source auto-hébergée</td></tr>
+          </tbody>
+        </table>
+
+        <p>Au-delà de ce tableau, quelques questions à se poser systématiquement avant de trancher : Quel est le volume de vecteurs attendu à horizon 1-2 ans (module 6, leçon 3) ? Ai-je besoin de recherche hybride native (module 7) ou puis-je m'en passer ? Mon infrastructure existante influence-t-elle le choix (leçon 6.1) ? Quelle est ma tolérance à la gestion opérationnelle d'une base auto-hébergée versus le coût récurrent d'une offre managée ?</p>
+
+        <div class="ascii">Méthode de décision recommandée :
+
+1. Lister les contraintes non négociables (confidentialité,
+   infrastructure existante, budget, compétences internes)
+2. Éliminer les options incompatibles avec ces contraintes
+3. Parmi les options restantes, commencer par la plus simple
+   à mettre en œuvre (souvent Chroma ou pgvector pour démarrer)
+4. Ne migrer vers une solution plus sophistiquée QUE si un
+   besoin concret et mesuré l'exige (volume, latence, recherche
+   hybride avancée) — pas par anticipation seule</div>
+
+        <p>Ce module clôt la partie "infrastructure" du cours. Les deux modules suivants reviennent à des préoccupations de qualité de résultats : comment combiner recherche vectorielle et recherche lexicale pour de meilleurs résultats (module 7), puis comment assembler tout ce qui a été vu dans un pipeline complet évalué de bout en bout (module 8).</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Passer plusieurs semaines à comparer en détail toutes les bases vectorielles du marché avant de démarrer un projet, alors qu'une solution simple (Chroma, pgvector) permettrait de valider rapidement la faisabilité globale du système RAG. Le choix de la base vectorielle est rarement le facteur limitant principal de la qualité d'un système RAG — le chunking et le choix du modèle d'embedding (modules précédents) ont généralement un impact plus déterminant.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : à partir du tableau récapitulatif ci-dessus, quelle base choisiriez-vous pour démarrer votre projet aujourd'hui, et quel signal concret vous ferait reconsidérer ce choix plus tard ?
+        </div>
+      </section>
+    </div>
+    <div class="module-block" id="module-7">
+      <span class="module-kicker">MODULE 07 / 08</span>
+      <h1>Recherche hybride et amélioration de la pertinence</h1>
+      <p class="intro">La recherche purement vectorielle, malgré sa puissance, a des angles morts systématiques. Ce module montre comment les combler en combinant plusieurs signaux de pertinence — la pratique standard des systèmes RAG matures en production.</p>
+
+      <section class="lesson" id="m7-l1" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 7.1</span>Limites de la recherche purement vectorielle</h2>
+
+        <p>La recherche vectorielle excelle à capturer la similarité sémantique (reformulations, synonymes, relations conceptuelles), mais elle a des faiblesses systématiques qui justifient de ne pas s'y fier exclusivement dans un système de production exigeant.</p>
+
+        <h3>Les termes exacts et rares</h3>
+        <p>Pour une requête contenant un identifiant précis (référence produit "REF-4471-B", numéro de contrat, nom propre rare), la recherche vectorielle peut échouer à privilégier un chunk qui contient exactement cet identifiant, car un embedding généraliste n'accorde pas nécessairement une importance disproportionnée à une chaîne de caractères précise — il capture le sens général du texte, pas la présence exacte d'un token rare.</p>
+
+        <pre><code class="language-python">question = "Quel est le statut de la commande REF-4471-B ?"
+vecteur_question = embed(question)
+
+# Un chunk qui contient LITTÉRALEMENT "REF-4471-B" pourrait ne pas
+# remonter en premier si un autre chunk parle plus généralement
+# de "statuts de commandes" sans mentionner cette référence précise
+# mais avec un vocabulaire globalement plus proche de la question.
+</code></pre>
+
+        <h3>Le vocabulaire hors distribution d'entraînement</h3>
+        <p>Un acronyme interne, un nom de produit inventé, un jargon très spécifique à une entreprise peuvent être mal représentés par un modèle d'embedding généraliste qui n'a jamais rencontré ce terme lors de son entraînement (module 2) — le modèle traite alors ce terme comme un token quasi aléatoire plutôt que porteur de sens.</p>
+
+        <h3>La recherche par mots-clés reste parfois supérieure</h3>
+        <p>Pour des requêtes très courtes et précises ("erreur 504", "code HTTP 403"), une recherche lexicale classique (correspondance exacte de termes, BM25) peut être plus fiable qu'une recherche sémantique, car il n'y a pas d'ambiguïté à résoudre — l'utilisateur cherche littéralement ces caractères précis.</p>
+
+        <div class="ascii">Type de requête                        Recherche vectorielle    Recherche lexicale (BM25)
+                                        seule                    seule
+────────────────────────────────────────────────────────────────────────────────
+Reformulation / synonymes              Excellente               Faible
+("comment annuler" vs "comment
+ résilier")
+
+Identifiant précis / code d'erreur     Faible à moyenne         Excellente
+("REF-4471-B", "erreur 504")
+
+Vocabulaire de jargon interne          Faible (hors             Bonne (correspondance
+non vu à l'entraînement                distribution)            exacte du terme)
+
+Question conceptuelle large            Excellente               Faible</div>
+
+        <p>Ce tableau illustre pourquoi aucune des deux approches seule ne domine systématiquement l'autre — elles ont des forces complémentaires. C'est précisément ce qui motive la <strong>recherche hybride</strong>, sujet central de ce module : combiner les deux signaux plutôt que de choisir l'un au détriment de l'autre.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Constater un échec de recherche vectorielle sur une requête contenant un identifiant précis et en conclure que "le modèle d'embedding est mauvais", en cherchant à le remplacer, alors que le vrai problème est architectural : la recherche purement vectorielle n'est simplement pas le bon outil pour ce type de requête. La solution n'est pas un meilleur modèle, mais une architecture hybride (leçon suivante).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre corpus, listez 2 exemples de requêtes où vous anticipez que la recherche vectorielle pure échouerait (identifiants, jargon très spécifique, codes d'erreur) — ce sont les cas qui justifieraient le plus une recherche hybride.
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l2" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 7.2</span>Recherche hybride : combiner BM25 et recherche vectorielle</h2>
+
+        <p>La <strong>recherche hybride</strong> consiste à exécuter deux recherches en parallèle sur la même requête — une recherche vectorielle (module 5) et une recherche lexicale classique (BM25, l'évolution moderne du TF-IDF évoqué au module 1) — puis à combiner leurs résultats respectifs en un classement unique.</p>
+
+        <h3>Rappel sur BM25</h3>
+        <p>BM25 (Best Matching 25) est un algorithme de scoring lexical qui mesure la pertinence d'un document par rapport à une requête en fonction de la fréquence des termes de la requête dans le document, pondérée par la rareté de ces termes dans l'ensemble du corpus (les termes rares comptent plus que les termes fréquents) et normalisée par la longueur du document. C'est l'algorithme historique derrière la plupart des moteurs de recherche textuels avant l'ère des embeddings, encore extrêmement performant pour la correspondance exacte de termes.</p>
+
+        <pre><code class="language-python">from rank_bm25 import BM25Okapi
+
+corpus_tokenise = [texte.lower().split() for texte in [c.texte for c in chunks]]
+bm25 = BM25Okapi(corpus_tokenise)
+
+question_tokenisee = "statut commande REF-4471-B".lower().split()
+scores_bm25 = bm25.get_scores(question_tokenisee)
+# Score élevé pour les chunks contenant LITTÉRALEMENT ces termes
+</code></pre>
+
+        <h3>Exécuter les deux recherches en parallèle</h3>
+        <pre><code class="language-python">def recherche_hybride(question: str, chunks: list, bm25_index, k: int = 5) -> list:
+    # Recherche vectorielle (modules 3 et 5)
+    vecteur_question = embed(question)
+    scores_vectoriels = [similarite_cosinus(vecteur_question, np.array(c.embedding)) for c in chunks]
+
+    # Recherche lexicale (BM25)
+    scores_bm25 = bm25_index.get_scores(question.lower().split())
+
+    # Combiner les deux scores (méthode simple : normalisation + pondération)
+    # Une méthode plus robuste, la fusion de rangs (RRF), est vue en leçon 7.4
+    scores_combines = [
+        0.5 * normaliser_score(sv) + 0.5 * normaliser_score(sb)
+        for sv, sb in zip(scores_vectoriels, scores_bm25)
+    ]
+
+    indices_tries = np.argsort(scores_combines)[::-1][:k]
+    return [chunks[i] for i in indices_tries]
+</code></pre>
+
+        <p>La plupart des bases de données vectorielles modernes (Weaviate, Qdrant, Elasticsearch — module 6) exposent cette combinaison nativement, évitant d'avoir à l'implémenter à la main comme dans l'exemple pédagogique ci-dessus. Le paramètre de pondération entre les deux scores (souvent appelé <code class="inline">alpha</code>) est généralement ajustable, permettant de doser l'importance relative du signal sémantique et du signal lexical selon le type de requêtes dominant dans votre cas d'usage.</p>
+
+        <div class="ascii">Requête utilisateur
+        │
+        ├──────────────────┬──────────────────┐
+        ▼                  ▼
+Recherche vectorielle   Recherche BM25
+(embed + similarité      (correspondance de
+ cosinus, module 3-5)    termes pondérée)
+        │                  │
+        ▼                  ▼
+  scores vectoriels    scores lexicaux
+        │                  │
+        └────────┬─────────┘
+                  ▼
+         Fusion des scores
+         (pondération ou RRF, leçon 7.4)
+                  │
+                  ▼
+         Classement final combiné</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Fixer arbitrairement la pondération entre score vectoriel et score lexical (souvent 50/50 par défaut) sans la calibrer empiriquement sur son propre jeu de questions. Un corpus où les requêtes contiennent fréquemment des identifiants précis bénéficierait d'un poids plus fort sur BM25 ; un corpus orienté questions conceptuelles bénéficierait d'un poids plus fort sur le vectoriel — cette pondération est un paramètre à évaluer, pas à deviner.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour les deux exemples de requêtes "difficiles" que vous aviez identifiés en leçon 7.1, expliquez comment la recherche hybride résoudrait chacune d'elles mieux qu'une recherche purement vectorielle.
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l3" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 7.3</span>Reranking : cross-encoders</h2>
+
+        <p>Au-delà de la recherche hybride, une deuxième technique d'amélioration de la pertinence — souvent combinée à elle — consiste à ajouter une étape de <strong>reranking</strong> après la recherche initiale : récupérer un nombre généreux de candidats (ex: 20-50) via recherche vectorielle/hybride, rapide mais approximative, puis les reclasser avec un modèle plus précis mais plus coûteux, appliqué seulement à ce petit ensemble de candidats.</p>
+
+        <h3>Pourquoi un modèle séparé pour le reranking</h3>
+        <p>Les modèles d'embedding vus dans ce cours sont des <strong>bi-encoders</strong> : ils encodent indépendamment la question et chaque chunk en deux vecteurs séparés, comparés ensuite par similarité cosinus. Cette indépendance est ce qui rend la recherche rapide (les vecteurs des chunks sont pré-calculés une fois, module 1) mais elle limite la finesse de la comparaison — le modèle ne "voit" jamais la question et le chunk ensemble.</p>
+
+        <p>Un <strong>cross-encoder</strong>, utilisé pour le reranking, fonctionne différemment : il prend la question et le chunk <em>ensemble</em> en entrée (concaténés) et produit directement un score de pertinence, permettant au modèle d'attention (module 2) de comparer finement chaque mot de la question à chaque mot du chunk. Cette approche est bien plus précise, mais aussi bien plus coûteuse en calcul — impossible à appliquer à des millions de chunks en temps réel, d'où son usage réservé à un petit nombre de candidats déjà présélectionnés.</p>
+
+        <div class="ascii">Bi-encoder (utilisé pour la recherche initiale) :
+
+Question  ──► [Encodeur] ──► vecteur_Q  ─┐
+                                          ├──► similarité cosinus (rapide)
+Chunk     ──► [Encodeur] ──► vecteur_C  ─┘
+(pré-calculé une fois à l'ingestion, module 1)
+
+
+Cross-encoder (utilisé pour le reranking, sur les candidats seulement) :
+
+Question + Chunk ──► [Encodeur unique, traite les deux ENSEMBLE] ──► score de pertinence
+(calcul à chaque paire, donc coûteux — réservé à un petit nombre de candidats)</div>
+
+        <pre><code class="language-python">from sentence_transformers import CrossEncoder
+
+reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+
+question = "Comment calibrer l'overlap dans un chunking ?"
+candidats = [c.texte for c in resultats_recherche_initiale]   # ex: 30 candidats
+
+paires = [(question, candidat) for candidat in candidats]
+scores = reranker.predict(paires)
+
+resultats_reclasses = sorted(zip(candidats, scores), key=lambda x: x[1], reverse=True)
+top_5_final = resultats_reclasses[:5]   # les 5 meilleurs après reranking
+</code></pre>
+
+        <p>Le pipeline typique en production : récupérer un nombre généreux de candidats via recherche hybride (leçon 7.2), rapide à grande échelle, puis reranker uniquement ce sous-ensemble avec un cross-encoder, avant de transmettre les meilleurs résultats reclassés au LLM de génération. Cette architecture à deux étages ("retrieve then rerank") est aujourd'hui considérée comme une bonne pratique standard pour des systèmes RAG exigeants en qualité.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Appliquer un cross-encoder directement sur l'ensemble du corpus au lieu de l'utiliser uniquement pour reclasser un petit nombre de candidats déjà présélectionnés. Un cross-encoder est structurellement trop lent pour scanner des millions de chunks en temps réel — son rôle est d'affiner, pas de remplacer, la recherche initiale rapide.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Expliquez avec vos propres mots pourquoi un cross-encoder peut être plus précis qu'un bi-encoder pour évaluer la pertinence d'une paire question/chunk, en vous appuyant sur la notion d'attention vue au module 2.
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l4" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 7.4</span>Fusion de scores : Reciprocal Rank Fusion (RRF)</h2>
+
+        <p>La leçon 7.2 a introduit une fusion simple par pondération de scores normalisés. Une méthode plus robuste et largement utilisée en production pour combiner plusieurs classements (vectoriel + BM25, ou même plusieurs recherches vectorielles avec des modèles différents) est le <strong>Reciprocal Rank Fusion</strong> (RRF).</p>
+
+        <h3>Pourquoi RRF plutôt qu'une simple pondération de scores</h3>
+        <p>Un problème avec la fusion par score pondéré (leçon 7.2) : les scores de similarité cosinus et les scores BM25 n'ont pas la même échelle ni la même distribution statistique, ce qui rend leur normalisation et leur pondération délicates à calibrer correctement. RRF évite ce problème en ignorant complètement la valeur absolue des scores, et en se basant uniquement sur le <strong>rang</strong> (la position) de chaque résultat dans chaque classement.</p>
+
+        <div class="ascii">Formule RRF pour un document d, combiné sur plusieurs classements :
+
+RRF_score(d) = somme, pour chaque classement,  de  1 / (k + rang(d))
+
+où :
+  rang(d)  = position du document d dans ce classement (1er, 2e, 3e...)
+  k        = constante de lissage (souvent k=60, valeur empirique standard)
+
+Un document bien classé (rang 1 ou 2) dans PLUSIEURS classements
+obtient un score RRF élevé, même s'il n'était pas le numéro 1
+absolu dans un seul des classements pris isolément.</div>
+
+        <pre><code class="language-python">def reciprocal_rank_fusion(classements: list[list[str]], k: int = 60) -> list[str]:
+    """classements : liste de listes d'IDs de documents, chacune triée par pertinence."""
+    scores_rrf = {}
+    for classement in classements:
+        for rang, doc_id in enumerate(classement, start=1):
+            scores_rrf[doc_id] = scores_rrf.get(doc_id, 0) + 1 / (k + rang)
+
+    documents_tries = sorted(scores_rrf.items(), key=lambda x: x[1], reverse=True)
+    return [doc_id for doc_id, score in documents_tries]
+
+classement_vectoriel = ["chunk_42", "chunk_8", "chunk_91", "chunk_3"]
+classement_bm25      = ["chunk_8", "chunk_3", "chunk_105", "chunk_42"]
+
+resultat_fusionne = reciprocal_rank_fusion([classement_vectoriel, classement_bm25])
+print(resultat_fusionne)
+# "chunk_8" et "chunk_42" bien classés dans les deux listes remontent en tête
+</code></pre>
+
+        <p>RRF est particulièrement apprécié pour sa simplicité (aucune calibration de poids nécessaire, contrairement à la pondération de scores) et sa robustesse face à des classements de nature très différente (scores non comparables entre eux). C'est la méthode de fusion par défaut de nombreuses bases vectorielles proposant de la recherche hybride nativement (module 6).</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Combiner directement des scores de similarité cosinus (échelle -1 à 1) et des scores BM25 (échelle arbitraire, dépendante du corpus, souvent bien supérieure à 1) par simple addition ou moyenne sans normalisation ni fusion par rang — ce mélange d'échelles incompatibles produit un classement final dominé arbitrairement par l'un des deux signaux, généralement sans que ce soit l'intention voulue.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          En utilisant la formule RRF ci-dessus avec k=60, calculez à la main le score RRF du document "chunk_8" dans l'exemple donné (rang 2 dans le classement vectoriel, rang 1 dans le classement BM25).
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l5" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 7.5</span>Évaluer la qualité du retrieval avec ces techniques combinées</h2>
+
+        <p>Ce module a introduit trois techniques d'amélioration (hybride, reranking, RRF) — cette dernière leçon rappelle, dans la continuité directe de la méthode d'évaluation du cours chunking, comment mesurer objectivement leur apport plutôt que de les empiler par principe.</p>
+
+        <h3>Réutiliser le jeu d'évaluation et les métriques déjà connues</h3>
+        <p>Les métriques recall@k et MRR (introduites dans le cours chunking, module 7) s'appliquent directement ici : il suffit de faire varier la configuration de retrieval testée (vectoriel seul, hybride, hybride + reranking) tout en gardant le même jeu de questions et les mêmes chunks attendus, pour isoler précisément l'apport de chaque technique.</p>
+
+        <pre><code class="language-python">configurations = {
+    "vectoriel_seul": lambda q: recherche_vectorielle(q, k=5),
+    "hybride": lambda q: recherche_hybride(q, k=5),
+    "hybride_plus_reranking": lambda q: reranker_candidats(recherche_hybride(q, k=30), top_k=5),
+}
+
+for nom, fonction_recherche in configurations.items():
+    resultats = {
+        "recall_at_5": recall_at_k_generique(jeu_eval, fonction_recherche),
+        "mrr": mrr_generique(jeu_eval, fonction_recherche),
+    }
+    print(f"{nom:25s} | recall@5={resultats['recall_at_5']:.1%} | mrr={resultats['mrr']:.3f}")
+</code></pre>
+
+        <div class="ascii">Résultat illustratif (données d'exemple, à reproduire sur VOTRE corpus) :
+
+Configuration              recall@5   MRR
+────────────────────────────────────────
+vectoriel_seul               71%      0.58
+hybride                      79%      0.66
+hybride_plus_reranking       86%      0.74
+
+→ Chaque étage ajouté apporte un gain mesurable,
+  au prix d'une latence et d'une complexité croissantes.
+  La décision d'ajouter le reranking dépend du budget de
+  latence disponible ET du gain réellement observé sur SON
+  propre corpus — pas d'une supposition générique.</div>
+
+        <h3>Le compromis latence/qualité à chaque étage</h3>
+        <p>Chaque technique ajoutée (hybride, puis reranking) améliore généralement la qualité mais ajoute de la latence et de la complexité opérationnelle. La bonne pratique : mesurer le gain de chaque étage individuellement (comme dans le tableau ci-dessus), puis décider en connaissance de cause si ce gain justifie le coût additionnel pour votre cas d'usage spécifique — un chatbot de support avec des exigences de réponse instantanée n'a pas la même tolérance à la latence qu'un outil de recherche juridique interne où la précision prime largement sur la vitesse.</p>
+
+        <p>Ce module clôt la partie "qualité du retrieval" du cours. Le dernier module assemble l'ensemble des briques vues (embeddings, index, bases vectorielles, hybride, reranking) dans un pipeline complet, avec une étude de cas comparative et des conseils de mise en production.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Ajouter systématiquement toutes les techniques de ce module (hybride ET reranking) par défaut à chaque projet, sans mesurer si le gain de qualité justifie la complexité et la latence ajoutées pour ce cas d'usage précis. Comme pour le chunking sémantique dans le cours précédent, la sophistication doit être justifiée empiriquement, pas appliquée par principe de précaution.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : à partir du tableau d'exemple ci-dessus, à partir de quel gain de recall@5 estimeriez-vous que l'ajout du reranking (avec sa latence supplémentaire) est clairement justifié pour votre propre cas d'usage ? Justifiez votre seuil de décision.
+        </div>
+      </section>
+    </div>
+    <div class="module-block" id="module-8">
+      <span class="module-kicker">MODULE 08 / 08 — FINAL</span>
+      <h1>Implémentation complète et bonnes pratiques</h1>
+      <p class="intro">Ce dernier module assemble l'ensemble du cours dans un pipeline exécutable de bout en bout, une méthode de débogage concrète, une comparaison empirique, et des ressources pour continuer à approfondir.</p>
+
+      <section class="lesson" id="m8-l1" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 8.1</span>Pipeline complet : du texte brut à la recherche vectorielle en production</h2>
+
+        <p>Voici un pipeline complet qui relie le chunking (cours précédent) à la recherche hybride avec reranking (ce cours), pour illustrer comment toutes les briques s'assemblent concrètement.</p>
+
+        <pre><code class="language-python">from dataclasses import dataclass
+from sentence_transformers import SentenceTransformer, CrossEncoder
+from rank_bm25 import BM25Okapi
+import numpy as np
+
+modele_embedding = SentenceTransformer("BAAI/bge-base-en-v1.5")
+reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+
+@dataclass
+class ChunkIndexe:
+    texte: str
+    vecteur: np.ndarray
+    metadata: dict
+
+def construire_index(chunks_avec_metadata: list[dict]) -> tuple[list[ChunkIndexe], BM25Okapi]:
+    """Phase 2 (module 1-4) : embedding de tous les chunks issus du chunking (cours précédent)."""
+    textes = [c["texte"] for c in chunks_avec_metadata]
+    vecteurs = modele_embedding.encode(textes, normalize_embeddings=True)
+
+    index = [
+        ChunkIndexe(texte=t, vecteur=v, metadata=c["metadata"])
+        for t, v, c in zip(textes, vecteurs, chunks_avec_metadata)
+    ]
+    bm25 = BM25Okapi([t.lower().split() for t in textes])
+    return index, bm25
+
+def rechercher(question: str, index: list[ChunkIndexe], bm25: BM25Okapi,
+                k_candidats: int = 30, k_final: int = 5) -> list[ChunkIndexe]:
+    """Phase 3 (module 5-7) : recherche hybride + reranking."""
+    vecteur_question = modele_embedding.encode([question], normalize_embeddings=True)[0]
+
+    # Scores vectoriels (module 3)
+    scores_vectoriels = np.array([np.dot(vecteur_question, c.vecteur) for c in index])
+
+    # Scores BM25 (module 7)
+    scores_bm25 = bm25.get_scores(question.lower().split())
+
+    # Fusion RRF (module 7, leçon 4)
+    rang_vectoriel = np.argsort(scores_vectoriels)[::-1]
+    rang_bm25 = np.argsort(scores_bm25)[::-1]
+    scores_rrf = reciprocal_rank_fusion([rang_vectoriel.tolist(), rang_bm25.tolist()])
+
+    candidats = [index[i] for i in scores_rrf[:k_candidats]]
+
+    # Reranking final (module 7, leçon 3)
+    paires = [(question, c.texte) for c in candidats]
+    scores_rerank = reranker.predict(paires)
+    resultats_tries = sorted(zip(candidats, scores_rerank), key=lambda x: x[1], reverse=True)
+
+    return [c for c, score in resultats_tries[:k_final]]
+
+# Utilisation
+index, bm25 = construire_index(chunks_du_pipeline_chunking)   # cours précédent
+resultats = rechercher("Quelle est la politique de remboursement ?", index, bm25)
+</code></pre>
+
+        <p>Ce pipeline illustre la continuité complète entre les deux cours : le chunking détermine <em>quoi</em> indexer (cours précédent), les embeddings déterminent <em>comment</em> le représenter numériquement (modules 1-4), la recherche vectorielle et hybride déterminent <em>comment</em> le retrouver efficacement (modules 5-7), et le tout alimente enfin la phase de génération du LLM, hors du périmètre de ce cours.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Construire ce pipeline complet dès le premier prototype, avec reranking et fusion hybride, avant même d'avoir vérifié qu'une recherche vectorielle simple ne suffit pas déjà largement pour le cas d'usage visé. Comme rappelé tout au long de ce cours, chaque brique de sophistication doit être ajoutée après mesure d'un besoin réel, pas par anticipation.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Dans le pipeline ci-dessus, identifiez à quel module de ce cours (1 à 7) correspond chaque fonction (<code class="inline">construire_index</code>, le calcul de <code class="inline">scores_vectoriels</code>, <code class="inline">reciprocal_rank_fusion</code>, le <code class="inline">reranker</code>).
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l2" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 8.2</span>Coûts, latence et mise en cache des embeddings</h2>
+
+        <p>Un système RAG en production doit maîtriser trois dimensions de coût liées aux embeddings : le coût financier des appels (si modèle propriétaire), la latence perçue par l'utilisateur, et le coût de calcul de l'infrastructure (si auto-hébergé).</p>
+
+        <h3>Mise en cache des embeddings de chunks</h3>
+        <p>Les embeddings des chunks sont calculés une fois à l'ingestion (module 1, leçon 4) et ne devraient jamais être recalculés à chaque requête — une évidence en théorie, mais une erreur d'implémentation étonnamment fréquente dans des pipelines mal architecturés qui ré-embeddent tout le corpus à chaque déploiement au lieu de ne traiter que les documents modifiés (rappel du module 6, leçon 4).</p>
+
+        <h3>Mise en cache des questions fréquentes</h3>
+        <p>Pour des cas d'usage où certaines questions reviennent fréquemment (FAQ, support client), mettre en cache l'embedding de la question elle-même (et potentiellement le résultat de recherche associé) évite un appel d'embedding redondant. Un cache simple basé sur le texte exact de la question, ou plus avancé basé sur une similarité approximative des questions (retrouver une question déjà en cache suffisamment proche de la nouvelle), peut réduire significativement le volume d'appels.</p>
+
+        <pre><code class="language-python">import hashlib
+import json
+
+cache_embeddings = {}   # en production : Redis ou un cache persistant
+
+def embed_avec_cache(texte: str) -> list[float]:
+    cle = hashlib.sha256(texte.encode()).hexdigest()
+    if cle in cache_embeddings:
+        return cache_embeddings[cle]
+
+    vecteur = embed(texte)   # appel réel au modèle
+    cache_embeddings[cle] = vecteur
+    return vecteur
+</code></pre>
+
+        <h3>Estimer le coût mensuel</h3>
+        <pre><code class="language-python">def estimer_cout_mensuel(nb_requetes_par_jour: int, tokens_moyens_par_requete: int,
+                          prix_par_million_tokens: float) -> float:
+    tokens_par_mois = nb_requetes_par_jour * 30 * tokens_moyens_par_requete
+    return (tokens_par_mois / 1_000_000) * prix_par_million_tokens
+
+# Exemple : 5000 requêtes/jour, ~20 tokens par question, tarif économique
+cout = estimer_cout_mensuel(nb_requetes_par_jour=5000, tokens_moyens_par_requete=20,
+                             prix_par_million_tokens=0.02)
+print(f"Coût mensuel estimé pour l'embedding des requêtes : {cout:.2f}$")
+# Notez que ce calcul ne couvre que l'embedding des REQUÊTES, pas l'ingestion
+# initiale du corpus (calcul ponctuel généralement bien plus coûteux one-shot)
+</code></pre>
+
+        <h3>Réduire la latence perçue</h3>
+        <p>Pour l'embedding de la question (calculé en temps réel à chaque requête, contrairement aux chunks), la latence s'ajoute directement au temps de réponse perçu par l'utilisateur. Les leviers principaux : choisir un modèle plus léger si la latence prime sur une précision marginale (module 4), héberger le modèle au plus près de l'application (réduire la latence réseau), ou paralléliser l'appel d'embedding avec d'autres opérations indépendantes du pipeline quand c'est possible.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Ne jamais mesurer séparément le coût et la latence de chaque étape du pipeline (embedding de la requête, recherche vectorielle, reranking, génération), ce qui empêche d'identifier où concentrer les efforts d'optimisation. Un profiling simple de chaque étape révèle souvent qu'une seule étape domine largement le budget total de latence ou de coût — l'optimisation doit cibler ce goulot d'étranglement précis, pas être appliquée uniformément partout.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          En utilisant la formule d'estimation de coût ci-dessus, calculez le coût mensuel approximatif pour votre projet (volume de requêtes estimé). Ce montant change-t-il votre arbitrage entre modèle propriétaire et open-source vu au module 4 ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l3" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 8.3</span>Débogage d'un système de recherche vectorielle qui sous-performe</h2>
+
+        <p>Cette leçon prolonge la méthode de diagnostic du cours chunking (module 7) avec une grille spécifique aux problèmes qui trouvent leur origine dans les embeddings et la recherche vectorielle plutôt que dans le chunking lui-même.</p>
+
+        <table>
+          <thead>
+            <tr><th>Symptôme observé</th><th>Cause probable</th><th>Vérification</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Résultats incohérents après une mise à jour</td><td>Modèle d'embedding changé sans ré-indexation complète</td><td>Vérifier que 100% des vecteurs utilisent le même modèle (module 1, leçon 4)</td></tr>
+            <tr><td>Identifiants/codes jamais retrouvés</td><td>Recherche purement vectorielle sans signal lexical</td><td>Ajouter une recherche hybride (module 7)</td></tr>
+            <tr><td>Bons résultats en dev, mauvais en production</td><td>Décalage entre volume/paramètres d'index testés et réels</td><td>Revérifier les paramètres HNSW à l'échelle réelle (module 5)</td></tr>
+            <tr><td>Résultats corrects mais dans le mauvais ordre</td><td>Absence de reranking, ou seuil de similarité mal calibré</td><td>Ajouter un cross-encoder (module 7) ou recalibrer (module 3)</td></tr>
+            <tr><td>Bon score sur un jeu de test, mauvais en usage réel</td><td>Jeu d'évaluation non représentatif des vraies requêtes</td><td>Enrichir le jeu avec des logs réels d'utilisateurs</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Méthode de diagnostic étape par étape</h3>
+        <ol>
+          <li><strong>Vérifier la cohérence du modèle</strong> : tous les vecteurs de l'index ont-ils été produits par le même modèle, avec la même configuration (normalisation, dimension) ?</li>
+          <li><strong>Isoler chaque étage du pipeline</strong> : inspecter séparément les résultats de la recherche vectorielle seule, puis hybride, puis après reranking — à quel étage la dégradation apparaît-elle ?</li>
+          <li><strong>Vérifier la distribution des scores</strong> : les scores de similarité obtenus sont-ils dans une plage cohérente avec ce qui a été observé lors de la calibration initiale (module 3), ou anormalement bas/hauts sur l'ensemble du corpus ?</li>
+          <li><strong>Comparer à une recherche exhaustive de référence</strong> : sur un petit échantillon, comparer les résultats de l'index de production (ANN, module 5) à une recherche brute-force exacte — un écart important signale un problème de paramétrage de l'index plutôt qu'un problème de modèle.</li>
+        </ol>
+
+        <pre><code class="language-python">def diagnostiquer_requete(question: str, index, bm25):
+    print(f"QUESTION: {question}\n")
+
+    print("--- Recherche vectorielle seule ---")
+    for c in recherche_vectorielle_seule(question, index, k=5):
+        print(f"  {c.texte[:80]}... (score={c.score:.3f})")
+
+    print("\n--- Recherche hybride (avant reranking) ---")
+    for c in recherche_hybride(question, index, bm25, k=5):
+        print(f"  {c.texte[:80]}...")
+
+    print("\n--- Après reranking ---")
+    for c in rechercher(question, index, bm25, k_final=5):
+        print(f"  {c.texte[:80]}...")
+</code></pre>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Diagnostiquer un problème de retrieval uniquement en regardant le résultat final après toutes les étapes du pipeline (hybride + reranking), sans inspecter les résultats intermédiaires de chaque étage. Cela rend impossible de savoir si le problème vient de la recherche initiale (mauvais candidats récupérés) ou du reranking (bons candidats mal reclassés) — deux causes qui appellent des corrections complètement différentes.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour une requête de votre choix sur votre corpus (réel ou imaginé), esquissez ce que vous vous attendriez à observer à chacun des 3 étages (vectoriel seul, hybride, après reranking) si le système fonctionne correctement.
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l4" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 8.4</span>Étude de cas : comparer plusieurs configurations sur un corpus réel</h2>
+
+        <p>L'exercice le plus formateur de ce cours, à reproduire sur votre propre projet : une comparaison empirique complète mobilisant modèle d'embedding, stratégie d'indexation et technique de recherche, avec le même jeu d'évaluation du bout en bout.</p>
+
+        <pre><code class="language-python">configurations_a_tester = {
+    "baseline_petit_modele":     {"modele": "all-MiniLM-L6-v2", "hybride": False, "rerank": False},
+    "modele_moyen_hybride":      {"modele": "bge-base-en-v1.5", "hybride": True,  "rerank": False},
+    "modele_moyen_hybride_rerank": {"modele": "bge-base-en-v1.5", "hybride": True, "rerank": True},
+    "modele_propriétaire":       {"modele": "text-embedding-3-small", "hybride": True, "rerank": True},
+}
+
+resultats_comparaison = {}
+for nom, config in configurations_a_tester.items():
+    index, bm25 = construire_index(chunks, modele=config["modele"])
+    fonction_recherche = construire_fonction_recherche(index, bm25, config)
+
+    resultats_comparaison[nom] = {
+        "recall_at_5": recall_at_k_generique(jeu_eval, fonction_recherche),
+        "mrr": mrr_generique(jeu_eval, fonction_recherche),
+        "latence_moyenne_ms": mesurer_latence(fonction_recherche, jeu_eval),
+        "cout_mensuel_estime": estimer_cout(config, volume_mensuel),
+    }
+
+for nom, r in resultats_comparaison.items():
+    print(f"{nom:32s} | recall@5={r['recall_at_5']:.1%} | mrr={r['mrr']:.3f} | "
+          f"latence={r['latence_moyenne_ms']:.0f}ms | coût/mois={r['cout_mensuel_estime']:.2f}$")
+</code></pre>
+
+        <div class="ascii">Exemple illustratif de résultat comparatif (données fictives, à reproduire
+sur VOTRE corpus et VOTRE jeu de questions) :
+
+Configuration                    recall@5   MRR    latence   coût/mois
+──────────────────────────────────────────────────────────────────────
+baseline_petit_modele              68%      0.51    45ms      0$ (local)
+modele_moyen_hybride                77%      0.61    120ms     0$ (local)
+modele_moyen_hybride_rerank         85%      0.71    340ms     0$ (local)
+modele_propriétaire                 83%      0.69    180ms     ~40$
+
+→ Le modèle open-source moyen avec hybride + reranking obtient
+  le meilleur recall@5 ici, au prix d'une latence plus élevée.
+  Le choix final dépend de la tolérance à la latence du cas d'usage.</div>
+
+        <p>Ce tableau comparatif — construit sur votre propre corpus, pas sur des données génériques — est l'aboutissement pratique de tout ce cours : il transforme chaque décision individuelle (modèle, indexation, hybride, reranking) en un choix mesuré plutôt qu'une conviction non vérifiée. C'est la même discipline méthodologique déjà pratiquée pour le chunking dans le cours précédent, appliquée ici à l'ensemble de la chaîne embeddings + recherche vectorielle.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Comparer des configurations uniquement sur le recall@5 ou le MRR, en ignorant la latence et le coût — deux dimensions tout aussi déterminantes pour une mise en production réussie. La meilleure configuration n'est pas toujours celle qui maximise la qualité pure, mais celle qui offre le meilleur compromis pour les contraintes réelles du projet (budget, exigences de latence utilisateur).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          À partir du tableau d'exemple ci-dessus, si votre cas d'usage est un chatbot de support avec une exigence stricte de réponse sous 200ms, quelle configuration choisiriez-vous malgré un recall légèrement inférieur ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l5" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 8.5</span>Ressources pour aller plus loin</h2>
+
+        <p>Pour approfondir au-delà de ce cours, quelques pistes organisées par thème.</p>
+
+        <h3>Benchmarks et classements</h3>
+        <ul>
+          <li>Le classement MTEB (Massive Text Embedding Benchmark, hébergé sur Hugging Face) — mis à jour régulièrement, référence pour comparer les modèles d'embedding disponibles (module 4).</li>
+          <li>Les benchmarks ANN (ann-benchmarks.com) — comparent les performances des différents algorithmes et implémentations d'index vectoriel (module 5) sur des jeux de données standardisés.</li>
+        </ul>
+
+        <h3>Documentation officielle des outils</h3>
+        <ul>
+          <li>Documentation de <code class="inline">sentence-transformers</code> — référence pour l'utilisation et le fine-tuning de modèles d'embedding open-source (modules 2 et 4).</li>
+          <li>Documentation des bases vectorielles évoquées au module 6 (Qdrant, Weaviate, pgvector, Chroma) — chacune détaille ses spécificités de configuration d'index et de recherche hybride.</li>
+        </ul>
+
+        <h3>Publications de référence</h3>
+        <ul>
+          <li>Le papier original sur les transformers ("Attention is All You Need", 2017) — pour qui veut comprendre en profondeur le mécanisme d'attention évoqué au module 2.</li>
+          <li>Le papier HNSW ("Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs") — pour approfondir l'algorithme d'indexation du module 5.</li>
+          <li>Les publications autour de Sentence-BERT — pour comprendre en détail les techniques de pooling et d'entraînement contrastif du module 2.</li>
+        </ul>
+
+        <h3>Pour la pratique</h3>
+        <ul>
+          <li>Reproduire l'étude de cas comparative (leçon 8.4) sur un corpus personnel ou professionnel réel — la meilleure façon de transformer ce cours en compétence opérationnelle durable.</li>
+          <li>Explorer le code source de <code class="inline">sentence-transformers</code> et d'une base vectorielle open-source (Qdrant ou Chroma) pour voir comment les concepts de ce cours sont implémentés concrètement en production.</li>
+        </ul>
+
+        <p>Ce cours, associé au précédent sur le chunking, couvre l'ensemble de la chaîne de préparation et de récupération de données pour un système RAG — de la découpe du texte brut jusqu'au classement final des résultats avant génération. Les étapes suivantes naturelles pour approfondir davantage : l'ingénierie de prompt pour la phase de génération, l'évaluation de bout en bout d'un système RAG complet (pas seulement du retrieval), et les architectures agentiques qui orchestrent plusieurs recherches successives pour des questions complexes.</p>
+
+        <div class="finale">
+          <p>Vous avez terminé les 8 modules du cours sur les embeddings et la recherche vectorielle.</p>
+          <a href="#top">← Retour en haut de la formation</a>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+  hljs.highlightAll();
+  const sidebar = document.getElementById('sidebar');
+  document.getElementById('menuToggle').addEventListener('click', () => { sidebar.classList.toggle('open'); });
+  const lessonLinks = document.querySelectorAll('[data-lesson]');
+  const storageKey = 'embeddings-vectoriel-course-progress';
+  const done = JSON.parse(localStorage.getItem(storageKey) || '{}');
+  function updateProgressBar() {
+    const total = 40;
+    const completed = Object.values(done).filter(Boolean).length;
+    document.getElementById('progressFill').style.width = Math.min(100, (completed / total * 100)) + '%';
+  }
+  lessonLinks.forEach(link => {
+    const id = link.dataset.lesson;
+    if (done[id]) link.querySelector('.lesson-check').classList.add('done');
+    link.addEventListener('click', () => {
+      done[id] = true;
+      localStorage.setItem(storageKey, JSON.stringify(done));
+      link.querySelector('.lesson-check').classList.add('done');
+      updateProgressBar();
+      sidebar.classList.remove('open');
+    });
+  });
+  updateProgressBar();
+</script>
+</body>
+</html>

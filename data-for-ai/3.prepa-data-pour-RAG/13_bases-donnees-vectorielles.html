@@ -1,0 +1,2321 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bases de Données Vectorielles — Notions Chroma, Pinecone, Weaviate pour la Préparation de Données</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<style>
+  :root {
+    --bg: #f4f6f8; --bg-alt: #e8edf1; --panel: #ffffff; --text: #1f2430; --text-muted: #5b6472;
+    --accent: #0891b2; --accent-dark: #0e7490; --pitfall: #f59e0b; --border: #dbe2e8;
+    --chunk-1: #7c5cff; --chunk-2: #17b8a6; --chunk-3: #ff6b6b; --chunk-4: #ffb020;
+    --font-display: "Space Grotesk", sans-serif; --font-body: "Inter", system-ui, sans-serif; --font-mono: "JetBrains Mono", monospace;
+    --sidebar-width: 300px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font-body); color: var(--text); background: var(--bg); line-height: 1.65; }
+  .layout { display: flex; min-height: 100vh; }
+  .sidebar { width: var(--sidebar-width); flex-shrink: 0; background: var(--panel); border-right: 1px solid var(--border); padding: 1.5rem 1rem 3rem; overflow-y: auto; position: sticky; top: 0; height: 100vh; }
+  .sidebar a.brand { display: block; font-family: var(--font-display); font-weight: 700; font-size: 1rem; margin-bottom: 1.5rem; color: var(--text); text-decoration: none; padding: 0.4rem 0.5rem; }
+  .sidebar a.brand span { color: var(--accent); }
+  .module-group { margin-bottom: 0.35rem; border-radius: 8px; }
+  .module-title { font-family: var(--font-display); font-weight: 600; font-size: 0.88rem; padding: 0.55rem 0.6rem; display: flex; gap: 0.5rem; align-items: baseline; color: var(--text); text-decoration: none; }
+  .module-title .n { font-family: var(--font-mono); font-size: 0.72rem; opacity: 0.7; }
+  .lesson-list { list-style: none; padding-left: 0.6rem; margin-bottom: 0.4rem; }
+  .lesson-list li a { display: flex; align-items: center; gap: 0.5rem; padding: 0.32rem 0.5rem; border-radius: 6px; color: var(--text-muted); text-decoration: none; font-size: 0.83rem; }
+  .lesson-list li a:hover { background: var(--bg-alt); color: var(--text); }
+  .lesson-list li a.active { color: var(--accent-dark); font-weight: 600; background: rgba(8,145,178,0.1); }
+  .lesson-check { width: 12px; height: 12px; flex-shrink: 0; border: 1.5px solid var(--text-muted); border-radius: 3px; }
+  .lesson-check.done { background: var(--chunk-2); border-color: var(--chunk-2); }
+  .progress-bar { height: 4px; background: var(--border); position: sticky; top: 0; z-index: 10; }
+  .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--chunk-1), var(--accent)); width: 0%; transition: width 0.2s ease; }
+  .content { flex: 1; max-width: 760px; margin: 0 auto; padding: 3rem 2rem 6rem; }
+  .module-kicker { font-family: var(--font-mono); font-size: 0.8rem; color: var(--accent-dark); background: rgba(8,145,178,0.08); border: 1px dashed var(--accent); display: inline-block; padding: 0.2rem 0.8rem; border-radius: 999px; margin-bottom: 1rem; }
+  section.lesson { border-top: 2px dashed var(--border); padding-top: 2rem; margin-top: 2rem; position: relative; padding-left: 1.1rem; border-left: 4px solid var(--lesson-color, var(--accent)); }
+  section.lesson h2 { font-family: var(--font-display); font-size: 1.5rem; margin-bottom: 1rem; }
+  section.lesson h2 .tag { font-family: var(--font-mono); font-size: 0.7rem; color: var(--lesson-color, var(--accent)); display: block; margin-bottom: 0.3rem; }
+  section.lesson h3 { font-family: var(--font-display); font-size: 1.1rem; margin: 1.4rem 0 0.6rem; }
+  section.lesson p, section.lesson ul, section.lesson ol { margin-bottom: 1rem; }
+  section.lesson li { margin-left: 1.3rem; margin-bottom: 0.35rem; }
+  pre { border-radius: 8px; padding: 1rem; overflow-x: auto; margin: 1rem 0; font-size: 0.85rem; }
+  code.inline { font-family: var(--font-mono); background: var(--bg-alt); padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.85em; }
+  .ascii { font-family: var(--font-mono); font-size: 0.78rem; background: #1e222b; color: #d7dce2; padding: 1rem 1.2rem; border-radius: 8px; overflow-x: auto; margin: 1rem 0; line-height: 1.5; white-space: pre; }
+  .callout { border-left: 4px solid var(--accent); background: var(--bg-alt); padding: 1rem 1.2rem; border-radius: 0 8px 8px 0; margin: 1.2rem 0; }
+  .callout strong { font-family: var(--font-display); display: block; margin-bottom: 0.3rem; font-size: 0.92rem; }
+  .callout.pitfall { border-left-color: var(--pitfall); }
+  .callout.exercise { border-left-color: var(--chunk-2); }
+  .menu-toggle { display: none; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.88rem; }
+  thead tr { text-align: left; border-bottom: 2px solid var(--border); }
+  th, td { padding: 0.5rem 0.6rem; }
+  tbody tr { border-bottom: 1px solid var(--border); }
+
+  .hero {
+    border-bottom: 2px dashed var(--border);
+    padding: 3rem 0 2.5rem;
+    text-align: center;
+    margin-bottom: 1rem;
+  }
+  .hero .tag {
+    display: inline-block; font-family: var(--font-mono); font-size: 0.8rem;
+    color: var(--accent-dark); background: rgba(8,145,178,0.1);
+    border: 1px dashed var(--accent); border-radius: 999px;
+    padding: 0.25rem 0.9rem; margin-bottom: 1.25rem;
+  }
+  .hero-title {
+    font-family: var(--font-display); font-size: clamp(1.8rem, 5vw, 2.6rem);
+    font-weight: 700; margin: 0 auto 1rem; letter-spacing: -0.01em;
+  }
+  .hero-title span {
+    background: linear-gradient(90deg, var(--chunk-1), var(--accent), var(--chunk-2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .hero-lead { max-width: 620px; margin: 0 auto; color: var(--text-muted); font-size: 1.02rem; }
+  .strip { display: flex; justify-content: center; gap: 0.4rem; margin: 2rem auto 0; max-width: 520px; }
+  .strip .seg { height: 8px; flex: 1; border-radius: 3px; }
+  .strip .seg:nth-child(1) { background: var(--chunk-1); }
+  .strip .seg:nth-child(2) { background: var(--chunk-2); }
+  .strip .seg:nth-child(3) { background: var(--chunk-3); }
+  .strip .seg:nth-child(4) { background: var(--chunk-4); }
+  .strip .seg:nth-child(5) { background: var(--chunk-1); }
+  .strip .seg:nth-child(6) { background: var(--chunk-2); }
+
+  .module-block { border-top: 3px solid var(--border); padding-top: 2.5rem; margin-top: 3rem; }
+  .module-block:first-of-type { border-top: none; margin-top: 0; }
+  .module-block > h1 { font-family: var(--font-display); font-size: 2rem; margin-bottom: 0.5rem; }
+  .module-block > p.intro { color: var(--text-muted); margin-bottom: 2rem; font-size: 1.02rem; }
+
+  .finale {
+    margin-top: 3rem; padding: 1.5rem; border-radius: 10px;
+    background: linear-gradient(135deg, rgba(124,92,255,0.08), rgba(23,184,166,0.08));
+    border: 1px dashed var(--accent);
+    text-align: center;
+  }
+  .finale p { color: var(--text-muted); margin-bottom: 0.8rem; }
+  .finale a {
+    display: inline-block; background: var(--accent); color: white;
+    text-decoration: none; padding: 0.6rem 1.4rem; border-radius: 6px;
+    font-family: var(--font-display); font-weight: 600; font-size: 0.9rem;
+  }
+
+  @media (max-width: 860px) {
+    .sidebar { position: fixed; left: -100%; z-index: 20; transition: left 0.2s ease; box-shadow: 4px 0 12px rgba(0,0,0,0.15); background: var(--panel); }
+    .sidebar.open { left: 0; }
+    .menu-toggle { display: block; position: fixed; top: 1rem; left: 1rem; z-index: 30; background: var(--accent); color: white; border: none; border-radius: 6px; padding: 0.5rem 0.75rem; cursor: pointer; font-size: 1rem; }
+    .content { padding: 4.5rem 1.25rem 3rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-bar-fill" id="progressFill"></div></div>
+<button class="menu-toggle" id="menuToggle">☰</button>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar">
+    <a class="brand" href="#top">Bases<span>Vectorielles</span></a>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-1"><span class="n">01</span> Fondamentaux des bases vectorielles</a>
+      <ul class="lesson-list">
+        <li><a href="#m1-l1" data-lesson="m1-l1"><span class="lesson-check"></span>Base vectorielle vs base classique</a></li>
+        <li><a href="#m1-l2" data-lesson="m1-l2"><span class="lesson-check"></span>Anatomie : collections, index, payload</a></li>
+        <li><a href="#m1-l3" data-lesson="m1-l3"><span class="lesson-check"></span>Panorama du paysage actuel</a></li>
+        <li><a href="#m1-l4" data-lesson="m1-l4"><span class="lesson-check"></span>Où elle s'insère dans le pipeline RAG</a></li>
+        <li><a href="#m1-l5" data-lesson="m1-l5"><span class="lesson-check"></span>Managé, auto-hébergé ou embarqué</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-2"><span class="n">02</span> Chroma : la base embarquée</a>
+      <ul class="lesson-list">
+        <li><a href="#m2-l1" data-lesson="m2-l1"><span class="lesson-check"></span>Philosophie et usage local</a></li>
+        <li><a href="#m2-l2" data-lesson="m2-l2"><span class="lesson-check"></span>Installation, collections, CRUD</a></li>
+        <li><a href="#m2-l3" data-lesson="m2-l3"><span class="lesson-check"></span>Filtrage par métadonnées</a></li>
+        <li><a href="#m2-l4" data-lesson="m2-l4"><span class="lesson-check"></span>Persistance et mode serveur</a></li>
+        <li><a href="#m2-l5" data-lesson="m2-l5"><span class="lesson-check"></span>Limites et quand en sortir</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-3"><span class="n">03</span> Pinecone : la base managée</a>
+      <ul class="lesson-list">
+        <li><a href="#m3-l1" data-lesson="m3-l1"><span class="lesson-check"></span>Philosophie full-managé</a></li>
+        <li><a href="#m3-l2" data-lesson="m3-l2"><span class="lesson-check"></span>Namespaces et organisation</a></li>
+        <li><a href="#m3-l3" data-lesson="m3-l3"><span class="lesson-check"></span>Upsert, requêtes, filtrage</a></li>
+        <li><a href="#m3-l4" data-lesson="m3-l4"><span class="lesson-check"></span>Pods vs serverless et coûts</a></li>
+        <li><a href="#m3-l5" data-lesson="m3-l5"><span class="lesson-check"></span>Limites et cas inadaptés</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-4"><span class="n">04</span> Weaviate : schéma et hybride</a>
+      <ul class="lesson-list">
+        <li><a href="#m4-l1" data-lesson="m4-l1"><span class="lesson-check"></span>Philosophie schéma fort</a></li>
+        <li><a href="#m4-l2" data-lesson="m4-l2"><span class="lesson-check"></span>Classes et propriétés</a></li>
+        <li><a href="#m4-l3" data-lesson="m4-l3"><span class="lesson-check"></span>Recherche hybride native</a></li>
+        <li><a href="#m4-l4" data-lesson="m4-l4"><span class="lesson-check"></span>GraphQL et requêtes structurées</a></li>
+        <li><a href="#m4-l5" data-lesson="m4-l5"><span class="lesson-check"></span>Déploiement cloud vs auto-hébergé</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-5"><span class="n">05</span> Comparaison et critères de choix</a>
+      <ul class="lesson-list">
+        <li><a href="#m5-l1" data-lesson="m5-l1"><span class="lesson-check"></span>Tableau comparatif détaillé</a></li>
+        <li><a href="#m5-l2" data-lesson="m5-l2"><span class="lesson-check"></span>Lire des benchmarks sans se tromper</a></li>
+        <li><a href="#m5-l3" data-lesson="m5-l3"><span class="lesson-check"></span>Coût total de possession</a></li>
+        <li><a href="#m5-l4" data-lesson="m5-l4"><span class="lesson-check"></span>Portabilité et lock-in</a></li>
+        <li><a href="#m5-l5" data-lesson="m5-l5"><span class="lesson-check"></span>Méthode de décision</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-6"><span class="n">06</span> Opérations avancées communes</a>
+      <ul class="lesson-list">
+        <li><a href="#m6-l1" data-lesson="m6-l1"><span class="lesson-check"></span>Indexation et paramètres de recherche</a></li>
+        <li><a href="#m6-l2" data-lesson="m6-l2"><span class="lesson-check"></span>Recherche hybride et reranking</a></li>
+        <li><a href="#m6-l3" data-lesson="m6-l3"><span class="lesson-check"></span>Cycle de vie à grande échelle</a></li>
+        <li><a href="#m6-l4" data-lesson="m6-l4"><span class="lesson-check"></span>Sauvegarde et haute disponibilité</a></li>
+        <li><a href="#m6-l5" data-lesson="m6-l5"><span class="lesson-check"></span>Sécurité et isolation multi-tenant</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-7"><span class="n">07</span> Migration, scalabilité et coûts</a>
+      <ul class="lesson-list">
+        <li><a href="#m7-l1" data-lesson="m7-l1"><span class="lesson-check"></span>Migrer d'une base à une autre</a></li>
+        <li><a href="#m7-l2" data-lesson="m7-l2"><span class="lesson-check"></span>Scaling horizontal et sharding</a></li>
+        <li><a href="#m7-l3" data-lesson="m7-l3"><span class="lesson-check"></span>Monitoring et observabilité</a></li>
+        <li><a href="#m7-l4" data-lesson="m7-l4"><span class="lesson-check"></span>Optimiser les coûts à l'échelle</a></li>
+        <li><a href="#m7-l5" data-lesson="m7-l5"><span class="lesson-check"></span>Dimensionnement prévisionnel</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-8"><span class="n">08</span> Implémentation complète</a>
+      <ul class="lesson-list">
+        <li><a href="#m8-l1" data-lesson="m8-l1"><span class="lesson-check"></span>Pipeline complet vers la base vectorielle</a></li>
+        <li><a href="#m8-l2" data-lesson="m8-l2"><span class="lesson-check"></span>Comparaison empirique des 3 bases</a></li>
+        <li><a href="#m8-l3" data-lesson="m8-l3"><span class="lesson-check"></span>Débogage d'une base qui sous-performe</a></li>
+        <li><a href="#m8-l4" data-lesson="m8-l4"><span class="lesson-check"></span>Étude de cas et exercice final</a></li>
+        <li><a href="#m8-l5" data-lesson="m8-l5"><span class="lesson-check"></span>Ressources pour aller plus loin</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main class="content">
+    <header class="hero" id="top">
+      <span class="tag">// data-for-ai · 3.prepa-data-pour-RAG · Formation 13</span>
+      <h1 class="hero-title">Bases de Données <span>Vectorielles</span></h1>
+      <p class="hero-lead">Notions Chroma, Pinecone, Weaviate pour la préparation de données — comment choisir, opérer et faire évoluer la brique qui stocke et retrouve vos chunks enrichis en production. 8 modules, 40 leçons.</p>
+      <div class="strip" aria-hidden="true">
+        <div class="seg"></div><div class="seg"></div><div class="seg"></div>
+        <div class="seg"></div><div class="seg"></div><div class="seg"></div>
+      </div>
+    </header>
+
+    <div class="module-block" id="module-1">
+      <span class="module-kicker">MODULE 01 / 08</span>
+      <h1>Fondamentaux des bases de données vectorielles</h1>
+      <p class="intro">Après trois cours consacrés au contenu des chunks (découpage, vectorisation, nettoyage, enrichissement), ce cours s'intéresse à leur contenant : la base de données qui les stocke et les retrouve. Ce module pose les bases conceptuelles avant de plonger dans trois solutions concrètes.</p>
+
+      <section class="lesson" id="m1-l1" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 1.1</span>Qu'est-ce qu'une base de données vectorielle et en quoi diffère-t-elle d'une base classique</h2>
+
+        <p>Une <strong>base de données vectorielle</strong> est un système de stockage spécialisé, optimisé pour une opération que les bases de données classiques (relationnelles ou documents) ne savent pas faire efficacement : trouver les vecteurs les plus <em>proches</em> d'un vecteur donné, selon une mesure de similarité (cours embeddings, module 3), parmi potentiellement des millions d'entrées.</p>
+
+        <p>Une base relationnelle classique (PostgreSQL, MySQL) excelle à retrouver des lignes qui correspondent <strong>exactement</strong> à une condition (<code class="inline">WHERE departement = 'RH'</code>) grâce à des index B-tree qui organisent les données de façon triée. Ce mécanisme ne s'applique pas à la recherche de similarité : il n'existe pas d'ordre total naturel entre des vecteurs à 768 dimensions qui permettrait un tri unique et un index B-tree classique. C'est pour résoudre ce problème spécifique que les index approximatifs comme HNSW (cours embeddings, module 5) ont été développés, et que des bases de données entières se sont construites autour d'eux.</p>
+
+        <div class="ascii">Base relationnelle classique              Base de données vectorielle
+────────────────────────────              ───────────────────────────
+Recherche par égalité/plage               Recherche par similarité
+("departement = RH",                     ("les 5 vecteurs les plus
+ "prix BETWEEN 10 AND 50")                 proches de ce vecteur requête")
+
+Index B-tree (tri total possible)         Index ANN : HNSW, IVF
+                                           (cours embeddings, module 5)
+
+Résultat : exact, déterministe            Résultat : approximatif par
+                                           construction (compromis
+                                           vitesse/précision assumé)</div>
+
+        <p>Cette spécialisation n'efface pas pour autant les besoins classiques : une base vectorielle de production doit aussi filtrer par métadonnées (cours métadonnées, module 3), gérer des mises à jour, assurer une disponibilité — les modules suivants montrent comment chaque solution (Chroma, Pinecone, Weaviate) combine ces deux exigences, recherche vectorielle et fonctionnalités de base de données classiques, dans une seule offre.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Penser qu'une base de données vectorielle est "juste une base de données avec une colonne en plus". La différence est structurelle : l'intégralité du moteur de stockage et d'indexation est repensée pour l'opération de plus-proche-voisin, ce qui explique pourquoi ce ne sont pas de simples extensions triviales à ajouter à n'importe quel système existant (même si certaines, comme pgvector, prennent justement la forme d'une extension — cours embeddings, module 6).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          En une phrase, expliquez à un collègue qui ne connaît que SQL pourquoi <code class="inline">ORDER BY similarite_cosinus(embedding, vecteur_requete) LIMIT 5</code> ne peut pas s'appuyer sur un index B-tree classique comme le ferait <code class="inline">ORDER BY prix LIMIT 5</code>.
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l2" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 1.2</span>Anatomie d'une base vectorielle : collections, index, payload</h2>
+
+        <p>Malgré leurs différences d'implémentation, la quasi-totalité des bases vectorielles partagent un même vocabulaire structurel de base — comprendre ces concepts communs permet de naviguer rapidement d'une solution à l'autre (modules 2 à 4) sans repartir de zéro à chaque fois.</p>
+
+        <h3>Collection (ou index, selon la base)</h3>
+        <p>Un regroupement logique de vecteurs qui partagent la même dimension et généralement le même schéma de métadonnées — l'équivalent d'une table dans une base relationnelle. Chroma et Weaviate parlent de "collection", Pinecone d'"index" — une terminologie qui varie mais un concept identique.</p>
+
+        <h3>Vecteur (embedding)</h3>
+        <p>La représentation numérique du chunk (cours embeddings, module 1), stockée sous forme de tableau de nombres flottants — généralement 384 à 3072 valeurs selon le modèle utilisé.</p>
+
+        <h3>Payload (ou métadonnées)</h3>
+        <p>Les informations structurées associées à chaque vecteur (source, date, catégorie — cours métadonnées) stockées à côté du vecteur lui-même, consultables et filtrables sans recalcul de similarité (cours embeddings, module 6 ; cours métadonnées, module 3).</p>
+
+        <h3>Identifiant unique</h3>
+        <p>Chaque vecteur est associé à un identifiant unique (rappel du cours métadonnées, module 2, leçon 1) permettant sa mise à jour ou sa suppression ciblée sans affecter les autres entrées.</p>
+
+        <pre><code class="language-python"># Anatomie générique d'une entrée dans une base vectorielle
+entree_type = {
+    "id": "chunk_042",                              # identifiant unique
+    "vector": [0.021, -0.184, 0.093, ...],           # embedding (768 dimensions ici)
+    "payload": {                                      # métadonnées (cours métadonnées)
+        "source": "guide_rag.pdf",
+        "breadcrumb": "Guide RAG > Chunking > Overlap",
+        "departement": "technique",
+        "statut": "actuel",
+    },
+}
+</code></pre>
+
+        <div class="ascii">Collection "documentation_interne"
+
+┌────────────────────────────────────────────────────┐
+│ id: chunk_001  │ vector: [...]  │ payload: {...}     │
+│ id: chunk_002  │ vector: [...]  │ payload: {...}     │
+│ id: chunk_003  │ vector: [...]  │ payload: {...}     │
+│ ...                                                  │
+└────────────────────────────────────────────────────┘
+         │
+         ▼
+   Index de recherche (HNSW généralement, cours embeddings module 5)
+   construit sur la colonne "vector" pour une recherche rapide</div>
+
+        <p>Une collection peut aussi imposer un <strong>schéma</strong> plus ou moins strict sur son payload — une différence philosophique majeure entre les trois bases étudiées dans ce cours (Chroma et Pinecone restent schema-less ou peu contraignants, Weaviate impose un schéma fort, approfondi au module 4).</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Créer une collection unique et fourre-tout pour l'ensemble d'un corpus hétérogène (documents RH, contrats juridiques, code source), avec des schémas de métadonnées incompatibles entre eux. Une collection devrait regrouper des vecteurs suffisamment homogènes en dimension ET en structure de métadonnées — l'hétérogénéité se gère plutôt via plusieurs collections ou un filtrage rigoureux (cours métadonnées, module 7).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre corpus (réel ou imaginé, cours précédents de cette série), combien de collections distinctes envisageriez-vous — une seule, ou plusieurs selon le type de contenu ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l3" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 1.3</span>Panorama du paysage des bases de données vectorielles</h2>
+
+        <p>Le cours embeddings (module 6, leçon 1) a déjà esquissé ce panorama — cette leçon l'approfondit et le structure, avant de consacrer un module entier à chacune des trois solutions les plus représentatives de leurs catégories respectives : Chroma, Pinecone et Weaviate.</p>
+
+        <table>
+          <thead>
+            <tr><th>Catégorie</th><th>Exemples</th><th>Caractéristique dominante</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Embarquée / locale</td><td>Chroma</td><td>Zéro infrastructure, démarrage instantané (module 2)</td></tr>
+            <tr><td>Managée serverless</td><td>Pinecone</td><td>Aucune opération, scalabilité automatique (module 3)</td></tr>
+            <tr><td>Vector-native, schéma fort</td><td>Weaviate</td><td>Recherche hybride native, modules d'inférence (module 4)</td></tr>
+            <tr><td>Vector-native, performance</td><td>Qdrant, Milvus</td><td>Écrites pour la performance à grande échelle (mentionnées, module 5)</td></tr>
+            <tr><td>Extension d'une base existante</td><td>pgvector (PostgreSQL)</td><td>Cohérence transactionnelle avec les données métier</td></tr>
+          </tbody>
+        </table>
+
+        <p>Le choix de Chroma, Pinecone et Weaviate comme fil conducteur de ce cours n'est pas arbitraire : ces trois solutions représentent chacune une <strong>philosophie</strong> distincte et largement adoptée — embarquée et minimaliste, managée et sans opération, orientée schéma et fonctionnalités intégrées. Comprendre ces trois approches en profondeur permet ensuite de situer rapidement n'importe quelle autre solution du marché (Qdrant, Milvus, ou une future base non encore sortie) par rapport à ces trois pôles.</p>
+
+        <div class="ascii">Les trois philosophies de ce cours, en un coup d'œil :
+
+Chroma       : "Je veux juste que ça marche localement, tout de suite."
+Pinecone     : "Je ne veux JAMAIS gérer d'infrastructure, à aucune échelle."
+Weaviate     : "Je veux un schéma solide et une recherche hybride intégrée."
+
+→ Ces trois besoins ne s'excluent pas : un même projet peut utiliser
+  Chroma en développement local, puis migrer vers Pinecone ou Weaviate
+  en production (module 7, leçon 1 : migration entre bases).</div>
+
+        <p>Ce paysage évolue rapidement — de nouvelles solutions apparaissent, des fonctionnalités migrent d'une base à l'autre (la recherche hybride, longtemps spécifique à Weaviate, est aujourd'hui largement répandue). La bonne pratique, comme pour le choix d'un modèle d'embedding (cours embeddings, module 4), n'est pas de mémoriser "la meilleure base du moment" mais de comprendre les critères de choix durables (module 5) qui restent valables au-delà des évolutions du marché.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Suivre la popularité générale d'une base de données vectorielle sur les réseaux sociaux ou les classements génériques, sans la confronter aux besoins réels de son propre projet (volume, budget, équipe infra disponible) — un piège déjà rencontré à plusieurs reprises dans cette série (choix d'un modèle d'embedding, d'une stratégie de chunking).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Parmi les trois philosophies résumées ci-dessus (Chroma, Pinecone, Weaviate), laquelle correspond le plus intuitivement à votre contexte actuel — avant même d'avoir étudié chaque solution en détail dans les modules suivants ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l4" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 1.4</span>Où une base vectorielle s'insère dans un pipeline RAG</h2>
+
+        <p>Cette série de cours a construit, module après module, un pipeline complet : extraction et nettoyage (cours nettoyage), chunking (cours chunking), embedding (cours embeddings), enrichissement de métadonnées (cours métadonnées). La base de données vectorielle est l'endroit où tout ce travail <em>converge et se matérialise</em> — le point de stockage qui rend ce travail réellement interrogeable.</p>
+
+        <div class="ascii">Extraction/nettoyage → Chunking → Embedding → Enrichissement métadonnées
+(cours nettoyage)      (cours       (cours       (cours métadonnées)
+                        chunking)    embeddings)
+        │                  │            │                │
+        └──────────────────┴────────────┴────────────────┘
+                            │
+                            ▼
+              ┌──────────────────────────────┐
+              │  BASE DE DONNÉES VECTORIELLE   │  ← CE COURS
+              │  (Chroma, Pinecone, Weaviate)  │
+              └──────────────────────────────┘
+                            │
+                            ▼
+                  Recherche au moment de la
+                  question utilisateur (vectorielle
+                  + filtrage + hybride, cours
+                  embeddings module 7)
+                            │
+                            ▼
+                    Génération (LLM)</div>
+
+        <p>Ce positionnement en aval de tout le pipeline a une conséquence importante : la base de données vectorielle doit être capable d'accueillir <em>fidèlement</em> tout ce qui a été produit en amont — les dimensions du modèle d'embedding choisi (cours embeddings, module 4), la richesse du schéma de métadonnées défini (cours métadonnées, module 2 et 7), les besoins de filtrage identifiés (cours métadonnées, module 3). Un choix de base de données qui ne supporterait pas, par exemple, un filtrage suffisamment riche annulerait une partie du travail d'enrichissement de métadonnées effectué en amont.</p>
+
+        <pre><code class="language-python"># Le pipeline complet des 5 cours de cette série, jusqu'à l'indexation
+texte_brut = extraire_et_nettoyer(document)               # cours nettoyage
+chunks = chunker(texte_brut)                                # cours chunking
+chunks_enrichis = enrichir_metadonnees(chunks)               # cours métadonnées
+vecteurs = [embed(c["texte_pour_embedding"]) for c in chunks_enrichis]  # cours embeddings
+
+# CE COURS : le point d'arrivée qui rend tout ce travail interrogeable
+base_vectorielle.upsert(
+    ids=[c["id"] for c in chunks_enrichis],
+    vectors=vecteurs,
+    payloads=[c["metadata"] for c in chunks_enrichis],
+)
+</code></pre>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Choisir une base de données vectorielle avant d'avoir stabilisé les décisions des cours précédents (stratégie de chunking, modèle d'embedding, schéma de métadonnées). Le choix de base devrait être informé par ces décisions en amont (dimension du vecteur, richesse du filtrage nécessaire), pas l'inverse — même si en pratique, une itération dans les deux sens reste possible et normale.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          En reprenant les décisions prises dans les cours précédents de cette série (modèle d'embedding, schéma de métadonnées), listez les 2-3 exigences que ces choix imposent à la base de données vectorielle qui les accueillera.
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l5" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 1.5</span>Choisir entre managé, auto-hébergé et embarqué : les grandes familles</h2>
+
+        <p>Avant d'étudier chaque base en détail, cette dernière leçon du module fondateur pose le cadre de décision le plus structurant : le mode de déploiement. Cette dimension, orthogonale au choix de la base elle-même, détermine une grande partie de l'expérience opérationnelle au quotidien.</p>
+
+        <h3>Embarquée (embedded)</h3>
+        <p>La base tourne directement dans le processus de l'application, sans serveur séparé à gérer — Chroma en mode par défaut en est l'exemple archétypal (module 2). Idéal pour le prototypage, les tests, ou des applications à faible volume qui ne justifient pas d'infrastructure dédiée.</p>
+
+        <h3>Managée (fully managed / serverless)</h3>
+        <p>Un fournisseur héberge et opère entièrement l'infrastructure — l'utilisateur n'interagit qu'avec une API, sans jamais se soucier de serveurs, de scaling ou de maintenance. Pinecone en est l'exemple le plus pur (module 3), mais Weaviate Cloud et Qdrant Cloud proposent des offres similaires.</p>
+
+        <h3>Auto-hébergée (self-hosted)</h3>
+        <p>L'utilisateur déploie et opère lui-même la base (souvent via Docker ou Kubernetes), avec un contrôle total sur l'infrastructure, les données, et les coûts — au prix d'une charge opérationnelle réelle. Weaviate, Qdrant et Milvus proposent tous des versions open-source auto-hébergeables (module 4, leçon 5 pour Weaviate spécifiquement).</p>
+
+        <div class="ascii">Embarquée                Managée                    Auto-hébergée
+─────────────────       ─────────────────          ─────────────────
+Zéro infrastructure      Zéro opération, mais       Contrôle total, mais
+                         coût récurrent              charge opérationnelle
+                                                      réelle
+
+Limité à un seul         Scalabilité gérée par       Scalabilité à votre
+processus/machine        le fournisseur               charge (module 7)
+
+Idéal pour :             Idéal pour :                 Idéal pour :
+prototypage, tests,      production sans équipe        confidentialité stricte,
+petits volumes           infra dédiée                  contrôle des coûts à
+                                                        très grande échelle</div>
+
+        <p>Cette classification recoupe directement celle déjà vue dans le cours embeddings (module 4, leçon 2) pour le choix d'un modèle d'embedding propriétaire vs open-source — le même arbitrage coût/contrôle/opération s'applique, appliqué ici au stockage plutôt qu'au calcul des vecteurs. Un projet peut d'ailleurs très bien combiner les deux dimensions différemment : un modèle d'embedding open-source auto-hébergé avec une base de données managée, ou l'inverse.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Choisir le mode de déploiement une fois pour toutes au lancement du projet sans anticiper qu'il puisse évoluer. Une trajectoire courante et parfaitement saine : commencer en embarqué (Chroma) pour prototyper rapidement, puis migrer vers managé ou auto-hébergé une fois le besoin de production confirmé (approfondi au module 7, leçon 1, sur la migration entre bases).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : à ce stade de votre projet (prototypage, pré-production, production établie), quel mode de déploiement semble le plus adapté ? Cette réponse pourrait-elle changer dans les 6 à 12 prochains mois ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-2">
+      <span class="module-kicker">MODULE 02 / 08</span>
+      <h1>Chroma : la base embarquée pour prototyper vite</h1>
+      <p class="intro">Chroma incarne la philosophie "zéro friction" : une base vectorielle que l'on installe en une commande et que l'on utilise immédiatement, sans serveur à configurer. Ce module en détaille l'usage complet, du prototype jusqu'aux limites qui appellent une autre solution.</p>
+
+      <section class="lesson" id="m2-l1" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 2.1</span>Philosophie de Chroma : simplicité et usage local/embarqué</h2>
+
+        <p><strong>Chroma</strong> (souvent appelée ChromaDB) a été conçue autour d'un principe directeur : réduire au minimum la friction entre "j'ai des embeddings" et "je peux les interroger". Par défaut, Chroma tourne <em>dans le même processus</em> que votre application Python, sans serveur séparé à démarrer, sans configuration réseau, sans compte à créer — une expérience proche de celle de SQLite pour les bases relationnelles.</p>
+
+        <pre><code class="language-python">import chromadb
+
+# Aucune installation de serveur, aucune configuration réseau :
+# la base démarre directement dans le processus Python
+client = chromadb.Client()   # en mémoire, pour un usage éphémère (tests, prototypage)
+collection = client.create_collection(name="mes_chunks")
+</code></pre>
+
+        <p>Cette simplicité a un prix assumé par ses concepteurs : Chroma cible explicitement le prototypage, les applications à volume modeste, et les cas où l'infrastructure dédiée d'une base managée (module 3) ou auto-hébergée (module 4) serait disproportionnée par rapport au besoin réel. Ce n'est pas une limitation accidentelle mais un choix de conception cohérent avec son positionnement dans le paysage esquissé au module 1, leçon 3.</p>
+
+        <div class="ascii">Démarrer avec Chroma vs une base managée :
+
+Chroma :                              Base managée (Pinecone, module 3) :
+1. pip install chromadb                1. Créer un compte
+2. import chromadb                      2. Créer un projet/index dans
+3. client.create_collection(...)           une interface web
+   → prêt en quelques secondes          3. Récupérer une clé API
+                                         4. Configurer la connexion
+                                         → prêt en quelques minutes,
+                                            mais avec une infrastructure
+                                            gérée à l'échelle dès le départ</div>
+
+        <p>Cette rapidité de démarrage explique la popularité de Chroma pour l'apprentissage, les preuves de concept, et les projets personnels — exactement le contexte dans lequel les exemples de code des cours précédents de cette série (chunking, embeddings) auraient pu être testés de bout en bout sans aucune friction d'infrastructure.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Confondre la simplicité de démarrage de Chroma avec une garantie de performance ou de scalabilité équivalente aux bases managées ou vector-native. Chroma reste un excellent choix pour son cas d'usage cible (module 2, leçon 5 pour ses limites précises) — la simplicité d'usage ne doit pas faire oublier d'évaluer si le volume et les contraintes réelles du projet restent dans son domaine de compétence.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un projet de démonstration ou un prototype personnel, l'absence totale d'infrastructure à gérer de Chroma serait-elle un avantage décisif par rapport aux autres options de ce cours ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l2" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 2.2</span>Installation, collections et opérations CRUD de base</h2>
+
+        <p>Cette leçon couvre le cycle complet des opérations de base : création d'une collection, ajout de vecteurs, recherche, mise à jour et suppression — le socle opérationnel commun à toute base vectorielle (rappel du module 1, leçon 2), illustré concrètement avec l'API de Chroma.</p>
+
+        <pre><code class="language-python">import chromadb
+
+client = chromadb.Client()
+collection = client.create_collection(name="documentation_interne")
+
+# CREATE : ajouter des chunks (avec leurs embeddings déjà calculés, cours embeddings)
+collection.add(
+    ids=["chunk_001", "chunk_002"],
+    embeddings=[[0.021, -0.184, ...], [0.045, 0.102, ...]],
+    documents=["Le chunking est une étape essentielle...", "L'overlap recommandé..."],
+    metadatas=[
+        {"source": "guide_rag.pdf", "departement": "technique"},
+        {"source": "guide_rag.pdf", "departement": "technique"},
+    ],
+)
+
+# READ : rechercher les vecteurs les plus proches d'une requête
+resultats = collection.query(
+    query_embeddings=[[0.019, -0.180, ...]],
+    n_results=5,
+)
+print(resultats["documents"])   # les textes des chunks les plus proches
+print(resultats["distances"])   # leurs distances/scores de similarité
+
+# UPDATE : mettre à jour un chunk existant (identifié par son id, cours métadonnées module 2)
+collection.update(
+    ids=["chunk_001"],
+    metadatas=[{"source": "guide_rag.pdf", "departement": "technique", "statut": "actuel"}],
+)
+
+# DELETE : supprimer un chunk (rappel cours embeddings, module 6, cycle de vie des vecteurs)
+collection.delete(ids=["chunk_002"])
+</code></pre>
+
+        <p>Chroma peut aussi calculer les embeddings à votre place, via une fonction d'embedding intégrée, plutôt que de recevoir des vecteurs déjà calculés — pratique pour prototyper rapidement, mais à utiliser avec discernement si le modèle d'embedding a déjà été choisi et validé dans le cadre du cours embeddings (module 4).</p>
+
+        <pre><code class="language-python">from chromadb.utils import embedding_functions
+
+fonction_embedding = embedding_functions.SentenceTransformerEmbeddingFunction(
+    model_name="BAAI/bge-base-en-v1.5"
+)
+collection_auto = client.create_collection(
+    name="avec_embedding_auto",
+    embedding_function=fonction_embedding,
+)
+
+# Ici, on fournit directement le texte : Chroma calcule l'embedding lui-même
+collection_auto.add(ids=["c1"], documents=["Le chunking est essentiel..."])
+</code></pre>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Laisser Chroma calculer les embeddings automatiquement avec sa fonction par défaut (souvent un modèle léger générique) sans vérifier qu'elle correspond au modèle réellement validé et choisi au terme du cours embeddings (module 4). Une divergence entre le modèle utilisé à l'ingestion et celui utilisé pour la requête rend les vecteurs incomparables (rappel cours embeddings, module 1, leçon 4).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          En reprenant le pipeline complet esquissé au module 1 (leçon 4), adaptez le code d'ingestion ci-dessus pour utiliser des vecteurs déjà calculés en amont (cours embeddings) plutôt que la fonction d'embedding automatique de Chroma.
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l3" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 2.3</span>Filtrage par métadonnées et requêtes avancées avec Chroma</h2>
+
+        <p>Rappel du cours métadonnées (module 3) : le filtrage par métadonnées est le bénéfice le plus direct d'un enrichissement de chunk. Chroma expose ce filtrage via le paramètre <code class="inline">where</code>, avec une syntaxe proche de celle déjà rencontrée pour d'autres bases dans le cours embeddings.</p>
+
+        <pre><code class="language-python"># Filtrage simple par égalité
+resultats = collection.query(
+    query_embeddings=[vecteur_question],
+    n_results=5,
+    where={"departement": "RH"},
+)
+
+# Filtrage combiné (rappel cours métadonnées, module 3, leçon 4)
+resultats_combines = collection.query(
+    query_embeddings=[vecteur_question],
+    n_results=5,
+    where={
+        "$and": [
+            {"departement": {"$eq": "RH"}},
+            {"statut": {"$eq": "actuel"}},
+        ]
+    },
+)
+
+# Filtrage sur le contenu textuel lui-même (recherche de sous-chaîne, complémentaire
+# au filtrage sémantique — utile pour des identifiants exacts, rappel cours embeddings
+# module 7 sur les limites du tout-vectoriel)
+resultats_texte = collection.query(
+    query_embeddings=[vecteur_question],
+    n_results=5,
+    where_document={"$contains": "REF-2025"},
+)
+</code></pre>
+
+        <h3>Récupérer sans recherche vectorielle (accès direct par métadonnée ou id)</h3>
+        <p>Chroma permet aussi de récupérer des entrées sans passer par une recherche de similarité — utile pour des opérations de maintenance (vérifier le contenu d'un chunk précis, auditer les valeurs d'un champ de métadonnée comme évoqué dans le cours métadonnées, module 7, leçon 3).</p>
+
+        <pre><code class="language-python"># Récupération directe par id, sans recherche vectorielle
+chunk_precis = collection.get(ids=["chunk_001"])
+
+# Récupération de tous les chunks correspondant à un filtre, sans requête vectorielle
+tous_les_chunks_rh = collection.get(where={"departement": "RH"})
+print(f"{len(tous_les_chunks_rh['ids'])} chunks dans le département RH")
+</code></pre>
+
+        <div class="ascii">Opération                    Usage typique
+──────────────────────────────────────────────────────────────────
+query() avec where           Recherche vectorielle filtrée (cas
+                             d'usage principal, rappel cours
+                             embeddings module 6)
+
+get() avec where             Audit, maintenance, vérification
+                             (sans calcul de similarité)
+
+where_document                Filtrage sur le contenu textuel brut
+                             (complément du filtrage sémantique)</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Utiliser exclusivement <code class="inline">query()</code> même pour des opérations qui ne nécessitent aucune recherche de similarité (comme auditer toutes les valeurs d'un champ de métadonnée). La méthode <code class="inline">get()</code> est plus appropriée et généralement plus rapide pour ces cas, puisqu'elle évite un calcul de similarité inutile.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          En reprenant les besoins de filtrage identifiés dans le cours métadonnées (module 3, leçon 2 — permissions, département, langue), écrivez la syntaxe <code class="inline">where</code> Chroma correspondante pour combiner ces trois filtres.
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l4" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 2.4</span>Persistance et migration vers un mode serveur</h2>
+
+        <p>Le mode par défaut de Chroma (<code class="inline">chromadb.Client()</code>) est éphémère : les données disparaissent à la fin du processus. Pour un usage réel au-delà du simple test, Chroma propose deux évolutions : la persistance sur disque, et un mode serveur/client qui rapproche Chroma d'une base de données plus classique.</p>
+
+        <h3>Persistance locale sur disque</h3>
+        <pre><code class="language-python">import chromadb
+
+# Les données sont écrites sur disque et rechargées automatiquement
+# au redémarrage du processus — toujours dans le même processus applicatif
+client_persistant = chromadb.PersistentClient(path="./ma_base_chroma")
+collection = client_persistant.get_or_create_collection(name="documentation_interne")
+</code></pre>
+
+        <h3>Mode serveur : séparer Chroma de l'application</h3>
+        <p>Pour partager une même base entre plusieurs processus ou applications (un cas qui dépasse le prototypage local pur), Chroma peut être lancé comme un serveur indépendant, interrogé ensuite via un client réseau — un pas vers l'architecture des bases managées ou auto-hébergées des modules suivants.</p>
+
+        <pre><code class="language-bash"># Démarrer Chroma en mode serveur (dans un terminal séparé, ou via Docker)
+chroma run --host localhost --port 8000 --path ./ma_base_chroma
+</code></pre>
+
+        <pre><code class="language-python"># Se connecter au serveur Chroma depuis l'application
+import chromadb
+
+client_reseau = chromadb.HttpClient(host="localhost", port=8000)
+collection = client_reseau.get_or_create_collection(name="documentation_interne")
+# Le reste du code (add, query, delete) reste IDENTIQUE au mode embarqué
+</code></pre>
+
+        <p>Ce point est important : l'API de Chroma reste la même que l'on soit en mode embarqué, persistant, ou serveur — seule la façon d'instancier le client change. Cette continuité facilite une migration progressive : commencer en mode éphémère pour tester, passer en persistant pour un développement local sérieux, puis en mode serveur pour un partage entre plusieurs services, sans réécrire la logique métier d'ingestion et de recherche.</p>
+
+        <div class="ascii">Progression typique d'un projet avec Chroma :
+
+Client()                  PersistentClient()          HttpClient()
+(éphémère, tests           (persistant, développement    (serveur partagé,
+ rapides)                   local sérieux)                 pré-production)
+      │                          │                             │
+      └──────────────────────────┴─────────────────────────────┘
+                    Même API pour add/query/delete —
+                    seule l'instanciation du client change</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Développer et tester longuement en mode <code class="inline">Client()</code> éphémère, puis découvrir au premier redémarrage de l'application que toutes les données indexées ont disparu. Dès qu'un projet dépasse le test ponctuel, basculer vers <code class="inline">PersistentClient</code> évite cette perte de données récurrente et cette confusion de débogage.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre projet actuel, lequel des trois modes (éphémère, persistant, serveur) correspond à votre stade d'avancement ? Anticipez-vous un besoin de passer au mode suivant prochainement ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l5" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 2.5</span>Limites de Chroma et quand en sortir</h2>
+
+        <p>Cette dernière leçon du module trace les limites concrètes de Chroma — non pas pour la disqualifier, mais pour identifier objectivement le moment où un projet devrait envisager une des solutions des modules suivants (Pinecone, Weaviate, ou une autre base vector-native).</p>
+
+        <h3>Limites de scalabilité</h3>
+        <p>Même en mode serveur, Chroma reste conçue davantage pour des volumes modérés (de l'ordre de quelques millions de vecteurs au grand maximum dans des conditions favorables) que pour les très grands volumes où des bases spécifiquement optimisées pour la distribution (Milvus) ou le managé serverless (Pinecone) prennent l'avantage.</p>
+
+        <h3>Absence de recherche hybride native avancée</h3>
+        <p>Contrairement à Weaviate (module 4) qui intègre nativement la recherche hybride (cours embeddings, module 7), Chroma se concentre sur la recherche vectorielle pure — une recherche hybride BM25 + vectorielle nécessite une implémentation applicative supplémentaire plutôt qu'une fonctionnalité native clé en main.</p>
+
+        <h3>Fonctionnalités de production limitées</h3>
+        <p>La réplication, la haute disponibilité, le sharding automatique (module 6-7) sont peu ou pas nativement gérés par Chroma dans sa configuration standard — des besoins qui apparaissent typiquement à mesure qu'un projet mûrit vers une production critique à fort trafic.</p>
+
+        <div class="ascii">Signal indiquant qu'il est temps de dépasser Chroma :
+
+[ ] Le volume de vecteurs dépasse quelques millions
+[ ] Un besoin de recherche hybride native, sans développement
+    applicatif supplémentaire, est identifié
+[ ] La haute disponibilité et la réplication deviennent des
+    exigences de production non négociables
+[ ] Plusieurs équipes ou services doivent interroger la même
+    base à fort trafic simultané</div>
+
+        <p>Ce module clôt l'étude de Chroma. Le module suivant explore Pinecone, à l'opposé du spectre "opération" : une base entièrement managée où la question de la scalabilité et de la haute disponibilité est déléguée au fournisseur plutôt que gérée par l'équipe projet.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Continuer à utiliser Chroma en production bien au-delà de ses cas d'usage cibles, par habitude ou pour éviter une migration, plutôt que de reconnaître objectivement que les besoins du projet ont dépassé ce que cette solution a été conçue pour offrir — une migration planifiée tôt (module 7, leçon 1) coûte toujours moins cher qu'une migration d'urgence sous contrainte de production dégradée.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : en utilisant la checklist ci-dessus, votre projet actuel (ou envisagé) resterait-il dans le domaine de compétence de Chroma, ou certains signaux suggèrent-ils déjà d'envisager une autre solution ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-3">
+      <span class="module-kicker">MODULE 03 / 08</span>
+      <h1>Pinecone : la base managée serverless</h1>
+      <p class="intro">À l'opposé du spectre opérationnel de Chroma : Pinecone ne propose aucune version auto-hébergeable. Toute l'infrastructure — scaling, réplication, disponibilité — est déléguée au fournisseur. Ce module explore ce que cela signifie concrètement, en pratique et en coût.</p>
+
+      <section class="lesson" id="m3-l1" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 3.1</span>Philosophie de Pinecone : full-managé, scalabilité sans opération</h2>
+
+        <p><strong>Pinecone</strong> a fait un choix architectural radical par rapport à Chroma (module 2) et Weaviate (module 4) : il n'existe aucune version open-source ou auto-hébergeable. Pinecone est disponible <em>uniquement</em> comme service cloud managé — un choix qui élimine complètement la question "comment dimensionner et opérer mon infrastructure de base vectorielle" en la transférant entièrement au fournisseur.</p>
+
+        <pre><code class="language-python">from pinecone import Pinecone
+
+# Aucune installation locale, aucun serveur à lancer :
+# la connexion se fait directement à l'infrastructure Pinecone
+pc = Pinecone(api_key="votre_cle_api")
+
+index = pc.Index("documentation-interne")   # l'index existe déjà côté Pinecone,
+                                              # créé via l'interface web ou l'API
+</code></pre>
+
+        <p>Ce choix a une conséquence directe sur l'expérience développeur : il n'y a littéralement rien à installer, configurer ou maintenir côté infrastructure — seulement une clé API à obtenir et un index à créer via l'interface Pinecone ou un appel d'API. En contrepartie, cette simplicité opérationnelle a toujours un coût financier récurrent, proportionnel à l'usage (approfondi en leçon 3.4) — contrairement à Chroma où le "coût" se traduit en effort de gestion plutôt qu'en facture directe.</p>
+
+        <div class="ascii">Chroma (module 2)                        Pinecone (ce module)
+────────────────────                     ────────────────────
+Vous gérez l'infrastructure               Pinecone gère l'infrastructure
+(ou son absence, en mode                  intégralement — vous n'avez
+embarqué)                                  jamais accès au serveur sous-jacent
+
+Coût : votre temps d'opération            Coût : facturation d'usage
+(ou zéro, en mode embarqué                 récurrente (leçon 3.4)
+ local)
+
+Pas de SLA de disponibilité                SLA de disponibilité contractuel
+formel (vous êtes responsable)             (le fournisseur s'engage)</div>
+
+        <p>Ce positionnement rend Pinecone particulièrement adapté aux équipes qui veulent consacrer leur temps d'ingénierie au produit RAG lui-même (chunking, prompt engineering, expérience utilisateur) plutôt qu'à l'opération d'une infrastructure de base de données — un arbitrage similaire à celui déjà rencontré dans le cours embeddings (module 4, leçon 2) entre modèle d'embedding propriétaire (API) et open-source auto-hébergé.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Choisir Pinecone en pensant pouvoir un jour "rapatrier" l'infrastructure en interne pour réduire les coûts, en oubliant qu'aucune version auto-hébergeable n'existe. Une décision pour Pinecone est structurellement différente d'un choix pour Weaviate ou Qdrant (module 4-5) : elle engage durablement vers un modèle de coût récurrent sans option de repli vers l'auto-hébergement, sauf migration complète vers une autre base (module 7, leçon 1).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre organisation, l'absence de toute option d'auto-hébergement chez Pinecone est-elle un non-sujet (équipe sans compétence infra, préférence pour le tout-managé), ou une contrainte potentiellement bloquante (exigence de confidentialité stricte, politique de souveraineté des données) ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l2" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 3.2</span>Namespaces, index et organisation des données</h2>
+
+        <p>Pinecone organise les données selon une hiérarchie à deux niveaux : l'<strong>index</strong> (l'unité principale, comparable à la "collection" de Chroma — rappel du module 1, leçon 2) et le <strong>namespace</strong> (une subdivision à l'intérieur d'un même index), un concept propre à Pinecone qui mérite d'être bien compris pour organiser efficacement un corpus multi-tenant ou multi-source.</p>
+
+        <h3>L'index : l'unité de dimension et de configuration</h3>
+        <p>Un index Pinecone est lié à une dimension de vecteur fixe (rappel cours embeddings, module 1, leçon 3) et une métrique de similarité (cosinus, produit scalaire — cours embeddings, module 3) définies à sa création, et ne peuvent plus changer ensuite. Changer de modèle d'embedding avec une dimension différente nécessite systématiquement un nouvel index.</p>
+
+        <pre><code class="language-python">from pinecone import Pinecone, ServerlessSpec
+
+pc = Pinecone(api_key="votre_cle_api")
+
+pc.create_index(
+    name="documentation-interne",
+    dimension=768,               # doit correspondre exactement au modèle d'embedding utilisé
+    metric="cosine",              # cours embeddings, module 3
+    spec=ServerlessSpec(cloud="aws", region="us-east-1"),
+)
+</code></pre>
+
+        <h3>Le namespace : subdiviser un index sans le multiplier</h3>
+        <p>À l'intérieur d'un même index, des namespaces permettent de séparer logiquement des sous-ensembles de données (par exemple, un namespace par client dans un contexte multi-tenant, ou par langue) sans payer le coût de créer un index entièrement séparé pour chacun. Une requête peut cibler un namespace spécifique, agissant comme un filtre implicite très efficace.</p>
+
+        <pre><code class="language-python"># Insertion dans un namespace spécifique
+index.upsert(
+    vectors=[{"id": "chunk_001", "values": vecteur, "metadata": {"departement": "RH"}}],
+    namespace="client_acme_corp",
+)
+
+# Requête restreinte à ce namespace uniquement
+resultats = index.query(
+    vector=vecteur_question,
+    namespace="client_acme_corp",
+    top_k=5,
+)
+</code></pre>
+
+        <div class="ascii">Index "documentation-interne" (dimension 768, cosinus)
+
+┌─────────────────────────────────────────────────┐
+│  Namespace "client_acme_corp"                     │
+│    chunk_001, chunk_002, ...                       │
+├─────────────────────────────────────────────────┤
+│  Namespace "client_beta_sarl"                      │
+│    chunk_101, chunk_102, ...                       │
+├─────────────────────────────────────────────────┤
+│  Namespace "" (par défaut, si non spécifié)        │
+└─────────────────────────────────────────────────┘
+
+→ Chaque namespace est isolé pour la recherche, mais
+  partage la même configuration d'index (dimension, métrique).</div>
+
+        <p>Cette organisation par namespace rejoint directement la problématique du multi-tenant abordée dans le cours métadonnées (module 3, leçon 2, permissions et filtrage) — le namespace offre une isolation plus forte et potentiellement plus performante qu'un simple filtre de métadonnée, car la recherche ne considère jamais les vecteurs des autres namespaces.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Créer un index séparé pour chaque client ou chaque source de données par réflexe, alors qu'un namespace unique à l'intérieur d'un même index suffirait largement et éviterait la prolifération d'index à gérer et à facturer séparément. Les namespaces sont l'outil natif de Pinecone pour cette subdivision, à privilégier sur la multiplication d'index sauf besoin réel de dimensions ou métriques différentes.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un système RAG multi-clients (chaque client ne devant voir que ses propres documents), comment organiseriez-vous les namespaces Pinecone ? Un namespace par client suffirait-il, ou faudrait-il combiner avec un filtrage par métadonnées (cours métadonnées, module 3) ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l3" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 3.3</span>Upsert, requêtes et filtrage de métadonnées avec l'API Pinecone</h2>
+
+        <p>Cette leçon couvre les opérations CRUD de Pinecone, en miroir de celles déjà vues pour Chroma (module 2, leçon 2) — l'occasion de comparer directement les deux API sur des opérations équivalentes.</p>
+
+        <pre><code class="language-python"># UPSERT : Pinecone combine création et mise à jour en une seule opération
+# (contrairement à Chroma qui distingue add() et update())
+index.upsert(
+    vectors=[
+        {
+            "id": "chunk_001",
+            "values": [0.021, -0.184, 0.093, ...],
+            "metadata": {
+                "texte": "Le chunking est une étape essentielle...",   # le texte lui-même
+                                                                          # est souvent stocké
+                                                                          # comme une métadonnée
+                "source": "guide_rag.pdf",
+                "departement": "technique",
+            },
+        },
+    ],
+    namespace="production",
+)
+
+# QUERY : recherche vectorielle avec filtrage de métadonnées (cours métadonnées, module 3)
+resultats = index.query(
+    vector=vecteur_question,
+    top_k=5,
+    namespace="production",
+    filter={
+        "departement": {"$eq": "technique"},
+        "statut": {"$eq": "actuel"},
+    },
+    include_metadata=True,
+)
+
+for match in resultats["matches"]:
+    print(match["id"], match["score"], match["metadata"]["texte"])
+
+# DELETE : suppression ciblée (rappel cours embeddings, module 6, cycle de vie)
+index.delete(ids=["chunk_001"], namespace="production")
+</code></pre>
+
+        <p>Une particularité notable de Pinecone : contrairement à Chroma qui distingue le paramètre <code class="inline">documents</code> (le texte brut) des <code class="inline">metadatas</code>, Pinecone ne stocke que des vecteurs et des métadonnées — le texte du chunk doit être explicitement inclus <em>dans</em> le champ metadata s'il doit être récupéré directement depuis la base (comme illustré ci-dessus), plutôt que d'être un concept de premier ordre séparé.</p>
+
+        <h3>Filtrage combiné et opérateurs disponibles</h3>
+        <pre><code class="language-python"># Pinecone supporte des opérateurs de filtrage similaires à ceux déjà
+# rencontrés (cours embeddings module 6, cours métadonnées module 3)
+filtre_complexe = {
+    "$and": [
+        {"departement": {"$in": ["RH", "Juridique"]}},
+        {"date_modification": {"$gte": "2025-01-01"}},
+    ]
+}
+</code></pre>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Oublier d'inclure le texte du chunk dans le champ <code class="inline">metadata</code> lors de l'upsert, en supposant à tort que Pinecone conserve le texte séparément comme le fait Chroma. Sans cette inclusion explicite, une requête retourne uniquement des identifiants et des scores, sans jamais le contenu textuel du chunk — obligeant une récupération séparée depuis une autre source de vérité, ce qui complique inutilement le pipeline.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Comparez le code d'upsert et de requête ci-dessus à l'équivalent Chroma du module 2, leçon 2. Quelle différence d'API vous semble la plus significative à retenir pour éviter une erreur lors d'une migration entre les deux ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l4" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 3.4</span>Dimensionnement, pods vs serverless, et coûts</h2>
+
+        <p>Pinecone propose deux modèles de tarification et de dimensionnement distincts, dont le choix a un impact direct sur les coûts et la scalabilité — une compréhension nécessaire avant de committer un projet à long terme sur cette base.</p>
+
+        <h3>Le modèle Pod-based (historique)</h3>
+        <p>Dans ce modèle, on réserve à l'avance une capacité fixe (un ou plusieurs "pods", chacun avec une capacité déterminée en nombre de vecteurs et en débit de requêtes), facturée en continu que la capacité soit pleinement utilisée ou non — un modèle proche de la réservation d'instances cloud classiques.</p>
+
+        <h3>Le modèle Serverless (recommandé pour la plupart des nouveaux projets)</h3>
+        <p>Introduit plus récemment, ce modèle facture uniquement l'usage réel (volume de vecteurs stockés, nombre de requêtes effectuées) sans réservation de capacité à l'avance — un modèle bien plus adapté à des charges variables ou à des projets dont le volume est encore incertain, éliminant le risque de sur-provisionner (payer pour une capacité inutilisée) ou sous-provisionner (subir des ralentissements en cas de pic).</p>
+
+        <pre><code class="language-python">from pinecone import ServerlessSpec, PodSpec
+
+# Configuration serverless : facturation à l'usage, pas de capacité réservée
+spec_serverless = ServerlessSpec(cloud="aws", region="us-east-1")
+
+# Configuration pod-based : capacité réservée à l'avance
+spec_pod = PodSpec(environment="us-east-1-aws", pod_type="p1.x1", pods=1)
+</code></pre>
+
+        <div class="ascii">Pod-based                                Serverless
+────────────────────                    ────────────────────
+Capacité réservée à l'avance             Facturation à l'usage réel
+(risque de sur/sous-provisionnement)     (pas de réservation)
+
+Coût prévisible et fixe                  Coût variable selon le trafic
+(bon pour un volume stable connu)         (bon pour un volume incertain
+                                          ou variable)
+
+Latence potentiellement plus stable      Latence généralement excellente,
+(ressources dédiées)                      infrastructure partagée mais
+                                          gérée automatiquement</div>
+
+        <h3>Estimer le coût réel avant de s'engager</h3>
+        <pre><code class="language-python">def estimer_cout_pinecone_serverless(nb_vecteurs: int, dimension: int,
+                                       nb_requetes_par_mois: int,
+                                       prix_stockage_par_go_mois: float = 0.33,
+                                       prix_par_million_requetes: float = 4.0) -> float:
+    octets_par_vecteur = dimension * 4  # float32
+    go_stockage = (nb_vecteurs * octets_par_vecteur) / (1024 ** 3)
+    cout_stockage = go_stockage * prix_stockage_par_go_mois
+    cout_requetes = (nb_requetes_par_mois / 1_000_000) * prix_par_million_requetes
+    return cout_stockage + cout_requetes
+
+# Les tarifs exacts évoluent — toujours vérifier la grille tarifaire actuelle
+# de Pinecone avant de committer un budget basé sur cette estimation
+</code></pre>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Choisir le modèle pod-based par habitude ou parce que c'est historiquement l'offre la plus connue, sans comparer au modèle serverless qui convient mieux à la majorité des nouveaux projets dont le volume n'est pas encore stabilisé. Toujours recalculer le coût estimé des deux modèles pour son propre profil d'usage avant de trancher.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre projet, le volume de vecteurs et le trafic de requêtes sont-ils stables et prévisibles (favorisant potentiellement le pod-based) ou encore incertains et variables (favorisant le serverless) ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l5" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 3.5</span>Limites et cas où Pinecone n'est pas le bon choix</h2>
+
+        <p>Cette dernière leçon du module identifie objectivement les situations où Pinecone, malgré sa simplicité opérationnelle, n'est pas le choix le plus adapté.</p>
+
+        <h3>Contraintes de souveraineté ou de confidentialité stricte des données</h3>
+        <p>Puisqu'aucune version auto-hébergeable n'existe (leçon 3.1), les données transitent nécessairement par l'infrastructure de Pinecone. Pour des organisations soumises à des contraintes réglementaires strictes de localisation ou de contrôle des données (secteur public, santé, défense dans certains pays), cette absence d'option d'auto-hébergement peut être structurellement bloquante, indépendamment de la qualité technique du produit.</p>
+
+        <h3>Prototypage à très petit volume</h3>
+        <p>Pour un simple prototype ou un projet personnel, la mise en place d'un compte Pinecone et la gestion d'une clé API représentent une friction supérieure à Chroma en mode embarqué (module 2) — sans bénéfice réel à cette échelle où les questions de scalabilité et de haute disponibilité ne se posent simplement pas encore.</p>
+
+        <h3>Besoin de contrôle fin sur l'infrastructure sous-jacente</h3>
+        <p>Pour des équipes avec une expertise infrastructure forte et un besoin de contrôle fin (choix précis du matériel, optimisations très spécifiques), une solution auto-hébergeable comme Weaviate ou Qdrant (modules 4-5) offre une latitude que le modèle entièrement managé de Pinecone ne permet pas par nature.</p>
+
+        <div class="ascii">Signal indiquant que Pinecone n'est probablement pas le bon choix :
+
+[ ] Contraintes réglementaires empêchant toute donnée hébergée
+    par un tiers externe
+[ ] Projet à un stade de prototype très précoce, sans besoin
+    réel de scalabilité ou de disponibilité garantie
+[ ] Équipe avec une forte expertise infrastructure souhaitant
+    un contrôle fin sur le déploiement
+[ ] Besoin de fonctionnalités très spécifiques (recherche
+    hybride avancée, modules d'inférence intégrés — module 4)
+    non couvertes nativement par Pinecone</div>
+
+        <p>Ce module clôt l'étude de Pinecone. Le module suivant explore Weaviate, une troisième philosophie qui combine capacité d'auto-hébergement (comme un contre-point à Pinecone) avec un schéma de données fort et des fonctionnalités de recherche hybride intégrées nativement.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Écarter Pinecone uniquement sur la base d'une intuition de coût "les solutions managées sont toujours plus chères", sans avoir réellement chiffré le coût total de possession (module 5, leçon 3) d'une alternative auto-hébergée incluant le temps d'ingénierie nécessaire à son opération — un temps souvent sous-estimé dans les comparaisons superficielles.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : en utilisant la checklist ci-dessus, identifiez-vous un signal qui rendrait Pinecone inadapté à votre projet ? Si aucun signal ne s'applique, Pinecone reste-t-il un candidat sérieux ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-4">
+      <span class="module-kicker">MODULE 04 / 08</span>
+      <h1>Weaviate : la base orientée schéma et recherche hybride</h1>
+      <p class="intro">Troisième philosophie de ce cours : Weaviate impose une structure de données plus stricte que Chroma ou Pinecone, en échange de fonctionnalités intégrées puissantes — recherche hybride native, modules de vectorisation embarqués — et d'une capacité d'auto-hébergement que Pinecone n'offre pas.</p>
+
+      <section class="lesson" id="m4-l1" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 4.1</span>Philosophie de Weaviate : schéma fort et modules d'inférence intégrés</h2>
+
+        <p><strong>Weaviate</strong> se distingue de Chroma et Pinecone par une approche plus proche d'une base de données "classique" dans sa rigueur : avant d'insérer des données, on définit un <strong>schéma</strong> qui décrit précisément les classes d'objets et leurs propriétés typées — une discipline plus contraignante que le payload libre de Chroma ou Pinecone, mais qui apporte en retour une validation automatique et des fonctionnalités de requête plus riches.</p>
+
+        <p>L'autre trait distinctif de Weaviate : des <strong>modules intégrés</strong> qui peuvent calculer les embeddings directement au sein de la base (via des connecteurs vers OpenAI, Cohere, ou des modèles open-source), sans que l'application cliente n'ait besoin d'appeler elle-même un modèle d'embedding séparé (cours embeddings) avant l'insertion — Weaviate peut s'en charger nativement si configuré ainsi.</p>
+
+        <pre><code class="language-python">import weaviate
+from weaviate.classes.init import Auth
+
+client = weaviate.connect_to_weaviate_cloud(
+    cluster_url="https://mon-cluster.weaviate.network",
+    auth_credentials=Auth.api_key("votre_cle_api"),
+)
+
+# Le schéma définit explicitement la structure — contrairement au
+# payload libre de Chroma (module 2) ou Pinecone (module 3)
+collection = client.collections.create(
+    name="DocumentationInterne",
+    properties=[
+        {"name": "texte", "data_type": "text"},
+        {"name": "source", "data_type": "text"},
+        {"name": "departement", "data_type": "text"},
+    ],
+)
+</code></pre>
+
+        <div class="ascii">Chroma / Pinecone                          Weaviate
+────────────────────                       ────────────────────
+Payload libre, non typé                     Schéma fort, propriétés
+(n'importe quelle clé/valeur                typées explicitement
+ peut être ajoutée)                          (validation automatique)
+
+Vecteurs calculés en amont,                 Peut calculer les vecteurs
+côté application (cours                     nativement via des modules
+embeddings)                                  intégrés (vectorizers)
+
+Plus flexible, moins de garanties           Plus rigide, garanties de
+de structure                                cohérence de structure</div>
+
+        <p>Ce choix de conception rapproche Weaviate d'une base orientée documents avec typage (comme MongoDB avec validation de schéma) plutôt que d'un simple magasin clé-valeur de vecteurs — un compromis qui profite particulièrement aux projets avec des besoins de requêtes structurées riches (leçon 4.4) et de recherche hybride native (leçon 4.3).</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Aborder Weaviate avec la même désinvolture de schéma que Chroma ou Pinecone (ajouter des métadonnées librement sans schéma préalable), ce qui peut se heurter à des erreurs de validation ou à un typage incohérent. Weaviate demande un effort de conception de schéma en amont (leçon 4.2), un investissement différent de celui requis par les deux autres bases de ce cours.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre schéma de métadonnées esquissé dans le cours métadonnées (module 2, leçon 5 et module 7, leçon 1), cette rigueur de typage de Weaviate vous semblerait-elle un atout (cohérence garantie) ou une friction (moins de flexibilité) ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l2" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 4.2</span>Classes, propriétés et schéma de données</h2>
+
+        <p>Cette leçon détaille la conception d'un schéma Weaviate, l'étape préalable indispensable avant toute insertion de données — un exercice qui rejoint directement la conception de schéma de métadonnées déjà pratiquée dans le cours métadonnées (module 2, leçon 5 et module 7, leçon 1).</p>
+
+        <h3>Définir une classe avec ses propriétés typées</h3>
+        <pre><code class="language-python">from weaviate.classes.config import Configure, Property, DataType
+
+collection = client.collections.create(
+    name="DocumentationInterne",
+    properties=[
+        Property(name="texte", data_type=DataType.TEXT),
+        Property(name="source", data_type=DataType.TEXT),
+        Property(name="breadcrumb", data_type=DataType.TEXT),
+        Property(name="departement", data_type=DataType.TEXT),
+        Property(name="date_modification", data_type=DataType.DATE),
+        Property(name="statut", data_type=DataType.TEXT),
+    ],
+    vectorizer_config=Configure.Vectorizer.none(),   # vecteurs fournis manuellement
+                                                       # (cours embeddings), pas calculés
+                                                       # par un module Weaviate intégré
+)
+</code></pre>
+
+        <h3>Insérer des données conformes au schéma</h3>
+        <pre><code class="language-python">collection.data.insert(
+    properties={
+        "texte": "L'overlap recommandé se situe entre 10 et 20%.",
+        "source": "guide_rag.pdf",
+        "breadcrumb": "Guide RAG > Chunking > Overlap",
+        "departement": "technique",
+        "date_modification": "2025-11-20T00:00:00Z",
+        "statut": "actuel",
+    },
+    vector=vecteur_embedding,   # calculé en amont, cours embeddings
+)
+</code></pre>
+
+        <h3>Faire évoluer un schéma existant</h3>
+        <p>Ajouter une nouvelle propriété à une classe existante est généralement possible sans tout reconstruire, mais modifier le type d'une propriété existante ou la supprimer est plus contraignant — une considération à anticiper, en écho direct au versionnage de schéma déjà abordé dans le cours métadonnées (module 7, leçon 1).</p>
+
+        <pre><code class="language-python"># Ajouter une nouvelle propriété à une classe existante
+collection.config.add_property(
+    Property(name="langue", data_type=DataType.TEXT)
+)
+</code></pre>
+
+        <div class="ascii">Conception d'un schéma Weaviate — méthode recommandée :
+
+1. Reprendre le schéma de métadonnées structurelles du cours
+   métadonnées (module 2, leçon 5)
+2. Typer chaque champ explicitement (texte, date, nombre, booléen)
+3. Anticiper les évolutions futures probables (propriétés qui
+   pourraient être ajoutées) sans sur-ingénierer (rappel du
+   piège de sur-engineering, cours métadonnées module 1)
+4. Valider le schéma sur un petit échantillon avant l'ingestion
+   complète du corpus</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Concevoir un schéma Weaviate dans l'urgence, sans réutiliser le travail déjà fait dans le cours métadonnées, puis découvrir après une ingestion massive qu'un type de donnée mal choisi (une date stockée en texte libre, par exemple) empêche les requêtes de plage attendues (rappel cours métadonnées, module 3, leçon 3).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          En reprenant le schéma minimal proposé dans le cours métadonnées (module 2, leçon 5), traduisez chaque champ en une <code class="inline">Property</code> Weaviate avec son type approprié.
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l3" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 4.3</span>Recherche hybride native et modules vectorizer intégrés</h2>
+
+        <p>Weaviate a été l'une des premières bases vectorielles à populariser la <strong>recherche hybride</strong> (combinaison BM25 + vectorielle, déjà étudiée en détail dans le cours embeddings, module 7) comme fonctionnalité native et clé en main, plutôt que comme une logique à implémenter côté application.</p>
+
+        <pre><code class="language-python"># Recherche hybride en une seule requête — Weaviate combine
+# nativement le score BM25 et le score vectoriel (fusion RRF ou
+# pondération alpha, cours embeddings module 7, leçons 2 et 4)
+resultats = collection.query.hybrid(
+    query="politique de remboursement clients premium",
+    vector=vecteur_question,   # peut aussi être omis si un vectorizer est configuré
+    alpha=0.5,                  # 0 = full BM25, 1 = full vectoriel (rappel cours embeddings)
+    limit=5,
+)
+
+for objet in resultats.objects:
+    print(objet.properties["texte"], objet.metadata.score)
+</code></pre>
+
+        <h3>Modules vectorizer : calculer les embeddings au sein de la base</h3>
+        <p>Plutôt que de calculer les vecteurs en amont (comme illustré au module précédent avec <code class="inline">Vectorizer.none()</code>), Weaviate peut déléguer ce calcul à un module intégré connecté à un fournisseur externe (OpenAI, Cohere) ou à un modèle local — Weaviate appelle alors automatiquement le modèle configuré à chaque insertion et à chaque requête.</p>
+
+        <pre><code class="language-python">from weaviate.classes.config import Configure
+
+collection_avec_vectorizer = client.collections.create(
+    name="DocumentationAvecVectorizerIntegre",
+    vectorizer_config=Configure.Vectorizer.text2vec_openai(
+        model="text-embedding-3-small"   # rappel cours embeddings, module 4
+    ),
+    properties=[Property(name="texte", data_type=DataType.TEXT)],
+)
+
+# Il suffit de fournir le texte : Weaviate calcule l'embedding lui-même
+collection_avec_vectorizer.data.insert(properties={"texte": "L'overlap recommandé..."})
+</code></pre>
+
+        <p>Ce choix de déléguer le calcul d'embedding à Weaviate simplifie le pipeline applicatif, mais couple plus étroitement l'infrastructure de stockage au choix du modèle d'embedding — un arbitrage à mettre en balance avec la flexibilité de calculer les vecteurs séparément (comme dans les modules 2 et 3 de ce cours), qui permet de changer de modèle d'embedding sans dépendre de la disponibilité d'un module Weaviate correspondant.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Activer un vectorizer intégré par simplicité, sans avoir validé au préalable (cours embeddings, module 4, leçon 3) que ce modèle spécifique est le mieux adapté à son corpus. Le couplage entre la base et le calcul d'embedding rend un changement de modèle ultérieur plus contraignant qu'avec des vecteurs calculés indépendamment.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre projet, la recherche hybride native de Weaviate correspond-elle à un besoin déjà identifié dans le cours embeddings (module 7, leçon 1 — limites du tout-vectoriel) ? Le calcul d'embedding intégré serait-il un avantage ou une contrainte compte tenu du modèle déjà choisi au cours embeddings ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l4" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 4.4</span>GraphQL et requêtes structurées</h2>
+
+        <p>Historiquement, Weaviate expose une API <strong>GraphQL</strong> en complément de son SDK Python — une différence notable par rapport à Chroma et Pinecone qui exposent des API REST/SDK plus classiques. Comprendre cette option, même si le SDK Python couvre la majorité des besoins courants, permet d'exploiter des requêtes plus complexes ou de s'intégrer dans un écosystème déjà construit autour de GraphQL.</p>
+
+        <pre><code class="language-graphql">{
+  Get {
+    DocumentationInterne(
+      nearVector: { vector: [0.021, -0.184, 0.093] }
+      where: {
+        operator: And
+        operands: [
+          { path: ["departement"], operator: Equal, valueText: "technique" }
+          { path: ["statut"], operator: Equal, valueText: "actuel" }
+        ]
+      }
+      limit: 5
+    ) {
+      texte
+      source
+      _additional { distance }
+    }
+  }
+}
+</code></pre>
+
+        <p>Cette requête GraphQL est fonctionnellement équivalente à l'appel Python <code class="inline">collection.query.near_vector(...)</code> avec un filtre — le SDK Python de Weaviate traduit en réalité ces appels en requêtes GraphQL sous le capot. Pour la grande majorité des usages applicatifs, le SDK Python (déjà utilisé dans les leçons précédentes) suffit largement ; GraphQL devient pertinent pour des requêtes très spécifiques (agrégations complexes, traversées de relations entre classes) ou une intégration dans un système déjà organisé autour de GraphQL.</p>
+
+        <h3>Relations entre classes (cross-references)</h3>
+        <p>Le schéma fort de Weaviate (leçon 4.2) permet aussi de définir des <strong>références croisées</strong> entre classes — un mécanisme qui rejoint directement les métadonnées de relation entre chunks du cours métadonnées (module 5, leçon 3 : parent/enfant, chunks liés), mais implémenté nativement comme une relation de base de données plutôt que comme un simple champ de métadonnée contenant un identifiant.</p>
+
+        <pre><code class="language-python">from weaviate.classes.config import ReferenceProperty
+
+client.collections.create(
+    name="Chunk",
+    properties=[Property(name="texte", data_type=DataType.TEXT)],
+    references=[
+        ReferenceProperty(name="chunkParent", target_collection="Chunk")
+    ],
+)
+</code></pre>
+
+        <div class="ascii">Métadonnée de relation (cours métadonnées,     Référence croisée native
+module 5) — champ contenant un ID              (Weaviate, ce module)
+────────────────────────────────────────       ─────────────────────────
+{"parent_id": "chunk_017"}                      Relation typée et
+                                                 traversable nativement
+Résolution manuelle côté application            via GraphQL/SDK, sans
+(retrouver l'objet via son ID)                  résolution manuelle</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Reconstruire manuellement en Python la logique de traversée de relations (retrouver le chunk parent à partir de son ID stocké en métadonnée) alors que Weaviate propose un mécanisme natif de références croisées qui gère cette traversée plus efficacement, surtout à mesure que le graphe de relations se complexifie (rappel du module 6 du cours métadonnées sur les graphes de connaissances).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour les relations parent/enfant ou séquentielles définies dans le cours métadonnées (module 2, leçon 2 et module 5, leçon 3), ces relations bénéficieraient-elles d'être modélisées comme des références croisées Weaviate plutôt que comme de simples champs de métadonnée contenant un identifiant ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l5" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 4.5</span>Déploiement : cloud managé vs auto-hébergé Docker/Kubernetes</h2>
+
+        <p>Contrairement à Pinecone (module 3, sans option d'auto-hébergement), Weaviate offre le choix complet du spectre présenté au module 1, leçon 5 : une offre cloud managée (Weaviate Cloud) et une version open-source auto-hébergeable via Docker ou Kubernetes.</p>
+
+        <h3>Weaviate Cloud : l'équivalent managé de Pinecone</h3>
+        <p>Une offre qui élimine la gestion d'infrastructure, avec le même arbitrage coût/opération déjà rencontré pour Pinecone (module 3, leçon 1) — pertinente pour des équipes qui préfèrent déléguer l'infrastructure tout en gardant, contrairement à Pinecone, l'option de migrer vers l'auto-hébergement plus tard sans changer de base de données.</p>
+
+        <h3>Auto-hébergement via Docker</h3>
+        <pre><code class="language-yaml"># docker-compose.yml minimal pour un Weaviate auto-hébergé
+version: '3.4'
+services:
+  weaviate:
+    image: cr.weaviate.io/semitechnologies/weaviate:latest
+    ports:
+      - "8080:8080"
+    environment:
+      QUERY_DEFAULTS_LIMIT: 25
+      PERSISTENCE_DATA_PATH: "/var/lib/weaviate"
+      DEFAULT_VECTORIZER_MODULE: "none"
+    volumes:
+      - weaviate_data:/var/lib/weaviate
+volumes:
+  weaviate_data:
+</code></pre>
+
+        <pre><code class="language-bash">docker compose up -d
+# Weaviate est maintenant accessible sur http://localhost:8080
+</code></pre>
+
+        <h3>Auto-hébergement via Kubernetes (production à grande échelle)</h3>
+        <p>Pour une production à plus grande échelle nécessitant réplication et haute disponibilité (approfondi au module 6, leçon 4), Weaviate propose un chart Helm officiel permettant un déploiement Kubernetes avec configuration de réplicas, de ressources et de persistance — une option qui rejoint les besoins avancés déjà esquissés au module 1, leçon 5 pour l'auto-hébergement à grande échelle.</p>
+
+        <div class="ascii">Weaviate Cloud                Docker (auto-hébergé,        Kubernetes (auto-hébergé,
+(managé)                       petite/moyenne échelle)      grande échelle/production)
+────────────────────          ─────────────────────        ──────────────────────────
+Zéro opération                 Contrôle total, mise en       Contrôle total, haute
+                               place rapide en local           disponibilité, réplication,
+                                                               scaling automatisé
+
+Coût récurrent de service      Coût d'infrastructure          Coût d'infrastructure +
+                               (serveur/VM)                    expertise Kubernetes
+                                                               nécessaire</div>
+
+        <p>Cette flexibilité de déploiement — unique parmi les trois bases de ce cours, puisque Chroma reste limitée en pratique (module 2, leçon 5) et Pinecone n'offre aucune option d'auto-hébergement (module 3, leçon 1) — positionne Weaviate comme un choix particulièrement adapté aux organisations qui veulent la liberté de changer de mode de déploiement (managé vers auto-hébergé, ou l'inverse) sans changer de base de données.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Déployer Weaviate en Kubernetes dès le début d'un projet par anticipation d'une future montée en charge, alors qu'un simple Docker Compose local ou l'offre cloud managée suffiraient largement au stade actuel. La complexité de Kubernetes (module 7, leçon 2 sur le scaling) ne se justifie que lorsque les besoins de haute disponibilité et de scaling automatique sont réellement avérés.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : parmi les trois options de déploiement Weaviate (cloud managé, Docker, Kubernetes), laquelle correspond le mieux à votre stade de projet actuel ? Cette flexibilité de pouvoir changer de mode sans changer de base vous semble-t-elle un avantage décisif par rapport à Pinecone ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-5">
+      <span class="module-kicker">MODULE 05 / 08</span>
+      <h1>Comparaison approfondie et critères de choix</h1>
+      <p class="intro">Après avoir étudié Chroma, Pinecone et Weaviate en profondeur (modules 2 à 4), ce module synthétise leurs différences en une méthode de décision actionnable — et élargit le panorama à d'autres solutions mentionnées mais non détaillées dans ce cours.</p>
+
+      <section class="lesson" id="m5-l1" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 5.1</span>Tableau comparatif détaillé</h2>
+
+        <p>Cette leçon rassemble en un seul tableau les caractéristiques étudiées séparément dans les modules 2 à 4, en y ajoutant Qdrant, Milvus et pgvector déjà évoqués au module 1 (leçon 3) mais non approfondis dans ce cours.</p>
+
+        <table>
+          <thead>
+            <tr><th>Critère</th><th>Chroma</th><th>Pinecone</th><th>Weaviate</th><th>Qdrant / Milvus</th><th>pgvector</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Auto-hébergement</td><td>Oui (natif)</td><td>Non</td><td>Oui</td><td>Oui</td><td>Oui (via PostgreSQL)</td></tr>
+            <tr><td>Offre managée</td><td>Non (limité)</td><td>Oui (seule option)</td><td>Oui</td><td>Oui</td><td>Via des fournisseurs Postgres managés</td></tr>
+            <tr><td>Schéma de données</td><td>Libre</td><td>Libre</td><td>Fort (typé)</td><td>Libre à modéré</td><td>Fort (SQL)</td></tr>
+            <tr><td>Recherche hybride native</td><td>Non</td><td>Limitée</td><td>Oui (forte)</td><td>Oui (Qdrant)</td><td>Via extensions tierces</td></tr>
+            <tr><td>Cas d'usage cible</td><td>Prototypage, petit volume</td><td>Production sans opération</td><td>Schéma riche, recherche hybride</td><td>Performance à grande échelle</td><td>Infra PostgreSQL existante</td></tr>
+          </tbody>
+        </table>
+
+        <p>Ce tableau ne doit pas être lu comme un classement absolu ("Weaviate est meilleur que Chroma") mais comme une carte de positionnement : chaque base excelle dans son domaine de conception, et le "meilleur" choix dépend entièrement des critères prioritaires de votre projet — un principe déjà établi pour le choix d'un modèle d'embedding (cours embeddings, module 4) ou d'une stratégie de chunking (cours chunking).</p>
+
+        <div class="ascii">Lecture du tableau : poser ces questions dans l'ordre
+
+1. Ai-je une contrainte de confidentialité qui exclut le managé ?
+   → élimine Pinecone si oui (module 3, leçon 1)
+
+2. Ai-je besoin d'un schéma fort et d'une recherche hybride
+   native sans développement applicatif supplémentaire ?
+   → oriente vers Weaviate (module 4)
+
+3. Suis-je encore au stade du prototype, sans infrastructure
+   à gérer ?
+   → oriente vers Chroma (module 2)
+
+4. Ai-je déjà une infrastructure PostgreSQL en place ?
+   → oriente vers pgvector (cours embeddings, module 6)</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Utiliser ce tableau comme une checklist figée à appliquer mécaniquement, sans pondérer les critères selon leur importance réelle pour votre projet spécifique. Un critère "non négociable" (comme une contrainte réglementaire) devrait éliminer des options avant même de considérer les critères secondaires.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          En suivant l'arbre de décision ci-dessus, à quelle base ce raisonnement vous conduit-il pour votre propre projet ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l2" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 5.2</span>Performance et benchmarks : comment les lire sans se faire tromper</h2>
+
+        <p>Chaque fournisseur de base vectorielle publie régulièrement des benchmarks montrant sa solution sous un jour favorable — un phénomène similaire à celui déjà rencontré avec les classements de modèles d'embedding (cours embeddings, module 4, leçon 3, sur la lecture critique du benchmark MTEB). Cette leçon transpose cette même vigilance méthodologique aux benchmarks de bases vectorielles.</p>
+
+        <h3>Vérifier les conditions exactes du benchmark</h3>
+        <p>Un benchmark qui annonce "10x plus rapide" mérite d'être examiné en détail : quel volume de vecteurs, quelle dimension, quels paramètres d'index (rappel cours embeddings, module 5 — un HNSW mal paramétré sur la base concurrente fausserait la comparaison), quel matériel, quelle charge de requêtes simultanées ? Un benchmark favorable sur des paramètres non représentatifs de votre cas d'usage réel n'apporte aucune information utile à votre décision.</p>
+
+        <h3>Reproduire un mini-benchmark sur son propre cas d'usage</h3>
+        <pre><code class="language-python">import time
+
+def mesurer_latence_recherche(base_vectorielle, requetes_test: list, k: int = 5) -> dict:
+    latences = []
+    for requete in requetes_test:
+        debut = time.perf_counter()
+        base_vectorielle.query(vector=requete, top_k=k)
+        latences.append(time.perf_counter() - debut)
+
+    latences.sort()
+    return {
+        "latence_mediane_ms": latences[len(latences) // 2] * 1000,
+        "latence_p95_ms": latences[int(len(latences) * 0.95)] * 1000,
+    }
+
+# À reproduire sur VOTRE volume réel de données et VOS requêtes
+# représentatives, pas sur un jeu de données générique publié
+# par un fournisseur
+</code></pre>
+
+        <h3>Distinguer latence de recherche et débit global</h3>
+        <p>Une latence faible pour une requête isolée ne garantit pas un bon comportement sous charge (de nombreuses requêtes simultanées) — deux métriques distinctes qui peuvent évoluer différemment selon l'architecture de la base (rappel du cours embeddings, module 6, leçon 3, sur le dimensionnement et la scalabilité).</p>
+
+        <div class="ascii">Métrique                     Ce qu'elle mesure                Piège d'interprétation
+──────────────────────────────────────────────────────────────────────────────
+Latence médiane               Temps de réponse typique         Ignore les cas extrêmes
+                                                                (p95, p99)
+
+Latence p95/p99                Temps de réponse dans les        Souvent absent des
+                               pires cas                        benchmarks marketing
+
+Débit (requêtes/seconde)       Capacité sous charge élevée      Différent de la latence
+                                                                isolée d'une seule requête</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Se fier à un chiffre marketing unique ("latence de 2ms") sans connaître les conditions de mesure (volume, charge concurrente, matériel), ni avoir reproduit un test comparable sur son propre cas d'usage. Comme pour tout benchmark rencontré dans cette série de cours, la validation empirique sur ses propres données prime sur la confiance aveugle en un chiffre publié.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un benchmark de base vectorielle que vous auriez consulté (ou imaginé), quelles trois informations manquantes chercheriez-vous avant de lui faire confiance pour orienter votre décision ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l3" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 5.3</span>Coût total de possession (TCO) selon le volume et l'usage</h2>
+
+        <p>Comparer les bases uniquement sur leur tarif affiché (prix par Go, prix par million de requêtes) omet une part significative du coût réel — cette leçon élargit le calcul à un véritable coût total de possession (Total Cost of Ownership), incluant le temps d'ingénierie.</p>
+
+        <h3>Les composantes du TCO souvent oubliées</h3>
+        <ul>
+          <li><strong>Temps d'ingénierie d'opération</strong> : pour une base auto-hébergée (Chroma, Weaviate en self-hosted, module 4 leçon 5), le temps consacré à la surveillance, aux mises à jour, à la résolution d'incidents a un coût réel, même s'il n'apparaît sur aucune facture.</li>
+          <li><strong>Coût de la migration future</strong> : si un changement de base s'avère nécessaire plus tard (module 7, leçon 1), ce coût de migration devrait être anticipé dans la décision initiale, en particulier si la portabilité est faible (leçon 5.4).</li>
+          <li><strong>Coût des compétences</strong> : une solution auto-hébergée nécessite une expertise interne (Kubernetes pour Weaviate à grande échelle, module 4 leçon 5) qui a un coût de recrutement ou de formation.</li>
+        </ul>
+
+        <pre><code class="language-python">def estimer_tco_annuel(cout_infrastructure_mensuel: float,
+                        heures_ingenierie_operation_par_mois: float,
+                        cout_horaire_ingenieur: float) -> dict:
+    cout_infra_annuel = cout_infrastructure_mensuel * 12
+    cout_operation_annuel = heures_ingenierie_operation_par_mois * 12 * cout_horaire_ingenieur
+    return {
+        "cout_infrastructure": cout_infra_annuel,
+        "cout_operation_humaine": cout_operation_annuel,
+        "tco_total": cout_infra_annuel + cout_operation_annuel,
+    }
+
+# Exemple : comparer une base managée (Pinecone, coût infra élevé,
+# opération quasi nulle) à une base auto-hébergée (Weaviate self-hosted,
+# coût infra plus faible, mais heures d'ingénierie mensuelles réelles)
+tco_pinecone = estimer_tco_annuel(cout_infrastructure_mensuel=800,
+                                    heures_ingenierie_operation_par_mois=2,
+                                    cout_horaire_ingenieur=60)
+tco_weaviate_selfhosted = estimer_tco_annuel(cout_infrastructure_mensuel=300,
+                                               heures_ingenierie_operation_par_mois=15,
+                                               cout_horaire_ingenieur=60)
+</code></pre>
+
+        <div class="ascii">                        Coût infra     Coût opération humaine    TCO total
+─────────────────────────────────────────────────────────────────────────
+Managé (Pinecone)         Élevé          Quasi nul                  Dépend du volume
+Auto-hébergé (Weaviate)   Modéré         Significatif (heures        Souvent sous-estimé
+                                         d'ingénieur récurrentes)     si on ignore ce coût
+
+→ Le "moins cher en apparence" (auto-hébergé) peut devenir plus
+  coûteux en TCO réel si le temps d'ingénierie n'est pas comptabilisé.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Comparer uniquement les factures d'infrastructure entre une solution managée et une solution auto-hébergée, en ignorant complètement le coût du temps d'ingénierie nécessaire à l'opération de cette dernière — un coût invisible sur une facture mais bien réel dans le budget global du projet.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre équipe, estimez approximativement le nombre d'heures mensuelles que nécessiterait l'opération d'une base auto-hébergée (surveillance, mises à jour, incidents). Ce chiffre change-t-il votre arbitrage managé vs auto-hébergé ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l4" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 5.4</span>Portabilité et risque de lock-in fournisseur</h2>
+
+        <p>Le choix d'une base de données vectorielle engage un projet à plus ou moins long terme selon la difficulté à en changer ultérieurement — un risque de <strong>lock-in</strong> (dépendance excessive à un fournisseur) qu'il convient d'évaluer dès la conception, même si la décision initiale reste par ailleurs justifiée.</p>
+
+        <h3>Facteurs qui augmentent le risque de lock-in</h3>
+        <ul>
+          <li><strong>API propriétaire non standard</strong> : plus l'API d'une base diverge des standards du marché, plus le code applicatif qui l'utilise devra être réécrit lors d'une migration (rappel des différences déjà observées entre Chroma, Pinecone et Weaviate dans ce module).</li>
+          <li><strong>Fonctionnalités propriétaires profondément intégrées</strong> : un module vectorizer intégré à Weaviate (module 4, leçon 3), ou une fonctionnalité spécifique à Pinecone, créent une dépendance fonctionnelle au-delà du simple stockage de vecteurs.</li>
+          <li><strong>Absence d'export de données standard</strong> : la capacité à exporter l'intégralité des vecteurs et métadonnées dans un format ouvert (JSON, Parquet) conditionne directement la faisabilité d'une migration future.</li>
+        </ul>
+
+        <h3>Réduire le lock-in par une couche d'abstraction</h3>
+        <p>Une pratique répandue : construire une fine couche d'abstraction applicative (une interface commune pour <code class="inline">upsert</code>, <code class="inline">query</code>, <code class="inline">delete</code>) qui isole la logique métier du SDK spécifique de la base choisie — un investissement modéré qui facilite grandement une migration future, au prix d'une petite couche de code supplémentaire à maintenir.</p>
+
+        <pre><code class="language-python">from abc import ABC, abstractmethod
+
+class BaseVectorielleAbstraite(ABC):
+    @abstractmethod
+    def upsert(self, ids: list[str], vectors: list[list[float]], metadatas: list[dict]): ...
+
+    @abstractmethod
+    def query(self, vector: list[float], k: int, filtre: dict | None = None) -> list[dict]: ...
+
+class AdaptateurChroma(BaseVectorielleAbstraite):
+    def __init__(self, collection):
+        self.collection = collection
+
+    def upsert(self, ids, vectors, metadatas):
+        self.collection.add(ids=ids, embeddings=vectors, metadatas=metadatas)
+
+    def query(self, vector, k, filtre=None):
+        return self.collection.query(query_embeddings=[vector], n_results=k, where=filtre)
+
+# Le reste de l'application n'appelle QUE l'interface abstraite,
+# jamais directement l'API spécifique de Chroma, Pinecone ou Weaviate
+</code></pre>
+
+        <p>Cette couche d'abstraction a un coût (complexité additionnelle, et impossibilité d'exploiter certaines fonctionnalités très spécifiques à une base sans casser l'abstraction) qui doit être mis en balance avec le bénéfice réel attendu — un projet expérimental de courte durée n'a probablement pas besoin de cet investissement, contrairement à un système destiné à vivre plusieurs années dans une infrastructure évolutive.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Construire une couche d'abstraction complète et générique dès le premier jour d'un projet, avant même d'avoir validé le choix de base de données — un sur-engineering similaire à ceux déjà rencontrés dans les cours précédents de cette série, qui retarde la mise en production pour un bénéfice hypothétique de portabilité jamais concrétisé.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre projet, le risque de devoir migrer de base de données dans les 1-2 prochaines années vous semble-t-il suffisamment probable pour justifier l'investissement dans une couche d'abstraction dès maintenant ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l5" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 5.5</span>Méthode de décision pour choisir sa base selon le projet</h2>
+
+        <p>Cette dernière leçon du module synthétise l'ensemble des critères vus dans ce cours en une méthode de décision structurée, à appliquer concrètement à votre propre projet.</p>
+
+        <div class="ascii">Méthode de décision en 5 questions, dans l'ordre :
+
+1. CONTRAINTES NON NÉGOCIABLES
+   Confidentialité stricte excluant le managé ? Infrastructure
+   existante à réutiliser (PostgreSQL) ? → élimine des options
+   avant même de comparer le reste (module 5, leçon 1)
+
+2. STADE DU PROJET
+   Prototype/apprentissage → Chroma (module 2)
+   Production établie, besoin de fonctionnalités riches →
+   Pinecone ou Weaviate (modules 3-4)
+
+3. BESOIN DE RECHERCHE HYBRIDE NATIVE
+   Fréquent et critique → Weaviate (module 4, leçon 3)
+   Occasionnel ou gérable applicativement → n'importe laquelle
+   (cours embeddings, module 7)
+
+4. CAPACITÉ D'OPÉRATION DE L'ÉQUIPE
+   Pas d'équipe infra dédiée → managé (Pinecone, Weaviate Cloud)
+   Équipe infra compétente, besoin de contrôle → auto-hébergé
+   (Weaviate self-hosted, Qdrant, module 4 leçon 5)
+
+5. COÛT TOTAL DE POSSESSION RÉEL
+   Calculer le TCO (leçon 5.3) sur le volume et l'usage réels
+   attendus, pas seulement le tarif affiché</div>
+
+        <table>
+          <thead>
+            <tr><th>Profil de projet</th><th>Recommandation</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Prototype personnel, apprentissage</td><td>Chroma (module 2)</td></tr>
+            <tr><td>Startup sans équipe infra, besoin de production rapide</td><td>Pinecone (module 3)</td></tr>
+            <tr><td>Projet avec besoin de recherche hybride et schéma riche</td><td>Weaviate (module 4)</td></tr>
+            <tr><td>Infrastructure PostgreSQL déjà en place</td><td>pgvector (cours embeddings, module 6)</td></tr>
+            <tr><td>Contrainte de confidentialité stricte, équipe infra forte</td><td>Weaviate ou Qdrant auto-hébergés</td></tr>
+          </tbody>
+        </table>
+
+        <p>Ce module clôt la partie "choix et comparaison" du cours. Les trois modules suivants abordent des préoccupations opérationnelles transversales — indépendantes du choix final entre Chroma, Pinecone ou Weaviate — qui s'appliquent une fois la base choisie et le système en production.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer le choix de base de données vectorielle comme définitif et irréversible, ce qui pousse à sur-analyser cette décision au détriment de l'avancement du projet. Comme le montre le module 7 (leçon 1, migration entre bases), un changement ultérieur reste possible — la décision initiale doit être raisonnablement informée, pas parfaite.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : en suivant la méthode en 5 questions ci-dessus, formulez la recommandation finale pour votre propre projet, avec une phrase de justification pour chacune des 5 étapes.
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-6">
+      <span class="module-kicker">MODULE 06 / 08</span>
+      <h1>Opérations avancées communes à toutes les bases</h1>
+      <p class="intro">Au-delà des spécificités de Chroma, Pinecone et Weaviate (modules 2-4), certaines préoccupations opérationnelles se posent de façon similaire quelle que soit la base choisie. Ce module les traite de façon transversale, en s'appuyant sur les concepts déjà posés dans le cours embeddings.</p>
+
+      <section class="lesson" id="m6-l1" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 6.1</span>Indexation et paramètres de recherche</h2>
+
+        <p>Rappel du cours embeddings (module 5) : la quasi-totalité des bases vectorielles utilisent HNSW comme algorithme d'index par défaut. Cette leçon montre comment ces paramètres, déjà expliqués conceptuellement, s'exposent concrètement dans chacune des trois bases de ce cours.</p>
+
+        <pre><code class="language-python"># Chroma : les paramètres HNSW se configurent via les métadonnées
+# de la collection elle-même
+collection = client.create_collection(
+    name="mes_chunks",
+    metadata={"hnsw:space": "cosine", "hnsw:construction_ef": 200, "hnsw:search_ef": 50},
+)
+
+# Pinecone : les paramètres d'index sont fixés à la création et
+# moins directement exposés (l'infrastructure gère l'optimisation
+# en coulisses, cohérent avec sa philosophie managée, module 3)
+pc.create_index(name="mon-index", dimension=768, metric="cosine",
+                 spec=ServerlessSpec(cloud="aws", region="us-east-1"))
+
+# Weaviate : configuration explicite du module vector index (HNSW par défaut)
+collection = client.collections.create(
+    name="MesChunks",
+    vector_index_config=Configure.VectorIndex.hnsw(
+        ef_construction=200,
+        max_connections=16,   # équivalent au paramètre "M" du cours embeddings
+    ),
+)
+</code></pre>
+
+        <p>Le principe reste identique à celui déjà détaillé dans le cours embeddings (module 5, leçon 3) — <code class="inline">ef_construction</code> influence la qualité de la construction du graphe, le paramètre de recherche (<code class="inline">ef</code> ou <code class="inline">search_ef</code> selon la base) le compromis vitesse/précision à la requête. Ce qui change d'une base à l'autre, c'est simplement le degré de contrôle exposé : Pinecone, cohérent avec sa philosophie managée (module 3), expose moins de leviers bruts que Weaviate ou Chroma.</p>
+
+        <div class="ascii">Niveau de contrôle sur l'index, du plus exposé au moins exposé :
+
+Chroma / Weaviate (auto-hébergés)     Pinecone (managé)
+────────────────────────────────      ─────────────────────
+Paramètres HNSW ajustables            Optimisation largement
+directement                            déléguée à l'infrastructure
+
+Cohérent avec la philosophie           Cohérent avec la philosophie
+"contrôle total" (module 1, l.5)       "zéro opération" (module 3)</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Chercher à ajuster finement les paramètres HNSW sur Pinecone comme on le ferait sur Weaviate ou Chroma, alors que la philosophie managée de Pinecone (module 3, leçon 1) délègue précisément cette optimisation à l'infrastructure — un contrôle moindre qui est un choix de conception assumé, pas une lacune à contourner.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour la base que vous envisagez d'utiliser (module 5, leçon 5), quel niveau de contrôle sur les paramètres d'index vous semble nécessaire pour votre cas d'usage ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l2" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 6.2</span>Recherche hybride et reranking en pratique</h2>
+
+        <p>Rappel du cours embeddings (module 7) : combiner recherche vectorielle et lexicale (BM25), puis reranker les meilleurs candidats, améliore significativement la pertinence. Cette leçon montre comment cette architecture se met en œuvre concrètement selon la base choisie.</p>
+
+        <h3>Recherche hybride native (Weaviate) vs applicative (Chroma, Pinecone)</h3>
+        <p>Rappel du module 4, leçon 3 : Weaviate propose la recherche hybride nativement. Pour Chroma et Pinecone, qui n'offrent pas cette fonctionnalité intégrée au même niveau, la recherche hybride nécessite d'orchestrer soi-même deux recherches (vectorielle via la base, lexicale via une librairie comme <code class="inline">rank_bm25</code>, déjà vue dans le cours embeddings module 7) puis de fusionner les résultats.</p>
+
+        <pre><code class="language-python"># Recherche hybride applicative avec Chroma ou Pinecone
+# (rappel de la fusion RRF, cours embeddings module 7, leçon 4)
+def recherche_hybride_applicative(question: str, base_vectorielle, index_bm25, k: int = 5):
+    resultats_vectoriels = base_vectorielle.query(vector=embed(question), top_k=30)
+    scores_bm25 = index_bm25.get_scores(question.lower().split())
+
+    rang_vectoriel = [r["id"] for r in resultats_vectoriels]
+    rang_bm25 = classer_par_score(scores_bm25)
+
+    return reciprocal_rank_fusion([rang_vectoriel, rang_bm25])[:k]
+
+# Avec Weaviate : la même logique est native, en une seule requête (module 4, leçon 3)
+resultats = collection.query.hybrid(query=question, vector=embed(question), alpha=0.5, limit=k)
+</code></pre>
+
+        <h3>Ajouter un reranking après la recherche, quelle que soit la base</h3>
+        <p>Le reranking par cross-encoder (cours embeddings, module 7, leçon 3) s'applique de façon identique après la recherche initiale, indépendamment de la base vectorielle utilisée — c'est une étape applicative qui reçoit simplement les k candidats de la base et les reclasse, sans dépendre des spécificités de Chroma, Pinecone ou Weaviate.</p>
+
+        <pre><code class="language-python">from sentence_transformers import CrossEncoder
+
+reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+
+def rechercher_avec_reranking(question: str, base_vectorielle, k_candidats: int = 30, k_final: int = 5):
+    candidats = base_vectorielle.query(vector=embed(question), top_k=k_candidats)
+    paires = [(question, c["texte"]) for c in candidats]
+    scores = reranker.predict(paires)
+    return [c for c, s in sorted(zip(candidats, scores), key=lambda x: x[1], reverse=True)][:k_final]
+</code></pre>
+
+        <div class="ascii">                     Chroma          Pinecone         Weaviate
+────────────────────────────────────────────────────────────────
+Recherche hybride     Applicative     Applicative      Native (module
+                      (à construire)   (limitée)         4, leçon 3)
+
+Reranking             Applicative, IDENTIQUE quelle que soit la base
+                      (s'ajoute en aval de la recherche initiale)</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Choisir une base uniquement pour sa recherche hybride native (Weaviate) sans avoir vérifié si une implémentation applicative de la fusion RRF (déjà maîtrisée dans le cours embeddings, module 7) suffirait largement pour son propre volume et cas d'usage — la fonctionnalité native est un confort, pas toujours un critère de choix décisif.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre projet, la recherche hybride native de Weaviate justifierait-elle à elle seule ce choix de base, ou une implémentation applicative sur Chroma/Pinecone serait-elle suffisamment simple à mettre en œuvre ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l3" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 6.3</span>Mise à jour, suppression et gestion du cycle de vie à grande échelle</h2>
+
+        <p>Rappel du cours embeddings (module 6, leçon 4) : le cycle de vie des vecteurs (ajout, mise à jour, suppression) devient plus complexe à mesure que le volume grandit. Cette leçon détaille les opérations en masse (batch) nécessaires à cette échelle, pour chacune des trois bases.</p>
+
+        <pre><code class="language-python"># Mise à jour en masse suite à une ré-indexation de document
+# (rappel cours embeddings, module 6, leçon 4 : reindexer_document)
+
+# Chroma : traitement par lots explicite recommandé pour de gros volumes
+def mettre_a_jour_en_masse_chroma(collection, chunks: list[dict], taille_lot: int = 500):
+    for i in range(0, len(chunks), taille_lot):
+        lot = chunks[i:i + taille_lot]
+        collection.upsert(
+            ids=[c["id"] for c in lot],
+            embeddings=[c["vecteur"] for c in lot],
+            metadatas=[c["metadata"] for c in lot],
+        )
+
+# Pinecone : l'upsert accepte nativement des lots, avec une limite
+# de taille par requête à respecter (vérifier la documentation à jour)
+def mettre_a_jour_en_masse_pinecone(index, chunks: list[dict], taille_lot: int = 100):
+    for i in range(0, len(chunks), taille_lot):
+        lot = chunks[i:i + taille_lot]
+        index.upsert(vectors=[
+            {"id": c["id"], "values": c["vecteur"], "metadata": c["metadata"]} for c in lot
+        ])
+</code></pre>
+
+        <h3>Suppression ciblée par filtre de métadonnées</h3>
+        <p>Rappel du cours métadonnées (module 2, leçon 4) : marquer un document comme obsolète plutôt que le supprimer immédiatement. Une fois la purge effectivement décidée, une suppression par filtre de métadonnées (plutôt que par liste exhaustive d'identifiants) simplifie l'opération à grande échelle.</p>
+
+        <pre><code class="language-python"># Chroma : suppression directe par filtre
+collection.delete(where={"statut": "obsolete", "date_purge_prevue": {"$lte": "2026-01-01"}})
+
+# Pinecone : nécessite généralement de récupérer les ids correspondants
+# au filtre avant suppression (les capacités de suppression par filtre
+# direct varient selon la version de l'API — toujours vérifier la
+# documentation à jour)
+ids_a_purger = [m["id"] for m in index.query(filter={"statut": "obsolete"}, top_k=10000)["matches"]]
+index.delete(ids=ids_a_purger)
+</code></pre>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Effectuer des mises à jour ou suppressions une par une en boucle sur des dizaines de milliers de chunks, plutôt que d'utiliser les opérations en lot (batch) proposées par chaque base. Cette approche naïve multiplie inutilement le nombre d'appels réseau et peut ralentir une opération de maintenance de plusieurs ordres de grandeur.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un corpus de 50 000 chunks nécessitant une mise à jour suite à un changement de modèle d'embedding (rappel cours embeddings, module 6), esquissez la boucle de traitement par lots que vous utiliseriez, en choisissant une taille de lot raisonnable.
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l4" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 6.4</span>Sauvegarde, réplication et haute disponibilité</h2>
+
+        <p>Une base vectorielle en production critique doit survivre à une panne matérielle sans perte de données ni interruption de service prolongée — des garanties qui varient significativement selon le mode de déploiement choisi (rappel du module 1, leçon 5).</p>
+
+        <h3>Sauvegarde (backup)</h3>
+        <p>Pour Chroma en mode persistant (module 2, leçon 4), la sauvegarde consiste simplement à copier le répertoire de données sur disque — une opération manuelle ou scriptée. Pinecone, en tant que service managé, gère généralement la durabilité des données en interne (à vérifier dans les garanties contractuelles du fournisseur). Weaviate auto-hébergé propose des mécanismes de sauvegarde natifs vers un stockage objet (S3 ou équivalent).</p>
+
+        <pre><code class="language-python"># Weaviate : déclencher une sauvegarde vers un stockage objet configuré
+client.backup.create(
+    backup_id="sauvegarde-2026-01-14",
+    backend="s3",
+    include_collections=["DocumentationInterne"],
+)
+</code></pre>
+
+        <h3>Réplication</h3>
+        <p>La réplication consiste à dupliquer les données sur plusieurs nœuds, pour continuer à servir des requêtes même en cas de panne d'un nœud individuel. Les offres managées (Pinecone, Weaviate Cloud) gèrent généralement cette réplication de façon transparente ; en auto-hébergement (Weaviate, Qdrant), elle doit être explicitement configurée lors du déploiement (rappel du chart Helm Kubernetes, module 4, leçon 5).</p>
+
+        <div class="ascii">                    Sauvegarde              Réplication            Disponibilité
+                                                                    garantie (SLA)
+──────────────────────────────────────────────────────────────────────────────
+Chroma (embarqué)    Manuelle (copie          Non native              Aucune garantie
+                     de fichiers)                                     formelle (votre
+                                                                       responsabilité)
+
+Pinecone (managé)    Gérée par le              Gérée par le           SLA contractuel
+                     fournisseur                fournisseur
+
+Weaviate (auto-      À configurer               À configurer           Selon votre
+ hébergé)            explicitement               explicitement          architecture</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Découvrir l'absence de stratégie de sauvegarde fiable seulement après un incident de perte de données, en particulier avec Chroma en mode embarqué où la persistance repose entièrement sur une gestion manuelle des fichiers. Une stratégie de sauvegarde devrait être définie et testée dès la mise en production, jamais improvisée après coup.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre projet, quelle serait la conséquence d'une perte totale de votre index vectoriel (sans sauvegarde) ? Cette conséquence justifie-t-elle une stratégie de sauvegarde formelle dès maintenant ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l5" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 6.5</span>Sécurité : authentification, isolation multi-tenant, chiffrement</h2>
+
+        <p>Cette dernière leçon du module traite un aspect souvent traité tardivement mais qui devrait être anticipé dès la conception, en écho direct à la gouvernance des métadonnées déjà vue dans le cours métadonnées (module 7).</p>
+
+        <h3>Authentification et gestion des clés API</h3>
+        <p>Chaque base de ce cours propose un mécanisme d'authentification (clé API pour Pinecone et Weaviate Cloud, jeton pour Weaviate auto-hébergé) — une bonne pratique de base consiste à ne jamais coder ces clés en dur dans le code source, et à les faire pivoter régulièrement (rotation des clés), une hygiène de sécurité standard indépendante du choix de base.</p>
+
+        <pre><code class="language-python">import os
+
+# Toujours charger les clés depuis des variables d'environnement
+# ou un gestionnaire de secrets, jamais en dur dans le code
+pc = Pinecone(api_key=os.environ["PINECONE_API_KEY"])
+</code></pre>
+
+        <h3>Isolation multi-tenant</h3>
+        <p>Rappel du cours métadonnées (module 3, leçon 2) et du module 3 de ce cours (leçon 2, namespaces Pinecone) : pour un système RAG servant plusieurs clients ou départements, l'isolation des données peut se faire à plusieurs niveaux — filtrage par métadonnée (le plus simple), namespace dédié (Pinecone), ou collection/classe entièrement séparée (le plus isolant, mais le plus coûteux en gestion).</p>
+
+        <div class="ascii">Niveau d'isolation multi-tenant, du plus léger au plus fort :
+
+Filtrage par métadonnée          Namespace dédié            Collection séparée
+(cours métadonnées, module 3)     (module 3, leçon 2)        (isolation maximale)
+────────────────────────         ────────────────────       ────────────────────
+Risque : erreur de filtre         Isolation native au         Isolation totale,
+= fuite de données entre           niveau de la recherche      mais N collections
+tenants                            elle-même                   à gérer et maintenir</div>
+
+        <h3>Chiffrement des données</h3>
+        <p>Les données au repos (stockage sur disque) et en transit (communication réseau) devraient être chiffrées, particulièrement pour des métadonnées sensibles (rappel du cours métadonnées, module 7, leçon 5, sur les données personnelles et la conformité RGPD). Les offres managées (Pinecone, Weaviate Cloud) chiffrent généralement par défaut ; en auto-hébergement, cette responsabilité incombe à l'équipe qui déploie l'infrastructure.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Se reposer uniquement sur un filtrage par métadonnées pour l'isolation multi-tenant dans un contexte à enjeu de sécurité élevé (données sensibles de clients distincts), sans envisager une isolation plus forte (namespace ou collection séparée) qui réduit le risque qu'une erreur de code dans le filtre n'expose accidentellement les données d'un tenant à un autre.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : si votre projet sert plusieurs clients ou départements avec des données sensibles distinctes, quel niveau d'isolation multi-tenant (filtrage, namespace, collection séparée) vous semble approprié compte tenu de la criticité de cette séparation ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-7">
+      <span class="module-kicker">MODULE 07 / 08</span>
+      <h1>Migration, scalabilité et coûts en production</h1>
+      <p class="intro">Un projet RAG mature traverse des phases : le prototype qui grandit, le volume qui explose, les coûts qui deviennent significatifs. Ce module couvre la migration entre bases, le passage à l'échelle, et la maîtrise des coûts dans la durée.</p>
+
+      <section class="lesson" id="m7-l1" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 7.1</span>Migrer d'une base à une autre sans tout casser</h2>
+
+        <p>Rappel de la leçon 5.4 sur le lock-in : malgré toutes les précautions, une migration entre bases de données vectorielles reste parfois nécessaire (croissance au-delà des capacités de Chroma, module 2 leçon 5 ; besoin de fonctionnalités non couvertes par la base actuelle). Cette leçon détaille une méthode de migration structurée.</p>
+
+        <h3>Étape 1 : exporter l'intégralité des données</h3>
+        <pre><code class="language-python">def exporter_toutes_les_donnees(base_source) -> list[dict]:
+    """Fonctionne quelle que soit la base source, via l'interface
+    d'abstraction esquissée en leçon 5.4."""
+    tous_les_chunks = []
+    curseur = None
+    while True:
+        lot, curseur = base_source.scroll(curseur=curseur, taille_lot=1000)
+        tous_les_chunks.extend(lot)
+        if curseur is None:
+            break
+    return tous_les_chunks
+
+donnees_exportees = exporter_toutes_les_donnees(ancienne_base)
+print(f"{len(donnees_exportees)} chunks exportés")
+</code></pre>
+
+        <h3>Étape 2 : valider la compatibilité de dimension et de schéma</h3>
+        <p>Rappel du module 3, leçon 2 : la dimension du vecteur est fixée à la création d'un index/collection. Avant toute migration, vérifier que la base cible est configurée avec la même dimension et la même métrique de similarité (cours embeddings, module 3) que la base source — un oubli fréquent qui invaliderait silencieusement les résultats de recherche après migration.</p>
+
+        <h3>Étape 3 : ré-importer par lots avec validation</h3>
+        <pre><code class="language-python">def migrer_par_lots(donnees: list[dict], nouvelle_base, taille_lot: int = 500) -> dict:
+    reussies, echouees = 0, 0
+    for i in range(0, len(donnees), taille_lot):
+        lot = donnees[i:i + taille_lot]
+        try:
+            nouvelle_base.upsert(
+                ids=[c["id"] for c in lot],
+                vectors=[c["vecteur"] for c in lot],
+                metadatas=[c["metadata"] for c in lot],
+            )
+            reussies += len(lot)
+        except Exception as erreur:
+            print(f"Échec du lot {i}-{i+taille_lot} : {erreur}")
+            echouees += len(lot)
+    return {"reussies": reussies, "echouees": echouees}
+</code></pre>
+
+        <h3>Étape 4 : valider la migration avant de basculer le trafic</h3>
+        <p>Avant de rediriger le trafic de production vers la nouvelle base, reproduire le jeu d'évaluation déjà construit dans les cours précédents (recall@k, MRR — cours chunking module 7, cours embeddings module 7) sur la nouvelle base, et comparer les résultats à ceux obtenus sur l'ancienne base pour détecter toute régression avant l'exposition aux utilisateurs réels.</p>
+
+        <div class="ascii">Méthode de migration en 4 étapes :
+
+1. Exporter l'intégralité des données (vecteurs + métadonnées)
+2. Valider la compatibilité (dimension, métrique) de la base cible
+3. Ré-importer par lots, avec suivi des échecs
+4. Valider avec le jeu d'évaluation AVANT de basculer le trafic
+   de production — jamais de bascule à l'aveugle</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Basculer directement le trafic de production vers la nouvelle base dès la fin de l'import, sans phase de validation comparative. Une erreur silencieuse (métrique de similarité différente entre les deux bases, par exemple) peut dégrader la qualité du retrieval sans qu'aucune erreur technique explicite ne le signale.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour une migration hypothétique de Chroma vers Weaviate, quelles différences de schéma (module 4, leçon 2) faudrait-il réconcilier lors de l'étape de ré-importation ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l2" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 7.2</span>Scaling horizontal : sharding et distribution des données</h2>
+
+        <p>Rappel du cours embeddings (module 6, leçon 3) : au-delà d'un certain volume, une seule machine ne suffit plus à contenir l'index ni à absorber le trafic de requêtes. Cette leçon détaille comment ce scaling horizontal se met en œuvre concrètement.</p>
+
+        <h3>Sharding : répartir les données sur plusieurs nœuds</h3>
+        <p>Le principe déjà esquissé au cours embeddings (module 6) s'applique directement ici : diviser la collection en plusieurs partitions ("shards"), chacune hébergée sur un nœud distinct, une requête interrogeant tous les shards en parallèle avant de fusionner les résultats.</p>
+
+        <pre><code class="language-python"># Weaviate : configuration du sharding à la création de la collection
+collection = client.collections.create(
+    name="GrosCorpus",
+    sharding_config=Configure.sharding(desired_count=3),   # 3 shards répartis
+)
+
+# Pinecone (serverless) : le sharding est géré automatiquement et de
+# façon transparente par l'infrastructure managée — cohérent avec
+# sa philosophie (module 3, leçon 1), aucune configuration manuelle
+</code></pre>
+
+        <h3>Réplication vs sharding : deux mécanismes complémentaires</h3>
+        <p>Rappel du module 6 (leçon 4) : la réplication duplique les mêmes données sur plusieurs nœuds pour la disponibilité ; le sharding répartit des données différentes sur plusieurs nœuds pour la capacité. Un déploiement de production à grande échelle combine généralement les deux.</p>
+
+        <div class="ascii">Sans scaling (un seul nœud)          Avec sharding (3 nœuds)
+
+┌─────────────────────────┐          ┌───────┐ ┌───────┐ ┌───────┐
+│  Index complet            │          │Shard 1│ │Shard 2│ │Shard 3│
+│  (limité par la mémoire   │   ──►    │ (1/3  │ │ (1/3  │ │ (1/3  │
+│   d'une seule machine)    │          │ des   │ │ des   │ │ des   │
+└─────────────────────────┘          │données)│ │données)│ │données)│
+                                       └───────┘ └───────┘ └───────┘
+                                       Une requête interroge les 3
+                                       shards en parallèle, fusionne
+                                       les résultats</div>
+
+        <p>Le choix de gérer soi-même le sharding (Weaviate, Qdrant, Milvus auto-hébergés) ou de le déléguer entièrement (Pinecone serverless) rejoint l'arbitrage managé vs auto-hébergé déjà exploré tout au long de ce cours (module 1, leçon 5) — plus de contrôle d'un côté, zéro opération de l'autre.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Configurer un sharding sur plusieurs nœuds avant même d'avoir un volume qui le justifie réellement (rappel du seuil approximatif de quelques millions de vecteurs évoqué au cours embeddings, module 5, leçon 5). Le sharding ajoute une complexité opérationnelle réelle (rééquilibrage, gestion des pannes partielles) qui ne se justifie qu'à l'échelle où un seul nœud devient effectivement insuffisant.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre projet, à quel volume de vecteurs anticipez-vous qu'un seul nœud pourrait devenir insuffisant ? Cette anticipation est-elle basée sur une projection de croissance documentée (leçon 7.5) ou une estimation approximative ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l3" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 7.3</span>Monitoring et observabilité d'une base vectorielle en production</h2>
+
+        <p>Rappel du principe déjà établi dans le cours nettoyage (module 7, leçon 4) et le cours métadonnées (module 7, leçon 3) : une confiance aveugle en l'absence d'erreur ne garantit pas la qualité d'un système. Cette leçon transpose cette vigilance au monitoring opérationnel d'une base vectorielle.</p>
+
+        <h3>Métriques essentielles à surveiller</h3>
+        <ul>
+          <li><strong>Latence de recherche</strong> (médiane et p95/p99, rappel leçon 5.2) — une dégradation progressive peut signaler un index qui grossit sans réoptimisation, ou une charge croissante non anticipée.</li>
+          <li><strong>Taux d'erreur des requêtes</strong> — distinct de la latence, révèle des pannes partielles ou des dépassements de capacité.</li>
+          <li><strong>Volume de vecteurs et croissance</strong> dans le temps — alimente directement le dimensionnement prévisionnel (leçon 7.5).</li>
+          <li><strong>Fraîcheur de l'index</strong> (rappel cours embeddings, module 6, leçon 4, sur l'index périmé) — délai entre la publication d'un document et sa disponibilité effective dans les résultats de recherche.</li>
+        </ul>
+
+        <pre><code class="language-python">import time
+from dataclasses import dataclass, field
+
+@dataclass
+class MetriquesBaseVectorielle:
+    latences_ms: list = field(default_factory=list)
+    erreurs: int = 0
+    requetes_totales: int = 0
+
+    def enregistrer_requete(self, fonction_recherche, *args, **kwargs):
+        self.requetes_totales += 1
+        debut = time.perf_counter()
+        try:
+            resultat = fonction_recherche(*args, **kwargs)
+            self.latences_ms.append((time.perf_counter() - debut) * 1000)
+            return resultat
+        except Exception:
+            self.erreurs += 1
+            raise
+
+    def rapport(self) -> dict:
+        latences_triees = sorted(self.latences_ms)
+        return {
+            "taux_erreur": self.erreurs / max(self.requetes_totales, 1),
+            "latence_p95_ms": latences_triees[int(len(latences_triees) * 0.95)] if latences_triees else None,
+        }
+</code></pre>
+
+        <h3>Alertes automatiques sur seuils</h3>
+        <p>Comme pour les métriques de qualité de texte (cours nettoyage, module 7, leçon 3), définir des seuils d'alerte automatiques sur ces métriques (latence p95 au-delà d'un seuil, taux d'erreur anormal) permet de détecter une dégradation avant qu'elle ne soit signalée par des utilisateurs mécontents.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Ne surveiller que la disponibilité binaire de la base (up/down) sans suivre l'évolution de la latence ou du volume dans le temps. Une base "techniquement disponible" mais dont la latence se dégrade progressivement sur plusieurs semaines peut passer inaperçue jusqu'à un point de rupture soudain, alors qu'un monitoring continu aurait révélé la tendance bien plus tôt.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre projet, quelles 2-3 métriques parmi celles listées ci-dessus seraient prioritaires à mettre en place en premier, compte tenu des risques les plus probables pour votre cas d'usage ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l4" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 7.4</span>Optimiser les coûts à grande échelle</h2>
+
+        <p>Rappel de la leçon 5.3 sur le TCO : au-delà de l'estimation initiale, les coûts d'une base vectorielle en production évoluent et méritent une optimisation continue à mesure que le volume et le trafic grandissent.</p>
+
+        <h3>Réduire la dimension des vecteurs (Matryoshka embeddings)</h3>
+        <p>Rappel du cours embeddings (module 4, leçon 1) : certains modèles récents permettent de tronquer un vecteur à une dimension plus faible avec une perte de qualité limitée. Réduire la dimension diminue directement le coût de stockage et accélère la recherche — un levier d'optimisation à évaluer avant d'investir dans du scaling matériel plus coûteux.</p>
+
+        <pre><code class="language-python">def evaluer_impact_reduction_dimension(dimension_originale: int, dimension_reduite: int,
+                                        nb_vecteurs: int) -> dict:
+    octets_par_dim = 4  # float32
+    stockage_original_go = (nb_vecteurs * dimension_originale * octets_par_dim) / (1024**3)
+    stockage_reduit_go = (nb_vecteurs * dimension_reduite * octets_par_dim) / (1024**3)
+    return {
+        "reduction_stockage_pourcent": (1 - stockage_reduit_go / stockage_original_go) * 100,
+        "stockage_original_go": stockage_original_go,
+        "stockage_reduit_go": stockage_reduit_go,
+    }
+</code></pre>
+
+        <h3>Archiver les vecteurs peu consultés</h3>
+        <p>Rappel du cours métadonnées (module 2, leçon 4 ; module 7, leçon 5) : les chunks marqués "obsolete" ou dont la fraîcheur dépasse un seuil peuvent être déplacés vers un stockage moins coûteux (voire supprimés selon la politique de conservation), plutôt que de rester indéfiniment dans l'index actif le plus coûteux et le plus rapide.</p>
+
+        <h3>Ajuster le mode de tarification à l'usage réel</h3>
+        <p>Rappel de la leçon 3.4 (pods vs serverless chez Pinecone) : revisiter périodiquement le choix entre capacité réservée et facturation à l'usage, à mesure que le profil de trafic se stabilise ou change, pour rester aligné avec le modèle de tarification le plus économique pour l'usage réel observé.</p>
+
+        <div class="ascii">Levier d'optimisation de coût             Impact typique
+──────────────────────────────────────────────────────────────────────
+Réduction de dimension (Matryoshka)        Réduction directe du stockage
+                                            et accélération de recherche
+
+Archivage des chunks obsolètes             Réduction du volume actif
+                                            facturé/indexé
+
+Ré-évaluation du modèle de tarification    Alignement coût/usage réel,
+(pods vs serverless, module 3 leçon 4)     évite le sur-provisionnement</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Laisser croître indéfiniment un index avec des chunks obsolètes jamais archivés ni supprimés, faisant grossir artificiellement le coût de stockage et potentiellement dégrader les performances de recherche, alors qu'une politique de cycle de vie déjà définie dans le cours métadonnées (module 2, leçon 4) permettrait de contenir cette croissance.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre projet, lequel des trois leviers ci-dessus (réduction de dimension, archivage, ré-évaluation de tarification) offrirait probablement le meilleur rapport effort/économie ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l5" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 7.5</span>Anticiper la croissance : dimensionnement prévisionnel</h2>
+
+        <p>Cette dernière leçon du module boucle avec la question de dimensionnement déjà posée dans le cours embeddings (module 6, leçon 3) : comment projeter les besoins futurs pour anticiper, plutôt que subir, les décisions de scaling et de coût des leçons précédentes.</p>
+
+        <h3>Construire une projection de croissance simple</h3>
+        <pre><code class="language-python">def projeter_croissance(volume_actuel: int, taux_croissance_mensuel: float, mois: int) -> list[int]:
+    projection = []
+    volume = volume_actuel
+    for _ in range(mois):
+        volume = int(volume * (1 + taux_croissance_mensuel))
+        projection.append(volume)
+    return projection
+
+projection_12_mois = projeter_croissance(volume_actuel=50_000, taux_croissance_mensuel=0.08, mois=12)
+print(f"Volume estimé dans 12 mois : {projection_12_mois[-1]:,} vecteurs")
+</code></pre>
+
+        <h3>Relier la projection aux seuils de décision des modules précédents</h3>
+        <p>Une fois la projection établie, la confronter aux seuils déjà rencontrés dans ce cours : le volume dépasse-t-il le domaine de confort de Chroma (module 2, leçon 5) ? Justifie-t-il d'anticiper un sharding (leçon 7.2) ? Change-t-il l'arbitrage pod-based vs serverless chez Pinecone (leçon 3.4) ?</p>
+
+        <div class="ascii">Utiliser la projection de croissance pour anticiper, pas réagir :
+
+Mois 0        Mois 6         Mois 12        Mois 18
+50 000    →   79 000    →   126 000    →   200 000  vecteurs
+(Chroma       (toujours      (envisager      (sharding ou
+ confortable) confortable)   une bascule      migration vers
+                              vers managé)     une base plus
+                                               robuste probable)
+
+→ Chaque seuil de ce cours (module 2 leçon 5, module 7 leçon 2)
+  devient un point de décision à anticiper sur la timeline projetée,
+  plutôt qu'une surprise découverte en production.</div>
+
+        <p>Ce module clôt la partie "opérations et scalabilité" du cours. Le dernier module assemble l'ensemble des connaissances acquises (choix de base, opérations, migration, scaling) dans un pipeline complet et un exercice de synthèse.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Ne jamais formaliser de projection de croissance, découvrant les limites de sa base de données vectorielle uniquement au moment où elles se manifestent concrètement (latence dégradée, coûts qui explosent) plutôt que de les anticiper par une projection simple mais régulièrement mise à jour.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : en utilisant la fonction de projection ci-dessus avec vos propres estimations de volume actuel et de taux de croissance, à quel horizon temporel atteindriez-vous un seuil de décision important (limite de Chroma, besoin de sharding) ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-8">
+      <span class="module-kicker">MODULE 08 / 08 — FINAL</span>
+      <h1>Implémentation complète et étude de cas</h1>
+      <p class="intro">Ce dernier module assemble l'ensemble des cinq cours de cette série (nettoyage, chunking, embeddings, métadonnées, bases vectorielles) en un pipeline complet, propose une méthode de comparaison empirique et de débogage, et clôt le cours avec un exercice de synthèse.</p>
+
+      <section class="lesson" id="m8-l1" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 8.1</span>Pipeline complet : du chunk enrichi à la base vectorielle en production</h2>
+
+        <p>Voici le pipeline complet qui relie les cinq cours de cette série de préparation de données pour RAG, de l'extraction d'un document brut jusqu'à son indexation interrogeable en production.</p>
+
+        <pre><code class="language-python">def pipeline_complet_vers_indexation(chemin_document: str, base_vectorielle) -> dict:
+    # 1. Extraction et nettoyage (cours nettoyage de texte non structuré)
+    texte_brut = extraire_selon_format(chemin_document)
+    texte_propre = nettoyer_texte_complet(texte_brut)
+
+    # 2. Chunking (cours chunking de documents pour RAG)
+    chunks = pipeline_chunking(texte_propre)
+
+    # 3. Enrichissement de métadonnées (cours enrichissement de métadonnées)
+    chunks_enrichis = [enrichir_chunk_complet(c, texte_propre, None) for c in chunks]
+
+    # 4. Embedding (cours embeddings et recherche vectorielle)
+    vecteurs = [embed(c["texte_pour_embedding"]) for c in chunks_enrichis]
+
+    # 5. Indexation dans la base vectorielle (CE COURS)
+    base_vectorielle.upsert(
+        ids=[c["id"] for c in chunks_enrichis],
+        vectors=vecteurs,
+        metadatas=[c["metadata"] for c in chunks_enrichis],
+    )
+
+    return {
+        "nb_chunks_indexes": len(chunks_enrichis),
+        "alertes_qualite": [c for c in chunks_enrichis if c.get("alertes")],
+    }
+</code></pre>
+
+        <p>Ce pipeline en cinq étapes est l'aboutissement concret de toute cette série : chaque cours a résolu un problème spécifique (extraire un texte propre, le découper intelligemment, le vectoriser, l'enrichir de contexte) et ce dernier cours fournit le contenant qui rend tout ce travail interrogeable en production, avec les garanties de scalabilité, de coût maîtrisé et de sécurité étudiées dans les modules précédents.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Traiter ces cinq étapes comme des silos indépendants développés séparément sans jamais valider leur intégration bout en bout. Un pipeline complet devrait être testé de bout en bout sur un échantillon réel avant d'être déployé à l'échelle de tout un corpus — une erreur à n'importe quelle étape (mauvais encodage, mauvais modèle d'embedding, schéma de métadonnées incompatible avec la base choisie) peut se propager silencieusement jusqu'au bout.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Dans le pipeline ci-dessus, identifiez à quel cours de la série correspond chaque étape numérotée. Pour votre propre projet, quelle étape vous semble la moins mature ou la moins testée actuellement ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l2" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 8.2</span>Comparaison empirique des trois bases sur un cas réel</h2>
+
+        <p>Comme pour chaque choix technique de cette série de cours, la décision finale entre Chroma, Pinecone et Weaviate (ou une autre base) devrait s'appuyer sur une mesure empirique menée sur votre propre corpus, en réutilisant la méthode d'évaluation déjà pratiquée dans les cours chunking et embeddings (recall@k, MRR).</p>
+
+        <pre><code class="language-python">bases_a_comparer = {
+    "chroma": lambda: initialiser_chroma(chunks_enrichis),
+    "pinecone": lambda: initialiser_pinecone(chunks_enrichis),
+    "weaviate": lambda: initialiser_weaviate(chunks_enrichis),
+}
+
+resultats_comparaison = {}
+for nom, fonction_init in bases_a_comparer.items():
+    base = fonction_init()
+    debut = time.perf_counter()
+    resultats_comparaison[nom] = {
+        "recall_at_5": recall_at_k(jeu_eval, lambda q: base.query(embed(q), k=5)),
+        "latence_ingestion_s": time.perf_counter() - debut,
+        "latence_recherche_p95_ms": mesurer_latence_recherche(base, questions_test)["latence_p95_ms"],
+    }
+
+for nom, r in resultats_comparaison.items():
+    print(f"{nom:10s} | recall@5={r['recall_at_5']:.1%} | "
+          f"latence_p95={r['latence_recherche_p95_ms']:.1f}ms")
+</code></pre>
+
+        <div class="ascii">Exemple illustratif de résultat comparatif (données fictives, à
+reproduire sur VOTRE corpus et VOS contraintes réelles) :
+
+Base         recall@5    latence p95    coût mensuel estimé
+────────────────────────────────────────────────────────────
+Chroma        81%         45ms           0$ (auto-hébergé local)
+Pinecone      81%         38ms           ~120$ (serverless)
+Weaviate      84%         52ms           0$ (auto-hébergé) ou
+                                          ~150$ (cloud managé)
+
+→ Le recall est souvent comparable entre bases pour une même
+  configuration d'embedding — la différence se joue surtout sur
+  la latence, le coût et les fonctionnalités opérationnelles
+  (modules 2-7), pas nécessairement sur la qualité brute du
+  retrieval.</div>
+
+        <p>Ce constat illustre un principe important pour conclure ce cours : le choix entre bases de données vectorielles affecte rarement la qualité fondamentale du retrieval (qui dépend surtout du chunking, de l'embedding et des métadonnées — cours précédents) mais bien davantage les dimensions opérationnelles (coût, latence, scalabilité, sécurité) étudiées dans ce cours.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          S'attendre à des différences de qualité de retrieval spectaculaires entre bases de données vectorielles bien configurées, alors que ces différences sont généralement marginales comparées à l'impact du chunking, du modèle d'embedding ou de l'enrichissement de métadonnées — les vrais leviers de qualité étudiés dans les cours précédents de cette série.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          En reprenant le jeu d'évaluation construit dans les cours précédents, esquissez comment vous mesureriez la latence et le coût, en plus du recall, pour comparer objectivement deux bases candidates pour votre projet.
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l3" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 8.3</span>Débogage d'une base vectorielle qui sous-performe</h2>
+
+        <p>Cette leçon synthétise, sous forme de grille de diagnostic, les causes les plus fréquentes de sous-performance d'une base vectorielle en production — un prolongement direct des méthodes de diagnostic déjà pratiquées dans les quatre cours précédents.</p>
+
+        <table>
+          <thead>
+            <tr><th>Symptôme observé</th><th>Cause probable</th><th>Référence</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Latence de recherche anormalement élevée</td><td>Index HNSW mal paramétré ou volume dépassant la capacité de la base</td><td>Module 6, leçon 1 ; Module 7, leçon 2</td></tr>
+            <tr><td>Résultats incohérents après un changement de modèle</td><td>Dimension ou métrique de similarité incompatible</td><td>Module 3, leçon 2 ; cours embeddings module 1</td></tr>
+            <tr><td>Filtre de métadonnées ne retourne aucun résultat</td><td>Valeurs incohérentes ou index de métadonnée manquant</td><td>Cours métadonnées, module 7 ; cours embeddings module 6</td></tr>
+            <tr><td>Coûts qui augmentent plus vite que le volume</td><td>Absence d'archivage des chunks obsolètes</td><td>Module 7, leçon 4</td></tr>
+            <tr><td>Données exposées à un tenant non autorisé</td><td>Isolation multi-tenant insuffisante</td><td>Module 6, leçon 5</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Méthode de diagnostic étape par étape</h3>
+        <ol>
+          <li><strong>Isoler la couche concernée</strong> : le problème vient-il de la recherche vectorielle elle-même, du filtrage de métadonnées, ou de l'infrastructure (latence réseau, capacité) ?</li>
+          <li><strong>Comparer à un comportement de référence</strong> : reproduire la même requête sur un environnement de test avec un volume connu, pour établir si la dégradation est structurelle ou spécifique à la production.</li>
+          <li><strong>Vérifier les métriques de monitoring</strong> (module 7, leçon 3) pour situer précisément quand la dégradation a commencé — un changement récent (mise à jour de schéma, croissance de volume) coïncide-t-il avec l'apparition du problème ?</li>
+          <li><strong>Remonter vers les cours précédents si nécessaire</strong> : un problème de qualité de retrieval peut avoir sa cause racine dans le chunking, l'embedding, ou les métadonnées plutôt que dans la base vectorielle elle-même — ne pas se limiter à ce seul cours pour le diagnostic.</li>
+        </ol>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Attribuer systématiquement un problème de qualité de réponse à la base de données vectorielle, alors que la cause racine se situe souvent en amont (chunking mal calibré, mauvais modèle d'embedding, métadonnées incohérentes) — un réflexe de diagnostic à combattre en reprenant la méthode d'inspection déjà établie dans les quatre cours précédents de cette série : toujours inspecter concrètement ce qui est récupéré avant de blâmer un composant.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour chacun des 3 symptômes du tableau qui vous semblent les plus probables sur votre projet, notez la première vérification concrète que vous feriez, et à quel cours de la série elle vous ramènerait si la base vectorielle n'était pas en cause.
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l4" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 8.4</span>Étude de cas et exercice final</h2>
+
+        <p>Cet exercice de synthèse mobilise l'ensemble des concepts de ce cours — prenez le temps de le traiter sérieusement, c'est l'exercice qui ancre le plus durablement l'apprentissage.</p>
+
+        <div class="callout exercise">
+          <strong>Énoncé</strong>
+          Une entreprise de conseil, actuellement en phase de prototype avec Chroma sur environ 20 000 chunks, prévoit un déploiement en production d'ici 6 mois pour trois clients distincts (chacun avec ses propres documents confidentiels, non partageables entre eux), avec une croissance estimée à 15% par mois. L'équipe technique compte deux développeurs sans expertise infrastructure approfondie, mais avec un budget mensuel disponible d'environ 500€ pour l'infrastructure de données.
+          <br><br>
+          Recommandez une trajectoire complète : quelle base choisir pour la production (en citant les critères du module 5), comment organiser l'isolation entre les trois clients (module 6, leçon 5), comment planifier la migration depuis Chroma (module 7, leçon 1), et comment dimensionner la croissance prévue (module 7, leçon 5).
+        </div>
+
+        <p>Quelques pistes de réflexion pour vous guider (à consulter après avoir tenté l'exercice vous-même) :</p>
+
+        <h3>Piste pour le choix de base</h3>
+        <p>Avec une équipe sans expertise infrastructure profonde et un budget mensuel modeste mais réel, une base managée (Pinecone, module 3) ou l'offre cloud de Weaviate serait cohérente avec la méthode de décision du module 5, leçon 5 — l'auto-hébergement demanderait un temps d'ingénierie (leçon 5.3, TCO) que l'équipe de deux développeurs ne peut probablement pas absorber en plus du développement produit.</p>
+
+        <h3>Piste pour l'isolation multi-tenant</h3>
+        <p>Avec seulement trois clients aux données non partageables, une isolation par namespace (Pinecone, module 3, leçon 2) ou par collection séparée (Weaviate) offre une garantie plus forte qu'un simple filtrage par métadonnées, pour un coût de gestion encore raisonnable à cette échelle de trois tenants.</p>
+
+        <h3>Piste pour la migration</h3>
+        <p>Suivre la méthode en 4 étapes du module 7, leçon 1 : exporter les 20 000 chunks de Chroma, valider la compatibilité de dimension avec la nouvelle base, réimporter par lots, et valider avec le jeu d'évaluation avant de basculer le trafic — une migration à ce volume reste rapide et peu risquée si methodique.</p>
+
+        <h3>Piste pour le dimensionnement</h3>
+        <p>Avec une croissance de 15% par mois sur 20 000 chunks, la projection (module 7, leçon 5) atteint environ 46 000 chunks à 6 mois — un volume qui reste dans le domaine confortable de la plupart des bases managées, sans besoin de sharding actif à ce stade, mais à surveiller si la croissance se maintient au-delà de 12-18 mois.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Recommander la solution la plus sophistiquée techniquement (auto-hébergement Kubernetes multi-shard) plutôt que celle réellement adaptée aux contraintes de l'équipe (deux développeurs, budget modeste) — un rappel du principe transversal de toute cette série : la meilleure solution est celle qui correspond aux contraintes réelles du projet, pas celle qui démontre la plus grande sophistication technique.
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l5" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 8.5</span>Ressources pour aller plus loin</h2>
+
+        <p>Pour approfondir au-delà de ce cours, quelques pistes organisées par thème.</p>
+
+        <h3>Documentation officielle des trois bases étudiées</h3>
+        <ul>
+          <li>Documentation Chroma — référence pour l'API complète, les fonctions d'embedding intégrées et le déploiement en mode serveur (module 2).</li>
+          <li>Documentation Pinecone — référence pour les namespaces, le modèle serverless et les intégrations d'écosystème (module 3).</li>
+          <li>Documentation Weaviate — référence pour le schéma, les modules vectorizer, GraphQL et le déploiement Kubernetes (module 4).</li>
+        </ul>
+
+        <h3>Pour élargir au-delà des trois bases de ce cours</h3>
+        <ul>
+          <li>Documentation Qdrant et Milvus — pour les cas d'usage à très grande échelle mentionnés au module 5, leçon 1.</li>
+          <li>Documentation pgvector — pour les équipes disposant déjà d'une infrastructure PostgreSQL (rappel cours embeddings, module 6).</li>
+        </ul>
+
+        <h3>Pour la pratique</h3>
+        <ul>
+          <li>Reproduire la comparaison empirique de la leçon 8.2 sur votre propre corpus réel — la meilleure façon de transformer ce cours en compétence opérationnelle durable.</li>
+          <li>Mettre en place le monitoring de base (leçon 7.3) dès la mise en production initiale, plutôt que de l'ajouter après un premier incident.</li>
+        </ul>
+
+        <p>Ce cours clôt le <strong>Bloc 3 — Préparation de Données pour RAG</strong> de cette série (chunking, embeddings, nettoyage de texte, enrichissement de métadonnées, bases de données vectorielles). Ensemble, ces cinq cours couvrent la chaîne complète qui transforme un document brut en un système de recherche vectorielle fiable, filtrable et prêt pour la production. Les blocs suivants de cette série abordent des données non structurées plus spécifiques (OCR, parsing de documents complexes) et la préparation de données pour des agents IA et du fine-tuning — des extensions naturelles pour qui souhaite aller plus loin dans la construction de systèmes IA robustes.</p>
+
+        <div class="finale">
+          <p>Vous avez terminé les 8 modules du cours sur les bases de données vectorielles — et le Bloc 3 de cette série sur la préparation de données pour RAG.</p>
+          <a href="#top">← Retour en haut de la formation</a>
+        </div>
+      </section>
+    </div>
+
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+  hljs.highlightAll();
+  const sidebar = document.getElementById('sidebar');
+  document.getElementById('menuToggle').addEventListener('click', () => { sidebar.classList.toggle('open'); });
+  const lessonLinks = document.querySelectorAll('[data-lesson]');
+  const storageKey = 'bases-vectorielles-course-progress';
+  const done = JSON.parse(localStorage.getItem(storageKey) || '{}');
+  function updateProgressBar() {
+    const total = 40;
+    const completed = Object.values(done).filter(Boolean).length;
+    document.getElementById('progressFill').style.width = Math.min(100, (completed / total * 100)) + '%';
+  }
+  lessonLinks.forEach(link => {
+    const id = link.dataset.lesson;
+    if (done[id]) link.querySelector('.lesson-check').classList.add('done');
+    link.addEventListener('click', () => {
+      done[id] = true;
+      localStorage.setItem(storageKey, JSON.stringify(done));
+      link.querySelector('.lesson-check').classList.add('done');
+      updateProgressBar();
+      sidebar.classList.remove('open');
+    });
+  });
+  updateProgressBar();
+</script>
+</body>
+</html>

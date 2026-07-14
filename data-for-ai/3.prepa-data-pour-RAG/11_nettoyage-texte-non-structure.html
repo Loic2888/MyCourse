@@ -1,0 +1,2629 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nettoyage de Texte Non Structuré — Extraction PDF, Word, HTML et Suppression de Bruit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<style>
+  :root {
+    --bg: #f4f6f8; --bg-alt: #e8edf1; --panel: #ffffff; --text: #1f2430; --text-muted: #5b6472;
+    --accent: #0891b2; --accent-dark: #0e7490; --pitfall: #f59e0b; --border: #dbe2e8;
+    --chunk-1: #7c5cff; --chunk-2: #17b8a6; --chunk-3: #ff6b6b; --chunk-4: #ffb020;
+    --font-display: "Space Grotesk", sans-serif; --font-body: "Inter", system-ui, sans-serif; --font-mono: "JetBrains Mono", monospace;
+    --sidebar-width: 300px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font-body); color: var(--text); background: var(--bg); line-height: 1.65; }
+  .layout { display: flex; min-height: 100vh; }
+  .sidebar { width: var(--sidebar-width); flex-shrink: 0; background: var(--panel); border-right: 1px solid var(--border); padding: 1.5rem 1rem 3rem; overflow-y: auto; position: sticky; top: 0; height: 100vh; }
+  .sidebar a.brand { display: block; font-family: var(--font-display); font-weight: 700; font-size: 1rem; margin-bottom: 1.5rem; color: var(--text); text-decoration: none; padding: 0.4rem 0.5rem; }
+  .sidebar a.brand span { color: var(--accent); }
+  .module-group { margin-bottom: 0.35rem; border-radius: 8px; }
+  .module-title { font-family: var(--font-display); font-weight: 600; font-size: 0.88rem; padding: 0.55rem 0.6rem; display: flex; gap: 0.5rem; align-items: baseline; color: var(--text); text-decoration: none; }
+  .module-title .n { font-family: var(--font-mono); font-size: 0.72rem; opacity: 0.7; }
+  .lesson-list { list-style: none; padding-left: 0.6rem; margin-bottom: 0.4rem; }
+  .lesson-list li a { display: flex; align-items: center; gap: 0.5rem; padding: 0.32rem 0.5rem; border-radius: 6px; color: var(--text-muted); text-decoration: none; font-size: 0.83rem; }
+  .lesson-list li a:hover { background: var(--bg-alt); color: var(--text); }
+  .lesson-list li a.active { color: var(--accent-dark); font-weight: 600; background: rgba(8,145,178,0.1); }
+  .lesson-check { width: 12px; height: 12px; flex-shrink: 0; border: 1.5px solid var(--text-muted); border-radius: 3px; }
+  .lesson-check.done { background: var(--chunk-2); border-color: var(--chunk-2); }
+  .progress-bar { height: 4px; background: var(--border); position: sticky; top: 0; z-index: 10; }
+  .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--chunk-1), var(--accent)); width: 0%; transition: width 0.2s ease; }
+  .content { flex: 1; max-width: 760px; margin: 0 auto; padding: 3rem 2rem 6rem; }
+  .module-kicker { font-family: var(--font-mono); font-size: 0.8rem; color: var(--accent-dark); background: rgba(8,145,178,0.08); border: 1px dashed var(--accent); display: inline-block; padding: 0.2rem 0.8rem; border-radius: 999px; margin-bottom: 1rem; }
+  section.lesson { border-top: 2px dashed var(--border); padding-top: 2rem; margin-top: 2rem; position: relative; padding-left: 1.1rem; border-left: 4px solid var(--lesson-color, var(--accent)); }
+  section.lesson h2 { font-family: var(--font-display); font-size: 1.5rem; margin-bottom: 1rem; }
+  section.lesson h2 .tag { font-family: var(--font-mono); font-size: 0.7rem; color: var(--lesson-color, var(--accent)); display: block; margin-bottom: 0.3rem; }
+  section.lesson h3 { font-family: var(--font-display); font-size: 1.1rem; margin: 1.4rem 0 0.6rem; }
+  section.lesson p, section.lesson ul, section.lesson ol { margin-bottom: 1rem; }
+  section.lesson li { margin-left: 1.3rem; margin-bottom: 0.35rem; }
+  pre { border-radius: 8px; padding: 1rem; overflow-x: auto; margin: 1rem 0; font-size: 0.85rem; }
+  code.inline { font-family: var(--font-mono); background: var(--bg-alt); padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.85em; }
+  .ascii { font-family: var(--font-mono); font-size: 0.78rem; background: #1e222b; color: #d7dce2; padding: 1rem 1.2rem; border-radius: 8px; overflow-x: auto; margin: 1rem 0; line-height: 1.5; white-space: pre; }
+  .callout { border-left: 4px solid var(--accent); background: var(--bg-alt); padding: 1rem 1.2rem; border-radius: 0 8px 8px 0; margin: 1.2rem 0; }
+  .callout strong { font-family: var(--font-display); display: block; margin-bottom: 0.3rem; font-size: 0.92rem; }
+  .callout.pitfall { border-left-color: var(--pitfall); }
+  .callout.exercise { border-left-color: var(--chunk-2); }
+  .menu-toggle { display: none; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.88rem; }
+  thead tr { text-align: left; border-bottom: 2px solid var(--border); }
+  th, td { padding: 0.5rem 0.6rem; }
+  tbody tr { border-bottom: 1px solid var(--border); }
+
+  .hero {
+    border-bottom: 2px dashed var(--border);
+    padding: 3rem 0 2.5rem;
+    text-align: center;
+    margin-bottom: 1rem;
+  }
+  .hero .tag {
+    display: inline-block; font-family: var(--font-mono); font-size: 0.8rem;
+    color: var(--accent-dark); background: rgba(8,145,178,0.1);
+    border: 1px dashed var(--accent); border-radius: 999px;
+    padding: 0.25rem 0.9rem; margin-bottom: 1.25rem;
+  }
+  .hero-title {
+    font-family: var(--font-display); font-size: clamp(1.8rem, 5vw, 2.6rem);
+    font-weight: 700; margin: 0 auto 1rem; letter-spacing: -0.01em;
+  }
+  .hero-title span {
+    background: linear-gradient(90deg, var(--chunk-1), var(--accent), var(--chunk-2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .hero-lead { max-width: 620px; margin: 0 auto; color: var(--text-muted); font-size: 1.02rem; }
+  .strip { display: flex; justify-content: center; gap: 0.4rem; margin: 2rem auto 0; max-width: 520px; }
+  .strip .seg { height: 8px; flex: 1; border-radius: 3px; }
+  .strip .seg:nth-child(1) { background: var(--chunk-1); }
+  .strip .seg:nth-child(2) { background: var(--chunk-2); }
+  .strip .seg:nth-child(3) { background: var(--chunk-3); }
+  .strip .seg:nth-child(4) { background: var(--chunk-4); }
+  .strip .seg:nth-child(5) { background: var(--chunk-1); }
+  .strip .seg:nth-child(6) { background: var(--chunk-2); }
+
+  .module-block { border-top: 3px solid var(--border); padding-top: 2.5rem; margin-top: 3rem; }
+  .module-block:first-of-type { border-top: none; margin-top: 0; }
+  .module-block > h1 { font-family: var(--font-display); font-size: 2rem; margin-bottom: 0.5rem; }
+  .module-block > p.intro { color: var(--text-muted); margin-bottom: 2rem; font-size: 1.02rem; }
+
+  .finale {
+    margin-top: 3rem; padding: 1.5rem; border-radius: 10px;
+    background: linear-gradient(135deg, rgba(124,92,255,0.08), rgba(23,184,166,0.08));
+    border: 1px dashed var(--accent);
+    text-align: center;
+  }
+  .finale p { color: var(--text-muted); margin-bottom: 0.8rem; }
+  .finale a {
+    display: inline-block; background: var(--accent); color: white;
+    text-decoration: none; padding: 0.6rem 1.4rem; border-radius: 6px;
+    font-family: var(--font-display); font-weight: 600; font-size: 0.9rem;
+  }
+
+  @media (max-width: 860px) {
+    .sidebar { position: fixed; left: -100%; z-index: 20; transition: left 0.2s ease; box-shadow: 4px 0 12px rgba(0,0,0,0.15); background: var(--panel); }
+    .sidebar.open { left: 0; }
+    .menu-toggle { display: block; position: fixed; top: 1rem; left: 1rem; z-index: 30; background: var(--accent); color: white; border: none; border-radius: 6px; padding: 0.5rem 0.75rem; cursor: pointer; font-size: 1rem; }
+    .content { padding: 4.5rem 1.25rem 3rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-bar-fill" id="progressFill"></div></div>
+<button class="menu-toggle" id="menuToggle">☰</button>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar">
+    <a class="brand" href="#top">Nettoyage<span>Texte</span></a>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-1"><span class="n">01</span> Fondamentaux du nettoyage</a>
+      <ul class="lesson-list">
+        <li><a href="#m1-l1" data-lesson="m1-l1"><span class="lesson-check"></span>Pourquoi ces données sont sales</a></li>
+        <li><a href="#m1-l2" data-lesson="m1-l2"><span class="lesson-check"></span>Où intervient le nettoyage</a></li>
+        <li><a href="#m1-l3" data-lesson="m1-l3"><span class="lesson-check"></span>Structuré vs semi vs non structuré</a></li>
+        <li><a href="#m1-l4" data-lesson="m1-l4"><span class="lesson-check"></span>Anatomie du bruit textuel</a></li>
+        <li><a href="#m1-l5" data-lesson="m1-l5"><span class="lesson-check"></span>Erreurs qui compromettent tout</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-2"><span class="n">02</span> Extraction de documents PDF</a>
+      <ul class="lesson-list">
+        <li><a href="#m2-l1" data-lesson="m2-l1"><span class="lesson-check"></span>Le PDF, format de mise en page</a></li>
+        <li><a href="#m2-l2" data-lesson="m2-l2"><span class="lesson-check"></span>Extraction basique et ses limites</a></li>
+        <li><a href="#m2-l3" data-lesson="m2-l3"><span class="lesson-check"></span>Extraction avancée avec layout</a></li>
+        <li><a href="#m2-l4" data-lesson="m2-l4"><span class="lesson-check"></span>Repérer les PDF scannés</a></li>
+        <li><a href="#m2-l5" data-lesson="m2-l5"><span class="lesson-check"></span>Colonnes, en-têtes et pieds de page</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-3"><span class="n">03</span> Extraction Word et Office</a>
+      <ul class="lesson-list">
+        <li><a href="#m3-l1" data-lesson="m3-l1"><span class="lesson-check"></span>Structure interne d'un .docx</a></li>
+        <li><a href="#m3-l2" data-lesson="m3-l2"><span class="lesson-check"></span>Extraction avec python-docx</a></li>
+        <li><a href="#m3-l3" data-lesson="m3-l3"><span class="lesson-check"></span>Préserver la structure logique</a></li>
+        <li><a href="#m3-l4" data-lesson="m3-l4"><span class="lesson-check"></span>Images, notes, éléments intégrés</a></li>
+        <li><a href="#m3-l5" data-lesson="m3-l5"><span class="lesson-check"></span>Suivi des modifications, commentaires</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-4"><span class="n">04</span> Extraction HTML et web</a>
+      <ul class="lesson-list">
+        <li><a href="#m4-l1" data-lesson="m4-l1"><span class="lesson-check"></span>Parser avec BeautifulSoup</a></li>
+        <li><a href="#m4-l2" data-lesson="m4-l2"><span class="lesson-check"></span>Distinguer contenu et bruit</a></li>
+        <li><a href="#m4-l3" data-lesson="m4-l3"><span class="lesson-check"></span>Extraction automatisée (trafilatura)</a></li>
+        <li><a href="#m4-l4" data-lesson="m4-l4"><span class="lesson-check"></span>Contenu généré par JavaScript</a></li>
+        <li><a href="#m4-l5" data-lesson="m4-l5"><span class="lesson-check"></span>Extraire tableaux et listes HTML</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-5"><span class="n">05</span> Suppression de bruit et normalisation</a>
+      <ul class="lesson-list">
+        <li><a href="#m5-l1" data-lesson="m5-l1"><span class="lesson-check"></span>Encodage et normalisation Unicode</a></li>
+        <li><a href="#m5-l2" data-lesson="m5-l2"><span class="lesson-check"></span>Artefacts de mise en page</a></li>
+        <li><a href="#m5-l3" data-lesson="m5-l3"><span class="lesson-check"></span>En-têtes/pieds de page répétitifs</a></li>
+        <li><a href="#m5-l4" data-lesson="m5-l4"><span class="lesson-check"></span>Boilerplate et contenu non pertinent</a></li>
+        <li><a href="#m5-l5" data-lesson="m5-l5"><span class="lesson-check"></span>Ponctuation et espaces typographiques</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-6"><span class="n">06</span> Cas complexes</a>
+      <ul class="lesson-list">
+        <li><a href="#m6-l1" data-lesson="m6-l1"><span class="lesson-check"></span>Détection de langue et multilingue</a></li>
+        <li><a href="#m6-l2" data-lesson="m6-l2"><span class="lesson-check"></span>Déduplication de contenu</a></li>
+        <li><a href="#m6-l3" data-lesson="m6-l3"><span class="lesson-check"></span>Tableaux complexes imbriqués</a></li>
+        <li><a href="#m6-l4" data-lesson="m6-l4"><span class="lesson-check"></span>Contenu corrompu ou incomplet</a></li>
+        <li><a href="#m6-l5" data-lesson="m6-l5"><span class="lesson-check"></span>Documents hybrides (scan + texte)</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-7"><span class="n">07</span> Outillage et automatisation</a>
+      <ul class="lesson-list">
+        <li><a href="#m7-l1" data-lesson="m7-l1"><span class="lesson-check"></span>Panorama des outils</a></li>
+        <li><a href="#m7-l2" data-lesson="m7-l2"><span class="lesson-check"></span>Pipeline de nettoyage modulaire</a></li>
+        <li><a href="#m7-l3" data-lesson="m7-l3"><span class="lesson-check"></span>Valider la qualité du texte extrait</a></li>
+        <li><a href="#m7-l4" data-lesson="m7-l4"><span class="lesson-check"></span>Logging et traçabilité</a></li>
+        <li><a href="#m7-l5" data-lesson="m7-l5"><span class="lesson-check"></span>Tests automatisés</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-8"><span class="n">08</span> Implémentation complète</a>
+      <ul class="lesson-list">
+        <li><a href="#m8-l1" data-lesson="m8-l1"><span class="lesson-check"></span>Pipeline complet vers le chunking</a></li>
+        <li><a href="#m8-l2" data-lesson="m8-l2"><span class="lesson-check"></span>Comparaison empirique d'outils</a></li>
+        <li><a href="#m8-l3" data-lesson="m8-l3"><span class="lesson-check"></span>Débogage d'une extraction dégradée</a></li>
+        <li><a href="#m8-l4" data-lesson="m8-l4"><span class="lesson-check"></span>Étude de cas et exercice final</a></li>
+        <li><a href="#m8-l5" data-lesson="m8-l5"><span class="lesson-check"></span>Ressources pour aller plus loin</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main class="content">
+    <header class="hero" id="top">
+      <span class="tag">// data-for-ai · 3.prepa-data-pour-RAG · Formation 11</span>
+      <h1 class="hero-title">Nettoyage de Texte <span>Non Structuré</span></h1>
+      <p class="hero-lead">Extraction PDF, Word, HTML et suppression de bruit — comment transformer des documents bruts et hétérogènes en texte propre, exploitable pour le chunking et les embeddings. 8 modules, 40 leçons.</p>
+      <div class="strip" aria-hidden="true">
+        <div class="seg"></div><div class="seg"></div><div class="seg"></div>
+        <div class="seg"></div><div class="seg"></div><div class="seg"></div>
+      </div>
+    </header>
+
+    <div class="module-block" id="module-1">
+      <span class="module-kicker">MODULE 01 / 08</span>
+      <h1>Fondamentaux du nettoyage de texte non structuré</h1>
+      <p class="intro">Avant d'ouvrir le premier PDF ou fichier Word, il faut comprendre pourquoi ces documents sont intrinsèquement "sales" pour un ordinateur, où cette étape s'insère dans un pipeline data ou RAG, et quelles catégories de bruit reviennent systématiquement — le socle conceptuel de tout ce cours.</p>
+
+      <section class="lesson" id="m1-l1" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 1.1</span>Pourquoi les données non structurées sont sales par nature</h2>
+
+        <p>Un fichier PDF, un document Word ou une page HTML ne sont pas conçus pour stocker du <em>texte</em> — ils sont conçus pour stocker une <strong>présentation visuelle</strong>. Un PDF encode des positions de caractères sur une page (coordonnées x/y), pas des paragraphes ni des phrases. Un document Word encode une arborescence de styles et de mises en forme. Une page HTML mélange le contenu éditorial avec de la navigation, des publicités, des scripts. Dans les trois cas, le texte "lisible par un humain" n'est qu'un sous-produit d'une structure pensée pour autre chose : l'affichage.</p>
+
+        <p>Cette origine explique pourquoi l'extraction de texte brut à partir de ces formats produit presque toujours des artefacts : des mots collés entre eux (deux colonnes lues comme une seule ligne), des sauts de ligne au milieu d'une phrase (chaque ligne visuelle transformée en une ligne de texte), des en-têtes et pieds de page répétés à chaque page, ou des fragments de menu de navigation mélangés au contenu réel d'un article. Rien de tout cela n'est un "bug" du logiciel d'extraction — c'est la conséquence directe du fait que ces formats n'ont jamais promis de structure textuelle propre.</p>
+
+        <div class="ascii">Ce que VOUS voyez à l'écran :          Ce que le format stocke réellement :
+
+┌─────────────────────────┐            PDF : positions (x, y) de chaque
+│  Titre du document       │             caractère sur la page, polices,
+│                          │             tailles — AUCUNE notion de
+│  Paragraphe 1 qui        │             "paragraphe" ou de "phrase"
+│  continue sur plusieurs   │
+│  lignes...                │            DOCX : arborescence XML de
+│                          │             styles, sections, avec le texte
+│  ┌─────┬─────┐            │             noyé dans des balises de mise
+│  │ Tab │leau │            │             en forme
+│  └─────┴─────┘            │
+└─────────────────────────┘            HTML : arbre DOM mélangeant
+                                        contenu éditorial, navigation,
+                                        scripts, publicités</div>
+
+        <p>Comprendre cette origine change la façon d'aborder le nettoyage : il ne s'agit pas de "corriger des erreurs" dans le document, mais de <strong>reconstruire une structure textuelle</strong> qui n'a jamais existé explicitement dans le fichier source, à partir d'indices disponibles (positions, styles, balises). C'est un problème d'inférence, pas de correction — une nuance qui explique pourquoi il n'existe pas de solution parfaite universelle, seulement des heuristiques plus ou moins adaptées à chaque format et chaque document (approfondi dans les modules 2 à 4).</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Traiter un mauvais résultat d'extraction comme un bug de la librairie utilisée, en changeant d'outil au hasard en espérant un meilleur résultat. Dans de nombreux cas, le problème vient de la nature même du document source (mise en page complexe, colonnes, tableaux imbriqués) — un problème structurel qui persistera avec n'importe quel outil tant que la bonne stratégie d'extraction n'est pas choisie (modules 2 à 4).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Ouvrez un PDF ou un document Word que vous connaissez bien, contenant au moins un tableau ou une mise en page à deux colonnes. Sans utiliser d'outil, imaginez ce qui se passerait si on extrayait "juste le texte, ligne par ligne, de gauche à droite puis de haut en bas" — où le résultat serait-il incohérent ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l2" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 1.2</span>Où intervient le nettoyage dans un pipeline data ou RAG</h2>
+
+        <p>Ce cours s'inscrit dans la continuité directe des deux précédents (chunking et embeddings). Le nettoyage de texte non structuré intervient <strong>avant</strong> le chunking — c'est en réalité la toute première étape du pipeline d'ingestion, celle qui transforme un fichier brut en texte exploitable par un text splitter.</p>
+
+        <div class="ascii">Phase 0 : EXTRACTION           Phase 1 : Chunking        Phase 2 : Embedding
+ET NETTOYAGE (CE COURS)        (cours précédent)          (cours précédent)
+
+Fichier brut                    texte propre               chunks
+(.pdf, .docx, .html)  ──►        ──►  découpé en   ──►      transformés
+        │                              chunks                en vecteurs
+        ▼
+┌──────────────────────┐
+│ 1. Extraire le texte  │
+│ 2. Supprimer le bruit │
+│ 3. Normaliser         │
+└──────────────────────┘</div>
+
+        <p>Cette position en amont de tout le reste du pipeline a une conséquence importante : une erreur ou une négligence à cette étape se propage à <em>toutes</em> les étapes suivantes, souvent de façon invisible. Un en-tête répété non supprimé pollue chaque chunk qui le contient (cours chunking, module 1). Un texte mal segmenté en phrases (à cause de sauts de ligne cosmétiques non nettoyés) dégrade la qualité du chunking récursif (cours chunking, module 3). Un caractère d'encodage mal interprété peut rendre un chunk entier illisible pour le modèle d'embedding (cours précédent, module 1).</p>
+
+        <p>C'est pourquoi ce cours, bien que traitant d'un sujet qui semble "en amont" et parfois moins glamour que le chunking ou les embeddings, est tout aussi déterminant pour la qualité finale d'un système RAG — voire davantage, car les erreurs de nettoyage sont souvent plus difficiles à diagnostiquer a posteriori (elles se manifestent comme des symptômes vagues bien plus loin dans le pipeline).</p>
+
+        <pre><code class="language-python"># Vue d'ensemble du pipeline complet (3 cours combinés)
+texte_brut = extraire_texte("rapport.pdf")           # CE COURS (modules 2-4)
+texte_propre = nettoyer_texte(texte_brut)             # CE COURS (modules 5-6)
+chunks = chunker_texte(texte_propre)                  # cours "Chunking pour RAG"
+vecteurs = [embed(c) for c in chunks]                 # cours "Embeddings et Recherche Vectorielle"
+</code></pre>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Sous-investir dans cette étape en pensant que "le chunking et les embeddings rattraperont les imperfections du texte brut". En réalité, aucune stratégie de chunking ni aucun modèle d'embedding ne peut corriger un texte fondamentalement mal extrait (mots collés, phrases coupées par des artefacts de mise en page) — la qualité de l'extraction est un plafond de qualité pour tout ce qui suit, exactement comme le chunking l'est pour la génération finale.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          En reprenant un pipeline RAG que vous avez esquissé dans les cours précédents, ajoutez explicitement cette "phase 0" en amont du chunking. Quels formats de documents devriez-vous gérer dans votre cas d'usage réel ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l3" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 1.3</span>Structuré, semi-structuré, non structuré : distinctions concrètes</h2>
+
+        <p>Le terme "données non structurées" est souvent utilisé de façon imprécise. Cette leçon clarifie les trois catégories généralement distinguées, car la stratégie de nettoyage appropriée diffère sensiblement selon la catégorie réelle du document traité.</p>
+
+        <h3>Données structurées</h3>
+        <p>Organisées selon un schéma strict et prévisible : lignes et colonnes d'une base de données, fichier CSV avec un en-tête fixe, JSON avec un schéma constant. Chaque champ a une signification connue à l'avance — pas de nettoyage de "texte" à proprement parler, plutôt de la validation de schéma (sujet d'un autre cours de cette série).</p>
+
+        <h3>Données semi-structurées</h3>
+        <p>Possèdent une structure explicite mais flexible : un document HTML a des balises qui indiquent une hiérarchie (titres, paragraphes, tableaux), mais le contenu à l'intérieur de chaque balise reste du texte libre, et l'organisation générale de la page peut varier énormément d'un site à l'autre. Un .docx est similaire : structure XML explicite (styles, sections), mais contenu textuel libre à l'intérieur.</p>
+
+        <h3>Données non structurées</h3>
+        <p>Aucun schéma explicite exploitable directement par une machine : un PDF est, à la base, une grille de caractères positionnés sans aucune information sémantique sur ce qui constitue un titre, un paragraphe ou un tableau (ces notions doivent être <em>inférées</em> à partir d'indices comme la taille de police ou l'espacement, cf. leçon 1.1). Un texte brut issu d'une transcription audio est un autre exemple typique.</p>
+
+        <div class="ascii">Structuré              Semi-structuré           Non structuré
+──────────────         ─────────────────         ──────────────────
+CSV, base de           HTML, XML, DOCX           PDF, texte brut,
+données, JSON          (structure explicite,     transcription audio
+avec schéma fixe       contenu libre)             (structure à INFÉRER)
+
+Nettoyage : validation Nettoyage : parsing +     Nettoyage : extraction +
+de schéma              filtrage du bruit         reconstruction de structure
+                       structurel                 + filtrage du bruit</div>
+
+        <p>Cette distinction structure directement l'organisation de ce cours : les modules 2 et 3 (PDF, Word) traitent des cas les plus proches du "non structuré pur" où la structure doit être largement reconstruite ; le module 4 (HTML) traite un cas semi-structuré où la structure existe mais nécessite un filtrage intelligent du bruit ; les modules 5 et 6 s'appliquent transversalement, après l'extraction initiale, quel que soit le format d'origine.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Traiter le HTML comme aussi "non structuré" qu'un PDF, en sous-exploitant la richesse de sa structure explicite (balises sémantiques comme <code class="inline">&lt;article&gt;</code>, <code class="inline">&lt;nav&gt;</code>, <code class="inline">&lt;table&gt;</code>). Le HTML offre bien plus d'indices structurels directement exploitables qu'un PDF — les ignorer et traiter tout le contenu HTML comme du texte brut indifférencié perd une information précieuse et gratuite (approfondi au module 4).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Classez ces trois sources dans les trois catégories vues ici : (a) un export CSV de transactions bancaires, (b) une page Wikipedia, (c) un rapport PDF scanné sans couche de texte. Justifiez chaque classement en une phrase.
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l4" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 1.4</span>Anatomie du bruit textuel : catégories et sources</h2>
+
+        <p>Le "bruit" dans un texte extrait n'est pas une notion unique — il recouvre plusieurs catégories distinctes, chacune avec ses causes et ses traitements propres. Cette taxonomie sera réutilisée tout au long des modules suivants.</p>
+
+        <h3>Bruit d'encodage</h3>
+        <p>Caractères mal interprétés lors de la conversion entre encodages (un guillemet typographique qui devient une suite de caractères incohérents, un accent qui se transforme en symbole illisible). Cause fréquente : documents créés sous un encodage (souvent Windows-1252 ou Latin-1) et lus en supposant un autre encodage (UTF-8).</p>
+
+        <h3>Bruit de mise en page</h3>
+        <p>Sauts de ligne au milieu de phrases (chaque ligne visuelle de la page devient une ligne de texte séparée), espaces multiples issus d'une justification de texte, tabulations transformées en espaces incohérents, colonnes multiples lues dans le mauvais ordre.</p>
+
+        <h3>Bruit répétitif structurel</h3>
+        <p>En-têtes et pieds de page identiques répétés à chaque page d'un PDF, numéros de page qui s'intercalent dans le flux de texte, filigranes ("CONFIDENTIEL", "BROUILLON") qui reviennent à intervalles réguliers.</p>
+
+        <h3>Bruit de contenu périphérique (boilerplate)</h3>
+        <p>Menus de navigation, bandeaux de cookies, publicités, liens "articles similaires", mentions légales répétées sur chaque page d'un site — du contenu bien réel et bien formé, mais sans rapport avec le contenu éditorial recherché.</p>
+
+        <h3>Bruit de segmentation</h3>
+        <p>Tableaux dont les cellules sont extraites hors de leur structure logique (valeurs sans leurs en-têtes de colonne), listes à puces dont les puces deviennent des caractères aléatoires, notes de bas de page insérées en plein milieu du texte principal.</p>
+
+        <div class="ascii">Catégorie de bruit          Exemple concret                    Traité au module
+──────────────────────────────────────────────────────────────────────────────
+Encodage                    "café" devient "cafÃ©"              Module 5
+Mise en page                 mots coupés en fin de ligne,         Modules 2-3, 5
+                             sauts de ligne cosmétiques
+Répétitif structurel         en-tête "Rapport Q3 2025" sur        Module 5
+                             chaque page
+Contenu périphérique         "Accepter les cookies", menu         Module 4
+(boilerplate)                de navigation
+Segmentation                 tableau extrait sans ses             Modules 2-3, 6
+                             en-têtes de colonne</div>
+
+        <p>Face à un nouveau document problématique, cette taxonomie sert de grille de diagnostic rapide : identifier <em>quelle</em> catégorie de bruit est en cause oriente immédiatement vers la bonne technique de traitement, plutôt que d'appliquer des corrections génériques au hasard.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Appliquer une seule technique de nettoyage générique (par exemple, uniquement une regex de suppression d'espaces multiples) à un texte qui souffre en réalité de plusieurs catégories de bruit simultanément. Un bon pipeline de nettoyage traite chaque catégorie séparément et de façon ciblée (modules 5-6), plutôt que d'espérer qu'un seul traitement générique résolve tous les problèmes à la fois.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un document de votre corpus (réel ou imaginé), identifiez au moins deux catégories de bruit différentes parmi les cinq listées ci-dessus qui s'y appliquent probablement.
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l5" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 1.5</span>Erreurs courantes qui compromettent un pipeline dès l'extraction</h2>
+
+        <p>Cette dernière leçon du module fondateur rassemble les erreurs les plus fréquentes observées dans des pipelines d'extraction en production — à reconnaître avant d'aborder les modules techniques suivants.</p>
+
+        <h3>1. Utiliser un seul outil pour tous les formats</h3>
+        <p>Chaque format (PDF, DOCX, HTML) a ses propres outils spécialisés et ses propres pièges (modules 2 à 4). Utiliser un extracteur générique "qui marche à peu près partout" produit systématiquement des résultats médiocres par rapport à un outil dédié au format traité.</p>
+
+        <h3>2. Ne jamais inspecter visuellement le texte extrait</h3>
+        <p>Faire confiance aveuglément à la sortie d'un outil d'extraction sans comparer visuellement un échantillon au document original. C'est souvent la seule façon de repérer des colonnes mal ordonnées, des tableaux fragmentés ou des pertes de contenu silencieuses.</p>
+
+        <h3>3. Confondre absence d'erreur et qualité d'extraction</h3>
+        <p>Un outil d'extraction ne lève presque jamais d'erreur explicite même quand son résultat est très dégradé (texte incohérent, contenu manquant) — l'absence de message d'erreur ne garantit absolument pas la qualité du texte obtenu.</p>
+
+        <h3>4. Ignorer la variabilité au sein d'un même corpus</h3>
+        <p>Un corpus de "PDF" peut en réalité contenir des PDF natifs (texte réel), des PDF scannés (image pure, nécessitant de l'OCR), et des PDF hybrides (texte + images) — traiter cette hétérogénéité avec une seule stratégie uniforme échoue systématiquement sur une partie du corpus.</p>
+
+        <h3>5. Nettoyer trop agressivement</h3>
+        <p>À l'inverse du sous-nettoyage, une suppression trop agressive du bruit peut détruire du contenu légitime — par exemple, une regex trop large de suppression d'en-têtes répétitifs qui supprime aussi des titres de section légitimes qui partagent une formulation similaire.</p>
+
+        <div class="ascii">Erreur                                  Conséquence typique
+──────────────────────────────────────────────────────────────────────
+Un seul outil pour tous les formats     Qualité médiocre partout, optimale
+                                        nulle part
+Pas d'inspection visuelle               Bugs de segmentation invisibles
+                                        jusqu'à un signalement utilisateur
+Confondre absence d'erreur et qualité   Fausse confiance dans un pipeline
+                                        défaillant
+Ignorer l'hétérogénéité du corpus       Une partie du corpus systématiquement
+                                        mal traitée
+Nettoyage trop agressif                 Perte de contenu légitime</div>
+
+        <p>Ces cinq erreurs reviendront sous des formes concrètes dans chacun des modules suivants — les garder à l'esprit permet d'aborder chaque nouvelle technique avec un regard critique plutôt que de l'appliquer mécaniquement.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer le nettoyage de texte comme un problème "résolu une fois pour toutes" au démarrage d'un projet. Comme pour le chunking et le choix du modèle d'embedding, la qualité de l'extraction doit être mesurée et surveillée dans la durée, notamment quand de nouveaux types de documents entrent dans le corpus.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : parmi les cinq erreurs listées, laquelle vous semble la plus probable dans votre propre contexte de travail ? Qu'est-ce qui, concrètement, vous permettrait de la détecter tôt plutôt que de la découvrir en production ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-2">
+      <span class="module-kicker">MODULE 02 / 08</span>
+      <h1>Extraction de documents PDF</h1>
+      <p class="intro">Le PDF est probablement le format le plus fréquent — et le plus traître — d'un corpus d'entreprise. Ce module détaille comment en extraire du texte proprement, des cas simples aux mises en page complexes.</p>
+
+      <section class="lesson" id="m2-l1" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 2.1</span>Le PDF, un format de mise en page, pas de texte structuré</h2>
+
+        <p>Le format PDF (Portable Document Format) a été conçu par Adobe dans un but précis : garantir qu'un document s'affiche <em>de façon identique</em> sur n'importe quel appareil, indépendamment des polices installées ou du système d'exploitation. Pour atteindre cet objectif, un PDF encode directement les positions géométriques de chaque glyphe (caractère dessiné) sur la page — pas une séquence de mots organisés en phrases et paragraphes.</p>
+
+        <p>Concrètement, un PDF contient des instructions du type "dessine le caractère 'L' à la position (120, 450) avec la police Helvetica en taille 12", répétées pour chaque caractère de la page. Il n'existe, dans la structure native du format, aucune notion de "ceci est un paragraphe" ou "ceci est un titre" — ces notions doivent être <strong>reconstruites</strong> par un logiciel d'extraction, en observant des indices comme la proximité des caractères, l'alignement, la taille de police ou l'espacement vertical entre les lignes.</p>
+
+        <div class="ascii">Ce qu'un PDF contient réellement (simplifié) :
+
+  Texte "Le chunking" à la position (72, 700), police Arial 14, gras
+  Texte "est une étape" à la position (72, 680), police Arial 11
+  Texte "essentielle." à la position (72, 660), police Arial 11
+  Ligne horizontale de (72, 640) à (500, 640)
+  Texte "1. Introduction" à la position (72, 600), police Arial 12, gras
+  ...
+
+→ Aucune structure explicite de "titre", "paragraphe" ou "liste" —
+  tout doit être INFÉRÉ à partir des positions, tailles et styles.</div>
+
+        <p>Cette architecture explique pourquoi différents outils d'extraction, appliqués au même PDF, peuvent produire des résultats sensiblement différents : chacun applique ses propres heuristiques pour reconstituer l'ordre de lecture et la structure logique à partir de ces positions brutes. Comprendre ce fonctionnement sous-jacent aide à choisir le bon outil (leçons suivantes) et à interpréter correctement ses limites plutôt que de les percevoir comme des bugs aléatoires.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Supposer qu'un PDF "avec du texte sélectionnable" (par opposition à un PDF scanné, image pure) garantit une extraction fiable et de bonne qualité. Même un PDF natif avec du vrai texte peut produire une extraction très dégradée si sa mise en page est complexe (colonnes, encadrés, tableaux) — la présence de texte sélectionnable garantit seulement qu'une OCR n'est pas nécessaire (leçon 2.4), pas que l'ordre de lecture reconstruit sera correct.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Ouvrez un PDF dans une visionneuse, sélectionnez tout le texte d'une page avec Ctrl+A puis copiez-collez-le dans un éditeur de texte brut. Comparez visuellement l'ordre du texte collé à la mise en page originale — des incohérences apparaissent-elles, notamment autour de tableaux ou colonnes ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l2" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 2.2</span>Extraction basique avec pypdf et pdfminer, et leurs limites</h2>
+
+        <p><strong>pypdf</strong> (anciennement PyPDF2) est la librairie la plus simple et la plus légère pour extraire du texte d'un PDF en Python — un bon point de départ pour des documents simples, à une seule colonne, sans mise en page complexe.</p>
+
+        <pre><code class="language-python">from pypdf import PdfReader
+
+lecteur = PdfReader("rapport.pdf")
+
+texte_complet = ""
+for page in lecteur.pages:
+    texte_complet += page.extract_text() + "\n"
+
+print(texte_complet[:500])
+</code></pre>
+
+        <p>Pour des documents à la mise en page simple (rapport en une colonne, texte continu), <code class="inline">pypdf</code> donne des résultats généralement satisfaisants. Ses limites apparaissent rapidement sur des documents plus complexes : colonnes multiples fusionnées de façon incohérente, tableaux dont les cellules se retrouvent mélangées au texte environnant, en-têtes/pieds de page insérés en plein milieu du contenu extrait.</p>
+
+        <p><strong>pdfminer.six</strong> offre un contrôle plus fin sur l'extraction, en exposant la position et les propriétés de chaque élément de texte plutôt que de retourner uniquement une chaîne de caractères finale — utile pour implémenter des heuristiques de reconstruction de mise en page personnalisées.</p>
+
+        <pre><code class="language-python">from pdfminer.high_level import extract_pages
+from pdfminer.layout import LTTextContainer
+
+for page_layout in extract_pages("rapport.pdf"):
+    for element in page_layout:
+        if isinstance(element, LTTextContainer):
+            # Chaque élément connaît sa position (x0, y0, x1, y1) sur la page
+            print(element.get_text(), element.bbox)
+</code></pre>
+
+        <div class="ascii">pypdf                                pdfminer.six
+──────────────────────────          ──────────────────────────────
+API simple, une fonction             API plus détaillée, expose
+extract_text() par page              la position de chaque élément
+
+Rapide à mettre en œuvre             Plus de contrôle mais plus
+                                      de code nécessaire
+
+Bon pour : documents simples,        Bon pour : documents avec mise
+une colonne, peu de mise en          en page à analyser plus finement,
+forme complexe                       besoin de reconstruire un ordre
+                                      de lecture personnalisé</div>
+
+        <p>Ces deux outils partagent une limite commune : ils se concentrent sur l'extraction de texte, pas sur la détection de structure de haut niveau (titres, tableaux, colonnes) — pour ces besoins, la leçon suivante présente des outils plus spécialisés (pdfplumber, PyMuPDF) qui exposent davantage d'informations de mise en page directement exploitables.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Utiliser <code class="inline">pypdf</code> par défaut sur l'ensemble d'un corpus hétérogène sans vérifier au cas par cas si la mise en page de chaque document reste dans son domaine de compétence (documents simples). Un corpus mixte (rapports simples + tableaux financiers complexes) mérite une détection préalable de la complexité de mise en page pour orienter vers le bon outil document par document (approfondi au module 7).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Si vous avez accès à un PDF simple, testez l'extraction avec <code class="inline">pypdf</code> et comparez visuellement le résultat à l'original. Le texte des titres se distingue-t-il du texte courant dans la sortie, ou tout est-il fondu en une seule masse de texte indifférenciée ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l3" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 2.3</span>Extraction avancée avec détection de layout (pdfplumber, PyMuPDF)</h2>
+
+        <p>Pour des PDF à la mise en page plus riche (tableaux, colonnes, encadrés), des outils plus sophistiqués analysent la géométrie de la page pour reconstruire une structure logique plus fidèle, plutôt que de simplement concaténer du texte dans l'ordre où il apparaît dans le flux du fichier.</p>
+
+        <h3>pdfplumber : extraction avec analyse de tableaux</h3>
+        <p><strong>pdfplumber</strong> (construit sur pdfminer) ajoute une détection de tableaux basée sur l'analyse des lignes et espacements de la page, un besoin extrêmement fréquent dans des documents professionnels (rapports financiers, factures, contrats).</p>
+
+        <pre><code class="language-python">import pdfplumber
+
+with pdfplumber.open("rapport_financier.pdf") as pdf:
+    for i, page in enumerate(pdf.pages):
+        texte = page.extract_text()
+        tableaux = page.extract_tables()
+
+        print(f"--- Page {i + 1} ---")
+        print(texte[:200])
+
+        for tableau in tableaux:
+            for ligne in tableau:
+                print(ligne)   # liste de cellules, structure préservée
+</code></pre>
+
+        <h3>PyMuPDF (fitz) : rapidité et richesse d'information</h3>
+        <p><strong>PyMuPDF</strong> (module Python <code class="inline">fitz</code>) est réputé pour sa vitesse d'exécution (souvent plusieurs fois plus rapide que pdfminer/pdfplumber sur de gros volumes) et expose des informations riches sur chaque bloc de texte, y compris sa police et sa taille — précieux pour distinguer automatiquement les titres du texte courant.</p>
+
+        <pre><code class="language-python">import fitz  # PyMuPDF
+
+document = fitz.open("rapport.pdf")
+
+for page in document:
+    blocs = page.get_text("dict")["blocks"]
+    for bloc in blocs:
+        if "lines" not in bloc:
+            continue
+        for ligne in bloc["lines"]:
+            for span in ligne["spans"]:
+                taille_police = span["size"]
+                texte = span["text"]
+                est_probablement_titre = taille_police > 13   # heuristique simple
+                if est_probablement_titre:
+                    print(f"[TITRE probable] {texte}")
+                else:
+                    print(texte)
+</code></pre>
+
+        <h3>Détecter les titres par la taille de police : une heuristique puissante</h3>
+        <p>Une technique très utile et sous-exploitée : puisque les titres utilisent presque systématiquement une taille de police plus grande (ou un style gras) que le texte courant, analyser la distribution des tailles de police sur un document permet de reconstruire automatiquement une hiérarchie de titres — une information précieuse pour un chunking structurel ultérieur (cours chunking, module 5), normalement absente d'un PDF brut.</p>
+
+        <div class="ascii">Distribution des tailles de police observées sur un document :
+
+  Taille 18pt  →  2 occurrences   → probablement le titre du document
+  Taille 14pt  →  8 occurrences   → probablement les titres de section
+  Taille 11pt  →  450 occurrences → probablement le texte courant
+  Taille 9pt   →  24 occurrences  → probablement des notes de bas de page
+
+→ Cette distribution permet de RECONSTRUIRE une hiérarchie de titres
+  absente de la structure native du PDF (cf. leçon 2.1).</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Se fier à <code class="inline">extract_tables()</code> (pdfplumber) sans vérifier visuellement le résultat sur un échantillon de tableaux complexes (cellules fusionnées, tableaux imbriqués, tableaux sans bordures visibles). La détection de tableaux basée sur l'analyse géométrique reste une heuristique, pas une garantie — certains tableaux mal formés visuellement (sans lignes de séparation explicites) peuvent ne pas être détectés du tout.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un PDF contenant au moins un tableau, si vous y avez accès, testez <code class="inline">pdfplumber.extract_tables()</code> et comparez le résultat structuré obtenu à l'apparence visuelle du tableau original. Les en-têtes de colonnes sont-ils correctement isolés de la première ligne de données ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l4" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 2.4</span>Repérer les PDF scannés nécessitant de l'OCR</h2>
+
+        <p>Un PDF "scanné" ne contient aucun texte réel — c'est une image (souvent une photo ou un scan de document papier) encapsulée dans un conteneur PDF. Tenter d'en extraire du texte avec les outils vus dans ce module (pypdf, pdfplumber, PyMuPDF) renvoie systématiquement une chaîne vide ou quasi vide, car il n'y a tout simplement aucun texte à extraire — seulement des pixels.</p>
+
+        <h3>Détecter automatiquement un PDF scanné</h3>
+        <p>Avant de traiter un lot de PDF en masse, une vérification préalable simple permet de router chaque document vers le bon traitement : si l'extraction de texte standard renvoie un résultat vide ou anormalement court par rapport au nombre de pages, le document est probablement scanné et nécessite une étape d'OCR (Reconnaissance Optique de Caractères) au lieu d'une extraction de texte classique.</p>
+
+        <pre><code class="language-python">import fitz
+
+def detecter_pdf_scanne(chemin_pdf: str, seuil_caracteres_par_page: int = 50) -> bool:
+    document = fitz.open(chemin_pdf)
+    nb_pages = len(document)
+
+    texte_total = "".join(page.get_text() for page in document)
+    caracteres_par_page = len(texte_total) / max(nb_pages, 1)
+
+    return caracteres_par_page < seuil_caracteres_par_page
+
+if detecter_pdf_scanne("document.pdf"):
+    print("Ce document semble scanné — une étape d'OCR est nécessaire.")
+else:
+    print("Texte natif détecté — extraction directe possible.")
+</code></pre>
+
+        <h3>Le cas des PDF hybrides</h3>
+        <p>Certains PDF mélangent des pages avec du texte réel et des pages scannées (par exemple, un rapport dont une annexe a été ajoutée par scan). La vérification devrait idéalement se faire <strong>page par page</strong>, plutôt que sur l'ensemble du document, pour appliquer le bon traitement à chaque page individuellement plutôt que de traiter tout le document comme scanné ou tout comme natif.</p>
+
+        <pre><code class="language-python">def analyser_pages(chemin_pdf: str) -> list[dict]:
+    document = fitz.open(chemin_pdf)
+    resultats = []
+    for i, page in enumerate(document):
+        texte = page.get_text()
+        resultats.append({
+            "page": i + 1,
+            "nb_caracteres": len(texte),
+            "necessite_ocr": len(texte) < 50,
+        })
+    return resultats
+</code></pre>
+
+        <p>Ce module ne couvre pas l'OCR lui-même en détail — ce sujet technique (Tesseract, solutions API cloud, prétraitement d'image) mérite un traitement dédié, approfondi dans un cours ultérieur de cette série sur l'OCR et l'extraction de documents scannés. Retenez pour l'instant la nécessité de <strong>détecter</strong> ce cas de figure avant de s'étonner d'une extraction vide.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Traiter un résultat d'extraction vide ou quasi vide comme une erreur logicielle à corriger en changeant d'outil, alors que la cause réelle est l'absence totale de texte natif dans le document (PDF scanné). Aucun des outils de ce module (pypdf, pdfminer, pdfplumber, PyMuPDF) ne peut extraire du texte d'une image — une étape d'OCR est structurellement nécessaire dans ce cas, quel que soit l'outil d'extraction utilisé.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          En utilisant la fonction <code class="inline">detecter_pdf_scanne</code> ci-dessus (ou son principe), pour un corpus imaginaire de 1000 PDF, comment organiseriez-vous un pipeline qui route chaque document vers le bon traitement (extraction directe vs OCR) sans intervention manuelle ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l5" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 2.5</span>Gérer les colonnes multiples, en-têtes/pieds de page et numérotation</h2>
+
+        <p>Cette dernière leçon du module traite les trois artefacts de mise en page les plus fréquents et les plus perturbateurs pour la qualité d'une extraction PDF.</p>
+
+        <h3>Colonnes multiples</h3>
+        <p>Un document à deux colonnes, extrait naïvement de gauche à droite ligne par ligne, mélange le texte de la colonne gauche et de la colonne droite de façon incohérente. La solution : utiliser les informations de position (x, y) exposées par pdfminer ou PyMuPDF (leçon 2.3) pour regrouper les blocs de texte par colonne (en fonction de leur coordonnée x) avant de les concaténer dans le bon ordre — d'abord toute la colonne gauche de haut en bas, puis toute la colonne droite.</p>
+
+        <pre><code class="language-python">def separer_colonnes(blocs_texte: list[dict], seuil_x: float) -> tuple[list, list]:
+    """blocs_texte : liste de dicts avec 'x', 'y', 'texte' (issus de PyMuPDF ou pdfminer)."""
+    colonne_gauche = [b for b in blocs_texte if b["x"] < seuil_x]
+    colonne_droite = [b for b in blocs_texte if b["x"] >= seuil_x]
+
+    colonne_gauche.sort(key=lambda b: b["y"], reverse=True)   # haut vers bas
+    colonne_droite.sort(key=lambda b: b["y"], reverse=True)
+
+    texte_ordonne = colonne_gauche + colonne_droite
+    return "\n".join(b["texte"] for b in texte_ordonne)
+</code></pre>
+
+        <h3>En-têtes et pieds de page répétitifs</h3>
+        <p>Comme évoqué au module 1, ces éléments se répètent identiquement (ou presque) sur chaque page, souvent aux mêmes positions verticales (haut et bas de page). Une stratégie efficace : comparer le contenu textuel présent dans une bande de quelques centimètres en haut et en bas de chaque page ; si un même texte apparaît sur une majorité des pages à ces positions, il s'agit très probablement d'un en-tête ou pied de page à exclure.</p>
+
+        <pre><code class="language-python">from collections import Counter
+
+def detecter_en_tetes_pieds_de_page(pages_textes_par_zone: list[dict]) -> set[str]:
+    """pages_textes_par_zone : liste de dicts {'haut': str, 'bas': str} par page."""
+    textes_haut = Counter(p["haut"].strip() for p in pages_textes_par_zone)
+    textes_bas = Counter(p["bas"].strip() for p in pages_textes_par_zone)
+
+    nb_pages = len(pages_textes_par_zone)
+    seuil_repetition = nb_pages * 0.6   # présent sur au moins 60% des pages
+
+    candidats = {texte for texte, count in textes_haut.items() if count >= seuil_repetition}
+    candidats |= {texte for texte, count in textes_bas.items() if count >= seuil_repetition}
+    return candidats
+</code></pre>
+
+        <h3>Numérotation de page insérée dans le flux</h3>
+        <p>Les numéros de page ("Page 12", "12", "12/48") s'intercalent parfois directement dans le texte extrait, en plein milieu d'une phrase à cheval sur deux pages. Une regex ciblée, appliquée après la détection d'en-têtes/pieds de page (qui capture souvent ces numéros dans la même zone), permet de les filtrer spécifiquement sans toucher au reste du contenu numérique légitime (dates, montants).</p>
+
+        <pre><code class="language-python">import re
+
+def supprimer_numeros_de_page(texte: str) -> str:
+    # Cible spécifiquement des motifs de numérotation isolés sur leur propre ligne
+    return re.sub(r'^\s*(?:Page\s+)?\d{1,4}(?:\s*/\s*\d{1,4})?\s*$', '', texte, flags=re.MULTILINE)
+</code></pre>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Écrire une regex de suppression de numéros de page trop permissive, qui supprime aussi des données numériques légitimes isolées sur leur propre ligne (un montant, une référence). Toujours tester une regex de nettoyage sur un échantillon représentatif avant de l'appliquer à l'ensemble du corpus, et privilégier des motifs suffisamment spécifiques (ancrés en début/fin de ligne, format reconnaissable) plutôt que des expressions trop générales.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : parmi les trois artefacts traités dans cette leçon (colonnes, en-têtes/pieds de page, numérotation), lequel est le plus susceptible d'affecter votre propre corpus de PDF ? Quelle serait la première chose à vérifier pour le confirmer ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-3">
+      <span class="module-kicker">MODULE 03 / 08</span>
+      <h1>Extraction de documents Word et Office</h1>
+      <p class="intro">Contrairement au PDF, un document Word conserve une structure logique explicite (titres, styles, listes) — à condition de savoir l'exploiter correctement plutôt que de la perdre au moment de l'extraction.</p>
+
+      <section class="lesson" id="m3-l1" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 3.1</span>La structure interne d'un .docx (XML, styles, sections)</h2>
+
+        <p>Un fichier <code class="inline">.docx</code> moderne n'est pas un format binaire opaque — c'est en réalité une archive ZIP contenant plusieurs fichiers XML structurés (format Office Open XML). Cette architecture, bien plus transparente que le PDF, explique pourquoi l'extraction de texte à partir d'un .docx conserve beaucoup plus facilement la structure logique du document original.</p>
+
+        <pre><code class="language-bash"># Un .docx est littéralement une archive ZIP renommée
+unzip -l rapport.docx
+
+# Contenu typique :
+#   word/document.xml       ← le contenu textuel principal
+#   word/styles.xml         ← les définitions de styles (Titre 1, Normal...)
+#   word/numbering.xml      ← les définitions de listes numérotées
+#   word/media/image1.png   ← les images intégrées
+</code></pre>
+
+        <p>Le fichier <code class="inline">word/document.xml</code> contient le texte encadré de balises qui indiquent explicitement sa fonction : un paragraphe est une balise <code class="inline">&lt;w:p&gt;</code>, un texte avec mise en forme est une balise <code class="inline">&lt;w:r&gt;</code> ("run"), et le style appliqué (Titre 1, Titre 2, Normal) est référencé explicitement via une balise <code class="inline">&lt;w:pStyle&gt;</code>. C'est une différence fondamentale avec le PDF (module 2) : ici, la notion de "ceci est un titre de niveau 1" existe <strong>explicitement</strong> dans le fichier, elle n'a pas besoin d'être inférée à partir de la taille de police.</p>
+
+        <div class="ascii">Extrait simplifié de word/document.xml :
+
+&lt;w:p&gt;
+  &lt;w:pPr&gt;&lt;w:pStyle w:val="Titre1"/&gt;&lt;/w:pPr&gt;
+  &lt;w:r&gt;&lt;w:t&gt;Introduction au chunking&lt;/w:t&gt;&lt;/w:r&gt;
+&lt;/w:p&gt;
+&lt;w:p&gt;
+  &lt;w:pPr&gt;&lt;w:pStyle w:val="Normal"/&gt;&lt;/w:pPr&gt;
+  &lt;w:r&gt;&lt;w:t&gt;Le chunking consiste à découper...&lt;/w:t&gt;&lt;/w:r&gt;
+&lt;/w:p&gt;
+
+→ Le style "Titre1" est une information EXPLICITE, directement
+  disponible — contrairement au PDF où elle doit être déduite
+  de la taille de police (cours précédent, leçon 2.3).</div>
+
+        <p>Cette transparence structurelle a une conséquence pratique importante pour ce cours : extraire du texte d'un .docx <em>en préservant sa structure logique</em> est significativement plus fiable que pour un PDF, à condition d'utiliser un outil qui exploite cette information de style plutôt que de se contenter d'extraire le texte brut sans ses métadonnées de mise en forme (leçon suivante).</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Traiter un .docx comme un format aussi opaque qu'un PDF, en extrayant uniquement le texte brut sans jamais consulter les informations de style disponibles. C'est jeter une information structurelle précieuse et gratuite (la hiérarchie de titres, les styles de liste) que le format expose explicitement — contrairement au PDF où cette même information doit être reconstruite avec des heuristiques imparfaites.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Si vous avez accès à un fichier .docx, renommez une copie en .zip et décompressez-la (ou utilisez un outil d'archive). Ouvrez <code class="inline">word/document.xml</code> dans un éditeur de texte et repérez les balises <code class="inline">w:pStyle</code> qui indiquent les styles de titre utilisés.
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l2" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 3.2</span>Extraction avec python-docx : texte, titres, listes, tableaux</h2>
+
+        <p><strong>python-docx</strong> est la librairie de référence pour manipuler des fichiers .docx en Python, offrant un accès direct aux paragraphes, styles, tableaux et listes sans avoir à manipuler le XML brut vu en leçon 3.1.</p>
+
+        <pre><code class="language-python">from docx import Document
+
+document = Document("rapport.docx")
+
+for paragraphe in document.paragraphs:
+    style = paragraphe.style.name   # ex: "Heading 1", "Normal", "List Bullet"
+    texte = paragraphe.text
+    if texte.strip():
+        print(f"[{style}] {texte}")
+</code></pre>
+
+        <h3>Distinguer les titres du texte courant grâce au style</h3>
+        <p>Contrairement au PDF où il fallait déduire un titre de sa taille de police (heuristique imparfaite), ici le style est une information fiable directement exploitable pour reconstruire une hiérarchie de sections — immédiatement utile pour un chunking structurel ultérieur (cours chunking, module 5).</p>
+
+        <pre><code class="language-python">def extraire_avec_hierarchie(document: Document) -> list[dict]:
+    resultat = []
+    for paragraphe in document.paragraphs:
+        style = paragraphe.style.name
+        if style.startswith("Heading"):
+            niveau = int(style.replace("Heading ", "")) if style[-1].isdigit() else 1
+            resultat.append({"type": "titre", "niveau": niveau, "texte": paragraphe.text})
+        elif style == "List Bullet" or style == "List Number":
+            resultat.append({"type": "liste", "texte": paragraphe.text})
+        else:
+            resultat.append({"type": "paragraphe", "texte": paragraphe.text})
+    return resultat
+</code></pre>
+
+        <h3>Extraire les tableaux</h3>
+        <p>Contrairement aux tableaux PDF (module 2, leçon 3) qui nécessitent une détection géométrique heuristique, les tableaux d'un .docx sont explicitement structurés en lignes et colonnes dans le XML — leur extraction via python-docx est directe et fiable.</p>
+
+        <pre><code class="language-python">for tableau in document.tables:
+    for ligne in tableau.rows:
+        cellules = [cellule.text for cellule in ligne.cells]
+        print(cellules)   # liste de chaînes, une par colonne — structure garantie
+</code></pre>
+
+        <div class="ascii">PDF (module 2)                         DOCX (ce module)
+────────────────────                   ────────────────────
+Tableaux : détection géométrique        Tableaux : structure explicite
+heuristique (peut échouer)              (lignes/colonnes garanties)
+
+Titres : déduits de la taille           Titres : style explicite
+de police (heuristique)                 ("Heading 1", "Heading 2"...)
+
+Ordre de lecture : à reconstruire       Ordre de lecture : préservé
+(colonnes, encadrés)                    nativement dans le document</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Ignorer le nom du style (<code class="inline">paragraphe.style.name</code>) et se contenter de concaténer <code class="inline">paragraphe.text</code> pour tous les paragraphes indifféremment. Cela revient à jeter volontairement la principale information structurelle que le format .docx offre gratuitement — une régression par rapport aux capacités réelles du format.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Si vous avez accès à un fichier .docx avec au moins un titre et une liste à puces, exécutez le code <code class="inline">extraire_avec_hierarchie</code> ci-dessus. Vérifiez que les titres sont correctement identifiés par leur style plutôt que mélangés au texte courant.
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l3" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 3.3</span>Préserver la structure logique pendant l'extraction</h2>
+
+        <p>Extraire le texte d'un .docx sans perdre sa hiérarchie logique demande de représenter explicitement cette hiérarchie dans la sortie, plutôt que de tout aplatir en une seule chaîne de caractères — une pratique qui bénéficie directement au chunking structurel étudié dans le cours précédent.</p>
+
+        <h3>Reconstituer une hiérarchie de sections</h3>
+        <pre><code class="language-python">def construire_hierarchie(document: Document) -> list[dict]:
+    """Regroupe les paragraphes sous leur titre de section correspondant,
+    similaire à ce que fait le chunking Markdown (cours chunking, module 5)."""
+    sections = []
+    section_courante = {"titre": None, "niveau": 0, "contenu": []}
+
+    for paragraphe in document.paragraphs:
+        style = paragraphe.style.name
+        if style.startswith("Heading"):
+            if section_courante["contenu"] or section_courante["titre"]:
+                sections.append(section_courante)
+            niveau = int(style[-1]) if style[-1].isdigit() else 1
+            section_courante = {"titre": paragraphe.text, "niveau": niveau, "contenu": []}
+        elif paragraphe.text.strip():
+            section_courante["contenu"].append(paragraphe.text)
+
+    if section_courante["contenu"] or section_courante["titre"]:
+        sections.append(section_courante)
+    return sections
+</code></pre>
+
+        <h3>Convertir vers un format intermédiaire structuré (Markdown)</h3>
+        <p>Une pratique efficace consiste à convertir le .docx vers du Markdown, un format texte qui préserve la hiérarchie de titres et les listes tout en restant directement compatible avec les outils de chunking structurel déjà vus dans le cours précédent (<code class="inline">MarkdownHeaderTextSplitter</code>).</p>
+
+        <pre><code class="language-python">def docx_vers_markdown(document: Document) -> str:
+    lignes_markdown = []
+    for paragraphe in document.paragraphs:
+        style = paragraphe.style.name
+        texte = paragraphe.text.strip()
+        if not texte:
+            continue
+
+        if style.startswith("Heading"):
+            niveau = int(style[-1]) if style[-1].isdigit() else 1
+            lignes_markdown.append(f"{'#' * niveau} {texte}")
+        elif style in ("List Bullet", "List Bullet 2"):
+            lignes_markdown.append(f"- {texte}")
+        elif style in ("List Number",):
+            lignes_markdown.append(f"1. {texte}")
+        else:
+            lignes_markdown.append(texte)
+
+    return "\n\n".join(lignes_markdown)
+</code></pre>
+
+        <p>Cette conversion vers un format intermédiaire structuré (Markdown) illustre un principe transversal utile pour l'ensemble de ce cours : plutôt que d'inventer un format de sortie propriétaire pour chaque type de document source, convertir vers un format texte structuré standard permet de réutiliser directement les outils de chunking déjà maîtrisés, quel que soit le format d'origine (PDF, DOCX, HTML).</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Aplatir tout le contenu d'un .docx en un unique bloc de texte continu dès l'extraction, perdant définitivement l'information de hiérarchie qui aurait pu alimenter un chunking structurel de bien meilleure qualité. Une fois cette information perdue à l'extraction, elle ne peut plus être récupérée en aval — la préservation de structure doit avoir lieu dès cette étape, pas être remise à plus tard.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un .docx de votre choix, imaginez le résultat de la fonction <code class="inline">docx_vers_markdown</code> ci-dessus. Ce Markdown obtenu pourrait-il être directement traité par le <code class="inline">MarkdownHeaderTextSplitter</code> du cours chunking (module 5) ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l4" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 3.4</span>Gérer les images, notes de bas de page et éléments intégrés</h2>
+
+        <p>Un document Word réel contient souvent bien plus que du texte courant : images, notes de bas de page, zones de texte, objets intégrés (graphiques Excel, équations). Chacun de ces éléments demande un traitement spécifique pour ne pas être simplement ignoré ou, pire, mal interprété comme du texte incohérent.</p>
+
+        <h3>Images</h3>
+        <p>python-docx permet d'accéder aux images intégrées, mais n'en extrait pas le contenu textuel (cela nécessiterait de l'OCR, hors du périmètre de ce module). La bonne pratique minimale : au moins signaler la présence d'une image dans le flux de texte extrait (par un marqueur du type <code class="inline">[IMAGE]</code>), pour ne pas laisser un "trou" silencieux dans le texte qui pourrait fausser la compréhension du chunk environnant.</p>
+
+        <pre><code class="language-python">from docx.oxml.ns import qn
+
+def compter_images(document: Document) -> int:
+    nb_images = 0
+    for rel in document.part.rels.values():
+        if "image" in rel.reltype:
+            nb_images += 1
+    return nb_images
+
+print(f"Le document contient {compter_images(document)} image(s) intégrée(s).")
+</code></pre>
+
+        <h3>Notes de bas de page et de fin</h3>
+        <p>Les notes de bas de page sont stockées séparément du texte principal dans la structure XML du .docx (dans un fichier <code class="inline">footnotes.xml</code> distinct), et python-docx ne les expose pas nativement dans l'API de haut niveau — un accès direct au XML sous-jacent est nécessaire pour les récupérer complètement. Une option pragmatique pour beaucucoup de cas d'usage : les ignorer sciemment si leur contenu est secondaire, ou les extraire séparément et les associer comme métadonnée au paragraphe qui les référence, plutôt que de les insérer telles quelles en plein milieu du texte principal (ce qui romprait le flux de lecture, un piège similaire aux notes de bas de page mal gérées dans un PDF, module 2).</p>
+
+        <h3>Zones de texte et objets intégrés</h3>
+        <p>Le texte placé dans une zone de texte (text box) n'apparaît pas dans <code class="inline">document.paragraphs</code> — c'est un piège fréquent et sournois, car cette omission est silencieuse (aucune erreur, juste une absence de contenu). Un accès plus bas niveau au XML est nécessaire pour le récupérer, en recherchant spécifiquement les éléments <code class="inline">&lt;w:txbxContent&gt;</code> dans le document.</p>
+
+        <pre><code class="language-python">from docx import Document
+import re
+
+def extraire_zones_de_texte(chemin_docx: str) -> list[str]:
+    document = Document(chemin_docx)
+    xml_complet = document.element.xml
+    # Recherche des blocs de contenu de zones de texte dans le XML brut
+    contenus = re.findall(r'&lt;w:txbxContent&gt;(.*?)&lt;/w:txbxContent&gt;', xml_complet, re.DOTALL)
+    return contenus
+</code></pre>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Supposer que <code class="inline">document.paragraphs</code> capture l'intégralité du texte d'un .docx. Le texte contenu dans des zones de texte, des en-têtes/pieds de page personnalisés, ou certains objets intégrés n'apparaît pas dans cette liste — une omission silencieuse qui peut faire disparaître des informations importantes (légendes, encadrés) sans aucun signal d'erreur.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre corpus de documents Word (réel ou imaginé), les documents contiennent-ils probablement des zones de texte, des notes de bas de page, ou des objets intégrés significatifs pour la compréhension du contenu ? Si oui, cela justifie-t-il un traitement spécifique au-delà de <code class="inline">document.paragraphs</code> ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l5" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 3.5</span>Cas particuliers : suivi des modifications, commentaires, versions</h2>
+
+        <p>Les documents Word issus d'un usage collaboratif réel (contrats en cours de négociation, documents révisés en équipe) contiennent souvent des éléments qui, s'ils ne sont pas gérés explicitement, peuvent gravement corrompre le texte extrait.</p>
+
+        <h3>Suivi des modifications (Track Changes)</h3>
+        <p>Quand le suivi des modifications est activé, le document contient à la fois le texte original (marqué comme supprimé) et le texte modifié (marqué comme inséré) dans sa structure XML. Une extraction naïve peut mélanger les deux versions dans le texte final, produisant un contenu incohérent qui contient à la fois d'anciennes formulations supprimées et leurs remplacements.</p>
+
+        <pre><code class="language-python">from docx.oxml.ns import qn
+
+def extraire_texte_final_uniquement(paragraphe) -> str:
+    """Exclut le texte marqué comme supprimé (w:del) dans le suivi des modifications."""
+    texte = ""
+    for run in paragraphe.runs:
+        element_parent = run._element.getparent()
+        if element_parent.tag == qn("w:del"):
+            continue   # ignorer le texte supprimé (barré)
+        texte += run.text
+    return texte
+</code></pre>
+
+        <h3>Commentaires</h3>
+        <p>Les commentaires ajoutés en marge d'un document (souvent des annotations de relecture, pas du contenu destiné à la lecture finale) sont stockés séparément dans <code class="inline">comments.xml</code> et ne devraient généralement pas être mélangés au texte principal extrait pour un usage RAG — ils constituent un bruit de nature différente de celui vu jusqu'ici : du contenu réel et bien formé, mais destiné à un usage éditorial interne plutôt qu'à la consultation finale.</p>
+
+        <h3>Documents avec plusieurs versions ou révisions</h3>
+        <p>Pour un corpus de contrats ou de documents révisés plusieurs fois, s'assurer d'extraire la version <em>finale et validée</em> plutôt qu'un brouillon intermédiaire est une question de gouvernance documentaire en amont de l'extraction technique — un fichier nommé "contrat_v3_FINAL_vraiment_final.docx" est un signal classique qu'il faut vérifier la version réellement en vigueur avant même de lancer une extraction automatisée à grande échelle.</p>
+
+        <div class="ascii">Éléments à vérifier avant extraction en masse d'un corpus Word :
+
+[ ] Le suivi des modifications est-il activé sur certains documents ?
+    → risque de mélanger texte original et modifié
+[ ] Des commentaires de relecture sont-ils présents ?
+    → à exclure du texte destiné à l'usage final
+[ ] Plusieurs versions du même document coexistent-elles ?
+    → s'assurer d'utiliser la version finale/validée
+[ ] Des zones de texte ou objets intégrés contiennent-ils de
+    l'information significative ? (leçon précédente)</div>
+
+        <p>Ce module clôt la partie "extraction de documents bureautiques" du cours. Le module suivant traite un format très différent dans sa nature — le HTML — où le défi principal n'est plus de reconstruire une structure absente (PDF) ou de l'exploiter correctement (Word), mais de filtrer intelligemment une structure riche mais bruitée par du contenu non éditorial.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Lancer une extraction automatisée sur un corpus de documents Word sans vérifier au préalable si le suivi des modifications est actif sur une partie d'entre eux. Le symptôme (texte incohérent, phrases qui ne se suivent pas logiquement) peut être confondu avec un problème d'extraction générique, alors que la cause est spécifique et facilement identifiable une fois qu'on sait la chercher.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : si votre corpus de documents Word provient d'un usage collaboratif (contrats négociés, documents révisés en équipe), quels des trois pièges de cette leçon (suivi des modifications, commentaires, versions multiples) vous semblent les plus probables à rencontrer ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-4">
+      <span class="module-kicker">MODULE 04 / 08</span>
+      <h1>Extraction de HTML et contenu web</h1>
+      <p class="intro">Le HTML est semi-structuré (module 1, leçon 3) : sa structure est explicite, mais son contenu mélange systématiquement de l'éditorial avec de la navigation, des publicités et des scripts. Ce module montre comment parser cette structure et surtout comment en isoler le contenu réellement utile.</p>
+
+      <section class="lesson" id="m4-l1" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 4.1</span>Parser du HTML avec BeautifulSoup : bases et pièges</h2>
+
+        <p><strong>BeautifulSoup</strong> est la librairie Python de référence pour parser du HTML et naviguer dans sa structure arborescente (le DOM). Contrairement au PDF, la structure du HTML est explicite et immédiatement exploitable — le défi n'est pas de la reconstruire, mais de savoir quelles parties de cette structure retenir.</p>
+
+        <pre><code class="language-python">from bs4 import BeautifulSoup
+import requests
+
+reponse = requests.get("https://exemple.com/article")
+soup = BeautifulSoup(reponse.text, "html.parser")
+
+# Extraire tout le texte, sans distinction (approche naïve)
+texte_brut = soup.get_text()
+print(texte_brut[:500])
+</code></pre>
+
+        <p>Cette approche naïve — <code class="inline">soup.get_text()</code> sur l'ensemble de la page — produit presque toujours un résultat très bruité : le texte du menu de navigation, du pied de page, des scripts non filtrés et des publicités se retrouve mélangé au contenu éditorial réel, sans aucune distinction. C'est le piège le plus fréquent pour qui découvre le parsing HTML : confondre "extraire tout le texte visible" avec "extraire le contenu pertinent".</p>
+
+        <h3>Naviguer dans l'arbre DOM de façon ciblée</h3>
+        <pre><code class="language-python"># Cibler des éléments précis plutôt que toute la page
+titre = soup.find("h1")
+paragraphes = soup.find_all("p")
+liens = soup.find_all("a", href=True)
+
+# Utiliser des sélecteurs CSS pour cibler une zone précise
+contenu_principal = soup.select_one("article.contenu-principal")
+if contenu_principal:
+    texte = contenu_principal.get_text(separator=" ", strip=True)
+</code></pre>
+
+        <h3>Le piège des scripts et styles non filtrés</h3>
+        <p>Un piège fréquent et facile à manquer : les balises <code class="inline">&lt;script&gt;</code> et <code class="inline">&lt;style&gt;</code> contiennent du texte (code JavaScript, règles CSS) qui n'est jamais destiné à être lu comme du contenu, mais qui sera capturé par <code class="inline">get_text()</code> si ces balises ne sont pas explicitement supprimées au préalable.</p>
+
+        <pre><code class="language-python">for balise in soup(["script", "style"]):
+    balise.decompose()   # supprime la balise ET son contenu de l'arbre
+
+texte_propre = soup.get_text(separator=" ", strip=True)
+</code></pre>
+
+        <div class="ascii">Page HTML typique (structure simplifiée) :
+
+&lt;html&gt;
+  &lt;head&gt;
+    &lt;script&gt; ... code JavaScript ... &lt;/script&gt;
+    &lt;style&gt; ... règles CSS ... &lt;/style&gt;
+  &lt;/head&gt;
+  &lt;body&gt;
+    &lt;nav&gt; Accueil | Produits | Contact &lt;/nav&gt;
+    &lt;article&gt;
+      &lt;h1&gt;Titre de l'article&lt;/h1&gt;
+      &lt;p&gt;Contenu réel de l'article...&lt;/p&gt;
+    &lt;/article&gt;
+    &lt;footer&gt; © 2026 - Mentions légales &lt;/footer&gt;
+  &lt;/body&gt;
+&lt;/html&gt;
+
+get_text() SANS filtrage : mélange TOUT (script, nav, article, footer)
+get_text() sur soup.select_one("article") : isole le contenu réel</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Appeler <code class="inline">soup.get_text()</code> directement sur la page entière sans avoir d'abord supprimé les balises <code class="inline">&lt;script&gt;</code> et <code class="inline">&lt;style&gt;</code>, ni ciblé une zone de contenu précise. Le résultat contient alors du code JavaScript et CSS mélangé au texte éditorial, un bruit particulièrement difficile à filtrer a posteriori tant il peut ressembler à du texte structuré.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour une page web de votre choix, ouvrez son code source (clic droit → "Afficher le code source" dans un navigateur). Repérez visuellement où se situe le contenu éditorial principal dans l'arborescence de balises, par rapport à la navigation et au pied de page.
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l2" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 4.2</span>Distinguer contenu principal et bruit (navigation, pubs, pieds de page)</h2>
+
+        <p>Le défi central de l'extraction HTML n'est pas technique (parser le DOM est trivial avec BeautifulSoup) mais <strong>sémantique</strong> : comment un programme peut-il savoir automatiquement, sur une page qu'il n'a jamais vue, quelles balises contiennent le contenu éditorial recherché plutôt que de la navigation ou de la publicité ?</p>
+
+        <h3>Approche 1 : sélecteurs CSS ciblés (site par site)</h3>
+        <p>La méthode la plus fiable quand elle est applicable : identifier manuellement, pour un site donné, le sélecteur CSS qui isole précisément le contenu principal (souvent une balise <code class="inline">&lt;article&gt;</code>, ou une <code class="inline">&lt;div&gt;</code> avec une classe explicite comme <code class="inline">.post-content</code> ou <code class="inline">.article-body</code>). Cette approche est très précise mais ne s'applique qu'à un site à la fois — elle ne généralise pas à un corpus de sources hétérogènes.</p>
+
+        <pre><code class="language-python">SELECTEURS_PAR_SITE = {
+    "blog.exemple.com": "article.post-content",
+    "docs.exemple.com": "main#contenu-documentation",
+    "wiki.exemple.com": "div#mw-content-text",
+}
+
+def extraire_contenu_cible(soup: BeautifulSoup, domaine: str) -> str:
+    selecteur = SELECTEURS_PAR_SITE.get(domaine)
+    if selecteur:
+        element = soup.select_one(selecteur)
+        return element.get_text(separator=" ", strip=True) if element else ""
+    return ""   # domaine inconnu : nécessite une autre stratégie (leçon 4.3)
+</code></pre>
+
+        <h3>Approche 2 : heuristiques génériques basées sur la densité de texte</h3>
+        <p>Pour un corpus de sources variées où maintenir des sélecteurs par site n'est pas praticable, une heuristique répandue consiste à identifier la zone du DOM avec la plus forte <strong>densité de texte par rapport au nombre de balises</strong> — l'intuition étant que le contenu éditorial contient de longs paragraphes de texte continu, alors que la navigation et les publicités contiennent beaucoup de balises (liens, boutons) pour peu de texte réel.</p>
+
+        <pre><code class="language-python">def calculer_densite_texte(element) -> float:
+    texte = element.get_text(strip=True)
+    nb_balises = len(element.find_all())
+    return len(texte) / max(nb_balises, 1)
+
+def trouver_zone_principale(soup: BeautifulSoup):
+    candidats = soup.find_all(["div", "article", "section", "main"])
+    if not candidats:
+        return soup.body
+    return max(candidats, key=calculer_densite_texte)
+</code></pre>
+
+        <h3>Approche 3 : filtrage par liste noire de motifs connus</h3>
+        <p>Une approche complémentaire, plus simple mais moins précise : exclure systématiquement les balises et classes CSS fréquemment associées à du contenu non éditorial (navigation, pieds de page, bannières de cookies), identifiées par des motifs récurrents de nommage.</p>
+
+        <pre><code class="language-python">MOTIFS_A_EXCLURE = ["nav", "footer", "header", "sidebar", "cookie", "advertisement", "menu", "comment"]
+
+def supprimer_bruit_par_motif(soup: BeautifulSoup) -> BeautifulSoup:
+    for balise in soup.find_all(["nav", "footer", "header", "aside"]):
+        balise.decompose()
+
+    for motif in MOTIFS_A_EXCLURE:
+        for element in soup.find_all(class_=lambda c: c and motif in c.lower()):
+            element.decompose()
+        for element in soup.find_all(id=lambda i: i and motif in i.lower()):
+            element.decompose()
+    return soup
+</code></pre>
+
+        <div class="ascii">Approche                  Précision      Généralisation      Effort de maintenance
+─────────────────────────────────────────────────────────────────────────────
+Sélecteurs par site         Très élevée    Faible (1 site)     Élevé (par site)
+Densité de texte            Moyenne        Bonne               Faible
+Liste noire de motifs       Moyenne        Bonne                Faible à moyen
+
+→ En pratique, ces trois approches sont souvent combinées, ou
+  remplacées par des outils spécialisés qui les implémentent déjà
+  de façon robuste (leçon 4.3).</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Vouloir maintenir des sélecteurs CSS spécifiques pour chaque site d'un corpus qui en compte des dizaines ou des centaines — une approche qui ne passe pas à l'échelle et se casse silencieusement dès qu'un site change sa mise en page. Au-delà de quelques sources fixes et stables, une approche générique (leçon 4.3) devient nécessaire.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un site que vous consultez régulièrement, essayez d'identifier à l'œil (via l'inspecteur du navigateur) le sélecteur CSS qui isolerait précisément son contenu éditorial principal, en excluant la navigation et les éléments périphériques.
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l3" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 4.3</span>Extraction automatisée de contenu principal (trafilatura, readability)</h2>
+
+        <p>Pour un corpus de sources web hétérogènes où maintenir des règles par site est impraticable, des librairies spécialisées implémentent des algorithmes de détection de contenu principal bien plus robustes que les heuristiques simples de la leçon précédente, entraînés et affinés sur des milliers de pages web réelles.</p>
+
+        <h3>trafilatura : extraction de contenu web de référence</h3>
+        <p><strong>trafilatura</strong> est aujourd'hui l'une des librairies les plus fiables pour extraire automatiquement le contenu principal d'une page web, en filtrant nativement la navigation, les publicités, les commentaires et autres éléments périphériques, avec un bon support pour extraire aussi les métadonnées (auteur, date de publication, titre).</p>
+
+        <pre><code class="language-python">import trafilatura
+
+html = trafilatura.fetch_url("https://exemple.com/article")
+texte_principal = trafilatura.extract(html)
+print(texte_principal)
+
+# Extraction avec métadonnées incluses
+resultat_complet = trafilatura.extract(
+    html,
+    include_comments=False,
+    include_tables=True,
+    output_format="json",
+)
+</code></pre>
+
+        <h3>readability-lxml : l'algorithme popularisé par Firefox Reader View</h3>
+        <p><strong>readability-lxml</strong> est un portage Python de l'algorithme Readability popularisé par le "mode lecture" des navigateurs, qui score chaque section du DOM pour identifier la plus susceptible de contenir l'article principal.</p>
+
+        <pre><code class="language-python">from readability import Document as ReadabilityDocument
+
+doc = ReadabilityDocument(html)
+titre = doc.title()
+contenu_html_nettoye = doc.summary()   # HTML nettoyé, contenant surtout le contenu principal
+
+soup_nettoye = BeautifulSoup(contenu_html_nettoye, "html.parser")
+texte_final = soup_nettoye.get_text(separator=" ", strip=True)
+</code></pre>
+
+        <h3>Comparer les deux approches</h3>
+        <div class="ascii">trafilatura                              readability-lxml
+──────────────────────────────          ──────────────────────────────
+Extraction directe en texte              Retourne du HTML nettoyé
+                                          (nécessite un second passage
+                                          BeautifulSoup pour le texte)
+
+Extraction de métadonnées native         Se concentre sur le contenu,
+(auteur, date)                           moins de métadonnées natives
+
+Très large adoption dans la              Racines plus anciennes (portage
+communauté NLP/RAG récente               de l'algorithme historique
+                                          Readability de Mozilla/Arc90)</div>
+
+        <p>Pour la majorité des projets RAG qui ingèrent du contenu web varié, <strong>trafilatura</strong> est aujourd'hui le choix recommandé par défaut, grâce à sa robustesse éprouvée sur un grand nombre de structures de sites différentes et son intégration native de l'extraction de métadonnées, précieuse pour peupler les champs de métadonnées de chunk vus dans le cours précédent (source, date, auteur).</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Réimplémenter à la main une heuristique de densité de texte (leçon 4.2) pour un corpus web à grande échelle, alors que des librairies matures comme trafilatura, testées sur des millions de pages réelles, résolvent déjà ce problème de façon plus robuste. Comme pour le chunking (cours précédent), il vaut mieux réserver l'implémentation sur mesure aux cas non couverts par l'écosystème existant.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Si vous avez accès à Python, installez <code class="inline">trafilatura</code> et testez-le sur l'URL d'un article que vous connaissez. Comparez le texte extrait au contenu réel de la page — la navigation et les éléments périphériques ont-ils été correctement exclus ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l4" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 4.4</span>Gérer le contenu généré par JavaScript</h2>
+
+        <p>Un nombre croissant de sites web modernes (applications à page unique, sites construits avec React, Vue, ou Next.js) ne contiennent pas le contenu textuel directement dans le HTML initial servi par le serveur — ce contenu est généré dynamiquement par du JavaScript exécuté dans le navigateur, <em>après</em> le chargement initial de la page.</p>
+
+        <h3>Diagnostiquer le problème</h3>
+        <p>Un symptôme caractéristique : une requête HTTP simple (via <code class="inline">requests</code>) renvoie un HTML presque vide, avec seulement quelques balises <code class="inline">&lt;div id="root"&gt;&lt;/div&gt;</code> ou <code class="inline">&lt;div id="app"&gt;&lt;/div&gt;</code> sans aucun contenu textuel — le "vrai" contenu n'existe qu'après exécution du JavaScript par un navigateur.</p>
+
+        <pre><code class="language-python">import requests
+
+reponse = requests.get("https://application-react.exemple.com")
+print(reponse.text)
+# &lt;div id="root"&gt;&lt;/div&gt;
+# → Aucun contenu réel : ce site nécessite l'exécution de JavaScript
+</code></pre>
+
+        <h3>Solution : un navigateur automatisé (headless)</h3>
+        <p>Pour ces sites, une requête HTTP classique ne suffit pas — il faut un navigateur automatisé qui exécute réellement le JavaScript avant de capturer le HTML final. <strong>Playwright</strong> (ou son prédécesseur Selenium) permet cela en pilotant un vrai moteur de navigateur (Chromium, Firefox) de façon programmatique.</p>
+
+        <pre><code class="language-python">from playwright.sync_api import sync_playwright
+
+def recuperer_html_apres_javascript(url: str) -> str:
+    with sync_playwright() as p:
+        navigateur = p.chromium.launch()
+        page = navigateur.new_page()
+        page.goto(url)
+        page.wait_for_load_state("networkidle")   # attendre la fin des requêtes JS
+        html_final = page.content()
+        navigateur.close()
+        return html_final
+
+html_complet = recuperer_html_apres_javascript("https://application-react.exemple.com")
+soup = BeautifulSoup(html_complet, "html.parser")
+</code></pre>
+
+        <h3>Le compromis coût/complexité</h3>
+        <p>Un navigateur automatisé est nettement plus lent (plusieurs secondes par page contre quelques centaines de millisecondes pour une requête HTTP simple) et plus coûteux en ressources (mémoire, CPU) qu'une extraction HTML classique. Cette approche ne devrait être utilisée que lorsque nécessaire — c'est-à-dire uniquement pour les sites confirmés comme nécessitant du rendu JavaScript, pas systématiquement par précaution sur l'ensemble d'un corpus.</p>
+
+        <div class="ascii">Site avec contenu statique (SSR,          Site avec rendu JavaScript
+HTML classique)                            pur (SPA React/Vue/etc.)
+──────────────────────────────            ──────────────────────────────
+requests.get() suffit                      requests.get() renvoie une
+                                            coquille HTML vide
+
+Rapide (~200ms par page)                   Nécessite un navigateur
+                                            automatisé (~2-5s par page)
+
+Cas majoritaire pour du contenu            Cas fréquent pour des
+éditorial (blogs, documentation,            applications web modernes,
+articles de presse)                         tableaux de bord, SaaS</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Utiliser systématiquement un navigateur automatisé pour l'ensemble d'un corpus web par précaution, sans vérifier au préalable si chaque site nécessite réellement un rendu JavaScript. Cela multiplie inutilement le temps et le coût de calcul de l'ingestion pour des sites qui auraient très bien fonctionné avec une simple requête HTTP.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un site de votre choix, effectuez (mentalement ou réellement) une requête HTTP simple et inspectez le HTML brut obtenu. Contient-il le texte visible sur la page, ou seulement une coquille vide à remplir par JavaScript ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l5" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 4.5</span>Extraire proprement les tableaux et listes HTML</h2>
+
+        <p>Comme pour le PDF et le Word, les tableaux et listes HTML méritent un traitement dédié pour préserver leur structure logique plutôt que de les aplatir en texte continu indifférencié — un principe déjà rencontré au cours chunking (module 5, leçon 4) pour la préservation des tableaux.</p>
+
+        <h3>Extraire un tableau HTML en préservant sa structure</h3>
+        <pre><code class="language-python">def extraire_tableau_html(table_element) -> list[list[str]]:
+    lignes = []
+    for tr in table_element.find_all("tr"):
+        cellules = [cell.get_text(strip=True) for cell in tr.find_all(["td", "th"])]
+        if cellules:
+            lignes.append(cellules)
+    return lignes
+
+for table in soup.find_all("table"):
+    donnees = extraire_tableau_html(table)
+    for ligne in donnees:
+        print(ligne)   # liste de cellules par ligne, structure préservée
+</code></pre>
+
+        <h3>Convertir un tableau HTML en Markdown</h3>
+        <p>Comme évoqué pour les tableaux PDF (module 2), convertir un tableau extrait vers un format Markdown préserve la relation ligne/colonne de façon lisible à la fois par un humain et par un LLM, tout en restant un simple texte compatible avec le pipeline de chunking en aval.</p>
+
+        <pre><code class="language-python">def tableau_vers_markdown(lignes: list[list[str]]) -> str:
+    if not lignes:
+        return ""
+    entetes = lignes[0]
+    separateur = ["---"] * len(entetes)
+    lignes_donnees = lignes[1:]
+
+    md = [
+        "| " + " | ".join(entetes) + " |",
+        "| " + " | ".join(separateur) + " |",
+    ]
+    for ligne in lignes_donnees:
+        md.append("| " + " | ".join(ligne) + " |")
+    return "\n".join(md)
+</code></pre>
+
+        <h3>Extraire les listes en préservant leur ordre et leur imbrication</h3>
+        <p>Les listes HTML (<code class="inline">&lt;ul&gt;</code>, <code class="inline">&lt;ol&gt;</code>) peuvent être imbriquées (une liste à puces contenant elle-même une sous-liste) — une extraction naïve de tout le texte via <code class="inline">get_text()</code> aplatit cette hiérarchie et perd l'information de niveau d'imbrication, potentiellement importante pour comprendre correctement le contenu (par exemple, des sous-conditions rattachées à une condition principale).</p>
+
+        <pre><code class="language-python">def extraire_liste_avec_niveaux(element_liste, niveau: int = 0) -> list[dict]:
+    resultat = []
+    for li in element_liste.find_all("li", recursive=False):
+        texte_direct = "".join(
+            t for t in li.find_all(text=True, recursive=False)
+        ).strip()
+        if texte_direct:
+            resultat.append({"niveau": niveau, "texte": texte_direct})
+
+        sous_liste = li.find(["ul", "ol"])
+        if sous_liste:
+            resultat.extend(extraire_liste_avec_niveaux(sous_liste, niveau + 1))
+    return resultat
+</code></pre>
+
+        <div class="ascii">Liste HTML imbriquée :                  Extraction avec niveaux préservés :
+
+&lt;ul&gt;                                     [niveau 0] Conditions d'éligibilité
+  &lt;li&gt;Conditions d'éligibilité             [niveau 1] Être client depuis 1 an
+    &lt;ul&gt;                                   [niveau 1] Ne pas avoir de litige
+      &lt;li&gt;Être client depuis 1 an&lt;/li&gt;
+      &lt;li&gt;Ne pas avoir de litige&lt;/li&gt;    → la hiérarchie logique reste
+    &lt;/ul&gt;                                    visible dans le résultat,
+  &lt;/li&gt;                                     contrairement à un simple
+&lt;/ul&gt;                                      aplatissement en texte continu</div>
+
+        <p>Ce module clôt la partie "extraction par format" du cours (PDF, Word, HTML). Les modules suivants s'appliquent transversalement, quel que soit le format d'origine, pour affiner et fiabiliser le texte déjà extrait.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Utiliser <code class="inline">get_text()</code> sur un tableau ou une liste HTML entière sans passer par une extraction structurée dédiée, produisant un bloc de texte où les cellules et les niveaux de liste sont fondus ensemble sans séparateur clair — un piège qui reproduit exactement, pour le HTML, le même problème déjà rencontré pour les tableaux PDF (module 2) et Word (module 3).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : parmi les trois formats vus (PDF, Word, HTML), lequel offre la meilleure préservation native de la structure des tableaux et pourquoi ? Reliez votre réponse aux différences architecturales vues dans les leçons 2.1, 3.1 et 4.1.
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-5">
+      <span class="module-kicker">MODULE 05 / 08</span>
+      <h1>Suppression de bruit et normalisation de texte</h1>
+      <p class="intro">Une fois le texte extrait (modules 2 à 4), quel que soit le format d'origine, une seconde étape transversale s'impose : nettoyer et normaliser ce texte selon des techniques communes à tous les formats. Ce module couvre ces traitements génériques, applicables après n'importe quelle extraction.</p>
+
+      <section class="lesson" id="m5-l1" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 5.1</span>Nettoyage des caractères d'encodage et normalisation Unicode</h2>
+
+        <p>Le bruit d'encodage (évoqué au module 1, leçon 4) est l'un des artefacts les plus fréquents et les plus perturbants pour un pipeline de nettoyage : des caractères mal interprétés lors d'une conversion entre encodages, produisant des séquences de caractères incohérentes à la place d'accents, de guillemets ou de tirets typographiques.</p>
+
+        <h3>Diagnostiquer un problème d'encodage (mojibake)</h3>
+        <p>Le symptôme classique, appelé "mojibake", se manifeste par des séquences de caractères bizarres à la place de caractères accentués — typiquement quand un texte encodé en UTF-8 est incorrectement lu comme s'il était en Latin-1 (ou l'inverse).</p>
+
+        <pre><code class="language-python"># Exemple de mojibake typique :
+texte_corrompu = "Le chunking est essentiel pour un bon RAG Ã  grande Ã©chelle"
+# "Ã " et "Ã©" sont les symptômes d'un texte UTF-8 mal interprété en Latin-1
+
+def detecter_mojibake(texte: str) -> bool:
+    marqueurs_suspects = ["Ã©", "Ã¨", "Ã ", "â€™", "â€œ", "â€"]
+    return any(marqueur in texte for marqueur in marqueurs_suspects)
+
+if detecter_mojibake(texte_corrompu):
+    print("Ce texte présente probablement un problème d'encodage.")
+</code></pre>
+
+        <h3>Corriger un encodage mal interprété</h3>
+        <pre><code class="language-python">def corriger_encodage(texte: str) -> str:
+    try:
+        # Ré-encoder en Latin-1 puis redécoder en UTF-8 : répare le mojibake
+        # typique d'un texte UTF-8 mal interprété comme du Latin-1
+        return texte.encode("latin-1").decode("utf-8")
+    except (UnicodeDecodeError, UnicodeEncodeError):
+        return texte   # le texte n'était pas dans ce cas de figure
+
+texte_corrige = corriger_encodage(texte_corrompu)
+print(texte_corrige)   # "Le chunking est essentiel pour un bon RAG à grande échelle"
+</code></pre>
+
+        <h3>Normalisation Unicode (NFC, NFD, NFKC, NFKD)</h3>
+        <p>Au-delà des erreurs d'encodage, l'Unicode permet de représenter un même caractère visuel de plusieurs façons différentes en mémoire — par exemple, un "é" peut être stocké comme un seul caractère composé, ou comme deux caractères séparés ("e" + un accent combinant). Ces deux représentations sont visuellement identiques mais informatiquement différentes, ce qui peut casser des comparaisons de texte ou des recherches exactes si le texte n'est pas normalisé de façon cohérente.</p>
+
+        <pre><code class="language-python">import unicodedata
+
+texte_1 = "café"                              # "é" en un seul caractère composé
+texte_2 = "cafe" + "́"                    # "e" + accent combinant séparé
+
+print(texte_1 == texte_2)   # False ! Pourtant identiques visuellement
+
+texte_1_normalise = unicodedata.normalize("NFC", texte_1)
+texte_2_normalise = unicodedata.normalize("NFC", texte_2)
+print(texte_1_normalise == texte_2_normalise)   # True après normalisation NFC
+</code></pre>
+
+        <div class="ascii">Forme de normalisation    Description                        Usage typique
+──────────────────────────────────────────────────────────────────────────
+NFC   (Composée)          Caractères composés quand          Standard pour
+                          possible ("é" en 1 caractère)      le stockage et
+                                                              l'affichage
+
+NFD   (Décomposée)        Caractères décomposés               Utile pour le
+                          ("e" + accent séparé)               traitement
+                                                              linguistique
+
+NFKC/NFKD (Compatibilité) Normalise aussi les variantes        Utile pour la
+                          visuelles ("²" devient "2")         recherche/comparaison
+                                                              tolérante aux variantes</div>
+
+        <p>Pour un pipeline de préparation de données RAG, la pratique recommandée est de normaliser systématiquement tout texte extrait en <strong>NFC</strong> dès l'ingestion — la forme la plus standard et la plus compacte, cohérente avec ce que produisent la plupart des éditeurs de texte et systèmes modernes.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Ne jamais normaliser l'Unicode du texte extrait, en supposant que "le texte a l'air normal visuellement donc c'est bon". Deux chunks visuellement identiques mais avec des représentations Unicode différentes peuvent produire des embeddings légèrement différents (rappel du cours embeddings) ou échouer à une déduplication basée sur une comparaison exacte de chaînes (module 6), sans qu'aucun signe visuel ne trahisse le problème.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Avec le code ci-dessus, testez la comparaison entre les deux représentations de "café" (composée vs décomposée) avant et après normalisation NFC. Le résultat vous surprend-il ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l2" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 5.2</span>Suppression des artefacts de mise en page</h2>
+
+        <p>Cette leçon généralise, au-delà du seul cas du PDF (module 2), les techniques de nettoyage des artefacts introduits par la mise en page d'origine — des traitements applicables à du texte issu de n'importe quel format une fois l'extraction initiale effectuée.</p>
+
+        <h3>Sauts de ligne cosmétiques</h3>
+        <p>Un texte extrait d'un PDF ou d'une page web mal structurée contient souvent un saut de ligne après chaque ligne <em>visuelle</em> plutôt qu'après chaque paragraphe réel — il faut distinguer ces deux cas pour ne fusionner que les sauts de ligne cosmétiques, sans détruire la séparation entre véritables paragraphes.</p>
+
+        <pre><code class="language-python">import re
+
+def fusionner_sauts_de_ligne_cosmetiques(texte: str) -> str:
+    """Fusionne un saut de ligne simple suivi d'une minuscule (signe probable
+    d'une phrase qui continue), tout en préservant les sauts de paragraphe réels."""
+    # Un saut de ligne suivi d'une minuscule est probablement cosmétique
+    texte = re.sub(r'(?&lt;=[a-zàâäéèêëïîôöùûüç,])\n(?=[a-zàâäéèêëïîôöùûüç])', ' ', texte)
+    # Préserver les vrais sauts de paragraphe (ligne vide entre deux blocs)
+    texte = re.sub(r'\n{3,}', '\n\n', texte)
+    return texte
+</code></pre>
+
+        <h3>Espaces multiples et tabulations incohérentes</h3>
+        <pre><code class="language-python">def normaliser_espaces(texte: str) -> str:
+    texte = re.sub(r'[ \t]+', ' ', texte)          # espaces/tabulations multiples → un seul espace
+    texte = re.sub(r' *\n *', '\n', texte)          # espaces autour des sauts de ligne
+    texte = re.sub(r'\n{3,}', '\n\n', texte)        # jamais plus de 2 sauts de ligne consécutifs
+    return texte.strip()
+</code></pre>
+
+        <h3>Mots coupés en fin de ligne (césure)</h3>
+        <p>Certains documents (notamment des PDF avec justification de texte) coupent un mot en fin de ligne avec un trait d'union, à reconstituer explicitement avant tout traitement ultérieur, sous peine de fragmenter des mots en deux tokens sans rapport lors du chunking (cours précédent) ou de l'embedding.</p>
+
+        <pre><code class="language-python">def reconstituer_mots_coupes(texte: str) -> str:
+    # Un trait d'union en fin de ligne suivi d'une minuscule signale
+    # probablement une césure à recoller, pas un vrai mot composé
+    return re.sub(r'(\w+)-\n(\w+)', r'\1\2', texte)
+
+texte_avec_cesure = "Le chunking sé-\nmantique découpe selon le sens."
+print(reconstituer_mots_coupes(texte_avec_cesure))
+# "Le chunking sémantique découpe selon le sens."
+</code></pre>
+
+        <div class="ascii">Type d'artefact              Symptôme                          Traitement
+──────────────────────────────────────────────────────────────────────────
+Saut de ligne cosmétique      phrase coupée en plein milieu      Fusion contextuelle
+                                                                  (leçon ci-dessus)
+Espaces multiples             "mot    mot" au lieu de "mot mot"  Regex de normalisation
+Césure de fin de ligne         "sé-\nmantique"                    Reconstitution du mot
+                                                                  complet</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Appliquer une fusion agressive de tous les sauts de ligne sans distinction, ce qui fusionne aussi les vrais sauts de paragraphe et produit un bloc de texte continu indifférencié — perdant une information de structure qui aurait pu bénéficier au chunking en aval (cours précédent). La fusion doit être sélective, basée sur des indices contextuels (casse de la lettre suivante, ponctuation), pas systématique.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Avec la fonction <code class="inline">reconstituer_mots_coupes</code> ci-dessus, testez-la sur un texte contenant à la fois une vraie césure ("sé-\nmantique") et un mot composé avec trait d'union légitime ("porte-\nfeuille" où le trait d'union fait partie du mot). La fonction distingue-t-elle correctement les deux cas, ou faudrait-il l'affiner ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l3" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 5.3</span>Détection et suppression des en-têtes/pieds de page répétitifs</h2>
+
+        <p>Le module 2 (leçon 5) a présenté une technique de détection d'en-têtes/pieds de page spécifique au PDF, basée sur la position géométrique du texte sur la page. Cette leçon généralise le principe à n'importe quel format, en se basant uniquement sur la <strong>répétition du contenu</strong> à travers les unités du document (pages, sections), sans nécessiter d'information de position.</p>
+
+        <h3>Détection par répétition, indépendante du format</h3>
+        <pre><code class="language-python">from collections import Counter
+
+def detecter_lignes_repetitives(unites_de_texte: list[str], seuil_ratio: float = 0.5) -> set[str]:
+    """unites_de_texte : une liste de blocs de texte (pages, sections, documents).
+    Détecte les lignes qui se répètent identiquement dans une proportion
+    significative de ces unités — probablement du contenu structurel
+    plutôt qu'éditorial (en-tête, pied de page, mention légale répétée)."""
+    compteur_lignes = Counter()
+    for unite in unites_de_texte:
+        lignes_uniques_de_cette_unite = set(l.strip() for l in unite.split("\n") if l.strip())
+        compteur_lignes.update(lignes_uniques_de_cette_unite)
+
+    seuil = len(unites_de_texte) * seuil_ratio
+    return {ligne for ligne, count in compteur_lignes.items() if count >= seuil}
+
+def supprimer_lignes_repetitives(texte: str, lignes_a_exclure: set[str]) -> str:
+    lignes_conservees = [l for l in texte.split("\n") if l.strip() not in lignes_a_exclure]
+    return "\n".join(lignes_conservees)
+</code></pre>
+
+        <h3>Similarité approximative plutôt qu'égalité stricte</h3>
+        <p>Certains en-têtes contiennent une information variable (numéro de page, titre de chapitre qui change) qui empêche une correspondance exacte de chaîne. Une comparaison par similarité approximative (distance d'édition, ou similarité de séquences) permet de détecter des en-têtes "presque identiques" plutôt que strictement identiques.</p>
+
+        <pre><code class="language-python">from difflib import SequenceMatcher
+
+def sont_similaires(a: str, b: str, seuil: float = 0.85) -> bool:
+    return SequenceMatcher(None, a, b).ratio() >= seuil
+
+# "Rapport annuel 2025 - Page 3" et "Rapport annuel 2025 - Page 4"
+# sont détectés comme similaires malgré le numéro de page différent
+</code></pre>
+
+        <p>Cette approche par répétition, indépendante de la position géométrique, s'applique aussi bien à des en-têtes PDF qu'à des mentions légales répétées sur chaque page d'un site web, ou à des formules de politesse répétées dans un corpus d'e-mails ou de tickets de support — un exemple concret de traitement transversal qui bénéficie à l'ensemble du pipeline, quel que soit le format d'origine.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Fixer un seuil de répétition trop bas (par exemple, 10% des pages), ce qui risque de supprimer à tort des titres de section légitimes qui reviennent occasionnellement avec une formulation proche (par exemple, "Conclusion" apparaissant dans plusieurs chapitres). Toujours calibrer ce seuil empiriquement sur un échantillon du corpus réel, et privilégier un seuil plus conservateur (majorité stricte des unités) plutôt que permissif.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un corpus de documents que vous connaissez (rapports, contrats), estimez le pourcentage de pages ou sections qui partageraient probablement un même en-tête ou une même mention répétitive. Ce pourcentage vous aide-t-il à calibrer un seuil de détection raisonnable ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l4" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 5.4</span>Filtrage du texte non pertinent (boilerplate, mentions légales, résidus de navigation)</h2>
+
+        <p>Au-delà des répétitions structurelles (leçon précédente), un texte extrait contient souvent du contenu bien formé et non répétitif à travers le corpus, mais néanmoins non pertinent pour l'usage final — ce qu'on appelle le "boilerplate" : mentions légales génériques, formules de politesse standardisées, avertissements de confidentialité.</p>
+
+        <h3>Filtrage par liste de motifs connus</h3>
+        <pre><code class="language-python">import re
+
+MOTIFS_BOILERPLATE = [
+    r"Tous droits réservés.*?\.",
+    r"Ce (document|message) (est confidentiel|peut contenir des informations confidentielles).*?\.",
+    r"Merci de ne pas répondre à cet e-mail.*?\.",
+    r"Cookie Policy.*?(?=\n|\Z)",
+]
+
+def filtrer_boilerplate(texte: str) -> str:
+    for motif in MOTIFS_BOILERPLATE:
+        texte = re.sub(motif, "", texte, flags=re.IGNORECASE | re.DOTALL)
+    return texte.strip()
+</code></pre>
+
+        <h3>Filtrage par longueur et densité d'information</h3>
+        <p>Une heuristique complémentaire : les paragraphes de boilerplate sont souvent très courts (une phrase isolée) ou très répétitifs en vocabulaire (peu de mots distincts par rapport à leur longueur) — deux signaux mesurables qui permettent un filtrage automatique sans dépendre d'une liste de motifs prédéfinis.</p>
+
+        <pre><code class="language-python">def score_pertinence_paragraphe(paragraphe: str) -> float:
+    mots = paragraphe.split()
+    if len(mots) < 5:
+        return 0.0   # trop court pour être un paragraphe de contenu substantiel
+
+    mots_distincts = len(set(m.lower() for m in mots))
+    ratio_diversite = mots_distincts / len(mots)
+    return ratio_diversite
+
+def filtrer_paragraphes_peu_pertinents(texte: str, seuil: float = 0.4) -> str:
+    paragraphes = texte.split("\n\n")
+    paragraphes_conserves = [
+        p for p in paragraphes if score_pertinence_paragraphe(p) >= seuil
+    ]
+    return "\n\n".join(paragraphes_conserves)
+</code></pre>
+
+        <h3>Le compromis précision/rappel du filtrage de boilerplate</h3>
+        <p>Un filtrage trop agressif risque de supprimer du contenu légitime qui partage des caractéristiques avec du boilerplate (un court paragraphe de contenu réel mais concis, par exemple une définition en une phrase). Comme pour toute technique de nettoyage vue dans ce cours, la calibration doit se faire par inspection visuelle d'un échantillon représentatif, pas par application aveugle d'un seuil générique.</p>
+
+        <div class="ascii">Approche                      Précision      Effort de maintenance   Risque de faux positifs
+────────────────────────────────────────────────────────────────────────────────────
+Liste de motifs connus         Élevée         Moyen (mise à jour        Faible (motifs
+                                              régulière nécessaire)     spécifiques)
+
+Score de densité/longueur      Moyenne        Faible                    Modéré (contenu
+                                                                         court légitime
+                                                                         peut être filtré)</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Appliquer un filtrage par longueur/densité de façon uniforme sur tout type de contenu, sans tenir compte du fait que certains contenus légitimes sont naturellement courts et peu diversifiés en vocabulaire (une définition technique concise, une réponse courte de FAQ) — un filtrage trop agressif sur ce critère seul peut supprimer exactement le type de contenu précis et utile qu'un système RAG cherche à retrouver.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre corpus, identifiez 2-3 formulations de boilerplate récurrentes (mentions légales, avertissements) que vous pourriez ajouter à une liste de motifs à filtrer.
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l5" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 5.5</span>Normalisation de la ponctuation et des espaces typographiques</h2>
+
+        <p>Cette dernière leçon du module traite un niveau de nettoyage plus fin : l'harmonisation des variantes typographiques d'un même caractère logique, qui peuvent varier selon la source du document (traitement de texte, export web, scan).</p>
+
+        <h3>Guillemets et apostrophes typographiques</h3>
+        <p>De nombreux traitements de texte (Word en particulier) convertissent automatiquement les guillemets et apostrophes "droits" en versions typographiques ("courbes"), ce qui peut créer des incohérences dans un corpus mêlant plusieurs sources.</p>
+
+        <pre><code class="language-python">def normaliser_guillemets(texte: str) -> str:
+    remplacements = {
+        "‘": "'", "’": "'",    # apostrophes courbes → apostrophe droite
+        "“": '"', "”": '"',    # guillemets courbes → guillemet droit
+        "«": '"', "»": '"',    # guillemets français « » → guillemet droit
+    }
+    for caractere_source, remplacement in remplacements.items():
+        texte = texte.replace(caractere_source, remplacement)
+    return texte
+</code></pre>
+
+        <h3>Tirets et espaces insécables</h3>
+        <p>Le français utilise des espaces insécables avant certains signes de ponctuation double (deux-points, point-virgule, point d'interrogation, point d'exclamation) — une convention typographique correcte à l'affichage, mais qui peut introduire des caractères Unicode invisibles (espace insécable, <code class="inline"> </code>) susceptibles de perturber une tokenization ou une comparaison de texte si elle n'est pas anticipée.</p>
+
+        <pre><code class="language-python">def normaliser_espaces_insecables(texte: str) -> str:
+    # Remplacer l'espace insécable par un espace normal pour la cohérence
+    # du traitement en aval (chunking, tokenization)
+    return texte.replace(" ", " ")
+</code></pre>
+
+        <h3>Uniformiser les tirets</h3>
+        <p>Trois types de tirets coexistent typographiquement (trait d'union, tiret demi-cadratin, tiret cadratin), utilisés de façon incohérente selon la source du texte — une normalisation vers une forme unique simplifie les traitements de texte en aval sans perte de sens significative pour un usage RAG.</p>
+
+        <pre><code class="language-python">def normaliser_tirets(texte: str) -> str:
+    texte = texte.replace("–", "-")   # tiret demi-cadratin (–) → trait d'union
+    texte = texte.replace("—", "-")   # tiret cadratin (—) → trait d'union
+    return texte
+</code></pre>
+
+        <h3>Assembler une fonction de normalisation complète</h3>
+        <pre><code class="language-python">def normaliser_texte_complet(texte: str) -> str:
+    """Chaîne complète de normalisation, à appliquer en dernière étape
+    du pipeline de nettoyage, après l'extraction et le filtrage de bruit."""
+    texte = corriger_encodage(texte)
+    texte = unicodedata.normalize("NFC", texte)
+    texte = normaliser_guillemets(texte)
+    texte = normaliser_espaces_insecables(texte)
+    texte = normaliser_tirets(texte)
+    texte = normaliser_espaces(texte)
+    return texte.strip()
+</code></pre>
+
+        <p>Ce module clôt la partie "nettoyage générique transversal" du cours. Les techniques vues ici (encodage, artefacts de mise en page, répétitions, boilerplate, typographie) forment le socle applicable après extraction, quel que soit le format d'origine. Le module suivant aborde des cas plus complexes qui demandent une analyse plus poussée du contenu lui-même.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Normaliser la ponctuation avant d'avoir corrigé les problèmes d'encodage (leçon 5.1) — l'ordre des opérations compte, car un caractère mal encodé peut être confondu avec un caractère typographique légitime et mal traité par une normalisation appliquée trop tôt dans le pipeline. Toujours suivre un ordre cohérent : encodage → Unicode → artefacts de mise en page → boilerplate → typographie fine, comme illustré dans la fonction <code class="inline">normaliser_texte_complet</code> ci-dessus.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : à partir de la fonction <code class="inline">normaliser_texte_complet</code>, identifiez une étape qui serait risquée d'appliquer dans le désordre (avant une autre) et expliquez pourquoi l'ordre choisi ici évite ce risque.
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-6">
+      <span class="module-kicker">MODULE 06 / 08</span>
+      <h1>Détection et gestion des cas complexes</h1>
+      <p class="intro">Au-delà du nettoyage transversal du module 5, certains cas demandent une analyse plus poussée du contenu lui-même : langue, doublons, tableaux imbriqués, corruption partielle. Ce module couvre ces situations moins fréquentes mais souvent bloquantes quand elles surviennent.</p>
+
+      <section class="lesson" id="m6-l1" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 6.1</span>Détection de la langue et gestion de contenu multilingue</h2>
+
+        <p>Un corpus d'entreprise réel mélange souvent plusieurs langues — documentation traduite, filiales internationales, contenu utilisateur en langue variable. Détecter la langue de chaque document (ou même de chaque section) est une étape souvent négligée mais nécessaire pour orienter correctement le reste du pipeline : normalisation de ponctuation spécifique à la langue (module 5), choix du modèle d'embedding (cours précédent, module 4), ou simple filtrage si seule une langue est pertinente pour l'usage final.</p>
+
+        <pre><code class="language-python">from langdetect import detect, detect_langs
+
+texte = "Le chunking est une étape essentielle pour un bon système RAG."
+langue = detect(texte)
+print(langue)   # 'fr'
+
+# Avec un score de confiance (utile pour les textes courts ou ambigus)
+langues_probables = detect_langs(texte)
+print(langues_probables)   # [fr:0.999...]
+</code></pre>
+
+        <h3>Le cas des textes courts et ambigus</h3>
+        <p>La détection de langue est nettement moins fiable sur des textes très courts (un titre de quelques mots, une légende) où le signal statistique disponible est trop faible pour une classification confiante. Une bonne pratique : ne déclencher une action basée sur la langue détectée que si le score de confiance dépasse un seuil raisonnable, et traiter les cas incertains avec une règle par défaut plutôt que d'agir sur une détection peu fiable.</p>
+
+        <pre><code class="language-python">def detecter_langue_fiable(texte: str, seuil_confiance: float = 0.9) -> str | None:
+    if len(texte.split()) < 5:
+        return None   # trop court pour une détection fiable
+
+    resultats = detect_langs(texte)
+    meilleur = resultats[0]
+    if meilleur.prob >= seuil_confiance:
+        return meilleur.lang
+    return None
+</code></pre>
+
+        <h3>Documents à contenu mixte multilingue</h3>
+        <p>Certains documents contiennent plusieurs langues simultanément (un contrat bilingue français/anglais, une documentation technique avec des termes anglais conservés dans un texte français). Dans ce cas, une détection au niveau du document entier est insuffisante — une détection par paragraphe ou par section permet de traiter chaque partie selon sa langue réelle, plutôt que de forcer une langue unique sur tout le document.</p>
+
+        <pre><code class="language-python">def detecter_langue_par_paragraphe(texte: str) -> list[dict]:
+    paragraphes = texte.split("\n\n")
+    return [
+        {"texte": p, "langue": detecter_langue_fiable(p)}
+        for p in paragraphes if p.strip()
+    ]
+</code></pre>
+
+        <div class="ascii">Granularité de détection      Cas d'usage adapté
+──────────────────────────────────────────────────────────────────
+Document entier                Corpus où chaque document est
+                                monolingue (cas le plus fréquent)
+
+Section ou paragraphe          Documents bilingues/multilingues
+                                (contrats internationaux, docs
+                                techniques avec termes étrangers)
+
+Phrase                          Rarement nécessaire, coût de calcul
+                                élevé pour un gain marginal dans
+                                la plupart des cas</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Appliquer une détection de langue au niveau du document entier sur un corpus qui contient en réalité de nombreux documents bilingues ou multilingues, ratant ainsi la possibilité de router correctement chaque section vers le traitement adapté à sa langue réelle (normalisation, choix de modèle d'embedding).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Votre corpus contient-il des documents susceptibles de mélanger plusieurs langues (contrats internationaux, documentation technique avec termes anglais) ? Si oui, une détection par paragraphe serait-elle nécessaire plutôt qu'une détection par document entier ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l2" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 6.2</span>Déduplication de contenu</h2>
+
+        <p>Un corpus réel contient fréquemment des doublons, à plusieurs niveaux : documents entiers dupliqués (même rapport enregistré sous deux noms de fichiers différents), paragraphes répétés au sein d'un même document (une clause standard répétée dans plusieurs contrats), ou quasi-doublons (deux versions très proches d'un même texte avec des variations mineures).</p>
+
+        <h3>Déduplication exacte</h3>
+        <p>La forme la plus simple : comparer un hash du contenu normalisé (après application des techniques du module 5) pour détecter des documents ou paragraphes strictement identiques.</p>
+
+        <pre><code class="language-python">import hashlib
+
+def hash_contenu(texte: str) -> str:
+    texte_normalise = normaliser_texte_complet(texte).lower()
+    return hashlib.sha256(texte_normalise.encode()).hexdigest()
+
+def dedupliquer_exact(documents: list[str]) -> list[str]:
+    vus = set()
+    resultat = []
+    for doc in documents:
+        h = hash_contenu(doc)
+        if h not in vus:
+            vus.add(h)
+            resultat.append(doc)
+    return resultat
+</code></pre>
+
+        <h3>Déduplication approximative (near-duplicates)</h3>
+        <p>Pour détecter des textes très proches mais pas strictement identiques (une clause avec une date différente, un paragraphe reformulé légèrement), une technique efficace et peu coûteuse est le <strong>MinHash</strong> combiné au <strong>Locality-Sensitive Hashing (LSH)</strong>, qui permet d'estimer rapidement la similarité de Jaccard entre de nombreux documents sans les comparer tous par paires (ce qui serait prohibitif à grande échelle).</p>
+
+        <pre><code class="language-python">from datasketch import MinHash, MinHashLSH
+
+def calculer_minhash(texte: str, nb_permutations: int = 128) -> MinHash:
+    m = MinHash(num_perm=nb_permutations)
+    mots = texte.lower().split()
+    shingles = [" ".join(mots[i:i+3]) for i in range(len(mots) - 2)]   # trigrammes de mots
+    for shingle in shingles:
+        m.update(shingle.encode("utf8"))
+    return m
+
+lsh = MinHashLSH(threshold=0.8, num_perm=128)   # seuil de similarité à partir duquel considérer un doublon
+
+for i, document in enumerate(documents):
+    mh = calculer_minhash(document)
+    doublons_existants = lsh.query(mh)
+    if not doublons_existants:
+        lsh.insert(f"doc_{i}", mh)
+    else:
+        print(f"Document {i} est un quasi-doublon de {doublons_existants}")
+</code></pre>
+
+        <h3>Déduplication sémantique (via embeddings)</h3>
+        <p>Pour détecter des reformulations plus profondes (même information, vocabulaire très différent), une approche s'appuyant sur les embeddings du cours précédent devient pertinente : deux chunks avec une similarité cosinus très élevée (au-delà d'un seuil élevé, par exemple 0.95) sont probablement des reformulations du même contenu plutôt que deux informations distinctes.</p>
+
+        <div class="ascii">Type de doublon                    Technique recommandée
+──────────────────────────────────────────────────────────────────────
+Copie strictement identique         Hash de contenu normalisé (rapide,
+                                     exact)
+
+Quasi-identique (variations           MinHash + LSH (rapide à grande
+mineures, mêmes mots)                 échelle, approximatif)
+
+Reformulation profonde (même         Similarité d'embeddings (coûteux
+sens, vocabulaire différent)          mais capture la similarité
+                                       sémantique, cours précédent)</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Dédupliquer uniquement de façon exacte (par hash) sur un corpus qui contient en réalité beaucoup de quasi-doublons (versions légèrement modifiées d'un même document), laissant persister une redondance significative qui gonfle inutilement l'index vectoriel et peut biaiser les résultats de recherche (rappel du cours embeddings, module 6) en faveur du contenu dupliqué.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre corpus, quel type de doublon (exact, quasi-identique, reformulation profonde) vous semble le plus probable ? Quelle technique parmi les trois proposées serait la plus adaptée pour le détecter ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l3" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 6.3</span>Gestion des tableaux complexes et données tabulaires imbriquées</h2>
+
+        <p>Les techniques d'extraction de tableaux vues dans les modules précédents (PDF, Word, HTML) supposent une structure tabulaire relativement simple — lignes et colonnes rectangulaires. Certains tableaux réels sont bien plus complexes : cellules fusionnées, en-têtes sur plusieurs niveaux, tableaux imbriqués les uns dans les autres.</p>
+
+        <h3>Cellules fusionnées (merged cells)</h3>
+        <p>Un tableau avec des cellules fusionnées horizontalement (un en-tête qui couvre plusieurs colonnes) ou verticalement pose un problème d'alignement : l'extraction naïve peut désaligner les valeurs par rapport à leurs en-têtes réels si la fusion n'est pas correctement détectée et compensée.</p>
+
+        <pre><code class="language-python"># Exemple conceptuel de gestion de cellules fusionnées (pdfplumber expose
+# les coordonnées, permettant de détecter les fusions par la géométrie)
+
+def deplier_cellules_fusionnees(tableau_brut: list[list], structure_fusion: dict) -> list[list]:
+    """structure_fusion indique quelles cellules doivent être répétées
+    (dupliquées) pour compenser une fusion visuelle d'origine."""
+    tableau_deplie = []
+    for ligne in tableau_brut:
+        nouvelle_ligne = []
+        for cellule in ligne:
+            nb_repetitions = structure_fusion.get(cellule, 1)
+            nouvelle_ligne.extend([cellule] * nb_repetitions)
+        tableau_deplie.append(nouvelle_ligne)
+    return tableau_deplie
+</code></pre>
+
+        <h3>En-têtes sur plusieurs niveaux (multi-index)</h3>
+        <p>Certains tableaux ont un en-tête composé de deux lignes (par exemple, une ligne "Trimestre" avec Q1/Q2/Q3/Q4, et une sous-ligne "Ventes/Marge" sous chaque trimestre). Représenter correctement ce type de tableau en texte demande de combiner les niveaux d'en-tête plutôt que de n'en garder qu'un seul.</p>
+
+        <pre><code class="language-python">def combiner_entetes_multiniveaux(ligne_entete_1: list[str], ligne_entete_2: list[str]) -> list[str]:
+    entetes_combines = []
+    dernier_entete_1 = ""
+    for e1, e2 in zip(ligne_entete_1, ligne_entete_2):
+        if e1.strip():
+            dernier_entete_1 = e1
+        entetes_combines.append(f"{dernier_entete_1} - {e2}" if e2 else dernier_entete_1)
+    return entetes_combines
+
+# ["Q1", "", "Q2", ""] + ["Ventes", "Marge", "Ventes", "Marge"]
+# → ["Q1 - Ventes", "Q1 - Marge", "Q2 - Ventes", "Q2 - Marge"]
+</code></pre>
+
+        <h3>Tableaux imbriqués</h3>
+        <p>Un tableau qui contient lui-même un autre tableau dans une de ses cellules (rare mais présent dans certains rapports complexes) nécessite un traitement récursif : extraire d'abord la structure externe, puis traiter chaque cellule contenant un sous-tableau comme une extraction indépendante, avant de la réintégrer sous une forme lisible (par exemple, un tableau Markdown imbriqué dans le texte de la cellule).</p>
+
+        <div class="ascii">Complexité croissante des tableaux :
+
+Simple (lignes/colonnes rectangulaires)     → extraction directe (modules 2-4)
+Cellules fusionnées                          → dépliage nécessaire
+En-têtes multi-niveaux                       → combinaison d'en-têtes
+Tableaux imbriqués                           → traitement récursif
+
+→ Plus la complexité augmente, plus le coût d'implémentation
+  d'un traitement fiable augmente — évaluer si le volume de
+  tableaux complexes dans VOTRE corpus justifie cet investissement,
+  ou si un traitement dégradé (mais fonctionnel) suffit.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Investir un temps disproportionné à gérer parfaitement des tableaux imbriqués ou multi-niveaux très rares dans votre corpus réel, au détriment de traitements plus impactants (comme la préservation de base des tableaux simples, largement majoritaires). Toujours mesurer la fréquence réelle de chaque cas de complexité avant d'investir dans son traitement spécifique.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre corpus, estimez la proportion de tableaux qui présentent une complexité au-delà du cas simple (cellules fusionnées, en-têtes multi-niveaux). Cette proportion justifie-t-elle un investissement dans un traitement dédié ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l4" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 6.4</span>Repérer et gérer le contenu corrompu ou d'extraction incomplète</h2>
+
+        <p>Certains documents produisent une extraction partiellement ou totalement défaillante sans qu'aucune erreur explicite ne soit levée par les outils utilisés (rappel du module 1, leçon 5) — un fichier corrompu, un encodage exotique non supporté, ou une structure interne non standard peuvent tous produire un résultat vide, tronqué, ou incohérent silencieusement.</p>
+
+        <h3>Signaux de détection d'une extraction défaillante</h3>
+        <pre><code class="language-python">def diagnostiquer_extraction(texte_extrait: str, nb_pages_attendues: int = None) -> dict:
+    diagnostics = {}
+
+    diagnostics["vide_ou_quasi_vide"] = len(texte_extrait.strip()) < 50
+
+    if nb_pages_attendues:
+        caracteres_par_page = len(texte_extrait) / nb_pages_attendues
+        diagnostics["densite_anormalement_faible"] = caracteres_par_page < 100
+
+    # Ratio de caractères non alphanumériques anormalement élevé :
+    # signale souvent un problème d'encodage ou de police non supportée
+    caracteres_speciaux = sum(1 for c in texte_extrait if not c.isalnum() and not c.isspace())
+    ratio_caracteres_speciaux = caracteres_speciaux / max(len(texte_extrait), 1)
+    diagnostics["ratio_caracteres_speciaux_eleve"] = ratio_caracteres_speciaux > 0.3
+
+    return diagnostics
+</code></pre>
+
+        <h3>Le cas des polices personnalisées non standard (PDF)</h3>
+        <p>Certains PDF utilisent des polices avec un mappage de caractères non standard (fréquent dans des documents générés par des logiciels métier anciens), produisant un texte extrait qui ressemble à un charabia total malgré une extraction "réussie" techniquement (aucune erreur levée). Ce cas se détecte par un ratio anormalement élevé de caractères improbables ou de séquences qui ne correspondent à aucun mot reconnaissable dans la langue attendue.</p>
+
+        <h3>Stratégie de repli (fallback)</h3>
+        <p>Face à une extraction détectée comme défaillante, plusieurs stratégies de repli sont possibles selon le contexte : retenter avec un outil d'extraction différent (un PDF qui échoue avec pypdf peut réussir avec PyMuPDF), basculer vers l'OCR si une extraction de texte natif échoue systématiquement (rejoint le module 2, leçon 4), ou simplement exclure le document du corpus avec un signalement explicite pour investigation manuelle plutôt que de l'ingérer silencieusement avec un contenu corrompu.</p>
+
+        <pre><code class="language-python">def extraire_avec_repli(chemin_fichier: str) -> str | None:
+    for methode_extraction in [extraire_avec_pypdf, extraire_avec_pdfplumber, extraire_avec_pymupdf]:
+        texte = methode_extraction(chemin_fichier)
+        diagnostics = diagnostiquer_extraction(texte)
+        if not diagnostics["vide_ou_quasi_vide"] and not diagnostics.get("ratio_caracteres_speciaux_eleve"):
+            return texte   # cette méthode a produit un résultat satisfaisant
+
+    print(f"ATTENTION : extraction probablement défaillante pour {chemin_fichier}")
+    return None   # signalé pour investigation manuelle plutôt qu'ingéré tel quel
+</code></pre>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Ingérer silencieusement dans le corpus un texte extrait de mauvaise qualité (charabia, contenu tronqué) sans mécanisme de détection, en faisant confiance à l'absence d'erreur technique. Ce contenu corrompu, une fois indexé (cours précédent), produit des chunks et des embeddings de très mauvaise qualité qui peuvent être récupérés par le système RAG et présentés à un utilisateur final sans qu'aucune alerte n'ait jamais signalé le problème en amont.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          En utilisant la fonction <code class="inline">diagnostiquer_extraction</code> ci-dessus, quel diagnostic ajouteriez-vous pour détecter spécifiquement un texte qui semble extrait dans la bonne langue mais avec beaucoup de mots qui ne sont reconnaissables dans aucun dictionnaire (signe possible d'un mappage de police corrompu) ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l5" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 6.5</span>Documents hybrides : scan et texte, mise en page complexe</h2>
+
+        <p>Cette dernière leçon du module traite le cas, très fréquent en pratique, des documents qui combinent plusieurs des difficultés vues dans ce cours au sein d'un même fichier — le cas réel le plus courant étant bien plus complexe que les scénarios "purs" présentés isolément dans chaque module.</p>
+
+        <h3>PDF avec pages mixtes (texte natif + pages scannées)</h3>
+        <p>Rappel du module 2 (leçon 4) : un même PDF peut contenir des pages avec du texte natif et d'autres pages scannées (par exemple, un rapport avec une annexe ajoutée par scan). Le traitement correct nécessite une détection <em>page par page</em>, puis un routage vers l'extraction directe ou l'OCR selon le cas, avant de recombiner l'ensemble en un texte cohérent pour le document entier.</p>
+
+        <pre><code class="language-python">def traiter_pdf_hybride(chemin_pdf: str) -> str:
+    diagnostics_pages = analyser_pages(chemin_pdf)   # module 2, leçon 4
+    texte_final = []
+
+    for diag in diagnostics_pages:
+        if diag["necessite_ocr"]:
+            texte_page = extraire_via_ocr(chemin_pdf, diag["page"])   # hors périmètre de ce cours
+        else:
+            texte_page = extraire_texte_natif(chemin_pdf, diag["page"])
+        texte_final.append(texte_page)
+
+    return "\n\n".join(texte_final)
+</code></pre>
+
+        <h3>Documents à mise en page visuelle complexe combinée</h3>
+        <p>Un rapport financier réel peut combiner colonnes multiples (module 2, leçon 5), tableaux avec cellules fusionnées (leçon 6.3), en-têtes/pieds de page répétitifs (module 5, leçon 3) et notes de bas de page insérées en plein milieu du texte — chacune de ces difficultés nécessitant sa propre technique, appliquées en séquence dans le bon ordre.</p>
+
+        <h3>Construire un pipeline résilient à l'hétérogénéité</h3>
+        <p>Face à cette réalité composite, la bonne pratique n'est pas de chercher une seule technique miracle, mais de construire un pipeline qui applique successivement chaque traitement pertinent, avec des vérifications intermédiaires (leçon 6.4) pour détecter si un document nécessite un traitement particulier avant de poursuivre — le sujet central du module suivant, qui assemble l'ensemble de ces briques en un pipeline opérationnel complet.</p>
+
+        <div class="ascii">Document réel typique (cas composite) :
+
+┌─────────────────────────────────────────┐
+│ Page 1-5   : texte natif, 2 colonnes      │  → module 2 (colonnes)
+│ Page 6     : tableau financier complexe   │  → module 6.3 (tableaux
+│              avec en-têtes multi-niveaux  │     complexes)
+│ Page 7-8   : annexe scannée (image pure)  │  → module 2.4 (détection
+│                                            │     PDF scanné → OCR)
+│ Chaque page : en-tête "CONFIDENTIEL"      │  → module 5.3 (répétitions)
+│              répété                        │
+└─────────────────────────────────────────┘
+
+→ Un seul document peut nécessiter 4 techniques différentes
+  de ce cours, appliquées en séquence.</div>
+
+        <p>Ce module clôt la partie "cas complexes" de ce cours. Le module suivant s'attache à l'outillage et à l'automatisation — comment construire concrètement un pipeline qui orchestre l'ensemble de ces techniques de façon modulaire et maintenable, plutôt que d'empiler des scripts ad hoc pour chaque nouveau cas rencontré.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Traiter chaque document problématique au cas par cas avec un script ponctuel dès qu'un nouveau problème est découvert, plutôt que de construire progressivement un pipeline modulaire et réutilisable (module 7) qui capitalise sur les solutions déjà développées pour des cas similaires.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : pour un document réel de votre corpus (ou imaginé) combinant plusieurs difficultés, listez dans l'ordre les techniques de ce cours qu'il faudrait appliquer successivement pour en obtenir un texte propre et exploitable.
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-7">
+      <span class="module-kicker">MODULE 07 / 08</span>
+      <h1>Outillage et automatisation du pipeline de nettoyage</h1>
+      <p class="intro">Ce module montre comment transformer les techniques vues jusqu'ici en un pipeline maintenable et fiable — panorama des outils qui évitent de réimplémenter chaque brique, architecture modulaire, validation continue et tests.</p>
+
+      <section class="lesson" id="m7-l1" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 7.1</span>Panorama des outils (Unstructured, Apache Tika, trafilatura, BeautifulSoup)</h2>
+
+        <p>Avant de construire son propre pipeline, il est utile de connaître les outils qui couvrent déjà tout ou partie du périmètre de ce cours — souvent avec une robustesse acquise sur des milliers de cas réels difficile à égaler par une implémentation maison.</p>
+
+        <h3>Unstructured</h3>
+        <p><strong>Unstructured</strong> (déjà évoqué dans le cours chunking, module 5) est probablement l'outil le plus complet pour ce périmètre : il gère nativement l'extraction de PDF, DOCX, HTML, PPTX, e-mails et bien d'autres formats, avec une détection de layout basée sur des modèles de vision par ordinateur pour les documents complexes, et une sortie unifiée sous forme d'"éléments" typés (titre, paragraphe, tableau, liste).</p>
+
+        <pre><code class="language-python">from unstructured.partition.auto import partition
+
+elements = partition(filename="document.pdf")   # fonctionne aussi pour .docx, .html...
+for element in elements:
+    print(f"[{element.category}] {element.text[:80]}")
+    # category : Title, NarrativeText, Table, ListItem, etc.
+</code></pre>
+
+        <h3>Apache Tika</h3>
+        <p><strong>Apache Tika</strong> est une bibliothèque Java (accessible en Python via une passerelle) qui détecte automatiquement le type de plus d'un millier de formats de fichiers et en extrait le texte et les métadonnées de façon unifiée — une option robuste et éprouvée depuis longtemps en entreprise, particulièrement pour des corpus avec une grande variété de formats hérités (anciens formats Office, formats propriétaires).</p>
+
+        <pre><code class="language-python">from tika import parser
+
+resultat = parser.from_file("document_ancien.doc")
+print(resultat["content"])
+print(resultat["metadata"])
+</code></pre>
+
+        <h3>trafilatura et BeautifulSoup</h3>
+        <p>Déjà présentés en détail au module 4, ces outils restent la référence spécifiquement pour le contenu web — trafilatura pour une extraction automatisée robuste, BeautifulSoup pour un contrôle fin quand une logique d'extraction sur mesure est nécessaire.</p>
+
+        <div class="ascii">Outil               Couverture de formats            Points forts
+──────────────────────────────────────────────────────────────────────
+Unstructured         PDF, DOCX, HTML, PPTX, e-mail    Détection de layout par
+                                                        vision, sortie unifiée
+                                                        typée par élément
+
+Apache Tika          Plus de 1000 formats              Très large couverture,
+                                                        mature, bon pour formats
+                                                        hérités/legacy
+
+trafilatura          HTML / web                        Extraction de contenu
+                                                        principal très robuste
+
+BeautifulSoup        HTML / XML                        Contrôle fin, bas niveau,
+                                                        base pour une logique
+                                                        sur mesure</div>
+
+        <p>Une bonne pratique architecturale : utiliser un outil généraliste (Unstructured ou Tika) comme première ligne de traitement pour la majorité des documents, tout en gardant la possibilité de basculer vers des outils spécialisés (pdfplumber, python-docx, trafilatura, modules 2-4) pour des cas particuliers où le comportement par défaut de l'outil généraliste ne suffit pas.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Réimplémenter à la main l'ensemble des techniques de ce cours pour chaque nouveau projet, alors qu'un outil mature comme Unstructured couvre déjà une large partie de ce périmètre avec une fiabilité éprouvée. Réserver le développement sur mesure aux cas spécifiques non couverts ou mal gérés par ces outils généralistes, plutôt qu'à l'ensemble du pipeline par principe.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre corpus (formats de documents rencontrés), lequel des quatre outils présentés ici couvrirait la plus grande part de vos besoins d'extraction ? Quels cas spécifiques nécessiteraient malgré tout un traitement sur mesure (modules 2-6) ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l2" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 7.2</span>Construire un pipeline de nettoyage modulaire et réutilisable</h2>
+
+        <p>Plutôt que d'enchaîner des scripts ad hoc, un pipeline de nettoyage bien conçu s'organise en étapes indépendantes et composables, chacune avec une responsabilité unique et testable isolément — un principe d'ingénierie logicielle classique appliqué spécifiquement au nettoyage de texte.</p>
+
+        <pre><code class="language-python">from dataclasses import dataclass
+from typing import Callable
+
+@dataclass
+class EtapeNettoyage:
+    nom: str
+    fonction: Callable[[str], str]
+
+class PipelineNettoyage:
+    def __init__(self):
+        self.etapes: list[EtapeNettoyage] = []
+
+    def ajouter_etape(self, nom: str, fonction: Callable[[str], str]) -> "PipelineNettoyage":
+        self.etapes.append(EtapeNettoyage(nom, fonction))
+        return self   # permet le chaînage (méthode fluide)
+
+    def executer(self, texte: str, verbeux: bool = False) -> str:
+        for etape in self.etapes:
+            texte_avant = texte
+            texte = etape.fonction(texte)
+            if verbeux:
+                print(f"[{etape.nom}] {len(texte_avant)} → {len(texte)} caractères")
+        return texte
+
+# Construction d'un pipeline complet en assemblant les briques des modules 5-6
+pipeline = (
+    PipelineNettoyage()
+    .ajouter_etape("correction_encodage", corriger_encodage)
+    .ajouter_etape("normalisation_unicode", lambda t: unicodedata.normalize("NFC", t))
+    .ajouter_etape("fusion_sauts_de_ligne", fusionner_sauts_de_ligne_cosmetiques)
+    .ajouter_etape("normalisation_espaces", normaliser_espaces)
+    .ajouter_etape("normalisation_typographie", normaliser_guillemets)
+)
+
+texte_final = pipeline.executer(texte_brut, verbeux=True)
+</code></pre>
+
+        <h3>Pourquoi cette architecture plutôt qu'une fonction monolithique</h3>
+        <p>Cette approche modulaire offre plusieurs avantages concrets : chaque étape peut être testée unitairement (leçon 7.5), l'ordre des étapes peut être ajusté ou de nouvelles étapes insérées sans réécrire tout le pipeline, et le mode verbeux permet de diagnostiquer précisément à quelle étape un problème apparaît — un prolongement direct de la méthode de diagnostic vue au module 6, leçon 4.</p>
+
+        <h3>Adapter le pipeline selon le type de document</h3>
+        <p>Comme pour le chunking (cours précédent, module 6), différents types de documents peuvent nécessiter des pipelines légèrement différents — un pipeline pour du contenu web n'a pas besoin de l'étape de reconstitution de mots coupés (spécifique aux PDF), tandis qu'un pipeline pour du PDF n'a pas besoin de suppression de balises HTML.</p>
+
+        <pre><code class="language-python">def construire_pipeline_pour_format(format_document: str) -> PipelineNettoyage:
+    pipeline = PipelineNettoyage()
+    pipeline.ajouter_etape("correction_encodage", corriger_encodage)
+    pipeline.ajouter_etape("normalisation_unicode", lambda t: unicodedata.normalize("NFC", t))
+
+    if format_document == "pdf":
+        pipeline.ajouter_etape("reconstitution_cesures", reconstituer_mots_coupes)
+        pipeline.ajouter_etape("suppression_en_tetes", supprimer_lignes_repetitives_wrapper)
+
+    pipeline.ajouter_etape("normalisation_espaces", normaliser_espaces)
+    pipeline.ajouter_etape("normalisation_typographie", normaliser_guillemets)
+    return pipeline
+</code></pre>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Écrire une seule fonction monolithique de plusieurs centaines de lignes qui applique tous les traitements de nettoyage à la suite sans découpage en étapes nommées. Ce type de fonction devient rapidement impossible à déboguer (impossible de savoir quelle partie du traitement a produit un résultat inattendu) et à faire évoluer sans risquer de régressions sur des cas déjà bien gérés.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          En reprenant les fonctions de nettoyage vues aux modules 5 et 6, esquissez la liste ordonnée des étapes que vous incluriez dans un pipeline pour votre propre corpus (réel ou imaginé).
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l3" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 7.3</span>Validation de la qualité du texte extrait (métriques, heuristiques)</h2>
+
+        <p>Comme pour le chunking et les embeddings dans les cours précédents, la qualité du nettoyage ne devrait pas reposer sur une confiance aveugle mais sur des métriques mesurables, appliquées systématiquement à chaque document traité par le pipeline.</p>
+
+        <h3>Métriques de qualité automatisables</h3>
+        <pre><code class="language-python">def calculer_metriques_qualite(texte: str) -> dict:
+    mots = texte.split()
+    return {
+        "nb_caracteres": len(texte),
+        "nb_mots": len(mots),
+        "longueur_moyenne_mot": sum(len(m) for m in mots) / max(len(mots), 1),
+        "ratio_caracteres_speciaux": sum(
+            1 for c in texte if not c.isalnum() and not c.isspace()
+        ) / max(len(texte), 1),
+        "ratio_majuscules": sum(1 for c in texte if c.isupper()) / max(len(texte), 1),
+        "nb_lignes_vides_consecutives_max": max(
+            (len(m) for m in re.findall(r'\n{2,}', texte)), default=0
+        ),
+    }
+</code></pre>
+
+        <h3>Définir des seuils d'alerte</h3>
+        <p>Une fois ces métriques calculées, des seuils raisonnables (calibrés sur un échantillon de documents connus comme "propres") permettent de signaler automatiquement les documents suspects, sans intervention manuelle systématique.</p>
+
+        <pre><code class="language-python">def evaluer_qualite(metriques: dict) -> list[str]:
+    alertes = []
+    if metriques["longueur_moyenne_mot"] > 12 or metriques["longueur_moyenne_mot"] < 2:
+        alertes.append("Longueur moyenne de mot anormale (possible problème d'extraction)")
+    if metriques["ratio_caracteres_speciaux"] > 0.15:
+        alertes.append("Ratio élevé de caractères spéciaux (possible mojibake ou bruit résiduel)")
+    if metriques["nb_mots"] < 20:
+        alertes.append("Document anormalement court après nettoyage")
+    return alertes
+</code></pre>
+
+        <h3>Comparer avant/après nettoyage</h3>
+        <p>Une vérification complémentaire utile : comparer les métriques du texte avant et après passage dans le pipeline de nettoyage. Une perte de contenu disproportionnée (par exemple, plus de 50% des caractères supprimés) signale souvent un filtrage trop agressif (module 5, leçon 4) plutôt qu'un nettoyage réussi.</p>
+
+        <pre><code class="language-python">def verifier_perte_de_contenu(texte_avant: str, texte_apres: str, seuil_perte_max: float = 0.3) -> bool:
+    ratio_perte = 1 - (len(texte_apres) / max(len(texte_avant), 1))
+    if ratio_perte > seuil_perte_max:
+        print(f"ATTENTION : {ratio_perte:.0%} du contenu a été supprimé — vérifier le filtrage.")
+        return False
+    return True
+</code></pre>
+
+        <div class="ascii">Type de métrique                Signale probablement
+──────────────────────────────────────────────────────────────────────
+Longueur moyenne de mot          Problème d'encodage, mots collés
+anormale                         ou fragmentés
+
+Ratio de caractères spéciaux     Mojibake, bruit résiduel non
+élevé                            filtré
+
+Document anormalement court      Extraction incomplète, ou
+après nettoyage                  filtrage trop agressif
+
+Perte de contenu disproportionnée Filtrage de boilerplate trop
+entre avant/après                 permissif (module 5.4)</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Ne calculer ces métriques qu'au moment du développement initial du pipeline, puis ne plus jamais les revérifier une fois le pipeline déployé en production. Ces métriques devraient être calculées en continu sur chaque nouveau document traité, avec une alerte automatique en cas d'anomalie — pas seulement lors d'une phase de test ponctuelle.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          En utilisant les fonctions ci-dessus, quel seuil de "ratio de perte de contenu" vous semblerait raisonnable pour votre propre pipeline de nettoyage — et pourquoi ce chiffre plutôt qu'un autre ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l4" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 7.4</span>Logging et traçabilité des transformations de nettoyage</h2>
+
+        <p>Un pipeline de nettoyage en production doit permettre de répondre à une question essentielle en cas de problème signalé : "que s'est-il passé exactement pour ce document, à quelle étape, et pourquoi ?" — une traçabilité impossible sans un logging structuré dès la conception du pipeline.</p>
+
+        <h3>Logger chaque étape avec son contexte</h3>
+        <pre><code class="language-python">import logging
+import json
+
+logger = logging.getLogger("pipeline_nettoyage")
+
+class PipelineNettoyageTracable(PipelineNettoyage):
+    def executer(self, texte: str, id_document: str) -> str:
+        for etape in self.etapes:
+            texte_avant = texte
+            texte = etape.fonction(texte)
+
+            logger.info(json.dumps({
+                "document_id": id_document,
+                "etape": etape.nom,
+                "taille_avant": len(texte_avant),
+                "taille_apres": len(texte),
+                "delta": len(texte) - len(texte_avant),
+            }))
+        return texte
+</code></pre>
+
+        <h3>Conserver un historique des transformations par document</h3>
+        <p>Au-delà des logs applicatifs génériques, conserver une trace structurée des transformations appliquées à chaque document (quelles étapes ont été exécutées, avec quel résultat) permet de reconstruire précisément l'historique d'un document donné en cas d'investigation — particulièrement utile pour diagnostiquer pourquoi un document spécifique donne un mauvais résultat en aval (retrieval RAG, cours précédent).</p>
+
+        <pre><code class="language-python">def executer_avec_historique(pipeline: PipelineNettoyage, texte: str, id_document: str) -> dict:
+    historique = {"document_id": id_document, "etapes": []}
+
+    for etape in pipeline.etapes:
+        texte_avant = texte
+        texte = etape.fonction(texte)
+        historique["etapes"].append({
+            "nom": etape.nom,
+            "taille_avant": len(texte_avant),
+            "taille_apres": len(texte),
+        })
+
+    historique["texte_final"] = texte
+    return historique
+</code></pre>
+
+        <h3>Relier la traçabilité du nettoyage à celle du pipeline RAG global</h3>
+        <p>Rappel des métadonnées de chunk vues dans le cours chunking (module 5, leçon 5) : ajouter, parmi ces métadonnées, une référence à la version du pipeline de nettoyage utilisée pour produire ce chunk permet de retracer l'origine complète d'un chunk problématique — du document brut jusqu'à la réponse finale générée par le LLM, en passant par chaque étape de transformation.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Ne logger que les erreurs explicites (exceptions levées) sans tracer le déroulement normal du pipeline. Comme vu à plusieurs reprises dans ce cours, la plupart des problèmes de nettoyage ne produisent aucune erreur technique — sans logging du déroulement normal (tailles avant/après chaque étape), il est impossible de diagnostiquer a posteriori où un contenu a été perdu ou corrompu silencieusement.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre pipeline (réel ou imaginé), quelles informations minimales incluriez-vous dans chaque entrée de log pour pouvoir diagnostiquer efficacement un problème signalé plusieurs semaines après le traitement initial d'un document ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l5" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 7.5</span>Tests automatisés pour un pipeline d'extraction</h2>
+
+        <p>Cette dernière leçon du module applique les principes de test logiciel classiques à un pipeline de nettoyage de texte — une pratique encore trop rare dans les projets de préparation de données, où le "ça a l'air de marcher visuellement" reste trop souvent le seul critère de validation.</p>
+
+        <h3>Tests unitaires par fonction de nettoyage</h3>
+        <pre><code class="language-python">import pytest
+
+def test_correction_encodage():
+    texte_corrompu = "Ã©tape"
+    assert corriger_encodage(texte_corrompu) == "étape"
+
+def test_reconstitution_mots_coupes():
+    texte = "chunking sé-\nmantique"
+    assert reconstituer_mots_coupes(texte) == "chunking sémantique"
+
+def test_normalisation_espaces_preserve_les_paragraphes():
+    texte = "Paragraphe 1.\n\n\n\nParagraphe 2."
+    resultat = normaliser_espaces(texte)
+    assert resultat.count("\n\n") == 1   # les sauts multiples réduits à un seul double saut
+    assert "Paragraphe 1." in resultat
+    assert "Paragraphe 2." in resultat
+</code></pre>
+
+        <h3>Tests de non-régression sur des documents de référence</h3>
+        <p>Au-delà des tests unitaires sur des fonctions isolées, conserver un petit ensemble de documents de référence (représentatifs des cas difficiles rencontrés : PDF à colonnes, tableaux complexes, contenu multilingue) avec leur résultat de nettoyage attendu permet de détecter automatiquement toute régression introduite par une modification du pipeline.</p>
+
+        <pre><code class="language-python">DOCUMENTS_DE_REFERENCE = [
+    {"fichier": "test_pdf_deux_colonnes.pdf", "mots_cles_attendus": ["introduction", "conclusion"]},
+    {"fichier": "test_docx_avec_tableau.docx", "nb_lignes_tableau_attendues": 5},
+    {"fichier": "test_html_avec_navigation.html", "texte_navigation_absent": True},
+]
+
+def test_pipeline_sur_documents_de_reference():
+    for cas in DOCUMENTS_DE_REFERENCE:
+        resultat = pipeline_complet(cas["fichier"])
+        if "mots_cles_attendus" in cas:
+            for mot_cle in cas["mots_cles_attendus"]:
+                assert mot_cle.lower() in resultat.lower()
+        if cas.get("texte_navigation_absent"):
+            assert "accueil" not in resultat.lower()   # la navigation a bien été filtrée
+</code></pre>
+
+        <h3>Tests de métriques de qualité en continu (intégration continue)</h3>
+        <p>Intégrer les métriques de qualité de la leçon 7.3 dans une suite de tests exécutée automatiquement à chaque modification du pipeline (intégration continue) permet de détecter immédiatement si un changement dégrade la qualité d'extraction sur les documents de référence, avant que ce changement n'atteigne la production.</p>
+
+        <pre><code class="language-python">def test_qualite_ne_se_degrade_pas():
+    for cas in DOCUMENTS_DE_REFERENCE:
+        resultat = pipeline_complet(cas["fichier"])
+        metriques = calculer_metriques_qualite(resultat)
+        alertes = evaluer_qualite(metriques)
+        assert not alertes, f"Alertes de qualité sur {cas['fichier']} : {alertes}"
+</code></pre>
+
+        <div class="ascii">Niveau de test                    Ce qu'il vérifie
+──────────────────────────────────────────────────────────────────────
+Tests unitaires                    Chaque fonction de nettoyage isolée
+(par fonction)                     se comporte comme attendu sur des
+                                    cas simples et des cas limites
+
+Tests de non-régression            Le pipeline complet produit toujours
+(documents de référence)           un résultat cohérent sur des documents
+                                    représentatifs des difficultés connues
+
+Tests de qualité continue          Aucune modification du pipeline ne
+(intégration continue)             dégrade silencieusement la qualité
+                                    mesurée sur les documents de référence</div>
+
+        <p>Ce module clôt la partie "outillage" du cours. Le dernier module assemble l'ensemble des briques vues (extraction par format, nettoyage transversal, cas complexes, outillage) dans un pipeline complet, avec une étude de cas comparative et un exercice de synthèse.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer les tests comme un luxe réservé aux projets matures, alors qu'un pipeline de nettoyage sans aucun test se dégrade silencieusement au fil des modifications successives — chaque nouvelle règle de nettoyage ajoutée pour corriger un cas particulier risque de casser un cas déjà bien géré, sans qu'aucun signal ne le révèle avant un signalement utilisateur en production.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : si vous deviez choisir seulement 3 documents pour constituer votre ensemble de "documents de référence" pour les tests de non-régression, lesquels choisiriez-vous parmi les cas difficiles rencontrés dans ce cours (colonnes, tableaux, multilingue, boilerplate, PDF scanné) ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-8">
+      <span class="module-kicker">MODULE 08 / 08 — FINAL</span>
+      <h1>Implémentation complète et bonnes pratiques</h1>
+      <p class="intro">Ce dernier module assemble l'ensemble du cours dans un pipeline exécutable de bout en bout, une comparaison empirique d'outils, une méthode de débogage, et un exercice de synthèse pour ancrer durablement ce qui a été appris.</p>
+
+      <section class="lesson" id="m8-l1" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 8.1</span>Pipeline complet : du fichier brut au texte propre prêt pour le chunking</h2>
+
+        <p>Voici un pipeline complet qui relie la détection de format, l'extraction adaptée (modules 2-4), le nettoyage transversal (modules 5-6) et la validation de qualité (module 7), pour livrer un texte directement exploitable par le chunking du cours précédent.</p>
+
+        <pre><code class="language-python">import os
+from pathlib import Path
+
+def detecter_format(chemin_fichier: str) -> str:
+    extension = Path(chemin_fichier).suffix.lower()
+    return {".pdf": "pdf", ".docx": "docx", ".html": "html", ".htm": "html"}.get(extension, "inconnu")
+
+def extraire_selon_format(chemin_fichier: str, format_document: str) -> str:
+    """Phase 1 (modules 2-4) : extraction adaptée au format détecté."""
+    if format_document == "pdf":
+        if detecter_pdf_scanne(chemin_fichier):
+            return extraire_via_ocr(chemin_fichier)   # hors périmètre de ce cours
+        return extraire_avec_repli(chemin_fichier)     # module 6, leçon 4
+    elif format_document == "docx":
+        document = Document(chemin_fichier)
+        return docx_vers_markdown(document)             # module 3, leçon 3
+    elif format_document == "html":
+        with open(chemin_fichier, encoding="utf-8") as f:
+            return trafilatura.extract(f.read())          # module 4, leçon 3
+    raise ValueError(f"Format non supporté : {format_document}")
+
+def nettoyer_texte_complet(texte: str, format_document: str) -> str:
+    """Phase 2 (modules 5-6) : nettoyage transversal adapté au format d'origine."""
+    pipeline = construire_pipeline_pour_format(format_document)   # module 7, leçon 2
+    return pipeline.executer(texte)
+
+def traiter_document(chemin_fichier: str) -> dict:
+    """Pipeline complet, de bout en bout, avec validation de qualité (module 7)."""
+    format_document = detecter_format(chemin_fichier)
+    texte_brut = extraire_selon_format(chemin_fichier, format_document)
+    texte_propre = nettoyer_texte_complet(texte_brut, format_document)
+
+    metriques = calculer_metriques_qualite(texte_propre)
+    alertes = evaluer_qualite(metriques)
+
+    return {
+        "source": chemin_fichier,
+        "format": format_document,
+        "texte": texte_propre,
+        "metriques": metriques,
+        "alertes": alertes,
+        "pret_pour_chunking": len(alertes) == 0,
+    }
+
+# Utilisation sur un corpus complet
+resultats = [traiter_document(f) for f in liste_fichiers_corpus]
+documents_valides = [r for r in resultats if r["pret_pour_chunking"]]
+documents_a_verifier = [r for r in resultats if not r["pret_pour_chunking"]]
+
+print(f"{len(documents_valides)} documents prêts, {len(documents_a_verifier)} à vérifier manuellement")
+</code></pre>
+
+        <p>Ce pipeline illustre la continuité complète entre ce cours et les deux précédents : la détection de format et l'extraction (modules 2-4) déterminent <em>comment</em> obtenir du texte à partir du fichier brut ; le nettoyage transversal (modules 5-6) et la validation de qualité (module 7) déterminent si ce texte est <em>digne de confiance</em> ; et le résultat final (<code class="inline">texte_propre</code>) alimente directement le chunking (cours "Chunking pour RAG"), puis l'embedding et l'indexation (cours "Embeddings et Recherche Vectorielle").</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Ingérer directement dans le chunking les documents marqués <code class="inline">pret_pour_chunking: False</code> par simplicité, en ignorant les alertes de qualité. Ces documents devraient être mis de côté pour une investigation manuelle ou un traitement spécialisé (module 6), plutôt que d'être ingérés avec un contenu potentiellement corrompu qui dégraderait silencieusement la qualité du système RAG complet.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Dans le pipeline ci-dessus, identifiez à quel module de ce cours correspond chaque fonction appelée (<code class="inline">detecter_pdf_scanne</code>, <code class="inline">docx_vers_markdown</code>, <code class="inline">trafilatura.extract</code>, <code class="inline">construire_pipeline_pour_format</code>, <code class="inline">calculer_metriques_qualite</code>).
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l2" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 8.2</span>Comparaison empirique d'outils d'extraction sur un corpus réel</h2>
+
+        <p>Comme pour le chunking et les embeddings dans les cours précédents, le choix d'un outil d'extraction devrait reposer sur une comparaison empirique menée sur votre propre corpus, plutôt que sur la réputation générale d'un outil.</p>
+
+        <pre><code class="language-python">outils_a_comparer = {
+    "pypdf": lambda f: extraire_avec_pypdf(f),
+    "pdfplumber": lambda f: extraire_avec_pdfplumber(f),
+    "pymupdf": lambda f: extraire_avec_pymupdf(f),
+    "unstructured": lambda f: "\n".join(e.text for e in partition(filename=f)),
+}
+
+documents_test = ["rapport_simple.pdf", "rapport_deux_colonnes.pdf", "rapport_avec_tableaux.pdf"]
+
+resultats_comparaison = {}
+for nom_outil, fonction_extraction in outils_a_comparer.items():
+    scores = []
+    for doc in documents_test:
+        texte = fonction_extraction(doc)
+        metriques = calculer_metriques_qualite(texte)
+        scores.append(metriques)
+
+    resultats_comparaison[nom_outil] = {
+        "longueur_moyenne_texte": sum(m["nb_caracteres"] for m in scores) / len(scores),
+        "ratio_caracteres_speciaux_moyen": sum(m["ratio_caracteres_speciaux"] for m in scores) / len(scores),
+    }
+
+for nom, r in resultats_comparaison.items():
+    print(f"{nom:15s} | longueur moy.={r['longueur_moyenne_texte']:.0f} | "
+          f"ratio car. spéciaux={r['ratio_caracteres_speciaux_moyen']:.1%}")
+</code></pre>
+
+        <h3>Au-delà des métriques automatiques : l'inspection humaine reste nécessaire</h3>
+        <p>Les métriques quantitatives (leçon 7.3) donnent un premier signal utile, mais ne remplacent pas une inspection visuelle d'un échantillon représentatif — rappel du principe déjà établi au module 1, leçon 5 : l'absence d'alerte automatique ne garantit pas une qualité parfaite, seulement l'absence des problèmes spécifiquement mesurés.</p>
+
+        <div class="ascii">Méthode de comparaison recommandée :
+
+1. Constituer un petit corpus de documents représentatifs des
+   difficultés réelles de votre cas d'usage (colonnes, tableaux,
+   contenu multilingue, mise en page complexe)
+2. Extraire ce corpus avec chaque outil candidat
+3. Calculer les métriques de qualité automatiques (module 7.3)
+   pour un premier filtrage rapide
+4. Inspecter visuellement un échantillon pour chaque outil,
+   en particulier sur les documents les plus complexes
+5. Choisir l'outil qui offre le meilleur compromis qualité/
+   simplicité pour VOTRE corpus spécifique</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Choisir un outil d'extraction uniquement sur la base de sa popularité générale ou de benchmarks publics génériques, sans l'avoir testé sur des documents représentatifs de son propre corpus. Comme pour le choix d'un modèle d'embedding (cours précédent, module 4), la performance générale d'un outil ne garantit pas sa performance sur les spécificités de vos propres documents.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre corpus, constituez mentalement une liste de 3 documents représentatifs des difficultés que vous anticipez (mise en page complexe, tableaux, multilingue). Quel outil parmi ceux vus dans ce cours testeriez-vous en premier ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l3" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 8.3</span>Débogage d'une extraction de mauvaise qualité</h2>
+
+        <p>Cette leçon synthétise, sous forme de grille de diagnostic, les causes les plus fréquentes d'une extraction dégradée rencontrées tout au long de ce cours — un réflexe à avoir avant de chercher une solution.</p>
+
+        <table>
+          <thead>
+            <tr><th>Symptôme observé</th><th>Cause probable</th><th>Module de référence</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Texte vide ou quasi vide</td><td>PDF scanné sans OCR</td><td>Module 2, leçon 4</td></tr>
+            <tr><td>Mots collés entre colonnes</td><td>Colonnes multiples mal ordonnées</td><td>Module 2, leçon 5</td></tr>
+            <tr><td>Phrases coupées en plein milieu</td><td>Sauts de ligne cosmétiques non fusionnés</td><td>Module 5, leçon 2</td></tr>
+            <tr><td>Caractères illisibles à la place des accents</td><td>Problème d'encodage (mojibake)</td><td>Module 5, leçon 1</td></tr>
+            <tr><td>Menu de navigation mélangé au contenu</td><td>Extraction HTML sans filtrage du bruit</td><td>Module 4, leçon 2-3</td></tr>
+            <tr><td>Tableau avec valeurs sans leurs en-têtes</td><td>Structure de tableau non préservée</td><td>Modules 2-4, tableaux</td></tr>
+            <tr><td>Contenu dupliqué dans les résultats</td><td>Documents ou paragraphes dupliqués</td><td>Module 6, leçon 2</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Méthode de diagnostic étape par étape</h3>
+        <ol>
+          <li><strong>Isoler le document problématique</strong> : reproduire le problème sur ce document spécifique, hors du reste du corpus.</li>
+          <li><strong>Vérifier chaque étape du pipeline séparément</strong> : inspecter le résultat juste après l'extraction brute (avant tout nettoyage), puis après chaque étape de nettoyage successive (grâce au logging du module 7, leçon 4) — à quel stade le problème apparaît-il ?</li>
+          <li><strong>Comparer au document source original</strong> : le contenu attendu existe-t-il réellement dans le document, sous une forme que l'outil utilisé pourrait raisonnablement extraire ?</li>
+          <li><strong>Tester un outil alternatif</strong> sur ce document précis (leçon 8.2) pour déterminer si le problème est spécifique à l'outil utilisé ou inhérent à la complexité du document.</li>
+        </ol>
+
+        <pre><code class="language-python">def debug_extraction(chemin_fichier: str):
+    print(f"=== Diagnostic pour {chemin_fichier} ===\n")
+
+    format_document = detecter_format(chemin_fichier)
+    print(f"Format détecté : {format_document}")
+
+    texte_brut = extraire_selon_format(chemin_fichier, format_document)
+    print(f"Texte brut : {len(texte_brut)} caractères")
+    print(f"Aperçu : {texte_brut[:200]}\n")
+
+    pipeline = construire_pipeline_pour_format(format_document)
+    texte_final = pipeline.executer(texte_brut, verbeux=True)   # affiche chaque étape
+
+    metriques = calculer_metriques_qualite(texte_final)
+    alertes = evaluer_qualite(metriques)
+    print(f"\nAlertes de qualité : {alertes if alertes else 'Aucune'}")
+</code></pre>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Déboguer uniquement sur le résultat final du pipeline complet, sans inspecter les résultats intermédiaires de chaque étape (extraction brute, puis chaque étape de nettoyage). Cela rend impossible de savoir si le problème vient de l'extraction initiale ou d'une étape de nettoyage trop agressive appliquée ensuite — deux causes qui appellent des corrections très différentes.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          En utilisant le tableau de diagnostic ci-dessus, pour chacun des 3 symptômes qui vous semblent les plus probables sur votre corpus, notez la première vérification concrète que vous feriez.
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l4" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 8.4</span>Étude de cas et exercice final</h2>
+
+        <p>Cet exercice de synthèse mobilise l'ensemble des concepts vus dans ce cours — prenez le temps de le traiter sérieusement, c'est l'exercice qui ancre le plus durablement l'apprentissage.</p>
+
+        <div class="callout exercise">
+          <strong>Énoncé</strong>
+          Une entreprise veut ingérer dans son système RAG un corpus composé de : (a) 2000 rapports PDF internes, dont environ 15% sont des scans d'archives papier anciennes ; (b) 500 contrats Word avec suivi des modifications actif sur certains d'entre eux ; (c) l'intégralité de son wiki interne (page HTML générées dynamiquement en JavaScript) ; (d) des centaines de documents dupliqués à travers ces trois sources (le même rapport parfois exporté en PDF et conservé aussi en Word).
+          <br><br>
+          Concevez un pipeline de nettoyage complet : pour chaque source (a, b, c, d), identifiez la stratégie d'extraction et de nettoyage appropriée (en citant les modules pertinents de ce cours), et proposez un ordre d'exécution global pour l'ensemble du pipeline.
+        </div>
+
+        <p>Quelques pistes de réflexion pour vous guider (à consulter après avoir tenté l'exercice vous-même) :</p>
+
+        <h3>Piste pour (a) les rapports PDF avec scans mélangés</h3>
+        <p>Une détection systématique page par page (module 2, leçon 4) est nécessaire pour router chaque page vers l'extraction directe ou l'OCR. Les rapports non scannés bénéficieraient d'une extraction avec détection de layout (module 2, leçon 3) pour gérer d'éventuelles colonnes ou tableaux, suivie du nettoyage transversal standard (module 5).</p>
+
+        <h3>Piste pour (b) les contrats Word avec suivi des modifications</h3>
+        <p>Une vérification systématique de la présence de suivi des modifications actif (module 3, leçon 5) est indispensable avant extraction, pour ne récupérer que le texte final validé et non un mélange de versions supprimées et insérées.</p>
+
+        <h3>Piste pour (c) le wiki en JavaScript</h3>
+        <p>La détection du besoin d'un navigateur automatisé (module 4, leçon 4) est la première étape, suivie d'une extraction de contenu principal (trafilatura ou sélecteurs ciblés, module 4, leçons 2-3) pour filtrer la navigation du wiki.</p>
+
+        <h3>Piste pour (d) la déduplication inter-sources</h3>
+        <p>Puisque le même contenu peut exister en PDF et en Word avec des différences de mise en forme mineures, une déduplication purement exacte (par hash) échouerait probablement — une approche par similarité (MinHash/LSH ou embeddings, module 6, leçon 2) appliquée <em>après</em> extraction et nettoyage de toutes les sources serait nécessaire pour détecter ces doublons inter-formats.</p>
+
+        <h3>Ordre global recommandé</h3>
+        <ol>
+          <li>Extraction adaptée par source (a, b, c séparément, modules 2-4)</li>
+          <li>Nettoyage transversal sur chaque texte extrait (modules 5-6)</li>
+          <li>Validation de qualité et mise à l'écart des documents suspects (module 7, leçon 3)</li>
+          <li>Déduplication inter-sources sur l'ensemble du corpus nettoyé (module 6, leçon 2)</li>
+          <li>Passage au chunking (cours précédent) uniquement sur le corpus final dédupliqué et validé</li>
+        </ol>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Dédupliquer avant le nettoyage complet, ce qui risque de manquer des doublons dont les différences de bruit résiduel (espaces, encodage) masquent la similarité réelle du contenu. La déduplication doit intervenir après un nettoyage cohérent de toutes les sources, pas avant.
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l5" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 8.5</span>Ressources pour aller plus loin</h2>
+
+        <p>Pour approfondir au-delà de ce cours, quelques pistes organisées par thème.</p>
+
+        <h3>Documentation officielle des outils</h3>
+        <ul>
+          <li>Documentation de <code class="inline">pdfplumber</code> et <code class="inline">PyMuPDF</code> — référence pour l'extraction PDF avancée (module 2).</li>
+          <li>Documentation de <code class="inline">python-docx</code> — référence pour la manipulation de documents Word (module 3).</li>
+          <li>Documentation de <code class="inline">trafilatura</code> et <code class="inline">Unstructured</code> — référence pour l'extraction web et multi-format (modules 4 et 7).</li>
+        </ul>
+
+        <h3>Pour la suite logique de cette série de cours</h3>
+        <ul>
+          <li>Le cours "OCR et Extraction de Documents Scannés" (à venir dans cette série) approfondit spécifiquement le traitement des PDF scannés évoqué au module 2, leçon 4 — reconnaissance optique de caractères, prétraitement d'image, outils comme Tesseract.</li>
+          <li>Le cours "Parsing de Documents Complexes" approfondira les cas de tableaux et mises en page multi-colonnes au-delà de ce qui a été vu ici.</li>
+          <li>Le cours "Enrichissement de Métadonnées pour RAG" prolongera directement la leçon 7.4 sur la traçabilité, avec une couverture plus large de la structuration des métadonnées.</li>
+        </ul>
+
+        <h3>Pour la pratique</h3>
+        <ul>
+          <li>Reproduire l'étude de cas de la leçon 8.4 sur un corpus personnel ou professionnel réel — la meilleure façon de transformer ce cours en compétence opérationnelle durable.</li>
+          <li>Constituer votre propre ensemble de documents de référence (module 7, leçon 5) à partir des cas difficiles réellement rencontrés dans votre travail, pour bâtir une suite de tests de non-régression durable.</li>
+        </ul>
+
+        <p>Ce cours, associé aux deux précédents (chunking et embeddings), couvre l'ensemble de la chaîne de préparation de données pour un système RAG : de l'extraction d'un fichier brut jusqu'à la recherche vectorielle des chunks les plus pertinents. La qualité de chaque maillon — extraction propre, découpage cohérent, représentation vectorielle fidèle, recherche précise — détermine collectivement la qualité finale des réponses générées par le système.</p>
+
+        <div class="finale">
+          <p>Vous avez terminé les 8 modules du cours sur le nettoyage de texte non structuré.</p>
+          <a href="#top">← Retour en haut de la formation</a>
+        </div>
+      </section>
+    </div>
+
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+  hljs.highlightAll();
+  const sidebar = document.getElementById('sidebar');
+  document.getElementById('menuToggle').addEventListener('click', () => { sidebar.classList.toggle('open'); });
+  const lessonLinks = document.querySelectorAll('[data-lesson]');
+  const storageKey = 'nettoyage-texte-course-progress';
+  const done = JSON.parse(localStorage.getItem(storageKey) || '{}');
+  function updateProgressBar() {
+    const total = 40;
+    const completed = Object.values(done).filter(Boolean).length;
+    document.getElementById('progressFill').style.width = Math.min(100, (completed / total * 100)) + '%';
+  }
+  lessonLinks.forEach(link => {
+    const id = link.dataset.lesson;
+    if (done[id]) link.querySelector('.lesson-check').classList.add('done');
+    link.addEventListener('click', () => {
+      done[id] = true;
+      localStorage.setItem(storageKey, JSON.stringify(done));
+      link.querySelector('.lesson-check').classList.add('done');
+      updateProgressBar();
+      sidebar.classList.remove('open');
+    });
+  });
+  updateProgressBar();
+</script>
+</body>
+</html>

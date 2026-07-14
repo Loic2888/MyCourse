@@ -1,0 +1,2508 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chunking de Documents pour RAG — Stratégies par Taille, Sémantique et Structure</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<style>
+
+  :root {
+    --bg: #f4f6f8;
+    --bg-alt: #e8edf1;
+    --panel: #ffffff;
+    --text: #1f2430;
+    --text-muted: #5b6472;
+    --accent: #0891b2;
+    --accent-dark: #0e7490;
+    --pitfall: #f59e0b;
+    --border: #dbe2e8;
+
+    --chunk-1: #7c5cff;
+    --chunk-2: #17b8a6;
+    --chunk-3: #ff6b6b;
+    --chunk-4: #ffb020;
+
+    --font-display: "Space Grotesk", sans-serif;
+    --font-body: "Inter", system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", monospace;
+    --sidebar-width: 300px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body { font-family: var(--font-body); color: var(--text); background: var(--bg); line-height: 1.65; }
+
+  .layout { display: flex; min-height: 100vh; }
+
+  .sidebar {
+    width: var(--sidebar-width);
+    flex-shrink: 0;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    padding: 1.5rem 1rem 3rem;
+    overflow-y: auto;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+  }
+
+  .sidebar a.brand {
+    display: block;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1rem;
+    margin-bottom: 1.5rem;
+    color: var(--text);
+    text-decoration: none;
+    padding: 0.4rem 0.5rem;
+  }
+  .sidebar a.brand span { color: var(--accent); }
+
+  .module-group { margin-bottom: 0.35rem; border-radius: 8px; }
+  .module-group.current { background: var(--bg-alt); }
+
+  .module-title {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 0.88rem;
+    padding: 0.55rem 0.6rem;
+    display: flex;
+    gap: 0.5rem;
+    align-items: baseline;
+    color: var(--text-muted);
+    text-decoration: none;
+  }
+  .module-group.current .module-title { color: var(--text); }
+  .module-title .n { font-family: var(--font-mono); font-size: 0.72rem; opacity: 0.7; }
+
+  .lesson-list { list-style: none; padding-left: 0.6rem; margin-bottom: 0.4rem; }
+  .lesson-list li a {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.32rem 0.5rem;
+    border-radius: 6px;
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.83rem;
+  }
+  .lesson-list li a:hover { background: var(--bg-alt); color: var(--text); }
+  .lesson-list li a.active { color: var(--accent-dark); font-weight: 600; background: rgba(8,145,178,0.1); }
+
+  .lesson-check {
+    width: 12px; height: 12px; flex-shrink: 0;
+    border: 1.5px solid var(--text-muted); border-radius: 3px;
+  }
+  .lesson-check.done { background: var(--chunk-2); border-color: var(--chunk-2); }
+
+  .progress-bar { height: 4px; background: var(--border); position: sticky; top: 0; z-index: 10; }
+  .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--chunk-1), var(--accent)); width: 0%; transition: width 0.2s ease; }
+
+  .content { flex: 1; max-width: 760px; margin: 0 auto; padding: 3rem 2rem 6rem; }
+
+  .module-kicker {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--accent-dark);
+    background: rgba(8,145,178,0.08);
+    border: 1px dashed var(--accent);
+    display: inline-block;
+    padding: 0.2rem 0.8rem;
+    border-radius: 999px;
+    margin-bottom: 1rem;
+  }
+
+  .content > h1 {
+    font-family: var(--font-display);
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+  }
+  .content > p.intro { color: var(--text-muted); margin-bottom: 2.5rem; font-size: 1.02rem; }
+
+  section.lesson {
+    border-top: 2px dashed var(--border);
+    padding-top: 2rem;
+    margin-top: 2rem;
+    position: relative;
+    padding-left: 1.1rem;
+    border-left: 4px solid var(--lesson-color, var(--accent));
+  }
+  section.lesson h2 {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  section.lesson h2 .tag {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--lesson-color, var(--accent));
+    display: block;
+    margin-bottom: 0.3rem;
+  }
+  section.lesson h3 { font-family: var(--font-display); font-size: 1.1rem; margin: 1.4rem 0 0.6rem; }
+  section.lesson p, section.lesson ul, section.lesson ol { margin-bottom: 1rem; }
+  section.lesson li { margin-left: 1.3rem; margin-bottom: 0.35rem; }
+
+  pre { border-radius: 8px; padding: 1rem; overflow-x: auto; margin: 1rem 0; font-size: 0.85rem; }
+  code.inline {
+    font-family: var(--font-mono);
+    background: var(--bg-alt);
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.85em;
+  }
+
+  .ascii {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    background: #1e222b;
+    color: #d7dce2;
+    padding: 1rem 1.2rem;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin: 1rem 0;
+    line-height: 1.5;
+  }
+
+  .callout {
+    border-left: 4px solid var(--accent);
+    background: var(--bg-alt);
+    padding: 1rem 1.2rem;
+    border-radius: 0 8px 8px 0;
+    margin: 1.2rem 0;
+  }
+  .callout strong { font-family: var(--font-display); display: block; margin-bottom: 0.3rem; font-size: 0.92rem; }
+  .callout.pitfall { border-left-color: var(--pitfall); }
+  .callout.exercise { border-left-color: var(--chunk-2); }
+
+  .lesson-nav {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 3.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+  }
+  .lesson-nav a { color: var(--accent-dark); text-decoration: none; }
+  .lesson-nav a:hover { text-decoration: underline; }
+
+  .menu-toggle { display: none; }
+
+  @media (max-width: 860px) {
+    .sidebar { position: fixed; left: -100%; z-index: 20; transition: left 0.2s ease; box-shadow: 4px 0 12px rgba(0,0,0,0.15); background: var(--panel); }
+    .sidebar.open { left: 0; }
+    .menu-toggle {
+      display: block; position: fixed; top: 1rem; left: 1rem; z-index: 30;
+      background: var(--accent); color: white; border: none; border-radius: 6px;
+      padding: 0.5rem 0.75rem; cursor: pointer; font-size: 1rem;
+    }
+    .content { padding: 4.5rem 1.25rem 3rem; }
+  }
+
+  .hero {
+    border-bottom: 2px dashed var(--border);
+    padding: 3rem 0 2.5rem;
+    text-align: center;
+    margin-bottom: 1rem;
+  }
+  .hero .tag {
+    display: inline-block; font-family: var(--font-mono); font-size: 0.8rem;
+    color: var(--accent-dark); background: rgba(8,145,178,0.1);
+    border: 1px dashed var(--accent); border-radius: 999px;
+    padding: 0.25rem 0.9rem; margin-bottom: 1.25rem;
+  }
+  .hero-title {
+    font-family: var(--font-display); font-size: clamp(1.8rem, 5vw, 2.6rem);
+    font-weight: 700; margin: 0 auto 1rem; letter-spacing: -0.01em;
+  }
+  .hero-title span {
+    background: linear-gradient(90deg, var(--chunk-1), var(--accent), var(--chunk-2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .hero-lead { max-width: 620px; margin: 0 auto; color: var(--text-muted); font-size: 1.02rem; }
+  .strip { display: flex; justify-content: center; gap: 0.4rem; margin: 2rem auto 0; max-width: 520px; }
+  .strip .seg { height: 8px; flex: 1; border-radius: 3px; }
+  .strip .seg:nth-child(1) { background: var(--chunk-1); }
+  .strip .seg:nth-child(2) { background: var(--chunk-2); }
+  .strip .seg:nth-child(3) { background: var(--chunk-3); }
+  .strip .seg:nth-child(4) { background: var(--chunk-4); }
+  .strip .seg:nth-child(5) { background: var(--chunk-1); }
+  .strip .seg:nth-child(6) { background: var(--chunk-2); }
+
+  .module-block { border-top: 3px solid var(--border); padding-top: 2.5rem; margin-top: 3rem; }
+  .module-block:first-of-type { border-top: none; margin-top: 0; }
+  .module-block > h1 { font-family: var(--font-display); font-size: 2rem; margin-bottom: 0.5rem; }
+  .module-block > p.intro { color: var(--text-muted); margin-bottom: 2rem; font-size: 1.02rem; }
+
+</style>
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-bar-fill" id="progressFill"></div></div>
+<button class="menu-toggle" id="menuToggle">☰</button>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar">
+    <a class="brand" href="#top">Chunking<span>RAG</span></a>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-1"><span class="n">01</span> Fondamentaux du RAG</a>
+      <ul class="lesson-list">
+        <li><a href="#m1-l1" data-lesson="m1-l1"><span class="lesson-check"></span>Qu'est-ce que le RAG</a></li>
+        <li><a href="#m1-l2" data-lesson="m1-l2"><span class="lesson-check"></span>Anatomie d'un pipeline RAG</a></li>
+        <li><a href="#m1-l3" data-lesson="m1-l3"><span class="lesson-check"></span>Compromis taille/qualité</a></li>
+        <li><a href="#m1-l4" data-lesson="m1-l4"><span class="lesson-check"></span>Tokens vs caractères vs mots</a></li>
+        <li><a href="#m1-l5" data-lesson="m1-l5"><span class="lesson-check"></span>Erreurs qui ruinent un RAG</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-2"><span class="n">02</span> Chunking par taille fixe</a>
+      <ul class="lesson-list">
+        <li><a href="#m2-l1" data-lesson="m2-l1"><span class="lesson-check"></span>Découpage naïf caractères/tokens</a></li>
+        <li><a href="#m2-l2" data-lesson="m2-l2"><span class="lesson-check"></span>L'overlap : rôle et calibrage</a></li>
+        <li><a href="#m2-l3" data-lesson="m2-l3"><span class="lesson-check"></span>Chunking par tokens (tiktoken/HF)</a></li>
+        <li><a href="#m2-l4" data-lesson="m2-l4"><span class="lesson-check"></span>Limites du fixed-size chunking</a></li>
+        <li><a href="#m2-l5" data-lesson="m2-l5"><span class="lesson-check"></span>Choisir chunk_size et overlap</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-3"><span class="n">03</span> Chunking récursif</a>
+      <ul class="lesson-list">
+        <li><a href="#m3-l1" data-lesson="m3-l1"><span class="lesson-check"></span>RecursiveCharacterTextSplitter</a></li>
+        <li><a href="#m3-l2" data-lesson="m3-l2"><span class="lesson-check"></span>Hiérarchie de séparateurs</a></li>
+        <li><a href="#m3-l3" data-lesson="m3-l3"><span class="lesson-check"></span>Adapter à la langue et au format</a></li>
+        <li><a href="#m3-l4" data-lesson="m3-l4"><span class="lesson-check"></span>Pièges des séparateurs</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-4"><span class="n">04</span> Chunking sémantique</a>
+      <ul class="lesson-list">
+        <li><a href="#m4-l1" data-lesson="m4-l1"><span class="lesson-check"></span>Découper selon le sens</a></li>
+        <li><a href="#m4-l2" data-lesson="m4-l2"><span class="lesson-check"></span>Embeddings de phrases et rupture</a></li>
+        <li><a href="#m4-l3" data-lesson="m4-l3"><span class="lesson-check"></span>Seuils de détection</a></li>
+        <li><a href="#m4-l4" data-lesson="m4-l4"><span class="lesson-check"></span>Coûts et compromis</a></li>
+        <li><a href="#m4-l5" data-lesson="m4-l5"><span class="lesson-check"></span>Quand ça apporte un vrai gain</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-5"><span class="n">05</span> Chunking structurel</a>
+      <ul class="lesson-list">
+        <li><a href="#m5-l1" data-lesson="m5-l1"><span class="lesson-check"></span>Structure Markdown</a></li>
+        <li><a href="#m5-l2" data-lesson="m5-l2"><span class="lesson-check"></span>Code source (AST-aware)</a></li>
+        <li><a href="#m5-l3" data-lesson="m5-l3"><span class="lesson-check"></span>Documents HTML/PDF</a></li>
+        <li><a href="#m5-l4" data-lesson="m5-l4"><span class="lesson-check"></span>Tableaux et données structurées</a></li>
+        <li><a href="#m5-l5" data-lesson="m5-l5"><span class="lesson-check"></span>Métadonnées et hiérarchie</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-6"><span class="n">06</span> Stratégies avancées</a>
+      <ul class="lesson-list">
+        <li><a href="#m6-l1" data-lesson="m6-l1"><span class="lesson-check"></span>Parent-Document Retriever</a></li>
+        <li><a href="#m6-l2" data-lesson="m6-l2"><span class="lesson-check"></span>Chunking hiérarchique multi-niveaux</a></li>
+        <li><a href="#m6-l3" data-lesson="m6-l3"><span class="lesson-check"></span>Contextual retrieval</a></li>
+        <li><a href="#m6-l4" data-lesson="m6-l4"><span class="lesson-check"></span>Sliding window adaptatif</a></li>
+        <li><a href="#m6-l5" data-lesson="m6-l5"><span class="lesson-check"></span>Combiner plusieurs stratégies</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-7"><span class="n">07</span> Évaluation & débogage</a>
+      <ul class="lesson-list">
+        <li><a href="#m7-l1" data-lesson="m7-l1"><span class="lesson-check"></span>Métriques de retrieval</a></li>
+        <li><a href="#m7-l2" data-lesson="m7-l2"><span class="lesson-check"></span>Symptômes d'un mauvais chunking</a></li>
+        <li><a href="#m7-l3" data-lesson="m7-l3"><span class="lesson-check"></span>Outils et frameworks</a></li>
+        <li><a href="#m7-l4" data-lesson="m7-l4"><span class="lesson-check"></span>Choisir selon le corpus</a></li>
+        <li><a href="#m7-l5" data-lesson="m7-l5"><span class="lesson-check"></span>Bonnes pratiques de production</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-8"><span class="n">08</span> Étude de cas complète</a>
+      <ul class="lesson-list">
+        <li><a href="#m8-l1" data-lesson="m8-l1"><span class="lesson-check"></span>Pipeline complet en Python</a></li>
+        <li><a href="#m8-l2" data-lesson="m8-l2"><span class="lesson-check"></span>Comparaison de 4 stratégies</a></li>
+        <li><a href="#m8-l3" data-lesson="m8-l3"><span class="lesson-check"></span>Exercice final</a></li>
+        <li><a href="#m8-l4" data-lesson="m8-l4"><span class="lesson-check"></span>Ressources pour aller plus loin</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main class="content">
+    <header class="hero" id="top">
+      <span class="tag">// data-for-ai · 3.prepa-data-pour-RAG · Formation 9</span>
+      <h1 class="hero-title">Chunking de Documents pour <span>RAG</span></h1>
+      <p class="hero-lead">Stratégies par taille, sémantique et structure — un cours complet, du découpage naïf par caractères jusqu'aux pipelines de production hybrides. 8 modules, 38 leçons.</p>
+      <div class="strip" aria-hidden="true">
+        <div class="seg"></div><div class="seg"></div><div class="seg"></div>
+        <div class="seg"></div><div class="seg"></div><div class="seg"></div>
+      </div>
+    </header>
+
+    <div class="module-block" id="module-1">
+      <span class="module-kicker">MODULE 01 / 08</span>
+      <h1>Fondamentaux du RAG et rôle du chunking</h1>
+      <p class="intro">Avant de comparer des stratégies de découpage, il faut comprendre précisément ce que le chunking résout, où il intervient dans un pipeline RAG, et pourquoi la moindre décision de découpage se répercute sur toute la chaîne — jusqu'à la réponse finale du modèle.</p>
+
+<section class="lesson" id="m1-l1" style="--lesson-color: var(--chunk-1)">
+      <h2><span class="tag">LEÇON 1.1</span>Qu'est-ce que le RAG et pourquoi le chunking est une étape critique</h2>
+
+      <p>Le <strong>RAG</strong> (Retrieval-Augmented Generation) est une architecture qui permet à un LLM de répondre en s'appuyant sur des documents externes plutôt que sur sa seule mémoire paramétrique. Au lieu d'espérer que le modèle "sache" une information issue de vos documents internes (contrats, documentation produit, tickets de support...), on va la chercher au moment de la question et on l'injecte dans le prompt.</p>
+
+      <p>Le problème : on ne peut pas donner l'intégralité d'une base documentaire de plusieurs milliers de pages au modèle à chaque requête. Même avec des fenêtres de contexte de plusieurs centaines de milliers de tokens, ce serait lent, coûteux, et surtout contre-productif — noyer le modèle sous du contenu non pertinent dégrade la qualité de ses réponses (effet "lost in the middle"). Il faut donc :</p>
+
+      <ol>
+        <li>Découper les documents en fragments plus petits (les <strong>chunks</strong>),</li>
+        <li>Indexer ces fragments (typiquement via des embeddings vectoriels),</li>
+        <li>Ne récupérer, pour une question donnée, que les quelques fragments les plus pertinents.</li>
+      </ol>
+
+      <p>Le <strong>chunking</strong> est cette étape 1. Elle paraît anodine — "on coupe le texte en morceaux" — mais elle conditionne tout ce qui suit. Un chunk trop grand dilue le signal sémantique (l'embedding représente un mélange de plusieurs idées, donc il matche mal des questions précises). Un chunk trop petit perd le contexte nécessaire pour être compris isolément. Un chunk mal découpé peut couper une phrase, un tableau ou un raisonnement en deux, rendant les deux moitiés inutilisables même si l'une d'elles est récupérée.</p>
+
+      <div class="ascii">Document source (10 000 mots)
+        │
+        ▼
+┌───────────────────────────────┐
+│  CHUNKING  (cette étape !)    │   ← découpage en fragments
+└───────────────────────────────┘
+        │
+        ▼
+[chunk 1] [chunk 2] [chunk 3] ... [chunk N]
+        │
+        ▼
+   embeddings + index vectoriel
+        │
+        ▼
+  requête utilisateur → recherche des k chunks les + proches
+        │
+        ▼
+   chunks pertinents injectés dans le prompt du LLM
+        │
+        ▼
+        réponse générée</div>
+
+      <p>Une règle mentale utile : <strong>la qualité d'un système RAG est plafonnée par la qualité de son chunking</strong>. On peut avoir le meilleur modèle d'embedding et le meilleur LLM de génération du marché — si les chunks récupérés ne contiennent pas l'information nécessaire, intacte et compréhensible, la réponse sera fausse ou incomplète. C'est pour cette raison que le chunking, souvent traité comme un détail d'implémentation, mérite un module entier avant même de parler d'embeddings ou de bases vectorielles.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Beaucoup de tutoriels RAG commencent directement par "choisissez une base vectorielle" ou "choisissez un modèle d'embedding", en traitant le chunking comme une ligne de code accessoire (<code class="inline">text_splitter = CharacterTextSplitter(chunk_size=500)</code>). En pratique, dans les systèmes RAG qui sous-performent en production, la cause racine est très souvent un chunking inadapté au corpus — pas le choix du modèle d'embedding.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Prenez un document que vous connaissez bien (README technique, contrat, article). Imaginez qu'on le coupe toutes les 500 caractères sans réfléchir à la structure. Identifiez trois endroits précis où cette coupe romprait une idée ou une information (une définition coupée en deux, un tableau scindé, une liste à puces éclatée entre deux chunks).
+      </div>
+    </section>
+
+    <section class="lesson" id="m1-l2" style="--lesson-color: var(--chunk-2)">
+      <h2><span class="tag">LEÇON 1.2</span>Anatomie d'un pipeline RAG (ingestion → embedding → retrieval → génération)</h2>
+
+      <p>Pour situer précisément où intervient le chunking, il faut décomposer le pipeline RAG en quatre phases distinctes. Chacune a ses propres décisions de conception, mais le chunking se trouve à la charnière entre les deux premières et influence directement les deux dernières.</p>
+
+      <h3>Phase 1 — Ingestion</h3>
+      <p>On part des documents bruts (PDF, HTML, Markdown, bases de données, tickets Zendesk...) et on les transforme en texte exploitable : extraction du texte, nettoyage (suppression des en-têtes/pieds de page répétitifs, normalisation de l'encodage), et <strong>chunking</strong>. C'est ici que se joue tout ce module.</p>
+
+      <h3>Phase 2 — Embedding</h3>
+      <p>Chaque chunk est transformé en vecteur numérique (embedding) via un modèle comme <code class="inline">text-embedding-3-small</code>, <code class="inline">voyage-3</code> ou un modèle open-source (<code class="inline">bge-large</code>, <code class="inline">e5-mistral</code>...). Ces vecteurs sont stockés dans une base vectorielle (Pinecone, Weaviate, Qdrant, pgvector...) avec les métadonnées du chunk (source, position, titre de section...).</p>
+
+      <h3>Phase 3 — Retrieval</h3>
+      <p>Au moment de la question utilisateur, celle-ci est elle-même transformée en embedding, puis on recherche les k chunks les plus proches dans l'espace vectoriel (similarité cosinus le plus souvent), parfois complétés par une recherche lexicale (BM25) dans une approche hybride, puis reclassés par un modèle de reranking.</p>
+
+      <h3>Phase 4 — Génération</h3>
+      <p>Les chunks récupérés sont insérés dans le prompt envoyé au LLM, accompagnés de la question et d'instructions système. Le modèle génère sa réponse en s'appuyant (en théorie) uniquement sur ce contexte fourni.</p>
+
+      <pre><code class="language-python">from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_openai import OpenAIEmbeddings
+from langchain_community.vectorstores import FAISS
+
+# Phase 1 — Ingestion + chunking
+splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=120)
+chunks = splitter.split_text(raw_document_text)
+
+# Phase 2 — Embedding + indexation
+embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+vectorstore = FAISS.from_texts(chunks, embeddings)
+
+# Phase 3 — Retrieval au moment de la question
+query = "Quelle est la politique de remboursement après 30 jours ?"
+relevant_chunks = vectorstore.similarity_search(query, k=4)
+
+# Phase 4 — Génération (le LLM ne voit QUE ces chunks + la question)
+context = "\n\n".join(c.page_content for c in relevant_chunks)
+prompt = f"Contexte:\n{context}\n\nQuestion: {query}\nRéponds uniquement à partir du contexte."
+</code></pre>
+
+      <p>Ce qu'il faut retenir : le chunking a lieu <em>une seule fois</em>, en amont, souvent hors-ligne (batch d'ingestion). Mais ses effets se propagent à <em>chaque</em> requête utilisateur, en continu. Une erreur de chunking n'est pas un bug ponctuel — c'est une dette qui pénalise silencieusement toutes les réponses futures du système tant que le corpus n'est pas ré-indexé.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Confondre "taille de chunk" et "taille de contexte envoyée au LLM". Ce sont deux paramètres indépendants : on peut avoir des chunks de 300 tokens mais en récupérer 8 (k=8) pour construire un contexte de 2400 tokens. Optimiser l'un sans penser à l'autre mène à des configurations incohérentes (ex: chunks énormes + k élevé = contexte qui explose et dilue le signal).
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Dessinez (sur papier ou en ASCII) le pipeline RAG que vous imagineriez pour un cas d'usage précis (support client, recherche juridique, documentation technique). Pour chaque phase, notez une décision de conception spécifique à ce cas d'usage.
+      </div>
+    </section>
+
+    <section class="lesson" id="m1-l3" style="--lesson-color: var(--chunk-3)">
+      <h2><span class="tag">LEÇON 1.3</span>Le compromis taille de chunk / qualité de récupération</h2>
+
+      <p>Le chunking par taille de fragment implique toujours un arbitrage entre deux forces opposées. Comprendre ce compromis en profondeur est la clé pour choisir intelligemment une stratégie plus loin dans ce cours.</p>
+
+      <h3>Chunks trop petits</h3>
+      <ul>
+        <li><strong>Précision du signal accrue</strong> : un chunk court et focalisé produit un embedding "propre", qui matche bien une question ciblée.</li>
+        <li><strong>Perte de contexte</strong> : une phrase isolée de son paragraphe peut devenir ambiguë ("Cette exception ne s'applique pas dans ce cas." — quel cas ?).</li>
+        <li><strong>Explosion du nombre de chunks</strong> : plus de vecteurs à stocker, plus de bruit potentiel dans la recherche, coût d'indexation plus élevé.</li>
+        <li><strong>Fragmentation de l'information</strong> : une réponse complète peut nécessiter d'assembler 5-6 petits chunks dispersés, ce qui complique le retrieval (il faut tous les retrouver ET les remettre dans l'ordre).</li>
+      </ul>
+
+      <h3>Chunks trop grands</h3>
+      <ul>
+        <li><strong>Contexte préservé</strong> : plus de chances qu'une idée complète (définition + exemple + nuance) tienne dans un seul chunk.</li>
+        <li><strong>Signal dilué</strong> : l'embedding d'un chunk de 2000 mots représente une moyenne floue de plusieurs sujets. Il matche mal une question précise sur un détail noyé dans le chunk.</li>
+        <li><strong>Gaspillage de contexte au moment de la génération</strong> : le LLM reçoit beaucoup de texte non pertinent autour de l'information utile, ce qui augmente le coût et peut dégrader la qualité de réponse (bruit, distraction).</li>
+        <li><strong>Granularité de citation dégradée</strong> : si vous voulez citer précisément la source d'une affirmation, un chunk de 3 pages est moins utile qu'un chunk de 2 paragraphes.</li>
+      </ul>
+
+      <div class="ascii">Qualité du retrieval
+      ▲
+      │        ●●●
+      │      ●●   ●●
+      │    ●●       ●●
+      │   ●           ●●
+      │  ●               ●●●
+      │ ●                    ●●●●
+      └──────────────────────────────▶ Taille du chunk
+        petit    "sweet spot"    grand
+        (signal (contexte +      (contexte
+         pur,    signal          riche,
+         mais    équilibrés)     signal
+         fragile)                dilué)</div>
+
+      <p>Il n'existe pas de taille "universelle" — le point d'équilibre dépend du corpus (une FAQ courte n'a pas les mêmes besoins qu'un contrat juridique dense), du modèle d'embedding utilisé (certains modèles sont optimisés pour des phrases courtes, d'autres pour des paragraphes), et du type de question posée par les utilisateurs finaux (factuelle et ponctuelle vs. synthèse large). En pratique, la fourchette de 200 à 500 tokens par chunk est un point de départ raisonnable pour la majorité des cas généraux — mais ce cours vous donnera les outils pour l'ajuster empiriquement plutôt que de la copier aveuglément.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Choisir une taille de chunk unique "parce que c'est la valeur par défaut de LangChain" (souvent 1000 caractères / 200 d'overlap). Ces défauts sont génériques et rarement optimaux pour un corpus spécifique. La taille de chunk doit être un paramètre testé empiriquement, pas une constante qu'on copie d'un tutoriel.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Pour votre corpus (réel ou imaginé), listez 3 questions typiques que poseraient vos utilisateurs. Pour chacune, estimez : la réponse tient-elle en une phrase, un paragraphe, ou nécessite-t-elle plusieurs sections ? Qu'est-ce que cela suggère sur la taille de chunk idéale ?
+      </div>
+    </section>
+
+    <section class="lesson" id="m1-l4" style="--lesson-color: var(--chunk-4)">
+      <h2><span class="tag">LEÇON 1.4</span>Mesurer la taille : tokens vs caractères vs mots</h2>
+
+      <p>Avant de fixer un <code class="inline">chunk_size</code>, il faut savoir dans quelle unité on le fixe — et c'est une source d'erreurs surprenamment fréquente. Trois unités coexistent dans les outils de chunking, et elles ne sont pas interchangeables.</p>
+
+      <h3>Caractères</h3>
+      <p>La mesure la plus simple : <code class="inline">len(texte)</code>. Rapide à calculer, indépendante de la langue, mais n'a <strong>aucun rapport direct</strong> avec ce qui compte réellement pour un LLM : le nombre de tokens. Un texte de 1000 caractères peut faire 180 tokens en anglais et 260 tokens en français (le français utilise plus de caractères par token en moyenne à cause des accents, de la conjugaison, des mots plus longs).</p>
+
+      <h3>Mots</h3>
+      <p>Plus proche de "l'unité de sens", mais imprécise pour les tokenizers modernes de type BPE (Byte Pair Encoding), où un mot peut être découpé en plusieurs tokens ("anticonstitutionnellement" → plusieurs tokens) ou où plusieurs mots courts peuvent parfois fusionner en un seul token dans certains cas. Les mots restent une bonne heuristique humaine pour estimer "à peu près" mais pas pour du calibrage précis.</p>
+
+      <h3>Tokens</h3>
+      <p>L'unité qui compte réellement, car c'est elle qui détermine : (1) le coût d'appel à l'API d'embedding et de génération, (2) si le chunk + la question + les instructions tiennent dans la fenêtre de contexte du LLM, (3) la granularité réelle que "voit" le modèle d'embedding (qui tokenize aussi son entrée). <strong>Chunker en pensant en tokens, pas en caractères</strong>, est la pratique la plus rigoureuse — surtout quand on approche des limites de contexte.</p>
+
+      <pre><code class="language-python">import tiktoken
+
+# Compter les tokens comme le ferait un modèle OpenAI
+enc = tiktoken.encoding_for_model("gpt-4o")
+
+texte = "Le chunking sémantique découpe selon le sens plutôt que la taille."
+print(len(texte))                      # 68 caractères
+print(len(texte.split()))              # 11 "mots"
+print(len(enc.encode(texte)))          # 16 tokens (approximatif)
+
+# Chunker directement sur le nombre de tokens plutôt que les caractères
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
+    encoding_name="cl100k_base",
+    chunk_size=300,      # en TOKENS ici, pas en caractères
+    chunk_overlap=50,
+)
+chunks = splitter.split_text(long_document)
+</code></pre>
+
+      <div class="ascii">Le même texte, mesuré 3 façons :
+
+"Anticonstitutionnellement, cela ne fonctionne pas."
+
+  caractères : 51
+  mots       : 5
+  tokens     : ~11   (le mot long est éclaté en plusieurs sous-tokens)
+
+→ chunk_size=500 en CARACTÈRES ne veut pas dire la même chose
+  selon la densité du texte (technique, jargon, langue).</div>
+
+      <p>Un autre point souvent négligé : chaque modèle d'embedding a sa propre limite de tokens en entrée (souvent 512, parfois 8192 pour les modèles plus récents). Si un chunk dépasse cette limite, il sera <strong>tronqué silencieusement</strong> par de nombreuses API — la fin du chunk est simplement ignorée sans erreur, ce qui peut faire disparaître de l'information sans que vous vous en rendiez compte lors des tests initiaux.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Régler <code class="inline">chunk_size=1000</code> en pensant "caractères" alors que la librairie utilisée le compte en tokens (ou l'inverse). Vérifiez systématiquement la documentation de l'outil de chunking utilisé : LangChain propose les deux modes (<code class="inline">RecursiveCharacterTextSplitter</code> vs <code class="inline">.from_tiktoken_encoder(...)</code>), et le mélange des deux est une source classique de chunks 3 à 5 fois plus grands ou plus petits que prévu.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Prenez un paragraphe de votre choix. Comptez ses caractères, ses mots (séparés par espace), puis installez <code class="inline">tiktoken</code> et comptez ses tokens réels avec l'encodage <code class="inline">cl100k_base</code>. Calculez le ratio caractères/token : est-il proche de 4 (moyenne typique en anglais) ou plus élevé (cas fréquent en français) ?
+      </div>
+    </section>
+
+    <section class="lesson" id="m1-l5" style="--lesson-color: var(--chunk-1)">
+      <h2><span class="tag">LEÇON 1.5</span>Erreurs courantes qui ruinent un RAG dès le chunking</h2>
+
+      <p>Cette dernière leçon du module fondateur rassemble les erreurs de chunking les plus fréquentes observées en production — pour que vous les reconnaissiez tout au long des modules suivants, avant même d'apprendre les stratégies pour les éviter en détail.</p>
+
+      <h3>1. Chunker sans regarder le contenu réel</h3>
+      <p>Appliquer un <code class="inline">CharacterTextSplitter(chunk_size=500)</code> à l'aveugle sur un PDF scanné, un fichier Markdown structuré et une conversation de support client, en utilisant exactement les mêmes paramètres pour les trois. Chaque type de document a une structure différente qui devrait informer la stratégie.</p>
+
+      <h3>2. Ignorer l'overlap (ou mal le régler)</h3>
+      <p>Sans chevauchement entre chunks consécutifs, une information à cheval sur une frontière de coupe est fragmentée sans qu'aucun des deux chunks ne la contienne entièrement. À l'inverse, un overlap excessif (ex: 50% du chunk) gonfle inutilement l'index et introduit de la redondance dans les résultats de recherche.</p>
+
+      <h3>3. Perdre les métadonnées de provenance</h3>
+      <p>Un chunk sans métadonnée (document source, numéro de page, titre de section, date) ne peut pas être cité proprement dans la réponse finale, ni filtré lors du retrieval (ex: "cherche uniquement dans les documents de 2024"). C'est une des causes principales des réponses RAG qui semblent correctes mais sont invérifiables.</p>
+
+      <h3>4. Casser des unités logiques indivisibles</h3>
+      <p>Couper au milieu d'un tableau, d'un bloc de code, d'une liste à puces ou d'une formule mathématique. Le fragment résultant est souvent incompréhensible seul, et l'embedding généré pour ce fragment sera de mauvaise qualité.</p>
+
+      <h3>5. Ne jamais évaluer le chunking empiriquement</h3>
+      <p>Choisir une configuration une fois, au début du projet, et ne plus jamais la questionner — même quand les retours utilisateurs indiquent des réponses incomplètes ou hors-sujet. Le chunking devrait être un paramètre qu'on teste et ajuste avec des métriques (module 7), pas une décision figée au jour 1.</p>
+
+      <h3>6. Oublier le contexte du document dans le chunk</h3>
+      <p>Un chunk extrait d'un contrat peut contenir la phrase "Cette clause s'applique sauf mention contraire à l'article précédent" — sans savoir qu'il vient du "Contrat de prestation ABC Corp, section 4.2", ce chunk est difficile à interpréter correctement, même par un LLM puissant.</p>
+
+      <div class="ascii">Symptômes visibles          →  Cause probable (chunking)
+─────────────────────────────────────────────────────────
+Réponses incomplètes       →  chunks trop petits / infos éclatées
+Réponses hors-sujet        →  chunks trop grands / signal dilué
+Réponses non vérifiables   →  métadonnées de source perdues
+Tableaux mal interprétés   →  coupe en plein milieu d'un tableau
+Contradictions apparentes  →  chunks dupliqués sans contexte source</div>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Attribuer un mauvais résultat RAG au "modèle qui n'est pas assez intelligent" ou à "l'embedding qui n'est pas bon", et changer de modèle sans avoir d'abord vérifié le contenu réel des chunks récupérés pour une requête donnée. Le premier réflexe de débogage RAG devrait toujours être : "qu'est-ce qu'il y a exactement dans les chunks retournés ?"
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice de réflexion</strong>
+        Pour clore ce module : si vous deviez diagnostiquer un système RAG existant qui donne de mauvaises réponses, dans quel ordre vérifieriez-vous les éléments suivants — et pourquoi : (a) le contenu des chunks récupérés pour 5 questions test, (b) le modèle d'embedding utilisé, (c) le prompt de génération, (d) la taille et le chevauchement des chunks ? Justifiez votre ordre en une ou deux phrases.
+      </div>
+    </section>
+    </div>
+
+    <div class="module-block" id="module-2">
+      <span class="module-kicker">MODULE 02 / 08</span>
+      <h1>Chunking par taille fixe</h1>
+      <p class="intro">La stratégie la plus simple et la plus utilisée en pratique : découper un texte en morceaux d'une taille cible, avec un chevauchement entre morceaux consécutifs. Simple à implémenter, mais riche en subtilités dès qu'on veut la faire fonctionner correctement.</p>
+
+<section class="lesson" id="m2-l1" style="--lesson-color: var(--chunk-1)">
+      <h2><span class="tag">LEÇON 2.1</span>Découpage naïf par caractères/tokens</h2>
+
+      <p>La forme la plus basique de chunking consiste à parcourir le texte et à couper toutes les <code class="inline">N</code> unités (caractères ou tokens), sans se soucier du contenu à l'endroit de la coupe. C'est l'algorithme le plus simple possible :</p>
+
+      <pre><code class="language-python">def chunk_naif(texte: str, taille: int) -> list[str]:
+    return [texte[i:i + taille] for i in range(0, len(texte), taille)]
+
+document = "Le RAG combine recherche documentaire et génération de texte. " \
+           "Il permet à un LLM de répondre avec des informations à jour..."
+
+chunks = chunk_naif(document, taille=50)
+for c in chunks:
+    print(repr(c))
+# 'Le RAG combine recherche documentaire et génér'
+# 'ation de texte. Il permet à un LLM de répondre a'
+# 'vec des informations à jour...'
+</code></pre>
+
+      <p>Le résultat est immédiatement problématique : le premier chunk se termine sur "génér" — un mot coupé en plein milieu. Le deuxième commence par "ation de texte", qui n'a aucun sens hors contexte. C'est ce qu'on appelle un découpage <strong>aveugle à la structure</strong> (structure-agnostic) : il ignore complètement les frontières naturelles du texte (mots, phrases, paragraphes).</p>
+
+      <p>Pourquoi étudier cette approche si elle est mauvaise ? Parce qu'elle sert de base de comparaison pour comprendre l'apport de chaque amélioration successive (respect des mots, des phrases, overlap...), et parce que certains cas d'usage très spécifiques (données non structurées comme des logs bruts, ou contraintes de performance extrêmes) peuvent encore la justifier en dernier recours.</p>
+
+      <p>La plupart des librairies de production (LangChain, LlamaIndex) proposent une version légèrement améliorée : le <code class="inline">CharacterTextSplitter</code>, qui découpe en respectant au moins un séparateur donné (par défaut <code class="inline">"\n\n"</code>) tout en essayant de respecter la taille cible :</p>
+
+      <pre><code class="language-python">from langchain_text_splitters import CharacterTextSplitter
+
+splitter = CharacterTextSplitter(
+    separator="\n\n",
+    chunk_size=500,
+    chunk_overlap=0,
+    length_function=len,
+)
+chunks = splitter.split_text(document)
+</code></pre>
+
+      <p>Notez que <code class="inline">CharacterTextSplitter</code> ne coupe QUE sur le séparateur donné — si un paragraphe entre deux <code class="inline">"\n\n"</code> dépasse <code class="inline">chunk_size</code>, il ne sera pas subdivisé davantage (contrairement au splitter récursif du module 3). C'est une source fréquente de confusion : on s'attend à des chunks de taille homogène, et on obtient des tailles très variables.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Croire que <code class="inline">chunk_size=500</code> garantit des chunks de 500 unités. Selon le splitter utilisé, c'est une taille <em>cible maximale</em>, pas une taille fixe — le splitter essaiera de rester en dessous, mais un paragraphe non subdivisible plus long que 500 sera conservé entier. Toujours vérifier la distribution réelle des tailles obtenues (min/max/médiane) plutôt que de supposer qu'elles sont uniformes.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Exécutez le code <code class="inline">chunk_naif</code> ci-dessus sur un de vos propres paragraphes avec <code class="inline">taille=80</code>. Comptez combien de chunks sur le total commencent ou finissent en plein milieu d'un mot.
+      </div>
+    </section>
+
+    <section class="lesson" id="m2-l2" style="--lesson-color: var(--chunk-2)">
+      <h2><span class="tag">LEÇON 2.2</span>L'overlap (chevauchement) : rôle et calibrage</h2>
+
+      <p>L'<strong>overlap</strong> (chevauchement) consiste à faire commencer chaque nouveau chunk un peu avant la fin du précédent, plutôt que pile où il s'est arrêté. L'objectif : éviter qu'une information à cheval sur une frontière de coupe ne soit totalement perdue dans les deux chunks.</p>
+
+      <div class="ascii">Sans overlap :
+[Chunk 1: ...la clause s'applique] [Chunk 2: sauf exception prévue à l'article 4.]
+        → aucun chunk ne contient la phrase complète
+
+Avec overlap de 20 caractères :
+[Chunk 1: ...la clause s'applique sauf exception]
+                        [Chunk 2: s'applique sauf exception prévue à l'article 4.]
+        → la phrase complète apparaît dans le Chunk 2</div>
+
+      <pre><code class="language-python">from langchain_text_splitters import CharacterTextSplitter
+
+splitter = CharacterTextSplitter(
+    separator=" ",
+    chunk_size=200,
+    chunk_overlap=40,   # 40 caractères répétés entre deux chunks consécutifs
+)
+chunks = splitter.split_text(document)
+
+# Vérifier concrètement le chevauchement
+print(chunks[0][-40:])   # fin du chunk 1
+print(chunks[1][:40])    # début du chunk 2 → doit partager du contenu
+</code></pre>
+
+      <p>Combien d'overlap choisir ? Une règle de pouce répandue est <strong>10 à 20% de la taille du chunk</strong> (ex: 50-100 tokens d'overlap pour des chunks de 500 tokens). Mais ce chiffre doit être ajusté selon la densité d'information du texte :</p>
+
+      <ul>
+        <li><strong>Texte dense et technique</strong> (contrats, code, documentation API) : privilégier un overlap plus généreux (15-25%), car une phrase coupée peut changer le sens juridique ou technique.</li>
+        <li><strong>Texte narratif ou conversationnel</strong> (articles, transcriptions) : un overlap plus faible (5-10%) suffit souvent, la redondance informationnelle naturelle du texte compense.</li>
+      </ul>
+
+      <p>L'overlap a un coût direct : plus il est élevé, plus le nombre total de chunks générés augmente (pour un même document), ce qui alourdit l'index vectoriel et peut renvoyer des résultats de recherche redondants (deux chunks quasi identiques qui matchent tous les deux la même requête, prenant la place d'un chunk différent qui aurait pu être plus utile).</p>
+
+      <div class="ascii">Overlap trop faible (0-5%)      Overlap raisonnable (10-20%)     Overlap excessif (40%+)
+─────────────────────────      ────────────────────────────    ───────────────────────
+risque de couper des idées      bon compromis                    redondance dans l'index
+important                       continuité préservée             + coût de stockage
+                                                                  + résultats dupliqués</div>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Régler un overlap élevé "pour être sûr de ne rien perdre" sans mesurer l'impact sur le nombre total de chunks. Doubler l'overlap peut augmenter le nombre de chunks de 30-50% selon la taille du document, avec un gain marginal décroissant passé un certain seuil. L'overlap n'est pas un filet de sécurité gratuit — il a un coût réel en stockage, en latence de recherche et en risque de doublons dans les résultats.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Avec le code ci-dessus, testez trois valeurs d'overlap (0, 40, 100) sur le même document et comptez le nombre de chunks obtenus dans chaque cas. Observez comment le nombre de chunks croît en fonction de l'overlap.
+      </div>
+    </section>
+
+    <section class="lesson" id="m2-l3" style="--lesson-color: var(--chunk-3)">
+      <h2><span class="tag">LEÇON 2.3</span>Chunking par tokens avec tiktoken et tokenizers HuggingFace</h2>
+
+      <p>Comme vu au module 1, chunker en pensant "tokens" plutôt que "caractères" est plus fidèle à ce que le modèle voit réellement. Deux familles d'outils dominent selon l'écosystème utilisé.</p>
+
+      <h3>tiktoken (écosystème OpenAI)</h3>
+      <pre><code class="language-python">import tiktoken
+
+enc = tiktoken.encoding_for_model("gpt-4o")
+
+def chunk_par_tokens(texte: str, taille_tokens: int, overlap_tokens: int) -> list[str]:
+    tokens = enc.encode(texte)
+    chunks = []
+    debut = 0
+    while debut < len(tokens):
+        fin = debut + taille_tokens
+        chunk_tokens = tokens[debut:fin]
+        chunks.append(enc.decode(chunk_tokens))
+        debut += taille_tokens - overlap_tokens   # avance en tenant compte de l'overlap
+    return chunks
+
+chunks = chunk_par_tokens(document, taille_tokens=300, overlap_tokens=50)
+print(f"{len(chunks)} chunks générés")
+</code></pre>
+
+      <h3>Tokenizers HuggingFace (écosystème open-source)</h3>
+      <pre><code class="language-python">from transformers import AutoTokenizer
+
+# Utiliser le MÊME tokenizer que le modèle d'embedding utilisé en aval !
+tokenizer = AutoTokenizer.from_pretrained("BAAI/bge-large-en-v1.5")
+
+def chunk_par_tokens_hf(texte: str, taille: int, overlap: int) -> list[str]:
+    ids = tokenizer.encode(texte, add_special_tokens=False)
+    chunks = []
+    debut = 0
+    while debut < len(ids):
+        fin = debut + taille
+        chunks.append(tokenizer.decode(ids[debut:fin]))
+        debut += taille - overlap
+    return chunks
+</code></pre>
+
+      <p>Le point capital ici : <strong>utilisez le tokenizer correspondant au modèle d'embedding que vous utilisez réellement en production</strong>, pas un tokenizer générique. Un modèle BGE et un modèle GPT ne tokenizent pas le texte de la même façon — un chunk de "300 tokens GPT" peut correspondre à 340 ou 260 tokens une fois retokenizé par le modèle d'embedding, ce qui fausse le calibrage si vous cherchiez à respecter précisément la limite d'entrée de ce modèle.</p>
+
+      <p>LangChain simplifie cette intégration via <code class="inline">RecursiveCharacterTextSplitter.from_tiktoken_encoder(...)</code> ou <code class="inline">from_huggingface_tokenizer(...)</code>, qui combinent découpage respectueux des séparateurs (vu au module 3) ET comptage précis en tokens.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Mesurer la taille des chunks avec <code class="inline">tiktoken</code> (tokenizer OpenAI) alors que le modèle d'embedding réellement utilisé en production est un modèle open-source (BGE, E5...) avec un tokenizer différent. Les deux tokenizers ne découpent pas le texte de manière identique — la "taille en tokens" mesurée n'est alors qu'une approximation, pas la vérité pour le modèle qui traite réellement les chunks.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Installez <code class="inline">tiktoken</code>, encodez un même paragraphe avec <code class="inline">cl100k_base</code> (GPT-4) puis, si possible, avec un tokenizer HuggingFace d'un modèle d'embedding open-source. Comparez le nombre de tokens obtenus — l'écart est-il négligeable ou significatif ?
+      </div>
+    </section>
+
+    <section class="lesson" id="m2-l4" style="--lesson-color: var(--chunk-4)">
+      <h2><span class="tag">LEÇON 2.4</span>Limites du fixed-size chunking</h2>
+
+      <p>Même bien calibré (bonne taille, bon overlap, comptage en tokens précis), le chunking par taille fixe garde une limite structurelle fondamentale : il ne "comprend" pas le contenu. Il traite un contrat juridique, un poème et un tableau de données exactement de la même façon — en comptant des unités.</p>
+
+      <h3>Cas limite 1 — Les listes et tableaux</h3>
+      <p>Une liste à puces de 12 éléments peut être coupée après le 7ème élément si la taille de chunk tombe pile à cet endroit. Le chunk résultant contient une liste incomplète, sans savoir qu'il en manque une partie — ni le LLM en aval, ni un lecteur humain ne peuvent deviner qu'il manque 5 éléments.</p>
+
+      <h3>Cas limite 2 — Le code source</h3>
+      <p>Une fonction Python peut être coupée entre sa signature et son corps, ou en plein milieu d'une boucle. Le fragment de code obtenu n'est pas syntaxiquement valide et perd tout son sens (voir module 5 pour le chunking conscient du code).</p>
+
+      <h3>Cas limite 3 — Les dialogues et transcriptions</h3>
+      <p>Une réponse peut être séparée de sa question dans une transcription d'entretien ou de support client, rendant le chunk ambigu ("Oui, c'est exact." — une réponse à quoi ?).</p>
+
+      <h3>Cas limite 4 — Les documents multilingues ou à forte densité d'information</h3>
+      <p>Un texte juridique en français, très dense en subordonnées, peut voir une clause entière coupée en deux même avec un overlap raisonnable, si la phrase elle-même dépasse la taille du chunk.</p>
+
+      <div class="ascii">Exemple réel de rupture problématique :
+
+┌─── Chunk N ──────────────────────────────┐
+│ Les conditions d'éligibilité sont :      │
+│ 1. Être client depuis plus d'un an       │
+│ 2. Avoir un compte actif                 │
+│ 3. Ne pas avoir de litige en cours       │
+└───────────────────────────────────────────┘
+┌─── Chunk N+1 ─────────────────────────────┐
+│ 4. Résider dans un pays éligible         │
+│ 5. Avoir signé la charte utilisateur     │
+│                                            │
+│ Si toutes ces conditions sont réunies... │
+└────────────────────────────────────────────┘
+
+→ Une requête "quelles sont TOUTES les conditions
+   d'éligibilité ?" ne récupérera correctement
+   qu'un des deux chunks, jamais la liste complète.</div>
+
+      <p>Ces limites ne signifient pas que le fixed-size chunking est inutilisable — c'est encore une approche pertinente pour des corpus peu structurés ou hétérogènes où investir dans un chunking plus sophistiqué n'apporterait pas un gain proportionnel à l'effort. Mais il faut connaître précisément ces angles morts pour savoir quand basculer vers les approches des modules 3 à 6.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Appliquer du fixed-size chunking à un corpus qui contient une proportion significative de tableaux, de code ou de listes structurées, en pensant que "l'overlap va compenser". L'overlap aide pour des phrases coupées, mais ne répare pas une liste ou un tableau fragmenté — il faudrait pour cela une détection de structure (module 5).
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Dans votre corpus, identifiez le pourcentage approximatif de contenu qui est "structuré" (tableaux, listes, code, formulaires) vs. "texte continu" (paragraphes narratifs). Ce ratio devrait influencer votre décision d'investir ou non dans du chunking structurel dès maintenant.
+      </div>
+    </section>
+
+    <section class="lesson" id="m2-l5" style="--lesson-color: var(--chunk-1)">
+      <h2><span class="tag">LEÇON 2.5</span>Choisir chunk_size et chunk_overlap selon le cas d'usage</h2>
+
+      <p>Pour clore ce module, voici une méthode concrète pour calibrer ces deux paramètres plutôt que de deviner — et des points de départ raisonnables par type de corpus, à valider empiriquement (module 7).</p>
+
+      <h3>Méthode en 4 étapes</h3>
+      <ol>
+        <li><strong>Analysez la longueur naturelle des unités de sens</strong> : une FAQ a des réponses de 1-3 phrases ; un contrat a des clauses de 1-2 paragraphes ; un article a des sections de plusieurs paragraphes.</li>
+        <li><strong>Vérifiez la limite du modèle d'embedding</strong> : ne dépassez jamais sa limite de tokens en entrée (souvent 512 pour les modèles plus anciens, jusqu'à 8192 pour les modèles récents comme <code class="inline">text-embedding-3</code>).</li>
+        <li><strong>Estimez le budget de contexte au moment de la génération</strong> : si vous récupérez k=5 chunks de 500 tokens, cela fait 2500 tokens de contexte — vérifiez que cela reste raisonnable avec le reste du prompt (instructions, historique de conversation).</li>
+        <li><strong>Testez empiriquement</strong> plusieurs combinaisons sur un jeu de questions représentatif, et mesurez le taux de bonnes réponses (module 7).</li>
+      </ol>
+
+      <h3>Points de départ par type de corpus</h3>
+      <table style="width:100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.88rem;">
+        <thead>
+          <tr style="text-align:left; border-bottom: 2px solid var(--border);">
+            <th style="padding: 0.5rem 0.6rem;">Corpus</th>
+            <th style="padding: 0.5rem 0.6rem;">chunk_size</th>
+            <th style="padding: 0.5rem 0.6rem;">overlap</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom: 1px solid var(--border);"><td style="padding: 0.5rem 0.6rem;">FAQ / support client</td><td style="padding: 0.5rem 0.6rem;">150-300 tokens</td><td style="padding: 0.5rem 0.6rem;">10-15%</td></tr>
+          <tr style="border-bottom: 1px solid var(--border);"><td style="padding: 0.5rem 0.6rem;">Documentation technique</td><td style="padding: 0.5rem 0.6rem;">300-500 tokens</td><td style="padding: 0.5rem 0.6rem;">15-20%</td></tr>
+          <tr style="border-bottom: 1px solid var(--border);"><td style="padding: 0.5rem 0.6rem;">Contrats / juridique</td><td style="padding: 0.5rem 0.6rem;">400-600 tokens</td><td style="padding: 0.5rem 0.6rem;">20-25%</td></tr>
+          <tr style="border-bottom: 1px solid var(--border);"><td style="padding: 0.5rem 0.6rem;">Articles / blog / narratif</td><td style="padding: 0.5rem 0.6rem;">500-800 tokens</td><td style="padding: 0.5rem 0.6rem;">5-10%</td></tr>
+          <tr><td style="padding: 0.5rem 0.6rem;">Code source</td><td style="padding: 0.5rem 0.6rem;">variable (par fonction)</td><td style="padding: 0.5rem 0.6rem;">0% (voir module 5)</td></tr>
+        </tbody>
+      </table>
+
+      <p>Ces valeurs sont des points de départ, pas des vérités absolues. La seule façon fiable de valider un choix est de construire un petit jeu d'évaluation (20-50 paires question/réponse représentatives de votre cas d'usage réel) et de mesurer objectivement le taux de récupération correcte pour plusieurs configurations — méthode détaillée au module 7.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Se fixer sur une configuration après un seul test "à l'œil" sur 2-3 questions qui semblent bien fonctionner, sans construire un vrai jeu d'évaluation. Les biais de confirmation sont très forts ici : on a tendance à tester les questions qu'on sait "faciles" pour le système, pas celles qui révèlent ses limites.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        À partir du tableau ci-dessus, choisissez la ligne qui correspond le mieux à votre corpus. Écrivez en une phrase pourquoi cette taille est adaptée à la longueur naturelle des unités de sens de ce corpus (pas juste "parce que c'est dans le tableau").
+      </div>
+    </section>
+    </div>
+
+    <div class="module-block" id="module-3">
+      <span class="module-kicker">MODULE 03 / 08</span>
+      <h1>Chunking récursif et par séparateurs</h1>
+      <p class="intro">La stratégie de facto dans la plupart des pipelines RAG en production : au lieu de couper aveuglément à une position fixe, on essaie d'abord de couper aux frontières naturelles du texte (paragraphes, phrases, mots), et on ne recourt à une coupe plus brutale qu'en dernier recours.</p>
+
+<section class="lesson" id="m3-l1" style="--lesson-color: var(--chunk-1)">
+      <h2><span class="tag">LEÇON 3.1</span>Le RecursiveCharacterTextSplitter et sa logique en cascade</h2>
+
+      <p>Le <code class="inline">RecursiveCharacterTextSplitter</code> (popularisé par LangChain, mais le principe est repris par de nombreuses librairies) résout le problème central du chunking naïf : il essaie de couper le texte en respectant sa structure, en tentant une <strong>liste ordonnée de séparateurs</strong>, du plus "large" (paragraphe) au plus "fin" (caractère).</p>
+
+      <p>Le principe : on tente d'abord de découper le texte en utilisant le premier séparateur de la liste (par défaut, le saut de ligne double <code class="inline">"\n\n"</code>, qui délimite typiquement des paragraphes). Si un des fragments obtenus est encore trop grand par rapport à <code class="inline">chunk_size</code>, on le redécoupe <em>récursivement</em> en essayant le séparateur suivant de la liste (<code class="inline">"\n"</code>, puis un espace <code class="inline">" "</code>, puis en dernier recours le caractère lui-même). D'où le nom "récursif".</p>
+
+      <pre><code class="language-python">from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+splitter = RecursiveCharacterTextSplitter(
+    chunk_size=500,
+    chunk_overlap=80,
+    separators=["\n\n", "\n", ". ", " ", ""],   # ordre = priorité de coupe
+)
+
+document = """Le chunking est une étape essentielle du RAG.
+
+Il consiste à découper un document en fragments exploitables.
+Chaque fragment doit être suffisamment autonome pour être compris seul.
+
+Plusieurs stratégies existent, de la plus simple à la plus sophistiquée."""
+
+chunks = splitter.split_text(document)
+for i, c in enumerate(chunks):
+    print(f"--- chunk {i} ({len(c)} car.) ---")
+    print(c)
+</code></pre>
+
+      <div class="ascii">Algorithme (simplifié) :
+
+essayer_separateur("\n\n")
+  → fragments obtenus, un par un :
+      si fragment.taille <= chunk_size : GARDER tel quel
+      sinon : essayer_separateur("\n") SUR CE FRAGMENT
+                → toujours trop grand ?
+                    essayer_separateur(". ") SUR CE FRAGMENT
+                      → toujours trop grand ?
+                          essayer_separateur(" ")
+                            → toujours trop grand ?
+                                couper au caractère (dernier recours)
+
+→ Le texte est TOUJOURS découpé en respectant la structure
+  la plus "haute" possible qui permette de rester sous chunk_size.</div>
+
+      <p>Ce qui distingue cette approche du <code class="inline">CharacterTextSplitter</code> simple (module 2) : elle ne s'arrête pas si un paragraphe dépasse la taille cible — elle continue à le subdiviser avec des séparateurs de plus en plus fins, jusqu'à obtenir des fragments qui respectent la contrainte de taille. C'est un comportement <em>récursif</em> et <em>adaptatif</em>, alors que le splitter simple est <em>fixe</em> sur un seul niveau de séparateur.</p>
+
+      <p>Résultat concret : les chunks obtenus sont presque toujours plus cohérents sémantiquement que ceux du chunking naïf, sans effort de configuration supplémentaire significatif. C'est pour cette raison que le <code class="inline">RecursiveCharacterTextSplitter</code> est le point de départ recommandé par défaut pour la grande majorité des projets RAG — avant d'envisager des approches plus coûteuses comme le chunking sémantique (module 4).</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Penser que "récursif" veut dire "intelligent" ou "sémantique". Ce n'est toujours qu'une hiérarchie de règles syntaxiques (caractères de séparation) — le splitter ne comprend pas le sens du texte, il ne fait que respecter sa ponctuation et sa mise en forme. Un texte sans aucune ponctuation ni saut de ligne (ex: un flux de logs bruts) ne bénéficiera quasiment d'aucun avantage par rapport au chunking naïf.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Exécutez le code ci-dessus avec le document donné et un <code class="inline">chunk_size=100</code>. Observez à quel niveau de séparateur (paragraphe, ligne, phrase) chaque chunk a dû être coupé pour respecter la taille — le splitter affiche-t-il ce niveau ? Sinon, déduisez-le en inspectant où se trouvent les coupures.
+      </div>
+    </section>
+
+    <section class="lesson" id="m3-l2" style="--lesson-color: var(--chunk-2)">
+      <h2><span class="tag">LEÇON 3.2</span>Hiérarchie de séparateurs (\n\n, \n, phrase, mot)</h2>
+
+      <p>La liste de séparateurs par défaut — <code class="inline">["\n\n", "\n", " ", ""]</code> — reflète une hypothèse implicite sur la structure d'un texte "typique" en anglais/prose occidentale : les paragraphes sont séparés par une ligne vide, les lignes par un simple retour à la ligne, les mots par des espaces. Mais cette hiérarchie par défaut n'est ni universelle, ni toujours optimale.</p>
+
+      <h3>Comprendre pourquoi l'ordre compte</h3>
+      <p>L'ordre des séparateurs dans la liste représente une hiérarchie de granularité, du "gros grain" (paragraphe) au "grain fin" (caractère). Le splitter essaie <strong>toujours le séparateur le plus large en premier</strong> car préserver une unité de sens large (un paragraphe entier) est presque toujours préférable à en préserver une plus petite (une phrase isolée), à condition que la taille le permette.</p>
+
+      <pre><code class="language-python"># Hiérarchie enrichie, utile pour du texte à forte structure de phrases
+separators_enrichis = [
+    "\n\n",   # paragraphes
+    "\n",     # lignes
+    ". ",     # fin de phrase (point + espace)
+    "! ",
+    "? ",
+    "; ",     # clauses séparées par point-virgule
+    ", ",     # dernier recours avant le mot : clauses séparées par virgule
+    " ",      # mots
+    "",       # caractères (dernier recours absolu)
+]
+
+splitter = RecursiveCharacterTextSplitter(
+    chunk_size=400,
+    chunk_overlap=60,
+    separators=separators_enrichis,
+)
+</code></pre>
+
+      <p>Ajouter des séparateurs de phrase explicites (<code class="inline">". "</code>, <code class="inline">"! "</code>, <code class="inline">"? "</code>) avant l'espace simple améliore notablement la cohérence des chunks pour du texte en prose : le splitter privilégiera la coupe entre deux phrases plutôt qu'au milieu d'une phrase, chaque fois que la taille le permet.</p>
+
+      <h3>Le cas des points d'abréviation</h3>
+      <p>Un séparateur naïf sur <code class="inline">". "</code> se fait piéger par les abréviations ("M. Dupont", "etc. ", "art. 4") qui contiennent un point suivi d'un espace sans marquer une vraie fin de phrase. Pour un texte à fort taux d'abréviations (juridique, académique), une segmentation de phrases par une librairie NLP dédiée (<code class="inline">spaCy</code>, <code class="inline">nltk.sent_tokenize</code>) est plus fiable qu'un simple séparateur de chaîne de caractères.</p>
+
+      <pre><code class="language-python">import spacy
+
+nlp = spacy.load("fr_core_news_sm")
+
+def phrases_via_spacy(texte: str) -> list[str]:
+    doc = nlp(texte)
+    return [sent.text.strip() for sent in doc.sents]
+
+# Ensuite, regrouper les phrases en chunks de taille cible
+def regrouper_en_chunks(phrases: list[str], taille_max: int) -> list[str]:
+    chunks, courant = [], ""
+    for phrase in phrases:
+        if len(courant) + len(phrase) <= taille_max:
+            courant += " " + phrase
+        else:
+            chunks.append(courant.strip())
+            courant = phrase
+    if courant:
+        chunks.append(courant.strip())
+    return chunks
+</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Garder la liste de séparateurs par défaut sans l'adapter au type réel de document. Un document Markdown a des séparateurs bien plus riches et significatifs (titres <code class="inline">#</code>, listes <code class="inline">-</code>, blocs de code <code class="inline">```</code>) que la simple ligne vide — les ignorer revient à jeter une information de structure disponible gratuitement (voir module 5 pour un traitement complet du Markdown).
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Reprenez la liste <code class="inline">separators_enrichis</code> ci-dessus et adaptez-la pour un corpus de tickets de support client, où chaque ticket contient souvent des lignes du type "Client:" et "Agent:". Quel séparateur ajouteriez-vous en priorité haute pour respecter les tours de parole ?
+      </div>
+    </section>
+
+    <section class="lesson" id="m3-l3" style="--lesson-color: var(--chunk-3)">
+      <h2><span class="tag">LEÇON 3.3</span>Adapter les séparateurs à la langue et au format du document</h2>
+
+      <p>La hiérarchie de séparateurs par défaut a été pensée pour du texte anglais en prose classique. Deux dimensions doivent être reconsidérées pour un corpus réel : la <strong>langue</strong> et le <strong>format</strong> du document.</p>
+
+      <h3>Adaptation à la langue</h3>
+      <p>En français, la ponctuation a ses spécificités : l'espace insécable avant certains signes de ponctuation double (<code class="inml">" : "</code>, <code class="inline">" ; "</code>, <code class="inline">" ? "</code>, <code class="inline">" ! "</code>), qui peut perturber un séparateur codé en dur pensant à l'anglais (<code class="inline">"? "</code> sans l'espace avant, par exemple). Pour des langues à écriture non-latine (chinois, japonais), la notion même d'"espace entre les mots" n'existe pas — découper sur <code class="inline">" "</code> n'a alors aucun sens, et il faut utiliser un tokenizer ou segmenteur de mots dédié à la langue (ex: <code class="inline">jieba</code> pour le chinois).</p>
+
+      <h3>Adaptation au format</h3>
+      <p>LangChain propose des listes de séparateurs préconfigurées par langage/format via <code class="inline">RecursiveCharacterTextSplitter.from_language(...)</code>, qui adapte automatiquement la hiérarchie :</p>
+
+      <pre><code class="language-python">from langchain_text_splitters import RecursiveCharacterTextSplitter, Language
+
+# Pour du code Python : coupe en priorité entre classes, puis fonctions,
+# puis blocs logiques, jamais en plein milieu d'une ligne de code
+python_splitter = RecursiveCharacterTextSplitter.from_language(
+    language=Language.PYTHON, chunk_size=600, chunk_overlap=0
+)
+
+# Pour du Markdown : respecte les titres, les listes, les blocs de code
+md_splitter = RecursiveCharacterTextSplitter.from_language(
+    language=Language.MARKDOWN, chunk_size=500, chunk_overlap=60
+)
+
+# Aperçu des séparateurs utilisés en interne pour Python :
+print(RecursiveCharacterTextSplitter.get_separators_for_language(Language.PYTHON))
+# ['\nclass ', '\ndef ', '\n\tdef ', '\n\n', '\n', ' ', '']
+</code></pre>
+
+      <p>Cette approche par langage/format est la première étape vers le chunking structurel approfondi du module 5 — elle reste dans la famille "récursive par séparateurs", mais avec des séparateurs choisis pour respecter la syntaxe du format plutôt que la prose générique.</p>
+
+      <div class="ascii">Format          Séparateurs prioritaires typiques
+──────────────────────────────────────────────────
+Prose (FR/EN)   \n\n · \n · ". " · " "
+Markdown        \n## · \n### · \n\n · \n- · ```
+Python          \nclass · \ndef · \n\n · \n
+HTML            &lt;/div&gt; · &lt;/p&gt; · &lt;/table&gt; · \n
+JSON            structure arborescente (pas de séparateur de texte)</div>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Utiliser <code class="inline">Language.MARKDOWN</code> ou <code class="inline">Language.PYTHON</code> en pensant que cela garantit un découpage parfaitement structurel (ex: jamais couper une fonction en deux). En réalité, ces séparateurs sont une amélioration heuristique, pas une analyse syntaxique complète (AST) — une fonction très longue peut encore être coupée en plein milieu si elle dépasse largement <code class="inline">chunk_size</code>. Pour une garantie stricte sur du code, voir le chunking AST-aware au module 5.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Listez le format dominant de votre corpus (Markdown, HTML, texte brut, JSON...). Cherchez si LangChain (ou l'outil que vous utilisez) propose un preset de séparateurs pour ce format. Si non, écrivez à la main 3 séparateurs prioritaires que vous ajouteriez en tête de liste.
+      </div>
+    </section>
+
+    <section class="lesson" id="m3-l4" style="--lesson-color: var(--chunk-4)">
+      <h2><span class="tag">LEÇON 3.4</span>Pièges : séparateurs mal choisis, documents sans structure</h2>
+
+      <p>Le chunking récursif par séparateurs, malgré sa robustesse, reste vulnérable à des cas où ses hypothèses implicites sur la structure du texte ne tiennent pas.</p>
+
+      <h3>Piège 1 — Documents sans aucune structure exploitable</h3>
+      <p>Un fichier de log brut, une transcription audio sans ponctuation, un export CSV converti en texte : aucun de ces formats n'a de "\n\n" significatif ni de phrases claires. Le splitter récursif finit par retomber sur le séparateur le plus fin (l'espace, voire le caractère), ce qui le ramène quasiment au comportement du chunking naïf du module 2. Dans ce cas, il vaut mieux investir dans un pré-traitement spécifique (ex: regrouper les logs par timestamp ou par requête) plutôt que d'espérer que le splitter générique compense l'absence de structure.</p>
+
+      <h3>Piège 2 — Structure incohérente au sein d'un même corpus</h3>
+      <p>Un corpus agrégé de plusieurs sources (export Confluence + tickets Jira + PDF scannés) peut avoir des conventions de mise en forme radicalement différentes d'un document à l'autre. Une seule configuration de séparateurs appliquée uniformément à tout le corpus produira de bons résultats sur certains documents et de mauvais résultats sur d'autres. Il faut alors envisager un chunking différencié par type de source, ce qui complique le pipeline d'ingestion mais améliore sensiblement la qualité.</p>
+
+      <h3>Piège 3 — Faux séparateurs qui trompent le splitter</h3>
+      <p>Un document contenant beaucoup de sauts de ligne "cosmétiques" (mise en page d'un PDF exporté en texte, où chaque ligne visuelle se termine par <code class="inline">\n</code> même en plein milieu d'une phrase) va faire réagir le splitter au séparateur <code class="inline">"\n"</code> à des endroits qui ne correspondent à aucune frontière logique réelle. Un nettoyage préalable du texte (fusionner les sauts de ligne "de mise en page" en un espace, ne garder les vrais sauts de paragraphe) est souvent nécessaire avant le chunking.</p>
+
+      <div class="ascii">PDF mal extrait (sauts de ligne cosmétiques) :
+
+"Le contrat prend effet à la date de signature\npar les deux parties\net reste valide pendant\nune durée de douze mois."
+
+→ Le splitter voit 4 "paragraphes" (\n) alors qu'il n'y en a qu'un seul.
+→ Nettoyage nécessaire : fusionner les \n simples entourés de minuscules
+   en espace, ne garder les \n\n (vrais paragraphes).</div>
+
+      <h3>Piège 4 — Confondre robustesse du splitter et qualité du chunking</h3>
+      <p>Le <code class="inline">RecursiveCharacterTextSplitter</code> ne produira jamais d'erreur — il retombera toujours sur un séparateur plus fin si besoin, et produira toujours des chunks de la bonne taille. Cette absence d'erreur peut donner une fausse impression de qualité : le splitter "fonctionne" au sens où il tourne sans planter, mais les chunks produits peuvent malgré tout être sémantiquement mauvais si le document ne se prête pas à ce type de découpage.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Ne jamais inspecter visuellement un échantillon de chunks produits sur le vrai corpus de production. Le chunking récursif "semble" fonctionner sur du texte propre de démonstration, mais un corpus réel contient souvent des artefacts d'extraction (en-têtes/pieds de page répétés, numéros de page, sauts de ligne de mise en page) qui dégradent silencieusement la qualité des chunks. Toujours imprimer 10-20 chunks au hasard et les relire avant de considérer le chunking "terminé".
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice de réflexion</strong>
+        Pour clore ce module : si votre corpus contient à la fois des PDF mal extraits (sauts de ligne cosmétiques) et des pages Markdown propres, concevriez-vous un pipeline de chunking unique pour les deux, ou deux pipelines différenciés ? Justifiez en pensant au ratio effort d'implémentation / gain de qualité.
+      </div>
+    </section>
+    </div>
+
+    <div class="module-block" id="module-4">
+      <span class="module-kicker">MODULE 04 / 08</span>
+      <h1>Chunking sémantique</h1>
+      <p class="intro">Et si, au lieu de découper à une taille fixe, on découpait précisément là où le sujet change ? Le chunking sémantique utilise les embeddings eux-mêmes pour détecter les frontières naturelles du sens — au prix d'un calcul supplémentaire.</p>
+
+<section class="lesson" id="m4-l1" style="--lesson-color: var(--chunk-1)">
+      <h2><span class="tag">LEÇON 4.1</span>Principe : découper selon le sens plutôt que la taille</h2>
+
+      <p>Toutes les approches vues jusqu'ici (modules 2 et 3) partagent une même limite : elles fixent d'abord une <strong>taille cible</strong>, puis cherchent la meilleure frontière disponible pour respecter cette taille. Le chunking sémantique renverse cette logique : il cherche d'abord les <strong>frontières de sens</strong> dans le texte, et la taille des chunks résultants devient une conséquence, pas un objectif.</p>
+
+      <p>L'intuition : un document traite rarement d'un seul sujet homogène du début à la fin. Un article peut passer du contexte historique d'un problème, à sa description technique, puis à ses implications pratiques — trois "zones sémantiques" bien distinctes. Le chunking par taille fixe risque de couper en plein milieu d'une de ces zones ou, pire, de mélanger deux zones dans un même chunk. Le chunking sémantique vise à faire coïncider les frontières de chunk avec les transitions de sujet réelles.</p>
+
+      <div class="ascii">Texte réel (3 sujets enchaînés) :
+
+[Historique du problème............] [Solution technique......] [Impact business.....]
+ └─── zone sémantique A ───┘         └── zone sémantique B ──┘  └─ zone sémantique C ─┘
+
+Chunking par taille fixe (ignore les zones) :
+[chunk 1..............] [chunk 2..............] [chunk 3..............]
+      ↑ mélange A et B         ↑ coupe B en 2          ↑ mélange B et C
+
+Chunking sémantique (respecte les zones) :
+[chunk A = zone historique] [chunk B = solution technique] [chunk C = impact business]</div>
+
+      <p>Concrètement, l'algorithme repose sur une intuition mesurable : deux phrases consécutives qui parlent du même sujet ont des embeddings proches (similarité cosinus élevée) ; deux phrases consécutives qui marquent un changement de sujet ont des embeddings plus éloignés. En calculant la similarité entre chaque paire de phrases consécutives et en repérant les "creux" de similarité (les ruptures), on peut identifier automatiquement où placer les frontières de chunk.</p>
+
+      <p>C'est une approche née dans la communauté RAG (popularisée notamment par Greg Kamradt et reprise dans LlamaIndex sous le nom <code class="inline">SemanticSplitterNodeParser</code>, et dans LangChain sous <code class="inline">SemanticChunker</code>), en réaction directe aux limites du chunking par séparateurs face à des documents longs et thématiquement variés.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Penser que "sémantique" veut dire "parfait" ou "sans limite". Le chunking sémantique reste une heuristique statistique basée sur des embeddings de phrases — il peut se tromper sur des transitions de sujet subtiles, ou sur-découper un texte qui varie naturellement en vocabulaire sans changer de sujet de fond (ex: un texte qui alterne exemples concrets et explications théoriques du même concept).
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Prenez un article de blog ou une documentation que vous connaissez. Identifiez à l'œil nu 3 "zones sémantiques" distinctes (changements de sujet). Notez à quelle phrase précise chaque transition se produit — vous comparerez ce découpage manuel à un découpage automatique dans la leçon suivante.
+      </div>
+    </section>
+
+    <section class="lesson" id="m4-l2" style="--lesson-color: var(--chunk-2)">
+      <h2><span class="tag">LEÇON 4.2</span>Semantic chunking par embeddings de phrases et détection de rupture</h2>
+
+      <p>Voici l'algorithme de référence, tel qu'implémenté par la plupart des librairies de semantic chunking :</p>
+
+      <ol>
+        <li>Découper le document en unités atomiques (phrases, via un séparateur simple ou une librairie NLP).</li>
+        <li>Calculer l'embedding de chaque phrase individuellement (ou d'un groupe glissant de 2-3 phrases pour plus de stabilité).</li>
+        <li>Calculer la similarité cosinus entre chaque paire de phrases consécutives.</li>
+        <li>Repérer les points où cette similarité chute fortement (une "rupture" sémantique).</li>
+        <li>Découper le document à ces points de rupture, en fusionnant les phrases entre deux ruptures consécutives en un seul chunk.</li>
+      </ol>
+
+      <pre><code class="language-python">import numpy as np
+from sklearn.metrics.pairwise import cosine_similarity
+from openai import OpenAI
+
+client = OpenAI()
+
+def embed_batch(textes: list[str]) -> np.ndarray:
+    resp = client.embeddings.create(model="text-embedding-3-small", input=textes)
+    return np.array([d.embedding for d in resp.data])
+
+def chunking_semantique(texte: str, seuil_percentile: int = 90) -> list[str]:
+    # 1. Découper en phrases (approche simple ; spaCy/nltk pour plus de robustesse)
+    phrases = [p.strip() for p in texte.split(". ") if p.strip()]
+
+    # 2. Embeddings de chaque phrase
+    embeddings = embed_batch(phrases)
+
+    # 3. Similarité entre phrases consécutives
+    similarites = [
+        cosine_similarity([embeddings[i]], [embeddings[i + 1]])[0][0]
+        for i in range(len(embeddings) - 1)
+    ]
+
+    # 4. Seuil de rupture : percentile bas de similarité = forte dissimilarité
+    distances = [1 - s for s in similarites]
+    seuil = np.percentile(distances, seuil_percentile)
+    points_de_rupture = [i for i, d in enumerate(distances) if d > seuil]
+
+    # 5. Fusionner les phrases entre ruptures en chunks
+    chunks, debut = [], 0
+    for point in points_de_rupture:
+        chunks.append(". ".join(phrases[debut:point + 1]) + ".")
+        debut = point + 1
+    chunks.append(". ".join(phrases[debut:]))
+    return chunks
+</code></pre>
+
+      <p>Une variante plus robuste utilise une <strong>fenêtre glissante</strong> : au lieu d'embedder chaque phrase isolément (bruit élevé sur des phrases très courtes), on embedde des groupes de 3 phrases consécutives qui se chevauchent, ce qui lisse le signal de similarité et rend la détection de rupture plus stable.</p>
+
+      <div class="ascii">Similarité entre phrases consécutives le long du document :
+
+1.0 │●●●●●
+    │     ●●●●
+0.8 │         ●●●●●●●
+    │                ╲
+0.6 │                 ╲___          ●●●●●●●●●
+    │                     ╲___    ╱
+0.4 │                         ╲__╱
+    └──────────────────────────────────────────▶ position dans le texte
+                            ↑                ↑
+                       rupture 1        (remontée = même sujet repris)
+
+→ Le point bas (~0.4) marque une transition de sujet :
+   c'est ici qu'on place une frontière de chunk.</div>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Embedder chaque phrase individuellement sans lissage sur un texte où les phrases sont très courtes (dialogues, listes à puces). Le bruit statistique sur des embeddings de phrases de 3-4 mots est élevé, ce qui génère de fausses ruptures détectées un peu partout. Privilégier un regroupement par fenêtre glissante de 2-3 phrases dès que le texte contient des phrases courtes.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Sur le texte que vous avez annoté à la main dans la leçon précédente, exécutez (mentalement ou avec le code ci-dessus si vous avez un accès API) l'algorithme de semantic chunking. Les frontières détectées automatiquement correspondent-elles à vos 3 zones identifiées manuellement ?
+      </div>
+    </section>
+
+    <section class="lesson" id="m4-l3" style="--lesson-color: var(--chunk-3)">
+      <h2><span class="tag">LEÇON 4.3</span>Seuils de détection : percentile, gradient, interquartile</h2>
+
+      <p>Le choix du seuil qui détermine "quelle chute de similarité constitue une vraie rupture" est le paramètre le plus délicat du chunking sémantique. Trois méthodes principales coexistent, chacune avec ses compromis.</p>
+
+      <h3>Méthode du percentile</h3>
+      <p>On calcule la distribution de toutes les distances (1 - similarité) entre phrases consécutives du document, et on considère qu'une rupture est un point situé au-delà d'un certain percentile (souvent 90-95). C'est la méthode la plus simple et la plus répandue (utilisée par défaut dans <code class="inline">langchain_experimental.text_splitter.SemanticChunker</code>).</p>
+
+      <pre><code class="language-python"># Percentile : rupture = distance dans le top 10% des distances observées
+seuil = np.percentile(distances, 90)
+
+# Plus le percentile est élevé, moins on détecte de ruptures (chunks + gros)
+# Plus le percentile est bas, plus on détecte de ruptures (chunks + petits)</code></pre>
+
+      <h3>Méthode du gradient</h3>
+      <p>Au lieu d'un seuil absolu, on regarde le <em>taux de variation</em> de la distance d'un point à l'autre — une rupture est un point où la distance change brutalement par rapport à ses voisins, indépendamment du niveau absolu. Utile quand la similarité moyenne varie beaucoup d'une section à l'autre du document (un document technique dense a une similarité de base différente d'une section narrative).</p>
+
+      <h3>Méthode interquartile (IQR)</h3>
+      <p>On calcule l'écart interquartile (Q3 - Q1) de la distribution des distances, et une rupture est définie comme un point dépassant <code class="inline">Q3 + k × IQR</code> (avec k souvent autour de 1.5, la convention statistique classique pour détecter des valeurs aberrantes). Cette méthode est plus robuste aux distributions non gaussiennes que le simple percentile.</p>
+
+      <pre><code class="language-python">def seuil_iqr(distances: list[float], k: float = 1.5) -> float:
+    q1, q3 = np.percentile(distances, [25, 75])
+    iqr = q3 - q1
+    return q3 + k * iqr
+
+seuil = seuil_iqr(distances)
+points_de_rupture = [i for i, d in enumerate(distances) if d > seuil]</code></pre>
+
+      <div class="ascii">Comparaison rapide :
+
+Percentile fixe    → simple, mais sensible au nombre total de phrases
+                      (percentile 90 sur 10 phrases ≠ 90 sur 1000 phrases)
+
+Gradient            → détecte les changements RELATIFS, robuste aux
+                      variations de "niveau de base" du document
+
+IQR                  → robuste aux valeurs aberrantes, bon compromis
+                      par défaut si vous devez en choisir un seul</div>
+
+      <p>Dans la pratique, le paramètre le plus important n'est pas la méthode choisie mais le fait de <strong>fixer une taille minimale et maximale de chunk</strong> en complément du seuil de rupture — pour éviter deux échecs symétriques : des chunks ridiculement petits (une seule phrase isolée détectée comme une "zone" entière) ou des chunks énormes (aucune rupture détectée sur toute une section longue et homogène en vocabulaire mais riche en sous-thèmes).</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Régler le seuil de percentile une fois sur un document de test et le réutiliser tel quel sur tout le corpus. La distribution des distances varie fortement selon la longueur et l'homogénéité thématique du document — un seuil calibré sur un article court peut produire des résultats très différents sur un document de 50 pages. Toujours borner explicitement la taille min/max des chunks en filet de sécurité, quelle que soit la méthode de seuil choisie.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Pour un même jeu de distances (imaginaire ou calculé), comparez à la main ce que donnerait un seuil "percentile 90" vs un seuil "IQR avec k=1.5". Lequel des deux détecterait plus de ruptures sur une distribution où la plupart des distances sont proches de 0.1 mais avec 2 valeurs isolées à 0.6 ?
+      </div>
+    </section>
+
+    <section class="lesson" id="m4-l4" style="--lesson-color: var(--chunk-4)">
+      <h2><span class="tag">LEÇON 4.4</span>Coûts et compromis (latence, calcul d'embeddings supplémentaire)</h2>
+
+      <p>Le chunking sémantique n'est pas gratuit. Contrairement au chunking par taille fixe ou récursif (opérations purement textuelles, quasi instantanées), il nécessite de calculer un embedding pour <strong>chaque phrase ou groupe de phrases</strong> du document, avant même de construire l'index final.</p>
+
+      <h3>Coût en calcul et en argent</h3>
+      <p>Pour un document de 10 000 mots découpé en ~500 phrases, le chunking sémantique nécessite environ 500 appels d'embedding (ou un batch de 500 phrases) — <em>en plus</em> des embeddings calculés ensuite sur les chunks finaux pour l'indexation. C'est potentiellement le double du volume d'appels d'embedding par rapport à une approche par taille fixe, pour la seule étape de chunking.</p>
+
+      <pre><code class="language-python"># Estimation approximative du surcoût
+nb_documents = 5000
+mots_par_document = 2000
+phrases_par_document = mots_par_document // 20   # ~100 phrases
+
+# Chunking par taille fixe : 0 appel d'embedding supplémentaire pour chunker
+# Chunking sémantique : 1 appel d'embedding par phrase (ou groupe)
+appels_embedding_supplementaires = nb_documents * phrases_par_document
+print(appels_embedding_supplementaires)   # 500 000 appels d'embedding en plus
+</code></pre>
+
+      <h3>Coût en latence d'ingestion</h3>
+      <p>Ce volume d'appels supplémentaire ralentit sensiblement le pipeline d'ingestion, ce qui est généralement acceptable pour une ingestion batch hors-ligne (documents traités une fois), mais devient problématique si votre cas d'usage nécessite du chunking en quasi temps réel (ex: indexer un document uploadé par un utilisateur et le rendre immédiatement interrogeable).</p>
+
+      <h3>Coût en complexité opérationnelle</h3>
+      <p>Le chunking sémantique introduit une dépendance supplémentaire à un modèle d'embedding <em>dès l'étape de chunking</em>, alors que les approches précédentes n'en avaient besoin qu'après le découpage. Cela complique le pipeline (gestion des erreurs d'API, rate limiting, coûts monitorés à une étape de plus) et crée un couplage : si vous changez de modèle d'embedding pour l'indexation finale, faut-il aussi changer celui utilisé pour détecter les ruptures sémantiques ? (Réponse courte : pas nécessairement — un modèle plus léger/rapide peut suffire pour la détection de rupture, réservant le modèle principal à l'indexation finale.)</p>
+
+      <div class="ascii">Pipeline standard (récursif) :
+texte → [découpage par séparateurs, ~instantané] → chunks → embeddings (1x)
+
+Pipeline sémantique :
+texte → phrases → embeddings (1x, pour détecter ruptures)
+                → chunks détectés → embeddings (2x, pour indexation finale)
+
+                  ⤷ 2 passes d'embedding au lieu d'1 seule</div>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Déployer du chunking sémantique en production sur un pipeline d'ingestion à fort volume (des milliers de documents par jour) sans avoir chiffré le coût réel en appels API et en latence. Ce qui fonctionne bien sur un prototype avec 20 documents de test peut devenir un goulot d'étranglement et un poste de coût significatif à l'échelle de production.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Pour votre corpus (ou un corpus imaginé de 1000 documents de 1500 mots chacun), estimez le nombre d'appels d'embedding supplémentaires qu'impliquerait un passage au chunking sémantique. À un tarif approximatif de 0,02$ pour 1M de tokens (ordre de grandeur pour un modèle d'embedding économique), estimez le coût additionnel.
+      </div>
+    </section>
+
+    <section class="lesson" id="m4-l5" style="--lesson-color: var(--chunk-1)">
+      <h2><span class="tag">LEÇON 4.5</span>Quand le semantic chunking apporte un vrai gain vs approche fixe</h2>
+
+      <p>Face au surcoût réel du chunking sémantique (leçon précédente), il faut savoir précisément quand il justifie son investissement — et quand un bon chunking récursif (module 3) suffit largement.</p>
+
+      <h3>Le semantic chunking apporte un gain significatif quand :</h3>
+      <ul>
+        <li><strong>Les documents sont longs et thématiquement hétérogènes</strong> : rapports, articles longs, transcriptions de réunions qui abordent plusieurs sujets sans structure de titres explicite pour les délimiter.</li>
+        <li><strong>Le document n'a pas de structure syntaxique exploitable</strong> : pas de titres Markdown, pas de paragraphes clairement délimités — le splitter récursif du module 3 n'a alors aucune frontière naturelle forte à exploiter, et le sémantique devient la seule source d'information sur la structure.</li>
+        <li><strong>La précision du retrieval est critique et justifie le coût</strong> : cas d'usage à fort enjeu (recherche juridique, diagnostic médical assisté) où une amélioration marginale de la pertinence a une valeur métier qui dépasse largement le coût de calcul additionnel.</li>
+      </ul>
+
+      <h3>Le chunking récursif (module 3) suffit largement quand :</h3>
+      <ul>
+        <li><strong>Le document a déjà une structure syntaxique forte et fiable</strong> : Markdown bien formaté, documentation avec des titres de section clairs — la structure fait déjà le travail que le sémantique tenterait de deviner.</li>
+        <li><strong>Le volume de documents est très élevé</strong> : le surcoût en appels d'embedding devient rapidement disqualifiant à l'échelle (des millions de documents).</li>
+        <li><strong>Les contraintes de latence d'ingestion sont strictes</strong> (ingestion quasi temps réel).</li>
+      </ul>
+
+      <div class="ascii">Arbre de décision simplifié :
+
+Le document a-t-il une structure claire (titres, sections) ?
+ ├── OUI → chunking structurel/récursif (module 3 et 5) suffit généralement
+ └── NON → le corpus est-il volumineux (> 100k documents) ?
+            ├── OUI → chunking récursif + séparateurs enrichis (compromis coût/qualité)
+            └── NON → le gain de précision justifie-t-il le coût de calcul ?
+                       ├── OUI → chunking sémantique
+                       └── NON → chunking récursif avec bon calibrage (module 2-3)</div>
+
+      <p>Une pratique répandue et pragmatique : réserver le chunking sémantique pour un <strong>sous-ensemble ciblé</strong> du corpus (les documents longs et peu structurés, identifiés lors d'un audit initial), et garder le chunking récursif pour le reste. Cela évite de payer le coût du sémantique là où il n'apporte rien.</p>
+
+      <p>Enfin, il ne faut jamais adopter le chunking sémantique "par principe" sans mesure : la seule façon fiable de savoir s'il améliore réellement votre retrieval est de le comparer empiriquement au chunking récursif sur votre jeu d'évaluation (voir module 7) — l'intuition qu'une méthode "plus intelligente" doit forcément donner de meilleurs résultats se vérifie souvent moins que prévu en pratique.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Adopter le chunking sémantique pour tout le corpus par défaut, en pensant que c'est "la meilleure pratique moderne", sans l'avoir comparé empiriquement au chunking récursif sur son propre corpus et son propre jeu de questions. Dans de nombreux cas réels, l'écart de qualité mesuré est faible par rapport au surcoût en complexité et en calcul.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice de réflexion</strong>
+        Pour clore ce module : en utilisant l'arbre de décision ci-dessus, tracez le chemin qui correspond à votre corpus réel (ou imaginé). Concluez-vous en faveur du chunking sémantique, récursif, ou d'une approche hybride ciblée sur un sous-ensemble ? Justifiez en une phrase.
+      </div>
+    </section>
+    </div>
+
+    <div class="module-block" id="module-5">
+      <span class="module-kicker">MODULE 05 / 08</span>
+      <h1>Chunking structurel (Markdown, HTML, code, PDF)</h1>
+      <p class="intro">Quand un document a une structure explicite et fiable, l'exploiter directement bat presque toujours les heuristiques génériques des modules précédents : les titres, les balises, les indentations de code sont des frontières de sens données gratuitement — encore faut-il ne pas les gâcher.</p>
+
+<section class="lesson" id="m5-l1" style="--lesson-color: var(--chunk-1)">
+      <h2><span class="tag">LEÇON 5.1</span>Chunking conscient de la structure Markdown (titres, sections)</h2>
+
+      <p>Le Markdown encode explicitement une hiérarchie de titres (<code class="inline">#</code>, <code class="inline">##</code>, <code class="inline">###</code>...) qui correspond presque toujours à une hiérarchie de sens réelle. Un chunking structurel exploite cette information directement, au lieu de la redécouvrir statistiquement (chunking sémantique) ou de l'ignorer (chunking par taille fixe).</p>
+
+      <p>L'approche standard : découper d'abord par titre (chaque section devient un candidat de chunk), puis, si une section dépasse la taille cible, la subdiviser récursivement (module 3) en respectant les sous-titres, puis les paragraphes.</p>
+
+      <pre><code class="language-python">from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
+
+# Étape 1 : découper selon la hiérarchie de titres, en conservant
+# le chemin de titres comme métadonnée pour chaque section
+headers_a_suivre = [
+    ("#", "titre_h1"),
+    ("##", "titre_h2"),
+    ("###", "titre_h3"),
+]
+md_splitter = MarkdownHeaderTextSplitter(headers_to_split_on=headers_a_suivre)
+sections = md_splitter.split_text(document_markdown)
+
+for s in sections[:2]:
+    print(s.metadata)   # {'titre_h1': 'Guide RAG', 'titre_h2': 'Chunking'}
+    print(s.page_content[:100])
+
+# Étape 2 : si une section est encore trop grande, la subdiviser
+splitter_fin = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=60)
+chunks_finaux = []
+for section in sections:
+    sous_chunks = splitter_fin.split_text(section.page_content)
+    for sc in sous_chunks:
+        chunks_finaux.append({"texte": sc, "metadata": section.metadata})
+</code></pre>
+
+      <p>Le gain principal de cette approche à deux étapes : chaque chunk final conserve, via ses métadonnées, le <strong>chemin de titres</strong> (breadcrumb) qui le contextualise — "Guide RAG > Chunking > Overlap" — même si le texte du chunk lui-même ne répète pas ce contexte. Cette métadonnée peut être réinjectée dans le texte du chunk avant l'embedding (voir leçon 5.5) pour améliorer la qualité de la recherche.</p>
+
+      <div class="ascii">Document Markdown :                 Découpage structurel obtenu :
+
+# Guide RAG                          Section 1 (h1=Guide RAG, h2=Introduction)
+## Introduction                       "Le RAG combine..."
+Le RAG combine...
+                                     Section 2 (h1=Guide RAG, h2=Chunking, h3=Overlap)
+## Chunking                           "L'overlap permet..."
+### Overlap
+L'overlap permet...
+
+## Retrieval                        Section 3 (h1=Guide RAG, h2=Retrieval)
+La recherche vectorielle...           "La recherche vectorielle..."</div>
+
+      <p>Attention cependant : un découpage purement par titre peut produire des sections de taille très inégale — une section "Introduction" de 2 phrases et une section "Détails techniques" de 3000 mots. D'où la nécessité de l'étape 2 (subdivision récursive) pour les sections trop grandes, et éventuellement d'une fusion des sections trop petites entre elles (voir aussi le chunking hiérarchique au module 6).</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Découper uniquement par titre H1/H2 sans gérer les sections qui dépassent largement la taille cible. Une section technique dense de 3000 mots sous un seul titre "## Configuration avancée" finira en un chunk énorme si on ne la subdivise pas ensuite — reproduisant exactement le problème du chunking par taille fixe, mais à l'intérieur d'une section au lieu du document entier.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Prenez un fichier Markdown de votre choix (README, documentation). Découpez-le mentalement par niveau de titre H2. Repérez si une section est disproportionnellement plus longue que les autres — c'est un candidat pour une subdivision récursive supplémentaire.
+      </div>
+    </section>
+
+    <section class="lesson" id="m5-l2" style="--lesson-color: var(--chunk-2)">
+      <h2><span class="tag">LEÇON 5.2</span>Chunking de code source (par fonction/classe, AST-aware)</h2>
+
+      <p>Le code source a une contrainte que le texte en prose n'a pas : un fragment syntaxiquement invalide (une fonction coupée en deux, une accolade orpheline) n'est pas seulement moins clair — il peut être <strong>complètement inutilisable</strong> pour un LLM qui doit raisonner dessus (ex: un outil d'assistance au code qui doit comprendre une fonction entière pour répondre correctement).</p>
+
+      <p>Le <code class="inline">RecursiveCharacterTextSplitter.from_language(Language.PYTHON, ...)</code> vu au module 3 utilise des séparateurs adaptés (<code class="inline">\nclass </code>, <code class="inline">\ndef </code>) mais reste une heuristique textuelle : il ne comprend pas la syntaxe, il repère juste des motifs de texte. Le <strong>chunking AST-aware</strong> (Abstract Syntax Tree) va plus loin : il parse réellement le code pour identifier les unités syntaxiques complètes (fonctions, classes, méthodes) et garantit qu'aucun chunk ne coupe une de ces unités en deux.</p>
+
+      <pre><code class="language-python">import ast
+
+def chunker_par_fonction(code_source: str) -> list[dict]:
+    arbre = ast.parse(code_source)
+    chunks = []
+    lignes = code_source.splitlines()
+
+    for noeud in ast.walk(arbre):
+        if isinstance(noeud, (ast.FunctionDef, ast.ClassDef, ast.AsyncFunctionDef)):
+            debut = noeud.lineno - 1
+            fin = noeud.end_lineno   # nécessite Python 3.8+
+            code_unite = "\n".join(lignes[debut:fin])
+            chunks.append({
+                "type": type(noeud).__name__,
+                "nom": noeud.name,
+                "code": code_unite,
+            })
+    return chunks
+
+with open("mon_module.py") as f:
+    source = f.read()
+
+for chunk in chunker_par_fonction(source):
+    print(f"{chunk['type']} {chunk['nom']} — {len(chunk['code'])} caractères")
+</code></pre>
+
+      <p>Pour d'autres langages, des librairies comme <strong>tree-sitter</strong> offrent un parsing AST générique et rapide (utilisé notamment par GitHub, et par des outils comme Sourcegraph) pour une trentaine de langages, permettant d'extraire fonctions, classes et méthodes de façon fiable sans réimplémenter un parseur par langage.</p>
+
+      <pre><code class="language-python">from tree_sitter import Language, Parser
+import tree_sitter_python as tspython
+
+parser = Parser(Language(tspython.language()))
+arbre = parser.parse(bytes(code_source, "utf8"))
+
+def extraire_fonctions(noeud, source_bytes, resultats=None):
+    if resultats is None:
+        resultats = []
+    if noeud.type == "function_definition":
+        resultats.append(source_bytes[noeud.start_byte:noeud.end_byte].decode())
+    for enfant in noeud.children:
+        extraire_fonctions(enfant, source_bytes, resultats)
+    return resultats
+
+fonctions = extraire_fonctions(arbre.root_node, bytes(code_source, "utf8"))
+</code></pre>
+
+      <p>Pour les fonctions trop longues (dépassant la taille cible de chunk même en tant qu'unité complète), une pratique courante est de garder la fonction entière malgré tout — plutôt que de la couper — car un fragment de fonction est presque toujours moins utile qu'une fonction complète légèrement plus longue que la cible. C'est un cas où l'on accepte de dépasser <code class="inline">chunk_size</code> pour préserver l'intégrité syntaxique.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Appliquer un chunking par séparateurs textuels génériques (module 3) sur du code sans vérifier que les fonctions ne sont jamais coupées, en particulier pour du code avec des fonctions très longues ou une indentation profonde (classes imbriquées). Toujours privilégier un vrai parsing syntaxique (AST natif ou tree-sitter) pour du code destiné à un usage où la validité syntaxique du fragment compte (revue de code assistée, génération de documentation, agents de codage).
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Sur un petit fichier Python de votre projet, exécutez le code <code class="inline">chunker_par_fonction</code> ci-dessus. Vérifiez que chaque chunk obtenu correspond exactement au corps complet d'une fonction ou d'une classe, sans troncature.
+      </div>
+    </section>
+
+    <section class="lesson" id="m5-l3" style="--lesson-color: var(--chunk-3)">
+      <h2><span class="tag">LEÇON 5.3</span>Chunking de documents HTML et PDF</h2>
+
+      <p>Les documents HTML et PDF posent un défi commun : leur structure "visuelle" (mise en page) ne correspond pas toujours à leur structure "logique" (sens du contenu), contrairement au Markdown où les deux sont généralement alignées.</p>
+
+      <h3>HTML</h3>
+      <p>Le HTML a l'avantage d'avoir une structure balisée explicite (<code class="inline">&lt;h1&gt;</code>, <code class="inline">&lt;section&gt;</code>, <code class="inline">&lt;table&gt;</code>, <code class="inline">&lt;p&gt;</code>) qu'on peut exploiter directement, similairement au Markdown :</p>
+
+      <pre><code class="language-python">from bs4 import BeautifulSoup
+
+def chunker_html_par_section(html: str) -> list[dict]:
+    soup = BeautifulSoup(html, "html.parser")
+    chunks, titre_courant = [], None
+
+    for element in soup.find_all(["h1", "h2", "h3", "p", "table", "ul", "ol"]):
+        if element.name in ("h1", "h2", "h3"):
+            titre_courant = element.get_text(strip=True)
+        else:
+            texte = element.get_text(" ", strip=True)
+            if texte:
+                chunks.append({"titre": titre_courant, "contenu": texte, "type": element.name})
+    return chunks
+</code></pre>
+
+      <p>Le point d'attention principal avec le HTML réel (pages web, exports CMS) : il contient souvent des éléments de navigation, publicité, pied de page, menus répétés sur chaque page — qu'il faut filtrer avant chunking (via des sélecteurs CSS ciblant le contenu principal, ex: <code class="inline">soup.select_one("main, article, .content")</code>), sous peine d'indexer du bruit qui pollue le retrieval.</p>
+
+      <h3>PDF</h3>
+      <p>Le PDF est structurellement plus pauvre : c'est un format de mise en page (positions x/y de caractères), pas un format sémantique. L'extraction de texte brut (via <code class="inline">pypdf</code>, <code class="inline">pdfplumber</code>) perd souvent la notion de titre, de paragraphe, voire l'ordre de lecture correct sur des mises en page complexes (colonnes multiples, encadrés).</p>
+
+      <pre><code class="language-python">import pdfplumber
+
+def extraire_avec_structure(chemin_pdf: str) -> list[dict]:
+    pages_contenu = []
+    with pdfplumber.open(chemin_pdf) as pdf:
+        for i, page in enumerate(pdf.pages):
+            texte = page.extract_text() or ""
+            tableaux = page.extract_tables()
+            pages_contenu.append({
+                "page": i + 1,
+                "texte": texte,
+                "tableaux": tableaux,   # traités séparément, voir leçon 5.4
+            })
+    return pages_contenu
+</code></pre>
+
+      <p>Pour des PDF complexes (rapports financiers, articles scientifiques à deux colonnes), des outils spécialisés comme <strong>Unstructured</strong> ou <strong>LlamaParse</strong> utilisent des modèles de détection de layout (souvent basés sur la vision par ordinateur) pour reconstituer la structure logique (titres, paragraphes, tableaux, légendes) avant de la restituer sous une forme exploitable pour le chunking — un investissement qui se justifie largement dès que le corpus PDF est volumineux ou visuellement complexe.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Extraire le texte d'un PDF à deux colonnes avec un outil basique qui lit de gauche à droite ligne par ligne, sans détection de colonnes : le texte obtenu mélange la fin de la colonne de gauche avec le début de la colonne de droite à chaque ligne, produisant un texte incohérent qui n'a de sens ni pour un humain ni pour un chunking en aval. Toujours vérifier visuellement un échantillon du texte extrait avant de chunker un corpus PDF.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Si vous avez accès à un PDF avec une mise en page complexe (tableaux, colonnes), extrayez son texte avec un outil simple (<code class="inline">pypdf</code>) et comparez visuellement le résultat à la mise en page originale. Identifiez un endroit précis où l'ordre de lecture a été perturbé.
+      </div>
+    </section>
+
+    <section class="lesson" id="m5-l4" style="--lesson-color: var(--chunk-4)">
+      <h2><span class="tag">LEÇON 5.4</span>Préserver l'intégrité des tableaux et données structurées</h2>
+
+      <p>Un tableau coupé en deux chunks est presque toujours inutilisable : sans ses en-têtes de colonnes, une ligne de données perd tout son sens ("Q3 : 4,2M€" — 4,2M€ de quoi ?). Les tableaux méritent un traitement dédié dans toute stratégie de chunking sérieuse.</p>
+
+      <h3>Stratégie 1 — Le tableau entier comme un chunk unique</h3>
+      <p>La solution la plus simple et souvent la plus efficace : extraire chaque tableau comme un chunk séparé et autonome, indépendamment de sa taille en tokens, et convertir sa structure tabulaire en une forme textuelle qui préserve la relation ligne/colonne (Markdown table, ou description en langage naturel).</p>
+
+      <pre><code class="language-python">import pandas as pd
+
+def tableau_vers_chunk(tableau: list[list[str]], titre_contexte: str = "") -> str:
+    df = pd.DataFrame(tableau[1:], columns=tableau[0])
+    # Format Markdown : lisible par un humain ET bien interprété par un LLM
+    markdown_table = df.to_markdown(index=False)
+    return f"{titre_contexte}\n\n{markdown_table}" if titre_contexte else markdown_table
+
+# Alternative : une description ligne par ligne, utile pour de gros tableaux
+# où l'on veut permettre un retrieval plus fin ligne par ligne
+def tableau_vers_phrases(tableau: list[list[str]]) -> list[str]:
+    entetes = tableau[0]
+    phrases = []
+    for ligne in tableau[1:]:
+        description = ", ".join(f"{col}: {val}" for col, val in zip(entetes, ligne))
+        phrases.append(description)
+    return phrases
+    # Ex: "Trimestre: Q3 2024, Chiffre d'affaires: 4.2M€, Marge: 18%"
+</code></pre>
+
+      <h3>Stratégie 2 — Tableaux volumineux : chunker par groupe de lignes avec en-tête répété</h3>
+      <p>Pour un tableau de plusieurs centaines de lignes qui dépasse largement toute taille de chunk raisonnable, on le découpe par groupes de lignes, mais en <strong>répétant systématiquement l'en-tête de colonnes dans chaque chunk</strong> — sans quoi les chunks du milieu ou de la fin perdent le contexte des colonnes.</p>
+
+      <div class="ascii">Tableau de 300 lignes, découpé par groupes de 50 :
+
+Chunk 1 : [en-têtes] + lignes 1-50
+Chunk 2 : [en-têtes RÉPÉTÉS] + lignes 51-100
+Chunk 3 : [en-têtes RÉPÉTÉS] + lignes 101-150
+...
+
+→ Chaque chunk reste interprétable isolément, même sans
+   avoir vu le chunk précédent.</div>
+
+      <h3>Stratégie 3 — Enrichir avec le contexte narratif environnant</h3>
+      <p>Un tableau extrait seul perd souvent le contexte donné par le texte qui le précède ("Le tableau suivant présente les résultats du sondage client mené en mars 2024 auprès de 500 répondants"). Associer systématiquement au chunk-tableau le paragraphe introductif qui le précède immédiatement dans le document améliore fortement son interprétabilité isolée.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Convertir un tableau en texte brut sans structure préservée (juste en concaténant toutes les cellules à la suite), ce qui détruit complètement la relation ligne/colonne. Un LLM ne peut alors plus savoir quelle valeur correspond à quelle colonne — toujours préserver au minimum le format Markdown table ou une description explicite "colonne: valeur" par cellule.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Prenez un petit tableau (5-6 lignes, 3-4 colonnes) de votre choix. Écrivez-le sous les 3 formes ci-dessus (Markdown table, phrases par ligne, cellules brutes sans structure). Pour une question portant sur une valeur précise du tableau, laquelle des 3 formes serait la plus facile à récupérer correctement par un système RAG ?
+      </div>
+    </section>
+
+    <section class="lesson" id="m5-l5" style="--lesson-color: var(--chunk-1)">
+      <h2><span class="tag">LEÇON 5.5</span>Préserver les métadonnées et la hiérarchie (parent/enfant, breadcrumbs)</h2>
+
+      <p>Un chunk existe rarement seul dans un vide sémantique — il fait partie d'un document, souvent d'une section, parfois d'une sous-section. Perdre cette hiérarchie au moment du chunking prive le système de retrieval d'informations précieuses pour la pertinence, le filtrage et la citation.</p>
+
+      <h3>Métadonnées minimales à conserver systématiquement</h3>
+      <ul>
+        <li><strong>Source</strong> : nom/identifiant du document d'origine.</li>
+        <li><strong>Position</strong> : numéro de page (PDF), index du chunk dans le document, offsets de caractères.</li>
+        <li><strong>Chemin hiérarchique (breadcrumb)</strong> : "Manuel utilisateur > Chapitre 3 > Configuration réseau".</li>
+        <li><strong>Date</strong> : date de création/modification du document source, essentielle pour filtrer par fraîcheur ou détecter des contenus obsolètes.</li>
+        <li><strong>Type de contenu</strong> : texte, tableau, code, légende d'image — utile pour un retrieval qui privilégie certains types selon la question.</li>
+      </ul>
+
+      <pre><code class="language-python">chunk_avec_metadata = {
+    "id": "doc42_chunk7",
+    "texte": "L'overlap recommandé se situe entre 10 et 20% de la taille du chunk.",
+    "metadata": {
+        "source": "guide-rag-interne.md",
+        "breadcrumb": "Guide RAG > Chunking > Overlap",
+        "page": None,
+        "position_dans_doc": 7,
+        "type_contenu": "texte",
+        "date_maj": "2026-03-01",
+    },
+}
+</code></pre>
+
+      <h3>Enrichir le texte du chunk lui-même avec son contexte</h3>
+      <p>Une pratique à fort impact et peu coûteuse : préfixer le texte du chunk (celui qui sera effectivement embeddé) avec son breadcrumb, plutôt que de le garder uniquement en métadonnée annexe. Cela améliore directement la qualité de l'embedding, car le modèle "voit" le contexte au moment de vectoriser :</p>
+
+      <pre><code class="language-python">def enrichir_chunk_avec_contexte(chunk: dict) -> str:
+    breadcrumb = chunk["metadata"]["breadcrumb"]
+    return f"[Contexte: {breadcrumb}]\n{chunk['texte']}"
+
+# Avant enrichissement : "L'overlap recommandé se situe entre 10 et 20%."
+# Après enrichissement : "[Contexte: Guide RAG > Chunking > Overlap]
+#                         L'overlap recommandé se situe entre 10 et 20%."
+</code></pre>
+
+      <p>Cette technique préfigure le "contextual retrieval" traité plus en profondeur au module 6 — l'idée centrale (donner à chaque chunk un minimum de contexte explicite sur sa provenance) est l'un des leviers les plus simples et les plus rentables pour améliorer un système RAG existant, souvent avant même de reconsidérer la stratégie de découpage elle-même.</p>
+
+      <h3>Relations parent/enfant</h3>
+      <p>Au-delà du breadcrumb textuel, conserver une relation explicite entre un chunk et son "parent" (la section entière dont il est extrait, ou le document complet) permet des stratégies de retrieval avancées : récupérer un petit chunk précis pour matcher finement la question, puis remonter à son parent plus large pour fournir un contexte complet au LLM au moment de la génération — c'est le principe du Parent-Document Retriever détaillé au module 6.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Stocker les métadonnées uniquement dans la base vectorielle sans les répercuter dans le texte réellement embeddé. Un chunk embeddé sans son contexte de breadcrumb peut matcher une requête à cause de mots-clés génériques ("configuration", "paramètres") alors qu'un chunk d'une tout autre section utilise les mêmes mots — le contexte hiérarchique aide justement l'embedding à se différencier.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice de réflexion</strong>
+        Pour clore ce module : listez les 5 métadonnées que vous jugez indispensables pour votre propre corpus (au-delà des 5 citées en exemple si nécessaire). Pour chacune, expliquez en une phrase comment elle serait utilisée au moment du retrieval ou de la génération.
+      </div>
+    </section>
+    </div>
+
+    <div class="module-block" id="module-6">
+      <span class="module-kicker">MODULE 06 / 08</span>
+      <h1>Stratégies avancées et hybrides</h1>
+      <p class="intro">Une fois les briques de base maîtrisées (taille, séparateurs, sémantique, structure), les systèmes RAG matures combinent plusieurs mécanismes pour résoudre la tension fondamentale du chunking : les petits chunks retrouvent bien, les gros chunks informent bien.</p>
+
+<section class="lesson" id="m6-l1" style="--lesson-color: var(--chunk-1)">
+      <h2><span class="tag">LEÇON 6.1</span>Parent-Document Retriever / small-to-big chunking</h2>
+
+      <p>Rappelez-vous le compromis du module 1, leçon 3 : les petits chunks ont un signal d'embedding précis mais manquent de contexte ; les gros chunks ont du contexte mais un signal dilué. Le <strong>Parent-Document Retriever</strong> (aussi appelé "small-to-big chunking") résout ce dilemme en le refusant : au lieu de choisir une seule taille, on utilise <em>deux</em> granularités simultanément.</p>
+
+      <p>Le principe : on découpe chaque document en petits chunks ("enfants", ex: 150-200 tokens) qui sont ceux réellement embeddés et indexés — ils offrent un signal de recherche précis. Mais chaque petit chunk garde une référence vers son "parent" — une section ou un document plus large (ex: 1000-2000 tokens) dont il est extrait. Au moment du retrieval, on cherche parmi les petits chunks (bonne précision de matching), mais on renvoie au LLM le contenu du <strong>parent</strong> correspondant (bon contexte pour générer une réponse complète).</p>
+
+      <div class="ascii">Indexation :                          Retrieval :
+
+Document                              Question utilisateur
+  └── Parent 1 (1500 tokens)                │
+        ├── enfant 1a (200 tokens) ◄────────┤ recherche vectorielle
+        ├── enfant 1b (200 tokens)          │ (sur les PETITS chunks)
+        └── enfant 1c (200 tokens)          │
+  └── Parent 2 (1500 tokens)                ▼
+        ├── enfant 2a (200 tokens)    enfant 1b matché !
+        └── enfant 2b (200 tokens)          │
+                                             ▼
+                                      on renvoie le PARENT 1 entier
+                                      (1500 tokens) au LLM pour générer</div>
+
+      <pre><code class="language-python">from langchain.retrievers import ParentDocumentRetriever
+from langchain.storage import InMemoryStore
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores import Chroma
+from langchain_openai import OpenAIEmbeddings
+
+# Le splitter "enfant" (petit, pour la précision du retrieval)
+child_splitter = RecursiveCharacterTextSplitter(chunk_size=200, chunk_overlap=20)
+
+# Le splitter "parent" (plus grand, pour le contexte de génération)
+parent_splitter = RecursiveCharacterTextSplitter(chunk_size=1500, chunk_overlap=100)
+
+vectorstore = Chroma(collection_name="enfants", embedding_function=OpenAIEmbeddings())
+docstore = InMemoryStore()   # stocke les documents parents complets
+
+retriever = ParentDocumentRetriever(
+    vectorstore=vectorstore,
+    docstore=docstore,
+    child_splitter=child_splitter,
+    parent_splitter=parent_splitter,
+)
+
+retriever.add_documents(mes_documents)
+
+# La recherche se fait sur les enfants, mais retourne les parents
+resultats = retriever.invoke("Quelle est la politique de remboursement ?")
+</code></pre>
+
+      <p>Cette approche a un coût modéré (stockage des parents en plus des enfants, dans un magasin clé-valeur simple — pas besoin de les embedder à nouveau) pour un gain souvent significatif : le meilleur des deux mondes sans devoir choisir une taille de compromis unique.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Choisir des tailles parent/enfant trop proches (ex: enfant=400, parent=500), ce qui annule l'intérêt de la technique — il faut un écart net entre les deux granularités (généralement un facteur 5 à 10) pour que le bénéfice soit réel. Un enfant trop grand perd la précision de matching ; un parent trop proche de l'enfant n'apporte pas de contexte supplémentaire significatif.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Pour votre corpus, proposez une paire de tailles (enfant, parent) cohérente avec le tableau du module 2 (leçon 5). Justifiez l'écart choisi entre les deux tailles.
+      </div>
+    </section>
+
+    <section class="lesson" id="m6-l2" style="--lesson-color: var(--chunk-2)">
+      <h2><span class="tag">LEÇON 6.2</span>Chunking hiérarchique multi-niveaux (résumés + détails)</h2>
+
+      <p>Le Parent-Document Retriever utilise 2 niveaux de granularité. Le <strong>chunking hiérarchique</strong> généralise cette idée à N niveaux, souvent en ajoutant un niveau de <em>résumé</em> au-dessus du document complet — utile pour des corpus très volumineux où même un document entier est trop long pour être un "parent" pertinent.</p>
+
+      <div class="ascii">Niveau 0 : Résumé du document entier (généré par LLM, ~100 tokens)
+              │
+Niveau 1 : Résumés de section (générés par LLM, ~200 tokens chacun)
+              │
+Niveau 2 : Chunks de section complets (~800 tokens, "parents")
+              │
+Niveau 3 : Petits chunks (~150 tokens, "enfants", embeddés et recherchés)</div>
+
+      <p>Le retrieval peut alors se faire à plusieurs niveaux selon la nature de la question : une question large ("De quoi parle ce rapport ?") matche bien un résumé de niveau 0 ou 1 ; une question précise ("Quel est le montant exact de la clause de pénalité ?") matche mieux un chunk de niveau 3, qui remonte ensuite vers son parent de niveau 2 pour le contexte de génération.</p>
+
+      <pre><code class="language-python"># Génération de résumés hiérarchiques avec un LLM (approche RAPTOR simplifiée)
+from openai import OpenAI
+
+client = OpenAI()
+
+def resumer(texte: str) -> str:
+    resp = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": f"Résume en 2 phrases :\n\n{texte}"}],
+    )
+    return resp.choices[0].message.content
+
+def construire_hierarchie(chunks_section: list[str]) -> dict:
+    resumes_section = [resumer(c) for c in chunks_section]
+    resume_document = resumer("\n".join(resumes_section))
+    return {
+        "resume_document": resume_document,
+        "resumes_sections": resumes_section,
+        "chunks_detailles": chunks_section,
+    }
+</code></pre>
+
+      <p>Cette approche est proche de la méthode <strong>RAPTOR</strong> (Recursive Abstractive Processing for Tree-Organized Retrieval), qui construit un arbre de résumés récursifs par clustering des chunks similaires, permettant un retrieval à plusieurs échelles d'abstraction simultanément. C'est une technique puissante mais coûteuse (génération de résumés via LLM à chaque niveau, pour chaque document) — à réserver aux corpus où la variété des niveaux de question (large vs. précise) le justifie.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Construire une hiérarchie à 4-5 niveaux "parce que c'est plus sophistiqué", sans vérifier que les questions réelles des utilisateurs se répartissent effectivement entre différents niveaux d'abstraction. Si 95% des questions sont précises et factuelles, les niveaux de résumé haut niveau n'apportent rien et ne font qu'ajouter du coût et de la complexité de maintenance.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Reprenez les questions typiques que vous aviez listées au module 1 (leçon 3). Classez chacune selon le niveau de la hiérarchie ci-dessus qui y répondrait le mieux (résumé document, résumé section, chunk détaillé). Cette répartition justifie-t-elle une hiérarchie multi-niveaux pour votre cas d'usage ?
+      </div>
+    </section>
+
+    <section class="lesson" id="m6-l3" style="--lesson-color: var(--chunk-3)">
+      <h2><span class="tag">LEÇON 6.3</span>Contextual retrieval : enrichir chaque chunk avec du contexte</h2>
+
+      <p>Introduite par Anthropic en 2024, la technique de <strong>contextual retrieval</strong> pousse plus loin l'idée d'enrichissement de chunk vue au module 5 (leçon 5) : au lieu de préfixer un simple breadcrumb de titres, on utilise un LLM pour générer, pour chaque chunk, une courte explication en langage naturel de son contexte au sein du document entier — puis on prépend cette explication au chunk avant de l'embedder et de l'indexer (typiquement en complément d'une recherche hybride BM25 + vectorielle).</p>
+
+      <pre><code class="language-python">from openai import OpenAI
+
+client = OpenAI()
+
+PROMPT_CONTEXTE = """Voici un document entier :
+<document>
+{document}
+</document>
+
+Voici un extrait spécifique de ce document :
+<chunk>
+{chunk}
+</chunk>
+
+Rédige une courte phrase de contexte (1-2 phrases) situant cet extrait
+dans le document entier, pour améliorer sa recherche ultérieure.
+Réponds uniquement avec la phrase de contexte, rien d'autre."""
+
+def contextualiser_chunk(document_complet: str, chunk: str) -> str:
+    resp = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": PROMPT_CONTEXTE.format(
+            document=document_complet, chunk=chunk
+        )}],
+    )
+    contexte = resp.choices[0].message.content
+    return f"{contexte}\n\n{chunk}"
+
+# Exemple concret :
+# Chunk original : "Le taux d'intérêt applicable est de 3,5% par an."
+# Chunk contextualisé :
+#   "Cet extrait provient de la section sur les conditions de prêt
+#    immobilier du contrat signé en janvier 2024.
+#
+#    Le taux d'intérêt applicable est de 3,5% par an."
+</code></pre>
+
+      <p>D'après les résultats publiés par Anthropic, cette technique réduit significativement le taux d'échec de retrieval (jusqu'à 35% de réduction combinée avec du reranking, sur leurs benchmarks internes) car elle résout directement le problème central des chunks trop courts qui perdent leur contexte : au lieu de deviner le contexte via une structure (breadcrumb) ou de l'ignorer, on le rend <em>explicite en langage naturel</em>, ce qui aide autant la recherche vectorielle que la recherche lexicale BM25 (qui bénéficie de mots-clés de contexte supplémentaires absents du chunk original).</p>
+
+      <div class="ascii">Sans contextual retrieval :
+"Le taux d'intérêt applicable est de 3,5% par an."
+→ embedding générique, pourrait correspondre à N'IMPORTE QUEL contrat de prêt
+
+Avec contextual retrieval :
+"[Contrat de prêt immobilier, janvier 2024, conditions] Le taux
+ d'intérêt applicable est de 3,5% par an."
+→ embedding désambiguïsé, distingue CE contrat spécifique des autres</div>
+
+      <p>Le coût principal : un appel LLM par chunk lors de l'ingestion (potentiellement des dizaines de milliers d'appels pour un corpus volumineux), atténuable via le <strong>prompt caching</strong> (le document entier, qui ne change pas d'un chunk à l'autre pour un même document, peut être mis en cache pour réduire drastiquement le coût des appels répétés).</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Appliquer le contextual retrieval sans prompt caching sur un document découpé en 200 chunks — cela revient à renvoyer le document entier 200 fois dans le prompt LLM, ce qui est extrêmement coûteux. Toujours vérifier que l'API utilisée supporte la mise en cache du contexte long et partagé (le document) entre les appels successifs pour les différents chunks du même document.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Prenez un chunk court et ambigu hors contexte (ex: "Cette exception ne s'applique pas dans ce cas précis."). Écrivez à la main la phrase de contexte qu'un LLM pourrait générer pour le désambiguïser, en imaginant le document source de votre choix.
+      </div>
+    </section>
+
+    <section class="lesson" id="m6-l4" style="--lesson-color: var(--chunk-4)">
+      <h2><span class="tag">LEÇON 6.4</span>Sliding window et chunking dynamique adaptatif</h2>
+
+      <p>Deux techniques complémentaires pour affiner encore le comportement du chunking, particulièrement utiles quand ni une taille fixe ni une détection sémantique seule ne suffisent.</p>
+
+      <h3>Sliding window (fenêtre glissante)</h3>
+      <p>Une extension de l'overlap classique (module 2) : au lieu de chunks de taille fixe avec un chevauchement fixe, on fait glisser une fenêtre de taille constante sur le document avec un <em>pas</em> (stride) inférieur à la taille de la fenêtre, générant des chunks fortement chevauchants. C'est utile pour maximiser la probabilité qu'au moins un chunk capture entièrement n'importe quelle information, au prix d'une forte redondance dans l'index.</p>
+
+      <pre><code class="language-python">def sliding_window(texte: str, taille_fenetre: int, pas: int) -> list[str]:
+    fenetres = []
+    for debut in range(0, len(texte), pas):
+        fenetre = texte[debut:debut + taille_fenetre]
+        if fenetre:
+            fenetres.append(fenetre)
+        if debut + taille_fenetre >= len(texte):
+            break
+    return fenetres
+
+# taille_fenetre=300, pas=100 → chaque portion de texte apparaît
+# dans environ 3 chunks différents (forte redondance volontaire)
+chunks = sliding_window(document, taille_fenetre=300, pas=100)
+</code></pre>
+
+      <p>Cette technique se justifie surtout pour de la recherche de passages très précis (question-answering extractif) où manquer l'information est bien plus coûteux que la redondance dans l'index — mais elle est rarement le premier choix pour un RAG généraliste vu son coût en volume de chunks.</p>
+
+      <h3>Chunking dynamique / adaptatif</h3>
+      <p>Plutôt qu'une taille de chunk fixe pour tout le document, on fait varier la taille cible selon des signaux locaux : densité d'information (mesurée par exemple via la perplexité du texte, ou simplement la densité de termes techniques/rares), présence de structure (les sections bien structurées peuvent utiliser des chunks plus grands car le titre donne déjà du contexte), ou même la sortie du chunking sémantique (module 4) qui adapte déjà nativement la taille des chunks au contenu.</p>
+
+      <pre><code class="language-python">def taille_adaptative(section: str, taille_base: int = 400) -> int:
+    # Heuristique simple : les sections très denses en chiffres/termes
+    # techniques bénéficient de chunks plus petits (signal plus précis)
+    mots = section.split()
+    densite_chiffres = sum(1 for m in mots if any(c.isdigit() for c in m)) / max(len(mots), 1)
+
+    if densite_chiffres > 0.15:      # section riche en données chiffrées
+        return int(taille_base * 0.7)
+    return taille_base
+</code></pre>
+
+      <p>Le chunking adaptatif reste une pratique plus expérimentale que les approches précédentes — moins standardisée dans les librairies, elle nécessite souvent une implémentation sur-mesure. Elle se justifie surtout dans des corpus très hétérogènes en densité d'information (mélange de sections narratives légères et de sections techniques très denses au sein du même document).</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Utiliser un sliding window à fort chevauchement (pas très inférieur à la taille de fenêtre) sur un corpus volumineux sans mesurer l'explosion du nombre de chunks résultants — un pas de 50 sur une fenêtre de 300 multiplie le nombre de chunks par 6 par rapport à un découpage non chevauchant, avec un coût de stockage et d'indexation proportionnel.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Pour un document de 3000 caractères, calculez combien de chunks produirait un sliding window avec taille_fenetre=300 et pas=100, comparé à un chunking classique sans chevauchement (chunk_size=300). Quel est le facteur multiplicatif ?
+      </div>
+    </section>
+
+    <section class="lesson" id="m6-l5" style="--lesson-color: var(--chunk-1)">
+      <h2><span class="tag">LEÇON 6.5</span>Combiner plusieurs stratégies dans un même pipeline</h2>
+
+      <p>En production, les systèmes RAG matures combinent rarement une seule stratégie de chunking "pure" — ils appliquent une logique de routage : différents types de contenu au sein du même corpus reçoivent un traitement de chunking différent, orchestré par un pipeline d'ingestion unique.</p>
+
+      <pre><code class="language-python">def pipeline_ingestion(document: dict) -> list[dict]:
+    type_doc = document["type"]   # détecté à l'avance (extension, métadonnées, classification)
+
+    if type_doc == "code":
+        chunks = chunker_par_fonction(document["contenu"])          # module 5
+    elif type_doc == "markdown_structure":
+        chunks = chunking_markdown_hierarchique(document["contenu"])  # module 5
+    elif type_doc == "pdf_non_structure":
+        chunks = chunking_semantique(document["contenu"])           # module 4
+    else:
+        chunks = chunking_recursif(document["contenu"])             # module 3, par défaut
+
+    # Enrichissement commun à TOUS les types de chunk (module 5 + 6)
+    for chunk in chunks:
+        chunk["texte"] = enrichir_chunk_avec_contexte(chunk)
+
+    return chunks
+</code></pre>
+
+      <div class="ascii">Pipeline d'ingestion hybride typique :
+
+Document brut
+     │
+     ▼
+Classification du type (code / markdown / pdf / prose libre)
+     │
+     ├── code ──────────► chunking AST-aware (module 5)
+     ├── markdown ───────► chunking par titres + récursif (module 5 + 3)
+     ├── pdf structuré ──► extraction layout + par section (module 5)
+     ├── pdf non structuré ► chunking sémantique (module 4)
+     └── autre ──────────► chunking récursif par défaut (module 3)
+     │
+     ▼
+Enrichissement contextuel commun (breadcrumb / contextual retrieval, module 5-6)
+     │
+     ▼
+Parent-Document Retriever (indexation à 2 granularités, module 6)
+     │
+     ▼
+Index vectoriel + magasin de documents parents</div>
+
+      <p>Cette architecture hybride demande plus d'ingénierie qu'une stratégie unique appliquée uniformément, mais reflète une réalité importante : <strong>il n'existe pas de stratégie de chunking universellement optimale</strong> — seulement des stratégies adaptées à un type de contenu donné. Le rôle de l'ingénieur RAG est de construire un pipeline de routage qui applique la bonne stratégie au bon moment, plutôt que de chercher LA meilleure stratégie unique.</p>
+
+      <p>Un principe directeur pour ne pas sur-ingénierer : commencer systématiquement par une stratégie récursive simple et bien calibrée (modules 2-3) pour l'ensemble du corpus, mesurer la qualité (module 7), puis n'introduire des stratégies spécialisées (sémantique, structurel, parent-document) que pour les sous-ensembles de documents où l'évaluation démontre un gain réel et mesurable.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Construire d'emblée un pipeline hybride complexe combinant 4-5 stratégies différentes avant même d'avoir mesuré la performance d'une stratégie simple sur le corpus réel. La complexité d'un pipeline de chunking doit être justifiée empiriquement (module 7), pas anticipée par principe de prudence — chaque stratégie ajoutée est un point de maintenance et de bug supplémentaire.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice de réflexion</strong>
+        Pour clore ce module : à partir des types de contenu présents dans votre corpus réel (ou imaginé), esquissez votre propre schéma de routage (comme le diagramme ci-dessus) en n'incluant QUE les branches que vous jugez réellement justifiées pour votre cas — pas toutes les techniques vues dans ce module par défaut.
+      </div>
+    </section>
+    </div>
+
+    <div class="module-block" id="module-7">
+      <span class="module-kicker">MODULE 07 / 08</span>
+      <h1>Évaluation, débogage et bonnes pratiques</h1>
+      <p class="intro">Toutes les stratégies vues jusqu'ici ne valent que ce que leur mesure objective démontre. Ce module donne la méthode pour sortir de l'intuition et évaluer, déboguer et choisir un chunking avec des données plutôt qu'avec des impressions.</p>
+
+<section class="lesson" id="m7-l1" style="--lesson-color: var(--chunk-1)">
+      <h2><span class="tag">LEÇON 7.1</span>Évaluer la qualité du chunking (recall@k, MRR, métriques retrieval)</h2>
+
+      <p>Pour comparer objectivement deux stratégies de chunking, il faut un jeu d'évaluation : un ensemble de paires <strong>(question, chunk(s) attendu(s))</strong> représentatif des vraies questions posées par vos utilisateurs. Sans ce jeu de données, toute comparaison reste une impression subjective.</p>
+
+      <h3>Construire un jeu d'évaluation</h3>
+      <p>Deux approches possibles, souvent combinées : (1) rassembler des questions réelles déjà posées par des utilisateurs (logs de support, historique de recherche) et annoter manuellement quel chunk devrait idéalement les satisfaire ; (2) générer synthétiquement des paires question/chunk via un LLM, en lui demandant de produire une question dont la réponse se trouve précisément dans un chunk donné.</p>
+
+      <pre><code class="language-python">from openai import OpenAI
+
+client = OpenAI()
+
+def generer_question_pour_chunk(chunk: str) -> str:
+    resp = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content":
+            f"Génère UNE question précise dont la réponse se trouve "
+            f"entièrement dans ce texte :\n\n{chunk}\n\n"
+            f"Réponds uniquement avec la question."}],
+    )
+    return resp.choices[0].message.content
+
+# Jeu d'évaluation : liste de (question, id_du_chunk_attendu)
+jeu_eval = [
+    {"question": generer_question_pour_chunk(c["texte"]), "chunk_attendu_id": c["id"]}
+    for c in chunks_echantillon
+]
+</code></pre>
+
+      <h3>Métriques principales</h3>
+      <p><strong>Recall@k</strong> : sur l'ensemble des questions du jeu d'évaluation, quelle proportion a son chunk attendu présent dans les k premiers résultats retournés par la recherche ? C'est la métrique la plus directe pour juger si le chunking + le retrieval retrouvent l'information pertinente.</p>
+
+      <pre><code class="language-python">def recall_at_k(jeu_eval: list[dict], retriever, k: int = 5) -> float:
+    succes = 0
+    for item in jeu_eval:
+        resultats = retriever.invoke(item["question"], k=k)
+        ids_retournes = {r.metadata["id"] for r in resultats}
+        if item["chunk_attendu_id"] in ids_retournes:
+            succes += 1
+    return succes / len(jeu_eval)
+
+print(f"Recall@5 = {recall_at_k(jeu_eval, mon_retriever, k=5):.2%}")
+</code></pre>
+
+      <p><strong>MRR (Mean Reciprocal Rank)</strong> : au-delà de "le bon chunk est-il présent dans le top-k", cette métrique pénalise le fait qu'il soit classé loin dans les résultats (position 5 plutôt que position 1). Elle calcule la moyenne de l'inverse du rang du premier résultat pertinent trouvé.</p>
+
+      <pre><code class="language-python">def mrr(jeu_eval: list[dict], retriever, k: int = 10) -> float:
+    reciprocal_ranks = []
+    for item in jeu_eval:
+        resultats = retriever.invoke(item["question"], k=k)
+        for rang, r in enumerate(resultats, start=1):
+            if r.metadata["id"] == item["chunk_attendu_id"]:
+                reciprocal_ranks.append(1 / rang)
+                break
+        else:
+            reciprocal_ranks.append(0)
+    return sum(reciprocal_ranks) / len(reciprocal_ranks)
+</code></pre>
+
+      <p>Ces deux métriques mesurent la qualité du <em>retrieval</em>, pas directement celle de la <em>réponse finale générée</em> — une distinction importante : un chunk peut être parfaitement retrouvé mais la génération peut malgré tout produire une mauvaise réponse (mauvais prompt, mauvais modèle). Isoler la mesure du chunking/retrieval de celle de la génération permet de diagnostiquer précisément où se situe un problème dans le pipeline.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Évaluer uniquement "à l'œil" en posant quelques questions à la chaîne complète et en jugeant si la réponse finale semble bonne. Cette méthode ne permet pas de savoir si un problème vient du chunking, du retrieval, ou de la génération — et elle n'est pas reproductible ni comparable objectivement entre deux configurations testées à des moments différents.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Construisez à la main un mini jeu d'évaluation de 5 paires (question, chunk attendu) à partir d'un document que vous connaissez. Pour chaque question, précisez explicitement quel chunk (ou quelle portion de texte) devrait être retrouvé pour y répondre correctement.
+      </div>
+    </section>
+
+    <section class="lesson" id="m7-l2" style="--lesson-color: var(--chunk-2)">
+      <h2><span class="tag">LEÇON 7.2</span>Symptômes d'un mauvais chunking et comment les diagnostiquer</h2>
+
+      <p>Avant même de construire un jeu d'évaluation complet, certains symptômes observables dans les réponses d'un système RAG pointent presque toujours vers un problème de chunking spécifique. Cette leçon fournit une grille de diagnostic rapide.</p>
+
+      <table style="width:100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.85rem;">
+        <thead>
+          <tr style="text-align:left; border-bottom: 2px solid var(--border);">
+            <th style="padding: 0.5rem 0.6rem;">Symptôme observé</th>
+            <th style="padding: 0.5rem 0.6rem;">Cause probable</th>
+            <th style="padding: 0.5rem 0.6rem;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom: 1px solid var(--border);">
+            <td style="padding: 0.5rem 0.6rem;">Réponse partielle, il manque des éléments d'une liste</td>
+            <td style="padding: 0.5rem 0.6rem;">Liste coupée entre 2 chunks</td>
+            <td style="padding: 0.5rem 0.6rem;">Chunking structurel (module 5)</td>
+          </tr>
+          <tr style="border-bottom: 1px solid var(--border);">
+            <td style="padding: 0.5rem 0.6rem;">Réponse hors-sujet ou trop vague</td>
+            <td style="padding: 0.5rem 0.6rem;">Chunks trop grands, signal dilué</td>
+            <td style="padding: 0.5rem 0.6rem;">Réduire chunk_size (module 2)</td>
+          </tr>
+          <tr style="border-bottom: 1px solid var(--border);">
+            <td style="padding: 0.5rem 0.6rem;">Réponse correcte mais sans source citable claire</td>
+            <td style="padding: 0.5rem 0.6rem;">Métadonnées de provenance perdues</td>
+            <td style="padding: 0.5rem 0.6rem;">Ajouter métadonnées (module 5)</td>
+          </tr>
+          <tr style="border-bottom: 1px solid var(--border);">
+            <td style="padding: 0.5rem 0.6rem;">Valeurs de tableau incohérentes ou inventées</td>
+            <td style="padding: 0.5rem 0.6rem;">Tableau fragmenté sans en-têtes</td>
+            <td style="padding: 0.5rem 0.6rem;">Chunking de tableaux (module 5)</td>
+          </tr>
+          <tr style="border-bottom: 1px solid var(--border);">
+            <td style="padding: 0.5rem 0.6rem;">Bonne réponse générale, mauvais détail précis</td>
+            <td style="padding: 0.5rem 0.6rem;">Granularité unique insuffisante</td>
+            <td style="padding: 0.5rem 0.6rem;">Parent-Document Retriever (module 6)</td>
+          </tr>
+          <tr>
+            <td style="padding: 0.5rem 0.6rem;">Chunks quasi-identiques dans les résultats</td>
+            <td style="padding: 0.5rem 0.6rem;">Overlap excessif</td>
+            <td style="padding: 0.5rem 0.6rem;">Réduire chunk_overlap (module 2)</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Méthode de diagnostic en 3 étapes</h3>
+      <ol>
+        <li><strong>Isoler la question qui échoue.</strong> Reproduisez-la seule, hors de toute conversation multi-tours, pour éliminer les effets d'historique de conversation.</li>
+        <li><strong>Inspecter les chunks réellement récupérés</strong> avant la génération — pas la réponse finale. Affichez le texte complet de chaque chunk retourné par le retriever pour cette question.</li>
+        <li><strong>Comparer au contenu source original.</strong> Le chunk attendu existe-t-il quelque part dans le corpus sous une forme correcte ? S'il n'a jamais été correctement découpé, c'est un problème de chunking. S'il existe correctement mais n'est pas récupéré, c'est plutôt un problème de retrieval/embedding.</li>
+      </ol>
+
+      <pre><code class="language-python">def debug_requete(question: str, retriever, k: int = 5):
+    print(f"QUESTION: {question}\n")
+    resultats = retriever.invoke(question, k=k)
+    for i, r in enumerate(resultats, start=1):
+        print(f"--- Chunk {i} (score={r.metadata.get('score', '?')}) ---")
+        print(r.page_content)
+        print(f"[source: {r.metadata.get('source')}]\n")
+</code></pre>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Changer de modèle d'embedding ou de LLM de génération dès la première mauvaise réponse observée, sans avoir d'abord inspecté le contenu réel des chunks récupérés. Le premier réflexe de débogage doit toujours être d'examiner ce qui a été effectivement récupéré — changer de modèle sans ce diagnostic peut masquer temporairement le symptôme sans corriger la cause racine dans le chunking.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Pour une question qui, selon vous, pourrait mal fonctionner sur votre corpus, utilisez la fonction <code class="inline">debug_requete</code> ci-dessus (ou son équivalent conceptuel) pour identifier — avant même de regarder la réponse finale — si le bon chunk est présent dans les résultats.
+      </div>
+    </section>
+
+    <section class="lesson" id="m7-l3" style="--lesson-color: var(--chunk-3)">
+      <h2><span class="tag">LEÇON 7.3</span>Outils et frameworks (LangChain, LlamaIndex, Unstructured, Chonkie)</h2>
+
+      <p>Un tour d'horizon des principaux outils qui implémentent les stratégies vues dans ce cours, pour éviter de réimplémenter chaque algorithme à la main en production.</p>
+
+      <h3>LangChain (<code class="inline">langchain_text_splitters</code>)</h3>
+      <p>La librairie la plus répandue pour le chunking en Python. Couvre le chunking par caractères, récursif, par langage (code, Markdown, HTML...), et le <code class="inline">SemanticChunker</code> (module <code class="inline">langchain_experimental</code>) pour le chunking sémantique. Excellent point d'entrée généraliste, très bien documenté, large écosystème d'intégrations (vectorstores, retrievers avancés comme le Parent-Document Retriever).</p>
+
+      <h3>LlamaIndex</h3>
+      <p>Alternative à LangChain, avec une approche orientée "nœuds" (<code class="inline">NodeParser</code>) qui modélise nativement les relations parent/enfant et hiérarchiques (module 6). Propose <code class="inline">SentenceSplitter</code>, <code class="inline">SemanticSplitterNodeParser</code>, et une intégration directe avec des approches comme RAPTOR pour le chunking hiérarchique multi-niveaux.</p>
+
+      <h3>Unstructured (<code class="inline">unstructured.io</code>)</h3>
+      <p>Spécialisé dans l'extraction et le chunking de documents complexes (PDF, DOCX, PPTX, HTML) avec détection de layout par vision par ordinateur. Sa fonction <code class="inline">chunk_by_title</code> combine extraction de structure et respect des titres, particulièrement utile pour des corpus PDF/Office volumineux et hétérogènes (module 5).</p>
+
+      <pre><code class="language-python">from unstructured.partition.auto import partition
+from unstructured.chunking.title import chunk_by_title
+
+elements = partition(filename="rapport_complexe.pdf")
+chunks = chunk_by_title(elements, max_characters=800, combine_text_under_n_chars=200)
+</code></pre>
+
+      <h3>Chonkie</h3>
+      <p>Une librairie plus récente et légère, focalisée spécifiquement sur le chunking (contrairement à LangChain/LlamaIndex qui couvrent tout le pipeline RAG), avec un accent sur la performance et la simplicité. Propose des chunkers pour la plupart des stratégies vues dans ce cours (récursif, sémantique, basé sur les tokens) avec une API minimaliste.</p>
+
+      <pre><code class="language-python">from chonkie import SemanticChunker
+
+chunker = SemanticChunker(embedding_model="minishlab/potion-base-8M", threshold=0.5)
+chunks = chunker.chunk(document_texte)
+</code></pre>
+
+      <h3>tree-sitter (pour le code, vu au module 5)</h3>
+      <p>Pas un framework RAG en soi, mais l'outil de référence pour du chunking AST-aware précis sur du code source, indépendamment du framework RAG utilisé en aval.</p>
+
+      <div class="ascii">Choisir son outil selon le besoin dominant :
+
+Généraliste, écosystème riche      → LangChain
+Modélisation hiérarchique native   → LlamaIndex
+Corpus PDF/Office complexes        → Unstructured
+Performance et simplicité          → Chonkie
+Code source précis (AST)           → tree-sitter</div>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Réimplémenter à la main des algorithmes déjà bien testés et optimisés par ces librairies (ex: réécrire son propre <code class="inline">RecursiveCharacterTextSplitter</code>), en perdant du temps sur des cas limites déjà résolus (gestion de l'encodage, des séparateurs Unicode, des cas limites de longueur). Réserver l'implémentation sur mesure aux cas vraiment spécifiques non couverts par l'écosystème existant (ex: un format de document propriétaire).
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Pour votre corpus, identifiez lequel des outils listés ci-dessus correspond le mieux à votre besoin dominant (type de document, contrainte de performance, écosystème déjà en place). Justifiez en une phrase.
+      </div>
+    </section>
+
+    <section class="lesson" id="m7-l4" style="--lesson-color: var(--chunk-4)">
+      <h2><span class="tag">LEÇON 7.4</span>Choisir sa stratégie selon le type de corpus</h2>
+
+      <p>Cette leçon synthétise l'ensemble du cours sous forme de guide de décision pratique, par type de corpus rencontré le plus fréquemment en entreprise.</p>
+
+      <h3>Support client / FAQ</h3>
+      <p>Contenu généralement court et bien structuré par question. Stratégie recommandée : chunking par entrée de FAQ entière (une question + sa réponse = un chunk), chunks petits (150-300 tokens), overlap faible. Le chunking sémantique apporte rarement un gain ici, la structure naturelle du contenu (question/réponse) suffit.</p>
+
+      <h3>Documentation technique / API</h3>
+      <p>Structure Markdown ou similaire généralement fiable. Stratégie recommandée : chunking structurel par titres (module 5) + subdivision récursive pour les sections longues, avec breadcrumb systématique en métadonnée et dans le texte enrichi (module 5-6).</p>
+
+      <h3>Contrats / documents juridiques</h3>
+      <p>Texte dense, structure par clauses/articles, enjeux de précision élevés. Stratégie recommandée : chunking par clause/article si la structure le permet, sinon récursif avec overlap généreux (20-25%) et séparateurs adaptés à la ponctuation juridique (module 3). Le contextual retrieval (module 6) est particulièrement utile ici, la désambiguïsation des clauses étant critique.</p>
+
+      <h3>Code source</h3>
+      <p>Stratégie recommandée : chunking AST-aware par fonction/classe (module 5), jamais de découpage par taille fixe pure. Le Parent-Document Retriever peut être utile pour indexer des fonctions individuelles tout en pouvant remonter au fichier entier pour le contexte.</p>
+
+      <h3>Rapports longs / articles de recherche</h3>
+      <p>Contenu long, thématiquement varié, souvent peu structuré au-delà des grandes sections. Stratégie recommandée : chunking sémantique (module 4) ou chunking hiérarchique avec résumés (module 6), particulièrement si les questions couvrent des niveaux d'abstraction variés (résumé global vs. détail précis).</p>
+
+      <h3>Corpus multi-format hétérogène (cas le plus fréquent en pratique)</h3>
+      <p>Stratégie recommandée : pipeline de routage par type de contenu (module 6, leçon 5) — classification du document en amont, puis application de la stratégie adaptée à chaque type, avec un chunking récursif générique en filet de sécurité pour les formats non anticipés.</p>
+
+      <div class="ascii">Tableau récapitulatif express :
+
+Corpus                    Stratégie principale         Module de référence
+─────────────────────────────────────────────────────────────────────────
+FAQ / support             Par entrée Q/R                 -
+Documentation technique   Structurel (titres) + récursif  3, 5
+Contrats / juridique      Récursif + overlap élevé        3
+                           + contextual retrieval          6
+Code source                AST-aware                      5
+Rapports / recherche       Sémantique ou hiérarchique      4, 6
+Multi-format hétérogène    Routage par type                6</div>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Appliquer la stratégie "à la mode" (souvent le chunking sémantique) à un corpus qui n'en a pas besoin, simplement parce qu'elle est présentée comme la plus avancée. Le meilleur choix dépend toujours du type de contenu réel et doit être validé par l'évaluation empirique (leçon 7.1), pas par la sophistication apparente de la technique.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Situez votre corpus dans le tableau récapitulatif ci-dessus (ou une combinaison de plusieurs lignes s'il est hétérogène). La stratégie que vous aviez en tête avant de commencer ce cours correspond-elle à la recommandation ?
+      </div>
+    </section>
+
+    <section class="lesson" id="m7-l5" style="--lesson-color: var(--chunk-1)">
+      <h2><span class="tag">LEÇON 7.5</span>Bonnes pratiques de production, synthèse des pièges à éviter</h2>
+
+      <p>Pour clore ce module, une synthèse actionnable des bonnes pratiques couvertes tout au long du cours, organisée comme une checklist de production.</p>
+
+      <h3>Avant l'ingestion</h3>
+      <ul>
+        <li>Identifier les types de contenu présents dans le corpus (prose, code, tableaux, listes) et leur proportion respective.</li>
+        <li>Nettoyer les artefacts d'extraction (en-têtes/pieds de page répétés, sauts de ligne cosmétiques de mise en page).</li>
+        <li>Vérifier la limite de tokens du modèle d'embedding réellement utilisé en production.</li>
+      </ul>
+
+      <h3>Pendant le chunking</h3>
+      <ul>
+        <li>Compter en tokens (avec le bon tokenizer), pas en caractères, dès que la précision compte.</li>
+        <li>Toujours conserver les métadonnées de provenance (source, position, breadcrumb).</li>
+        <li>Ne jamais laisser un tableau ou une liste être coupé sans traitement dédié.</li>
+        <li>Calibrer l'overlap proportionnellement à la densité d'information du texte, pas une valeur unique copiée d'un tutoriel.</li>
+      </ul>
+
+      <h3>Après l'ingestion</h3>
+      <ul>
+        <li>Inspecter visuellement un échantillon de 20-30 chunks avant de considérer le chunking "terminé".</li>
+        <li>Construire un jeu d'évaluation représentatif et mesurer recall@k / MRR avant de mettre en production.</li>
+        <li>Documenter la configuration de chunking utilisée (taille, overlap, stratégie) pour pouvoir la reproduire et la faire évoluer.</li>
+      </ul>
+
+      <h3>En production continue</h3>
+      <ul>
+        <li>Surveiller les retours utilisateurs (réponses incomplètes, hors-sujet) comme signal de dérive du chunking par rapport à l'évolution du corpus.</li>
+        <li>Ré-évaluer le chunking quand le corpus change significativement de nature (nouveau type de document ajouté).</li>
+        <li>Ne pas complexifier le pipeline (chunking hybride, hiérarchique) sans gain mesuré empiriquement à l'appui.</li>
+      </ul>
+
+      <div class="ascii">Checklist de production — chunking RAG
+
+[ ] Types de contenu identifiés et proportions connues
+[ ] Artefacts d'extraction nettoyés (headers/footers, sauts de ligne)
+[ ] Comptage en tokens avec le bon tokenizer
+[ ] Métadonnées de provenance systématiques
+[ ] Tableaux/listes/code traités sans fragmentation
+[ ] Overlap calibré selon la densité d'information
+[ ] Échantillon de chunks inspecté visuellement
+[ ] Jeu d'évaluation construit (recall@k, MRR mesurés)
+[ ] Configuration documentée et reproductible
+[ ] Monitoring des retours utilisateurs en place</div>
+
+      <p>Le fil conducteur de tout ce module — et de ce cours dans son ensemble — est que le chunking n'est jamais "terminé" une fois pour toutes : c'est un paramètre vivant du système RAG, qui doit être mesuré, questionné et ajusté à mesure que le corpus et les usages évoluent. Les meilleures équipes RAG ne cherchent pas "LA" bonne configuration de chunking — elles construisent la capacité à en évaluer et en ajuster plusieurs rapidement.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Considérer le chunking comme un choix fait une seule fois au lancement du projet. Un corpus qui grossit, se diversifie en types de documents, ou dont les questions utilisateurs évoluent, nécessite une réévaluation périodique de la stratégie de chunking — pas juste au moment initial du projet.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice de réflexion</strong>
+        Pour clore ce module : en reprenant la checklist ci-dessus, identifiez les 3 points que vous jugez actuellement les moins couverts pour votre propre projet (réel ou imaginé), et ce que vous feriez en premier pour les combler.
+      </div>
+    </section>
+    </div>
+
+    <div class="module-block" id="module-8">
+      <span class="module-kicker">MODULE 08 / 08 — FINAL</span>
+      <h1>Étude de cas complète et implémentation</h1>
+      <p class="intro">Ce dernier module rassemble tout le cours dans un pipeline exécutable de bout en bout, une comparaison empirique concrète, et un exercice de synthèse pour ancrer durablement ce que vous avez appris.</p>
+
+<section class="lesson" id="m8-l1" style="--lesson-color: var(--chunk-1)">
+      <h2><span class="tag">LEÇON 8.1</span>Construire un pipeline de chunking complet en Python</h2>
+
+      <p>Voici un pipeline complet, réunissant les concepts des modules 1 à 7 : détection du type de contenu, routage vers la stratégie adaptée, enrichissement contextuel, et préparation pour l'indexation avec Parent-Document Retriever.</p>
+
+      <pre><code class="language-python">import re
+from dataclasses import dataclass, field
+from langchain_text_splitters import RecursiveCharacterTextSplitter, MarkdownHeaderTextSplitter
+
+@dataclass
+class Chunk:
+    texte: str
+    metadata: dict = field(default_factory=dict)
+
+def detecter_type(document: dict) -> str:
+    """Classification simple par extension / contenu (module 6)."""
+    extension = document.get("extension", "")
+    if extension in (".py", ".js", ".ts"):
+        return "code"
+    if extension == ".md":
+        return "markdown"
+    if re.search(r"\|.*\|.*\|", document["contenu"][:2000]):
+        return "tableau_dense"
+    return "prose"
+
+def chunker_prose(texte: str, taille: int = 500, overlap: int = 80) -> list[Chunk]:
+    """Chunking récursif standard (module 3)."""
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=taille, chunk_overlap=overlap,
+        separators=["\n\n", "\n", ". ", "! ", "? ", " ", ""],
+    )
+    return [Chunk(texte=t) for t in splitter.split_text(texte)]
+
+def chunker_markdown(texte: str) -> list[Chunk]:
+    """Chunking structurel par titres (module 5)."""
+    md_splitter = MarkdownHeaderTextSplitter(
+        headers_to_split_on=[("#", "h1"), ("##", "h2"), ("###", "h3")]
+    )
+    sections = md_splitter.split_text(texte)
+    fin_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=60)
+
+    resultat = []
+    for section in sections:
+        breadcrumb = " > ".join(v for v in section.metadata.values() if v)
+        for sous_texte in fin_splitter.split_text(section.page_content):
+            resultat.append(Chunk(texte=sous_texte, metadata={"breadcrumb": breadcrumb}))
+    return resultat
+
+def enrichir(chunk: Chunk, source: str) -> Chunk:
+    """Enrichissement contextuel commun (module 5-6)."""
+    breadcrumb = chunk.metadata.get("breadcrumb", source)
+    chunk.texte = f"[{breadcrumb}]\n{chunk.texte}"
+    chunk.metadata["source"] = source
+    return chunk
+
+def pipeline_ingestion(document: dict) -> list[Chunk]:
+    type_detecte = detecter_type(document)
+
+    if type_detecte == "markdown":
+        chunks = chunker_markdown(document["contenu"])
+    else:
+        # Le code et les tableaux denses nécessitent un traitement spécialisé
+        # (module 5) non détaillé ici pour rester concis
+        chunks = chunker_prose(document["contenu"])
+
+    return [enrichir(c, document["source"]) for c in chunks]
+
+
+# Utilisation
+documents = [
+    {"source": "guide.md", "extension": ".md", "contenu": "# Guide RAG\n## Chunking\n..."},
+    {"source": "faq.txt", "extension": ".txt", "contenu": "Comment fonctionne le RAG ? ..."},
+]
+
+tous_les_chunks = []
+for doc in documents:
+    tous_les_chunks.extend(pipeline_ingestion(doc))
+
+print(f"{len(tous_les_chunks)} chunks générés au total")
+</code></pre>
+
+      <p>Ce squelette est volontairement simplifié pour rester lisible en une seule leçon — un pipeline de production intégrerait en plus les briques des modules 4 (chunking sémantique pour les documents non structurés), 5 (AST-aware pour le code, extraction de tableaux) et 6 (Parent-Document Retriever, contextual retrieval) selon les besoins identifiés lors de l'audit du corpus.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Vouloir intégrer toutes les techniques du cours dans un seul pipeline dès le départ. Commencez par la version simple (routage prose/markdown comme ci-dessus), mesurez (module 7), puis ajoutez des branches spécialisées seulement là où l'évaluation démontre un besoin réel.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        Étendez le pipeline ci-dessus avec une branche <code class="inline">"code"</code> qui utilise <code class="inline">RecursiveCharacterTextSplitter.from_language(Language.PYTHON, ...)</code> (module 3) pour les fichiers dont l'extension est <code class="inline">.py</code>.
+      </div>
+    </section>
+
+    <section class="lesson" id="m8-l2" style="--lesson-color: var(--chunk-2)">
+      <h2><span class="tag">LEÇON 8.2</span>Comparaison empirique de 4 stratégies sur un même corpus</h2>
+
+      <p>Pour clore la boucle méthodologique du module 7, voici comment structurer une comparaison empirique complète entre plusieurs stratégies de chunking sur un même corpus et un même jeu d'évaluation — l'exercice le plus important de ce cours à reproduire sur votre projet réel.</p>
+
+      <pre><code class="language-python">strategies = {
+    "fixe_naif": lambda texte: chunker_naif(texte, taille=500),                    # module 2
+    "recursif": lambda texte: chunker_prose(texte, taille=500, overlap=80),        # module 3
+    "semantique": lambda texte: chunking_semantique(texte, seuil_percentile=90),   # module 4
+    "structurel": lambda texte: chunker_markdown(texte),                           # module 5
+}
+
+def comparer_strategies(document_texte: str, jeu_eval: list[dict]) -> dict:
+    resultats = {}
+    for nom, fonction_chunking in strategies.items():
+        chunks = fonction_chunking(document_texte)
+
+        # Construire un index temporaire pour cette stratégie
+        vectorstore = construire_index(chunks)
+        retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
+
+        resultats[nom] = {
+            "nb_chunks": len(chunks),
+            "taille_moyenne": sum(len(c.texte) for c in chunks) / len(chunks),
+            "recall_at_5": recall_at_k(jeu_eval, retriever, k=5),
+            "mrr": mrr(jeu_eval, retriever, k=10),
+        }
+    return resultats
+
+resultats = comparer_strategies(mon_document, mon_jeu_eval)
+for nom, metriques in resultats.items():
+    print(f"{nom:12s} | chunks={metriques['nb_chunks']:4d} | "
+          f"recall@5={metriques['recall_at_5']:.1%} | mrr={metriques['mrr']:.3f}")
+</code></pre>
+
+      <div class="ascii">Exemple de résultat obtenu sur un corpus de documentation technique
+(données illustratives, à reproduire sur VOTRE corpus) :
+
+Stratégie     | nb_chunks | taille_moy | recall@5 | MRR
+──────────────┼───────────┼────────────┼──────────┼───────
+fixe_naif     |    142    |   498      |  61%     | 0.44
+recursif      |    138    |   485      |  74%     | 0.58
+semantique    |     97    |   712      |  79%     | 0.63
+structurel    |    121    |   520      |  81%     | 0.67
+
+→ Sur CE corpus (bien structuré en Markdown), le chunking
+  structurel gagne légèrement sur le sémantique, pour un
+  coût de calcul largement inférieur (pas d'appels d'embedding
+  supplémentaires à l'ingestion).</div>
+
+      <p>Ce type de tableau comparatif — obtenu sur votre propre corpus et votre propre jeu de questions, pas sur un exemple générique — est l'outil le plus fiable pour trancher entre les stratégies vues dans ce cours. Il transforme un débat d'opinions ("le sémantique est plus intelligent") en une décision fondée sur des données mesurées dans votre contexte spécifique.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Comparer des stratégies sur un seul document de test non représentatif de la diversité réelle du corpus. Une stratégie peut exceller sur un document bien structuré et s'effondrer sur un autre plus chaotique — toujours comparer sur un échantillon qui couvre la variété réelle des documents et des questions.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong>
+        En reprenant le jeu d'évaluation que vous avez commencé à construire au module 7, esquissez le tableau comparatif que vous obtiendriez en testant au moins 2 stratégies différentes (par exemple récursif vs structurel) sur votre corpus.
+      </div>
+    </section>
+
+    <section class="lesson" id="m8-l3" style="--lesson-color: var(--chunk-3)">
+      <h2><span class="tag">LEÇON 8.3</span>Exercice final : concevoir une stratégie de chunking pour un cas réel</h2>
+
+      <p>Cet exercice de synthèse mobilise l'ensemble des concepts vus dans ce cours. Prenez le temps de le traiter sérieusement — c'est l'exercice qui ancre le plus durablement l'apprentissage.</p>
+
+      <div class="callout exercise">
+        <strong>Énoncé</strong>
+        Une entreprise de conseil juridique veut construire un assistant RAG interne pour ses avocats, à partir d'un corpus composé de : (a) 5000 contrats PDF scannés (donc nécessitant OCR), (b) une base de jurisprudence de 200 000 décisions de justice au format texte structuré, (c) un wiki interne Markdown de 300 pages de procédures. Les avocats posent des questions très variées : recherche précise d'une clause type, recherche de jurisprudence similaire à un cas donné, et questions de procédure interne.
+        <br><br>
+        Concevez une stratégie de chunking complète : pour chaque source (a, b, c), précisez la stratégie de chunking choisie (en citant les modules pertinents), la taille de chunk approximative, la gestion des métadonnées, et si une architecture hybride (Parent-Document, contextual retrieval) est justifiée. Justifiez chaque choix en une phrase liée aux caractéristiques spécifiques de cette source.
+      </div>
+
+      <p>Quelques pistes de réflexion pour vous guider (à consulter après avoir tenté l'exercice vous-même) :</p>
+
+      <h3>Piste pour (a) les contrats PDF scannés</h3>
+      <p>L'OCR introduit du bruit et une structure dégradée (module 5, leçon 3) — un outil comme Unstructured avec détection de layout est probablement nécessaire en amont. Le chunking par clause/article si détectable, sinon récursif avec overlap généreux (contenu juridique dense, module 2 leçon 5). Le contextual retrieval (module 6) est particulièrement justifié ici : les clauses hors contexte sont très ambiguës, et l'enjeu (usage juridique) justifie le coût.</p>
+
+      <h3>Piste pour (b) la base de jurisprudence</h3>
+      <p>Volume très élevé (200 000 décisions) : le chunking sémantique serait probablement trop coûteux à cette échelle (module 4, leçon 4). Un chunking structurel par section de décision (faits, motifs, dispositif — souvent bien identifiables dans ce type de document) combiné à un Parent-Document Retriever (module 6) semble un bon compromis : chunks précis pour matcher un raisonnement juridique spécifique, mais capacité à remonter à la décision complète pour le contexte.</p>
+
+      <h3>Piste pour (c) le wiki interne Markdown</h3>
+      <p>Structure fiable et explicite : chunking structurel par titres (module 5, leçon 1) est directement applicable, avec breadcrumb systématique — cas le plus simple des trois, ne nécessitant pas de technique avancée.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong>
+        Proposer UNE seule stratégie uniforme pour les trois sources de cet exercice. La diversité de structure et de volume entre (a), (b) et (c) est précisément le genre de situation qui justifie un pipeline de routage par type de source (module 6, leçon 5) plutôt qu'une configuration unique.
+      </div>
+    </section>
+
+    <section class="lesson" id="m8-l4" style="--lesson-color: var(--chunk-4)">
+      <h2><span class="tag">LEÇON 8.4</span>Ressources pour aller plus loin</h2>
+
+      <p>Pour approfondir au-delà de ce cours, quelques pistes de lecture et d'exploration organisées par thème.</p>
+
+      <h3>Documentation officielle des outils</h3>
+      <ul>
+        <li>Documentation LangChain sur les text splitters (<code class="inline">python.langchain.com</code>) — référence pour toutes les stratégies des modules 2, 3 et 5.</li>
+        <li>Documentation LlamaIndex sur les <code class="inline">NodeParser</code> et les stratégies hiérarchiques (RAPTOR) — approfondit le module 6.</li>
+        <li>Documentation Unstructured.io pour l'extraction de documents complexes — approfondit le module 5.</li>
+      </ul>
+
+      <h3>Publications de recherche et articles techniques</h3>
+      <ul>
+        <li>L'article d'Anthropic sur le "Contextual Retrieval" (2024) — approfondit en détail la technique du module 6, avec les benchmarks complets.</li>
+        <li>Le papier RAPTOR (Recursive Abstractive Processing for Tree-Organized Retrieval) — pour le chunking hiérarchique multi-niveaux du module 6.</li>
+        <li>Les benchmarks publics de retrieval (BEIR, MTEB) — utiles pour comprendre comment l'industrie évalue la qualité du retrieval au-delà du chunking seul (module 7).</li>
+      </ul>
+
+      <h3>Pour la pratique</h3>
+      <ul>
+        <li>Reproduire l'exercice de comparaison empirique (leçon 8.2) sur un vrai corpus personnel ou professionnel — c'est la meilleure façon de transformer ce cours en compétence opérationnelle.</li>
+        <li>Explorer le code source de <code class="inline">langchain_text_splitters</code> et <code class="inline">chonkie</code> pour voir comment les algorithmes des modules 2 à 4 sont implémentés en production, au-delà des extraits pédagogiques de ce cours.</li>
+      </ul>
+
+      <p>Ce cours a couvert le chunking en profondeur, mais il ne représente qu'une étape du pipeline RAG complet. Les étapes suivantes naturelles pour approfondir votre maîtrise du RAG dans son ensemble : le choix et l'évaluation des modèles d'embedding, les stratégies de reranking, la recherche hybride (BM25 + vectorielle), et l'ingénierie de prompt pour la génération finale — chacun de ces sujets mériterait son propre cours approfondi.</p>
+
+      <div class="finale">
+        <p>Vous avez terminé les 8 modules du cours sur le chunking de documents pour RAG.</p>
+        <a href="#top">← Retour en haut de la formation</a>
+      </div>
+    </section>
+    </div>
+
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+  hljs.highlightAll();
+  const sidebar = document.getElementById('sidebar');
+  document.getElementById('menuToggle').addEventListener('click', () => { sidebar.classList.toggle('open'); });
+  const lessonLinks = document.querySelectorAll('[data-lesson]');
+  const storageKey = 'chunking-rag-course-progress';
+  const done = JSON.parse(localStorage.getItem(storageKey) || '{}');
+  function updateProgressBar() {
+    const total = 38;
+    const completed = Object.values(done).filter(Boolean).length;
+    document.getElementById('progressFill').style.width = Math.min(100, (completed / total * 100)) + '%';
+  }
+  lessonLinks.forEach(link => {
+    const id = link.dataset.lesson;
+    if (done[id]) link.querySelector('.lesson-check').classList.add('done');
+    link.addEventListener('click', () => {
+      done[id] = true;
+      localStorage.setItem(storageKey, JSON.stringify(done));
+      link.querySelector('.lesson-check').classList.add('done');
+      updateProgressBar();
+      sidebar.classList.remove('open');
+    });
+  });
+  updateProgressBar();
+</script>
+
+</body>
+</html>
