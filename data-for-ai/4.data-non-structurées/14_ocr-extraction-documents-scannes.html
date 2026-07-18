@@ -1,0 +1,2375 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OCR et Extraction de Documents Scannés — Tesseract et Solutions API</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<style>
+  :root {
+    --bg: #f4f6f8; --bg-alt: #e8edf1; --panel: #ffffff; --text: #1f2430; --text-muted: #5b6472;
+    --accent: #0891b2; --accent-dark: #0e7490; --pitfall: #f59e0b; --border: #dbe2e8;
+    --chunk-1: #7c5cff; --chunk-2: #17b8a6; --chunk-3: #ff6b6b; --chunk-4: #ffb020;
+    --font-display: "Space Grotesk", sans-serif; --font-body: "Inter", system-ui, sans-serif; --font-mono: "JetBrains Mono", monospace;
+    --sidebar-width: 300px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font-body); color: var(--text); background: var(--bg); line-height: 1.65; }
+  .layout { display: flex; min-height: 100vh; }
+  .sidebar { width: var(--sidebar-width); flex-shrink: 0; background: var(--panel); border-right: 1px solid var(--border); padding: 1.5rem 1rem 3rem; overflow-y: auto; position: sticky; top: 0; height: 100vh; }
+  .sidebar a.brand { display: block; font-family: var(--font-display); font-weight: 700; font-size: 1rem; margin-bottom: 1.5rem; color: var(--text); text-decoration: none; padding: 0.4rem 0.5rem; }
+  .sidebar a.brand span { color: var(--accent); }
+  .module-group { margin-bottom: 0.35rem; border-radius: 8px; }
+  .module-title { font-family: var(--font-display); font-weight: 600; font-size: 0.88rem; padding: 0.55rem 0.6rem; display: flex; gap: 0.5rem; align-items: baseline; color: var(--text); text-decoration: none; }
+  .module-title .n { font-family: var(--font-mono); font-size: 0.72rem; opacity: 0.7; }
+  .lesson-list { list-style: none; padding-left: 0.6rem; margin-bottom: 0.4rem; }
+  .lesson-list li a { display: flex; align-items: center; gap: 0.5rem; padding: 0.32rem 0.5rem; border-radius: 6px; color: var(--text-muted); text-decoration: none; font-size: 0.83rem; }
+  .lesson-list li a:hover { background: var(--bg-alt); color: var(--text); }
+  .lesson-list li a.active { color: var(--accent-dark); font-weight: 600; background: rgba(8,145,178,0.1); }
+  .lesson-check { width: 12px; height: 12px; flex-shrink: 0; border: 1.5px solid var(--text-muted); border-radius: 3px; }
+  .lesson-check.done { background: var(--chunk-2); border-color: var(--chunk-2); }
+  .progress-bar { height: 4px; background: var(--border); position: sticky; top: 0; z-index: 10; }
+  .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--chunk-1), var(--accent)); width: 0%; transition: width 0.2s ease; }
+  .content { flex: 1; max-width: 760px; margin: 0 auto; padding: 3rem 2rem 6rem; }
+  .module-kicker { font-family: var(--font-mono); font-size: 0.8rem; color: var(--accent-dark); background: rgba(8,145,178,0.08); border: 1px dashed var(--accent); display: inline-block; padding: 0.2rem 0.8rem; border-radius: 999px; margin-bottom: 1rem; }
+  section.lesson { border-top: 2px dashed var(--border); padding-top: 2rem; margin-top: 2rem; position: relative; padding-left: 1.1rem; border-left: 4px solid var(--lesson-color, var(--accent)); }
+  section.lesson h2 { font-family: var(--font-display); font-size: 1.5rem; margin-bottom: 1rem; }
+  section.lesson h2 .tag { font-family: var(--font-mono); font-size: 0.7rem; color: var(--lesson-color, var(--accent)); display: block; margin-bottom: 0.3rem; }
+  section.lesson h3 { font-family: var(--font-display); font-size: 1.1rem; margin: 1.4rem 0 0.6rem; }
+  section.lesson p, section.lesson ul, section.lesson ol { margin-bottom: 1rem; }
+  section.lesson li { margin-left: 1.3rem; margin-bottom: 0.35rem; }
+  pre { border-radius: 8px; padding: 1rem; overflow-x: auto; margin: 1rem 0; font-size: 0.85rem; }
+  code.inline { font-family: var(--font-mono); background: var(--bg-alt); padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.85em; }
+  .ascii { font-family: var(--font-mono); font-size: 0.78rem; background: #1e222b; color: #d7dce2; padding: 1rem 1.2rem; border-radius: 8px; overflow-x: auto; margin: 1rem 0; line-height: 1.5; white-space: pre; }
+  .callout { border-left: 4px solid var(--accent); background: var(--bg-alt); padding: 1rem 1.2rem; border-radius: 0 8px 8px 0; margin: 1.2rem 0; }
+  .callout strong { font-family: var(--font-display); display: block; margin-bottom: 0.3rem; font-size: 0.92rem; }
+  .callout.pitfall { border-left-color: var(--pitfall); }
+  .callout.exercise { border-left-color: var(--chunk-2); }
+  .menu-toggle { display: none; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.88rem; }
+  thead tr { text-align: left; border-bottom: 2px solid var(--border); }
+  th, td { padding: 0.5rem 0.6rem; }
+  tbody tr { border-bottom: 1px solid var(--border); }
+
+  .hero {
+    border-bottom: 2px dashed var(--border);
+    padding: 3rem 0 2.5rem;
+    text-align: center;
+    margin-bottom: 1rem;
+  }
+  .hero .tag {
+    display: inline-block; font-family: var(--font-mono); font-size: 0.8rem;
+    color: var(--accent-dark); background: rgba(8,145,178,0.1);
+    border: 1px dashed var(--accent); border-radius: 999px;
+    padding: 0.25rem 0.9rem; margin-bottom: 1.25rem;
+  }
+  .hero-title {
+    font-family: var(--font-display); font-size: clamp(1.8rem, 5vw, 2.6rem);
+    font-weight: 700; margin: 0 auto 1rem; letter-spacing: -0.01em;
+  }
+  .hero-title span {
+    background: linear-gradient(90deg, var(--chunk-1), var(--accent), var(--chunk-2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .hero-lead { max-width: 620px; margin: 0 auto; color: var(--text-muted); font-size: 1.02rem; }
+  .strip { display: flex; justify-content: center; gap: 0.4rem; margin: 2rem auto 0; max-width: 520px; }
+  .strip .seg { height: 8px; flex: 1; border-radius: 3px; }
+  .strip .seg:nth-child(1) { background: var(--chunk-1); }
+  .strip .seg:nth-child(2) { background: var(--chunk-2); }
+  .strip .seg:nth-child(3) { background: var(--chunk-3); }
+  .strip .seg:nth-child(4) { background: var(--chunk-4); }
+  .strip .seg:nth-child(5) { background: var(--chunk-1); }
+  .strip .seg:nth-child(6) { background: var(--chunk-2); }
+
+  .module-block { border-top: 3px solid var(--border); padding-top: 2.5rem; margin-top: 3rem; }
+  .module-block:first-of-type { border-top: none; margin-top: 0; }
+  .module-block > h1 { font-family: var(--font-display); font-size: 2rem; margin-bottom: 0.5rem; }
+  .module-block > p.intro { color: var(--text-muted); margin-bottom: 2rem; font-size: 1.02rem; }
+
+  .finale {
+    margin-top: 3rem; padding: 1.5rem; border-radius: 10px;
+    background: linear-gradient(135deg, rgba(124,92,255,0.08), rgba(23,184,166,0.08));
+    border: 1px dashed var(--accent);
+    text-align: center;
+  }
+  .finale p { color: var(--text-muted); margin-bottom: 0.8rem; }
+  .finale a {
+    display: inline-block; background: var(--accent); color: white;
+    text-decoration: none; padding: 0.6rem 1.4rem; border-radius: 6px;
+    font-family: var(--font-display); font-weight: 600; font-size: 0.9rem;
+  }
+
+  @media (max-width: 860px) {
+    .sidebar { position: fixed; left: -100%; z-index: 20; transition: left 0.2s ease; box-shadow: 4px 0 12px rgba(0,0,0,0.15); background: var(--panel); }
+    .sidebar.open { left: 0; }
+    .menu-toggle { display: block; position: fixed; top: 1rem; left: 1rem; z-index: 30; background: var(--accent); color: white; border: none; border-radius: 6px; padding: 0.5rem 0.75rem; cursor: pointer; font-size: 1rem; }
+    .content { padding: 4.5rem 1.25rem 3rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-bar-fill" id="progressFill"></div></div>
+<button class="menu-toggle" id="menuToggle">☰</button>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar">
+    <a class="brand" href="#top">OCR<span>&amp;Scans</span></a>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-1"><span class="n">01</span> Fondamentaux de l'OCR</a>
+      <ul class="lesson-list">
+        <li><a href="#m1-l1" data-lesson="m1-l1"><span class="lesson-check"></span>Qu'est-ce que l'OCR</a></li>
+        <li><a href="#m1-l2" data-lesson="m1-l2"><span class="lesson-check"></span>Comment fonctionne un moteur OCR</a></li>
+        <li><a href="#m1-l3" data-lesson="m1-l3"><span class="lesson-check"></span>Qualité de scan : résolution, contraste, bruit</a></li>
+        <li><a href="#m1-l4" data-lesson="m1-l4"><span class="lesson-check"></span>Où l'OCR s'insère dans le pipeline</a></li>
+        <li><a href="#m1-l5" data-lesson="m1-l5"><span class="lesson-check"></span>Erreurs et limites structurelles</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-2"><span class="n">02</span> Tesseract</a>
+      <ul class="lesson-list">
+        <li><a href="#m2-l1" data-lesson="m2-l1"><span class="lesson-check"></span>Installation et premiers pas</a></li>
+        <li><a href="#m2-l2" data-lesson="m2-l2"><span class="lesson-check"></span>Modes de segmentation de page (PSM)</a></li>
+        <li><a href="#m2-l3" data-lesson="m2-l3"><span class="lesson-check"></span>Langues et modèles Tesseract</a></li>
+        <li><a href="#m2-l4" data-lesson="m2-l4"><span class="lesson-check"></span>Configuration avancée</a></li>
+        <li><a href="#m2-l5" data-lesson="m2-l5"><span class="lesson-check"></span>Limites et cas d'échec</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-3"><span class="n">03</span> Prétraitement d'image</a>
+      <ul class="lesson-list">
+        <li><a href="#m3-l1" data-lesson="m3-l1"><span class="lesson-check"></span>Pourquoi le prétraitement change tout</a></li>
+        <li><a href="#m3-l2" data-lesson="m3-l2"><span class="lesson-check"></span>Binarisation et contraste</a></li>
+        <li><a href="#m3-l3" data-lesson="m3-l3"><span class="lesson-check"></span>Débruitage et redressement (deskew)</a></li>
+        <li><a href="#m3-l4" data-lesson="m3-l4"><span class="lesson-check"></span>Correction de perspective</a></li>
+        <li><a href="#m3-l5" data-lesson="m3-l5"><span class="lesson-check"></span>Pipeline complet OpenCV/Pillow</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-4"><span class="n">04</span> Solutions API cloud</a>
+      <ul class="lesson-list">
+        <li><a href="#m4-l1" data-lesson="m4-l1"><span class="lesson-check"></span>Panorama des solutions API</a></li>
+        <li><a href="#m4-l2" data-lesson="m4-l2"><span class="lesson-check"></span>Google Cloud Vision</a></li>
+        <li><a href="#m4-l3" data-lesson="m4-l3"><span class="lesson-check"></span>AWS Textract</a></li>
+        <li><a href="#m4-l4" data-lesson="m4-l4"><span class="lesson-check"></span>Azure Document Intelligence</a></li>
+        <li><a href="#m4-l5" data-lesson="m4-l5"><span class="lesson-check"></span>Tesseract vs cloud : coût, précision, confidentialité</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-5"><span class="n">05</span> OCR avec modèles de vision (LLM)</a>
+      <ul class="lesson-list">
+        <li><a href="#m5-l1" data-lesson="m5-l1"><span class="lesson-check"></span>L'essor des modèles vision-langage</a></li>
+        <li><a href="#m5-l2" data-lesson="m5-l2"><span class="lesson-check"></span>Extraction via un LLM multimodal</a></li>
+        <li><a href="#m5-l3" data-lesson="m5-l3"><span class="lesson-check"></span>Avantages : contexte et mise en page complexe</a></li>
+        <li><a href="#m5-l4" data-lesson="m5-l4"><span class="lesson-check"></span>Limites : hallucination, coût, latence</a></li>
+        <li><a href="#m5-l5" data-lesson="m5-l5"><span class="lesson-check"></span>Pipeline hybride OCR + LLM</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-6"><span class="n">06</span> Extraction de structure</a>
+      <ul class="lesson-list">
+        <li><a href="#m6-l1" data-lesson="m6-l1"><span class="lesson-check"></span>Le défi des tableaux scannés</a></li>
+        <li><a href="#m6-l2" data-lesson="m6-l2"><span class="lesson-check"></span>Détection de mise en page</a></li>
+        <li><a href="#m6-l3" data-lesson="m6-l3"><span class="lesson-check"></span>Extraction de formulaires clé-valeur</a></li>
+        <li><a href="#m6-l4" data-lesson="m6-l4"><span class="lesson-check"></span>Reconstituer l'ordre de lecture</a></li>
+        <li><a href="#m6-l5" data-lesson="m6-l5"><span class="lesson-check"></span>Valider et corriger automatiquement</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-7"><span class="n">07</span> Qualité, validation, post-traitement</a>
+      <ul class="lesson-list">
+        <li><a href="#m7-l1" data-lesson="m7-l1"><span class="lesson-check"></span>Mesurer la qualité OCR (CER/WER)</a></li>
+        <li><a href="#m7-l2" data-lesson="m7-l2"><span class="lesson-check"></span>Détecter une extraction dégradée</a></li>
+        <li><a href="#m7-l3" data-lesson="m7-l3"><span class="lesson-check"></span>Correction post-OCR</a></li>
+        <li><a href="#m7-l4" data-lesson="m7-l4"><span class="lesson-check"></span>Construire un jeu d'évaluation</a></li>
+        <li><a href="#m7-l5" data-lesson="m7-l5"><span class="lesson-check"></span>Amélioration continue</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-8"><span class="n">08</span> Implémentation complète</a>
+      <ul class="lesson-list">
+        <li><a href="#m8-l1" data-lesson="m8-l1"><span class="lesson-check"></span>Pipeline complet scan → texte propre</a></li>
+        <li><a href="#m8-l2" data-lesson="m8-l2"><span class="lesson-check"></span>Comparaison empirique des approches</a></li>
+        <li><a href="#m8-l3" data-lesson="m8-l3"><span class="lesson-check"></span>Débogage d'un pipeline dégradé</a></li>
+        <li><a href="#m8-l4" data-lesson="m8-l4"><span class="lesson-check"></span>Étude de cas et exercice final</a></li>
+        <li><a href="#m8-l5" data-lesson="m8-l5"><span class="lesson-check"></span>Ressources pour aller plus loin</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main class="content">
+    <header class="hero" id="top">
+      <span class="tag">// data-for-ai · 4.data-non-structurées · Formation 14</span>
+      <h1 class="hero-title">OCR et Extraction de <span>Documents Scannés</span></h1>
+      <p class="hero-lead">Tesseract et solutions API — comment transformer une image de document en texte exploitable, de l'open-source local aux API cloud et aux modèles de vision multimodaux. 8 modules, 40 leçons.</p>
+      <div class="strip" aria-hidden="true">
+        <div class="seg"></div><div class="seg"></div><div class="seg"></div>
+        <div class="seg"></div><div class="seg"></div><div class="seg"></div>
+      </div>
+    </header>
+
+    <div class="module-block" id="module-1">
+      <span class="module-kicker">MODULE 01 / 08</span>
+      <h1>Fondamentaux de l'OCR</h1>
+      <p class="intro">Le cours sur le nettoyage de texte non structuré avait laissé un cas de côté : le PDF scanné, qui ne contient aucun texte réel — seulement des pixels. Ce module comble ce vide en posant les bases de l'OCR (Reconnaissance Optique de Caractères), la technologie qui transforme une image de texte en texte exploitable.</p>
+
+      <section class="lesson" id="m1-l1" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 1.1</span>Qu'est-ce que l'OCR et pourquoi les PDF scannés bloquent tout pipeline RAG</h2>
+
+        <p>L'<strong>OCR</strong> (Optical Character Recognition, reconnaissance optique de caractères) est une technologie qui analyse une image contenant du texte — un scan, une photo de document, une capture d'écran — pour en extraire les caractères réellement présents, sous forme de texte numérique exploitable. Sans OCR, une image de texte reste, pour un ordinateur, une simple grille de pixels colorés : aucune notion de "lettre A" ou de "mot" n'existe intrinsèquement dans ce type de fichier.</p>
+
+        <p>Ce cours fait suite directe au cours sur le nettoyage de texte non structuré, qui avait identifié ce problème sans le résoudre : un PDF "scanné" — capturé depuis un document papier, ou exporté comme image plutôt que comme texte natif — ne contient aucun texte réel, seulement une image encapsulée dans un conteneur PDF. Tenter d'en extraire du texte avec les outils déjà vus (pypdf, pdfplumber, PyMuPDF) renvoie systématiquement un résultat vide, car il n'y a tout simplement rien à extraire par ces méthodes.</p>
+
+        <div class="ascii">Rappel du cours nettoyage (module 2, leçon 4) :
+
+def detecter_pdf_scanne(chemin_pdf: str, seuil_caracteres_par_page: int = 50) -> bool:
+    document = fitz.open(chemin_pdf)
+    texte_total = "".join(page.get_text() for page in document)
+    return len(texte_total) / len(document) < seuil_caracteres_par_page
+
+→ Ce cours répondait "il faut de l'OCR" sans expliquer comment.
+   CE COURS comble précisément ce manque.</div>
+
+        <p>L'enjeu n'est pas anecdotique : dans de nombreux corpus d'entreprise, une part significative des documents (archives papier numérisées, formulaires remplis à la main, factures scannées, contrats anciens) n'existe que sous cette forme. Sans une étape d'OCR fiable, ces documents entiers restent structurellement invisibles à un système RAG — quelle que soit la qualité du chunking, de l'embedding ou de l'enrichissement de métadonnées appliqués en aval, aucun de ces traitements ne peut s'exercer sur du texte qui n'a jamais été extrait.</p>
+
+        <div class="ascii">Document papier          Scan (image)              Après OCR (ce cours)
+─────────────────       ─────────────────         ─────────────────────
+Texte physique,          Grille de pixels,         Texte numérique réel,
+lisible par un           AUCUNE notion de           exploitable par le
+humain                   caractère ou de mot         reste du pipeline RAG
+                         pour un ordinateur          (cours chunking,
+                                                      embeddings...)</div>
+
+        <p>L'OCR occupe donc une place particulière dans la série de cours consacrée à la préparation de données pour RAG : ce n'est pas une étape systématique (un document avec du texte natif n'en a pas besoin, cours nettoyage module 2), mais une étape <strong>conditionnelle et incontournable</strong> pour toute la portion d'un corpus qui se présente sous forme d'image plutôt que de texte structuré.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Découvrir l'existence de documents scannés seulement après avoir constaté des résultats d'extraction vides ou anormalement courts en production, plutôt que d'auditer le corpus dès le départ pour quantifier la proportion de documents nécessitant de l'OCR (rappel de la détection systématique du cours nettoyage, module 2, leçon 4).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre corpus (réel ou imaginé), estimez la proportion de documents qui existent probablement uniquement sous forme scannée (archives anciennes, formulaires papier, documents reçus de tiers). Cette proportion justifie-t-elle d'investir sérieusement dans une chaîne d'OCR de qualité ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l2" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 1.2</span>Comment fonctionne un moteur OCR : des pixels au texte</h2>
+
+        <p>Comprendre les grandes étapes internes d'un moteur OCR aide à interpréter ses erreurs et à savoir où intervenir pour les corriger — un moteur OCR n'est pas une boîte magique, mais un pipeline de traitement d'image et de reconnaissance de motifs avec ses propres étapes identifiables.</p>
+
+        <h3>Étape 1 — Prétraitement de l'image</h3>
+        <p>Avant toute reconnaissance, l'image est généralement convertie en niveaux de gris, puis souvent binarisée (chaque pixel devient noir ou blanc, sans nuance) pour maximiser le contraste entre le texte et le fond. Cette étape, approfondie au module 3, conditionne fortement la qualité de tout ce qui suit.</p>
+
+        <h3>Étape 2 — Segmentation de la page</h3>
+        <p>Le moteur identifie les zones de la page qui contiennent du texte (par opposition aux images, aux marges, aux zones vides), puis découpe ces zones en lignes, puis en mots, puis en caractères individuels — une hiérarchie de segmentation similaire, dans son principe, aux étapes de chunking déjà vues dans le cours dédié, mais appliquée ici à une image plutôt qu'à du texte déjà existant.</p>
+
+        <h3>Étape 3 — Reconnaissance de caractères</h3>
+        <p>Chaque caractère segmenté est comparé à des motifs appris (historiquement, une comparaison de formes ; dans les moteurs modernes comme Tesseract 4+, un réseau de neurones récurrent, approfondi au module 2) pour déterminer quelle lettre ou quel symbole il représente le plus probablement.</p>
+
+        <h3>Étape 4 — Post-traitement linguistique</h3>
+        <p>De nombreux moteurs OCR appliquent une correction basée sur un modèle de langue (dictionnaire, fréquences de mots) pour corriger des caractères mal reconnus individuellement mais incohérents dans leur contexte — une étape qui explique pourquoi l'OCR se trompe différemment selon la langue configurée (approfondi au module 2, leçon 3).</p>
+
+        <div class="ascii">Image brute (scan)
+     │
+     ▼
+┌─────────────────────┐
+│ 1. Prétraitement      │  ← niveaux de gris, binarisation (module 3)
+└─────────────────────┘
+     │
+     ▼
+┌─────────────────────┐
+│ 2. Segmentation        │  ← zones de texte → lignes → mots → caractères
+└─────────────────────┘
+     │
+     ▼
+┌─────────────────────┐
+│ 3. Reconnaissance      │  ← réseau de neurones ou comparaison de motifs
+└─────────────────────┘
+     │
+     ▼
+┌─────────────────────┐
+│ 4. Post-traitement     │  ← correction via dictionnaire/modèle de langue
+│    linguistique        │
+└─────────────────────┘
+     │
+     ▼
+Texte numérique final</div>
+
+        <p>Cette décomposition en quatre étapes est directement utile pour le débogage (module 7, leçon 2) : une erreur d'OCR peut avoir son origine à n'importe laquelle de ces étapes — une mauvaise segmentation (deux colonnes fusionnées) produit un symptôme très différent d'une mauvaise reconnaissance de caractère isolé (un "0" confondu avec un "O"), et appelle une correction différente.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Traiter l'OCR comme un processus atomique et indivisible ("ça marche" ou "ça ne marche pas"), sans identifier à quelle étape précise un problème survient. Un texte OCR de mauvaise qualité peut être dû à un prétraitement insuffisant (module 3), une mauvaise configuration de segmentation (module 2, leçon 2), ou une langue mal configurée (module 2, leçon 3) — trois causes qui appellent des corrections complètement différentes.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un document scanné de mauvaise qualité que vous pourriez rencontrer (contraste faible, police inhabituelle, langue rare), essayez d'anticiper à quelle étape du pipeline (1 à 4) le problème serait le plus susceptible d'apparaître.
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l3" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 1.3</span>Qualité d'un scan : résolution, contraste, bruit — ce qui détermine le résultat</h2>
+
+        <p>La qualité de l'image source est, de loin, le facteur le plus déterminant de la qualité finale d'une extraction OCR — bien avant le choix du moteur ou de ses paramètres (modules 2 et 4). Cette leçon détaille les trois caractéristiques d'image qui comptent le plus.</p>
+
+        <h3>Résolution</h3>
+        <p>Mesurée en DPI (dots per inch, points par pouce), la résolution détermine combien de pixels représentent chaque caractère. En dessous d'un seuil (généralement autour de 200-300 DPI pour du texte de taille standard), les caractères deviennent flous ou pixelisés au point de devenir ambigus même pour un œil humain — un moteur OCR ne peut pas deviner ce qui n'est plus visuellement distinguable.</p>
+
+        <div class="ascii">Résolution insuffisante (~100 DPI)      Résolution correcte (~300 DPI)
+
+  ▓▓░░▓▓                                 ▓▓░░░░▓▓
+  ░░▓▓░░        (caractère "e" flou,     ░░▓▓▓▓░░   (caractère "e" net,
+  ▓▓░░▓▓         confondu avec "c"       ░░▓▓▓▓░░    facilement reconnu)
+                 ou "o" possible)         ▓▓░░░░▓▓</div>
+
+        <h3>Contraste</h3>
+        <p>L'écart de luminosité entre le texte et son arrière-plan. Un scan avec un contraste faible (texte gris clair sur fond blanc cassé, papier jauni, encre pâlie) réduit la capacité du moteur à distinguer nettement les contours des caractères — un problème partiellement corrigible par le prétraitement (module 3, leçon 2), mais avec des limites si le contraste d'origine est trop faible.</p>
+
+        <h3>Bruit</h3>
+        <p>Les artefacts visuels indésirables : grain de numérisation, taches, plis du papier, ombres de reliure sur un livre scanné. Ce bruit peut être interprété à tort comme des caractères ou perturber la segmentation — un problème également adressé par le prétraitement (module 3, leçon 3, débruitage).</p>
+
+        <table>
+          <thead>
+            <tr><th>Facteur</th><th>Seuil problématique typique</th><th>Correction possible</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Résolution</td><td>En dessous de ~200 DPI</td><td>Limitée — dépend du scan d'origine</td></tr>
+            <tr><td>Contraste</td><td>Texte pâle, fond non uniforme</td><td>Prétraitement (module 3, leçon 2)</td></tr>
+            <tr><td>Bruit</td><td>Grain, taches, ombres</td><td>Prétraitement (module 3, leçon 3)</td></tr>
+          </tbody>
+        </table>
+
+        <p>Un principe à retenir dès ce premier module : contrairement à un problème de configuration logicielle (qui se corrige en changeant un paramètre), un problème de résolution insuffisante à la source est souvent <strong>irrécupérable</strong> — aucun prétraitement ni aucun moteur OCR, aussi sophistiqué soit-il, ne peut reconstituer une information visuelle qui n'a jamais été capturée. Quand c'est possible, la meilleure optimisation reste en amont : re-numériser le document source à une résolution suffisante plutôt que de compenser après coup.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Consacrer beaucoup d'effort à optimiser les paramètres du moteur OCR ou du prétraitement sur des scans dont la résolution d'origine est structurellement insuffisante. Si le document source original (papier ou fichier numérique haute résolution) reste accessible, une re-numérisation à une résolution adéquate résout souvent le problème plus efficacement que n'importe quelle optimisation logicielle en aval.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre corpus de documents scannés (réel ou imaginé), avez-vous un moyen de vérifier la résolution des scans avant de lancer un traitement OCR à grande échelle ? Que feriez-vous si vous découvriez qu'une partie significative des scans est en dessous de 200 DPI ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l4" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 1.4</span>Où l'OCR s'insère dans le pipeline RAG</h2>
+
+        <p>Cette leçon situe précisément l'OCR par rapport au pipeline complet déjà construit dans la série de cours sur la préparation de données pour RAG — une étape supplémentaire, conditionnelle, qui s'insère avant même l'extraction/nettoyage déjà étudiée.</p>
+
+        <div class="ascii">Document source
+     │
+     ▼
+Est-ce un format avec texte natif (DOCX, HTML, PDF non scanné) ?
+     │
+     ├── OUI ──► Extraction directe (cours nettoyage, modules 2-4)
+     │
+     └── NON (image, PDF scanné) ──► OCR (CE COURS)
+                                            │
+                                            ▼
+                                    Texte numérique brut
+                                            │
+                                            ▼
+                              Nettoyage transversal (cours nettoyage,
+                              module 5 : encodage, artefacts, boilerplate)
+                                            │
+                                            ▼
+                                Chunking (cours chunking)
+                                            │
+                                            ▼
+                                Embedding (cours embeddings)
+                                            │
+                                            ▼
+                       Enrichissement de métadonnées (cours métadonnées)
+                                            │
+                                            ▼
+                          Indexation (cours bases de données vectorielles)</div>
+
+        <p>Un point important, déjà évoqué au cours nettoyage (module 6, leçon 5, sur les documents hybrides) : la décision "extraction directe ou OCR" ne se prend pas nécessairement au niveau du document entier, mais parfois <strong>page par page</strong> — un même PDF pouvant mélanger des pages avec texte natif et des pages scannées (une annexe ajoutée par scan, par exemple). Ce cours détaille précisément ce que ce cours précédent laissait de côté : comment exécuter concrètement cette étape d'OCR une fois le besoin détecté.</p>
+
+        <p>Le texte produit par l'OCR n'est jamais directement prêt pour le chunking — il nécessite généralement un passage par les techniques de nettoyage transversal déjà vues (correction d'encodage, suppression d'artefacts), car l'OCR introduit ses propres catégories de bruit spécifiques (erreurs de caractères, mots mal segmentés) qui s'ajoutent à celles déjà cataloguées dans le cours nettoyage.</p>
+
+        <pre><code class="language-python"># Le pipeline complet, OCR inclus
+def traiter_document(chemin_fichier: str) -> str:
+    if necessite_ocr(chemin_fichier):          # rappel cours nettoyage, module 2, leçon 4
+        texte_brut = executer_ocr(chemin_fichier)   # CE COURS
+    else:
+        texte_brut = extraire_texte_natif(chemin_fichier)   # cours nettoyage, modules 2-4
+
+    texte_propre = nettoyer_texte_complet(texte_brut)   # cours nettoyage, module 5
+    return texte_propre   # prêt pour le chunking (cours chunking)
+</code></pre>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Traiter la sortie de l'OCR comme un texte déjà propre, prêt à être directement chunké, en oubliant qu'elle nécessite le même passage par les techniques de nettoyage transversal que n'importe quel autre texte extrait — avec, en plus, des catégories de bruit spécifiques à l'OCR (approfondies au module 7) qui n'existent pas dans une extraction de texte natif.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          En reprenant le pipeline complet esquissé ci-dessus, à quel endroit précis intégreriez-vous une détection automatique du besoin d'OCR pour votre propre corpus ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l5" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 1.5</span>Erreurs courantes et limites structurelles de l'OCR</h2>
+
+        <p>Cette dernière leçon du module fondateur rassemble les erreurs typiques de l'OCR et ses limites structurelles — à connaître avant d'aborder les modules techniques suivants, pour calibrer des attentes réalistes.</p>
+
+        <h3>Confusions de caractères visuellement proches</h3>
+        <p>Certaines paires de caractères sont structurellement ambiguës visuellement : "0" et "O", "1", "l" et "I", "rn" et "m". Ces confusions sont une source d'erreur quasi incompressible, particulièrement sur des polices ou des résolutions qui accentuent ces ressemblances.</p>
+
+        <h3>Mauvaise segmentation de mise en page</h3>
+        <p>Un document à colonnes multiples, mal segmenté, peut voir son texte lu dans le mauvais ordre (rappel du problème déjà rencontré pour les PDF natifs dans le cours nettoyage, module 2, leçon 5 — mais ici sans le recours aux positions de texte natif, uniquement à partir de l'analyse visuelle de l'image).</p>
+
+        <h3>Écriture manuscrite</h3>
+        <p>Les moteurs OCR classiques (Tesseract, module 2) sont conçus et entraînés principalement pour du texte imprimé — leur performance sur de l'écriture manuscrite est généralement très dégradée, un cas qui bénéficie davantage des solutions API spécialisées (module 4) ou des modèles de vision multimodaux (module 5).</p>
+
+        <h3>Tableaux et mises en page complexes</h3>
+        <p>Un moteur OCR de base extrait généralement le texte sans préserver la structure tabulaire (lignes, colonnes) — un problème similaire à celui déjà rencontré pour les tableaux PDF natifs, mais qui nécessite ici des outils de détection de mise en page spécifiques (approfondi au module 6).</p>
+
+        <div class="ascii">Type de contenu                    Performance OCR classique typique
+──────────────────────────────────────────────────────────────────────
+Texte imprimé net, une colonne      Excellente (souvent >98% de précision
+                                    caractère par caractère)
+
+Texte imprimé, mise en page          Bonne à moyenne (dépend de la
+complexe (colonnes, tableaux)        qualité de segmentation, module 6)
+
+Écriture manuscrite                 Faible à moyenne (module 4-5 pour
+                                     de meilleures alternatives)
+
+Scan de mauvaise qualité              Variable, souvent dégradée
+(résolution/contraste/bruit           (rappel leçon 1.3)
+faibles)</div>
+
+        <p>Ces limites ne signifient pas que l'OCR est peu fiable en général — pour son cas d'usage central (texte imprimé de qualité raisonnable), la précision est aujourd'hui excellente. Elles rappellent simplement qu'il faut calibrer ses attentes et sa stratégie (choix du moteur, prétraitement, validation) selon la nature réelle du corpus à traiter, un principe qui structure l'ensemble des modules suivants.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Attendre une précision uniforme et proche de 100% de l'OCR quel que soit le type de contenu, puis être surpris par une dégradation significative sur de l'écriture manuscrite ou des scans de mauvaise qualité. Calibrer ses attentes selon la nature réelle du contenu (leçon 1.3 et ce tableau) évite des déceptions coûteuses en production.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : à partir du tableau ci-dessus, où se situe votre corpus de documents scannés (texte imprimé simple, mise en page complexe, manuscrit, qualité variable) ? Cette classification oriente-t-elle déjà votre choix entre les approches des modules suivants (Tesseract, API cloud, LLM multimodal) ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-2">
+      <span class="module-kicker">MODULE 02 / 08</span>
+      <h1>Tesseract : le moteur OCR open-source de référence</h1>
+      <p class="intro">Tesseract est le moteur OCR open-source le plus utilisé au monde, maintenu aujourd'hui par Google. Ce module en détaille l'usage complet, des premiers pas jusqu'à la configuration avancée, en comprenant bien ce qui se cache derrière chaque paramètre.</p>
+
+      <section class="lesson" id="m2-l1" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 2.1</span>Installation et premiers pas avec Tesseract</h2>
+
+        <p><strong>Tesseract</strong> est un moteur OCR open-source, initialement développé par HP puis maintenu par Google depuis 2006. Contrairement aux solutions API du module 4, Tesseract s'exécute entièrement en local — aucune donnée ne quitte votre machine, un avantage direct pour des documents confidentiels (thème approfondi en leçon 4.5).</p>
+
+        <pre><code class="language-bash"># Installation du moteur Tesseract lui-même (binaire système)
+# Sur Ubuntu/Debian :
+sudo apt install tesseract-ocr tesseract-ocr-fra   # inclut les données de langue française
+
+# Sur macOS (via Homebrew) :
+brew install tesseract tesseract-lang
+</code></pre>
+
+        <pre><code class="language-python"># Installation du wrapper Python (pytesseract) qui pilote le binaire Tesseract
+# pip install pytesseract pillow
+
+import pytesseract
+from PIL import Image
+
+image = Image.open("document_scanne.png")
+texte_extrait = pytesseract.image_to_string(image, lang="fra")
+print(texte_extrait)
+</code></pre>
+
+        <p>Cette simplicité de mise en route (deux commandes d'installation, quelques lignes de code) cache une réalité importante : la qualité du résultat obtenu dépend beaucoup moins de cette configuration minimale que de la qualité de l'image source (rappel du module 1, leçon 3) et de la configuration fine des paramètres de segmentation (leçon 2.2) et de langue (leçon 2.3) qui suivent dans ce module.</p>
+
+        <div class="ascii">Deux composants distincts, souvent confondus :
+
+tesseract-ocr (le binaire)          pytesseract (le wrapper Python)
+─────────────────────────           ──────────────────────────────
+Le moteur OCR lui-même,             Une interface Python qui appelle
+installé au niveau système           le binaire tesseract en coulisses
+(apt, brew, ou téléchargement
+manuel sur Windows)                  Sans le binaire installé, pytesseract
+                                      ne peut RIEN faire — les deux sont
+                                      nécessaires, pas l'un ou l'autre</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Installer uniquement <code class="inline">pytesseract</code> via pip en pensant que cela suffit, puis rencontrer une erreur indiquant que le binaire <code class="inline">tesseract</code> est introuvable. <code class="inline">pytesseract</code> est un simple wrapper qui appelle le binaire système — ce dernier doit être installé séparément selon la plateforme (leçon ci-dessus), et son chemin parfois configuré explicitement si l'installation n'est pas standard (notamment sur Windows).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Si vous avez accès à un environnement Python, installez Tesseract et testez-le sur une image simple contenant du texte imprimé net. Le résultat correspond-il exactement au texte de l'image ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l2" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 2.2</span>Comprendre les modes de segmentation de page (PSM)</h2>
+
+        <p>Rappel de l'étape 2 du pipeline OCR générique (module 1, leçon 2) : la segmentation détermine comment le moteur découpe la page en zones de texte. Tesseract expose ce choix explicitement via le paramètre <strong>PSM</strong> (Page Segmentation Mode) — l'un des réglages les plus impactants et les plus mal compris de l'outil.</p>
+
+        <h3>Les modes PSM les plus utiles en pratique</h3>
+        <table>
+          <thead>
+            <tr><th>PSM</th><th>Comportement</th><th>Cas d'usage typique</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>3 (défaut)</td><td>Segmentation automatique complète de la page, sans orientation présumée</td><td>Document standard, mise en page inconnue</td></tr>
+            <tr><td>4</td><td>Suppose une seule colonne de texte de tailles variables</td><td>Document à une colonne avec titres de tailles différentes</td></tr>
+            <tr><td>6</td><td>Suppose un unique bloc de texte uniforme</td><td>Paragraphe isolé, capture d'écran de texte simple</td></tr>
+            <tr><td>7</td><td>Traite l'image comme une seule ligne de texte</td><td>Ligne de texte isolée (champ de formulaire scanné)</td></tr>
+            <tr><td>11</td><td>Texte épars, sans ordre particulier à préserver</td><td>Texte disséminé sur l'image sans structure de paragraphe</td></tr>
+          </tbody>
+        </table>
+
+        <pre><code class="language-python">import pytesseract
+from PIL import Image
+
+image = Image.open("formulaire_scanne.png")
+
+# PSM 6 : traiter comme un bloc de texte uniforme
+texte_bloc = pytesseract.image_to_string(image, config="--psm 6", lang="fra")
+
+# PSM 7 : traiter comme une seule ligne (utile pour un champ isolé)
+texte_ligne = pytesseract.image_to_string(image, config="--psm 7", lang="fra")
+</code></pre>
+
+        <p>Le choix du bon PSM peut faire une différence radicale sur la qualité du résultat — un document à mise en page complexe traité avec un PSM inadapté (par exemple, PSM 6 sur une page à deux colonnes) produira un texte où les deux colonnes sont fusionnées de façon incohérente, un problème similaire à celui déjà rencontré pour les PDF natifs à colonnes multiples (cours nettoyage, module 2, leçon 5), mais ici sans les informations de position qu'un PDF natif expose.</p>
+
+        <div class="ascii">Document à 2 colonnes, mauvais PSM (PSM 6, bloc uniforme) :
+
+┌─────────┬─────────┐         Résultat : "Le texte de la colonne
+│ Colonne │ Colonne │                    gauche mélangé avec
+│ gauche  │ droite  │                    la colonne droite de
+│ ligne 1 │ ligne 1 │                    façon incohérente..."
+│ ligne 2 │ ligne 2 │
+└─────────┴─────────┘         → PSM 3 (automatique) ou une
+                                 segmentation manuelle préalable
+                                 des colonnes serait nécessaire</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Garder le PSM par défaut (3, segmentation automatique) pour tous les documents, sans tester d'autres modes sur des documents à la mise en page atypique (champ de formulaire isolé, ligne unique, mise en page multi-colonnes). Le PSM par défaut est un bon point de départ généraliste, mais rarement optimal pour des cas spécifiques.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un document à colonnes multiples que vous auriez à traiter, quel PSM tenteriez-vous en premier ? Si le résultat reste insatisfaisant, quelle serait votre prochaine piste (indice : la découpe préalable de l'image, approfondie au module 6) ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l3" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 2.3</span>Langues, données d'entraînement et modèles Tesseract</h2>
+
+        <p>Rappel de l'étape 4 du pipeline OCR générique (module 1, leçon 2) : le post-traitement linguistique s'appuie sur des données spécifiques à chaque langue. Tesseract fonctionne avec des fichiers de données de langue (<code class="inline">.traineddata</code>) téléchargeables séparément — sans le bon fichier, la reconnaissance se dégrade significativement, un piège similaire à celui déjà rencontré pour les modèles d'embedding monolingues (cours embeddings, module 4, leçon 4).</p>
+
+        <pre><code class="language-python">import pytesseract
+
+# Une seule langue
+texte = pytesseract.image_to_string(image, lang="fra")
+
+# Plusieurs langues combinées (document bilingue, rappel cours métadonnées
+# module 6, leçon 1, sur le contenu multilingue)
+texte_bilingue = pytesseract.image_to_string(image, lang="fra+eng")
+</code></pre>
+
+        <h3>Les deux familles de modèles de langue Tesseract</h3>
+        <p>Depuis Tesseract 4, deux familles de modèles coexistent, avec un compromis vitesse/précision différent :</p>
+        <ul>
+          <li><strong>Modèles "fast"</strong> — plus rapides, basés sur l'ancien moteur de reconnaissance par motifs, une précision légèrement inférieure.</li>
+          <li><strong>Modèles "best" (LSTM)</strong> — basés sur un réseau de neurones récurrent (LSTM, Long Short-Term Memory), plus précis mais plus lents, recommandés par défaut sauf contrainte de performance forte.</li>
+        </ul>
+
+        <pre><code class="language-bash"># Les modèles "best" (LSTM) sont généralement installés par défaut
+# depuis Tesseract 4+, mais peuvent être téléchargés explicitement
+# depuis le dépôt tessdata_best du projet Tesseract si nécessaire
+</code></pre>
+
+        <h3>Documents multilingues et détection automatique</h3>
+        <p>Tesseract ne détecte pas automatiquement la langue d'un document — contrairement à un modèle d'embedding multilingue (cours embeddings, module 4) qui gère nativement plusieurs langues dans un même espace vectoriel, Tesseract nécessite de spécifier explicitement la ou les langues attendues. Pour un corpus dont la langue varie document par document, une détection de langue préalable (rappel cours métadonnées, module 6, leçon 1, avec <code class="inline">langdetect</code>) sur un échantillon ou des métadonnées existantes peut orienter ce choix.</p>
+
+        <div class="ascii">Langue mal configurée :                  Langue correctement configurée :
+
+lang="eng" sur un texte français         lang="fra" sur un texte français
+→ le post-traitement linguistique         → le post-traitement linguistique
+  (dictionnaire, fréquences de mots)        corrige correctement les
+  suppose de l'anglais, corrigeant          ambiguïtés selon les règles
+  À TORT des mots français vers des         et le vocabulaire du français
+  formes anglaises proches</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Garder la langue par défaut (souvent l'anglais) sur un corpus dans une autre langue, en pensant que "le texte reste globalement lisible de toute façon". Le post-traitement linguistique de Tesseract peut activement dégrader un texte dans la mauvaise langue, en "corrigeant" des mots vers des formes incorrectes basées sur un vocabulaire qui n'est pas le bon.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre corpus, quelles langues devriez-vous configurer dans Tesseract ? Existe-t-il des documents bilingues nécessitant de combiner plusieurs codes de langue simultanément ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l4" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 2.4</span>Configuration avancée et paramètres de reconnaissance</h2>
+
+        <p>Au-delà du PSM (leçon 2.2) et de la langue (leçon 2.3), Tesseract expose de nombreux autres paramètres de configuration qui permettent d'affiner la reconnaissance pour des cas spécifiques.</p>
+
+        <h3>Restreindre les caractères attendus (whitelist)</h3>
+        <p>Pour des documents à contenu prévisible (numéros de téléphone, codes postaux, références alphanumériques), restreindre l'ensemble des caractères que Tesseract peut reconnaître élimine une source d'ambiguïté et améliore souvent significativement la précision.</p>
+
+        <pre><code class="language-python">config_chiffres_uniquement = "--psm 7 -c tessedit_char_whitelist=0123456789"
+numero_extrait = pytesseract.image_to_string(image_champ_numerique, config=config_chiffres_uniquement)
+</code></pre>
+
+        <h3>Récupérer des informations de confiance par mot</h3>
+        <p>Au-delà du texte brut, Tesseract peut retourner un score de confiance pour chaque mot reconnu — une information précieuse pour la validation automatique (approfondie au module 7, leçon 2), permettant d'identifier quels mots sont probablement mal reconnus sans validation humaine.</p>
+
+        <pre><code class="language-python">donnees_detaillees = pytesseract.image_to_data(image, lang="fra", output_type=pytesseract.Output.DICT)
+
+for i, mot in enumerate(donnees_detaillees["text"]):
+    confiance = donnees_detaillees["conf"][i]
+    if mot.strip() and int(confiance) < 60:   # seuil de confiance à calibrer empiriquement
+        print(f"Mot potentiellement mal reconnu : '{mot}' (confiance: {confiance})")
+</code></pre>
+
+        <h3>Récupérer les positions des mots (bounding boxes)</h3>
+        <p>Tesseract peut aussi retourner la position exacte (coordonnées) de chaque mot détecté sur l'image — une information utile pour reconstituer une mise en page (module 6) ou pour surligner visuellement les zones de faible confiance dans une interface de validation humaine.</p>
+
+        <pre><code class="language-python">for i, mot in enumerate(donnees_detaillees["text"]):
+    if mot.strip():
+        x, y, largeur, hauteur = (donnees_detaillees[cle][i] for cle in ("left", "top", "width", "height"))
+        print(f"'{mot}' à la position ({x}, {y}), taille {largeur}x{hauteur}")
+</code></pre>
+
+        <div class="ascii">Paramètre                    Usage
+──────────────────────────────────────────────────────────────────
+--psm N                       Mode de segmentation (leçon 2.2)
+-l langue                     Langue(s) de reconnaissance (leçon 2.3)
+tessedit_char_whitelist        Restreindre les caractères attendus
+image_to_data                 Récupérer confiance + position par mot
+                              (validation, module 7 ; mise en page,
+                               module 6)</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          N'utiliser que <code class="inline">image_to_string</code> (texte brut uniquement) même dans un contexte où une validation de qualité serait nécessaire, en se privant des informations de confiance disponibles via <code class="inline">image_to_data</code>. Ces informations, gratuites à récupérer, sont une base essentielle pour toute stratégie de validation automatique (module 7).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un document contenant des champs numériques bien identifiables (numéro de commande, code postal), esquissez la configuration Tesseract (PSM + whitelist) que vous utiliseriez pour maximiser la précision sur ce champ spécifique.
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l5" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 2.5</span>Limites de Tesseract et cas où il échoue</h2>
+
+        <p>Cette dernière leçon du module trace les limites concrètes de Tesseract — non pour le disqualifier (c'est un outil excellent dans son domaine de compétence) mais pour identifier objectivement les cas où les modules suivants (API cloud, module 4 ; LLM multimodaux, module 5) deviennent nécessaires.</p>
+
+        <h3>Écriture manuscrite</h3>
+        <p>Rappel du module 1, leçon 5 : Tesseract est entraîné principalement sur du texte imprimé. Sur de l'écriture manuscrite, même soignée, sa précision chute généralement de façon spectaculaire — un cas où les API cloud spécialisées (module 4) ou les modèles de vision multimodaux (module 5) offrent une bien meilleure performance.</p>
+
+        <h3>Mises en page très complexes sans prétraitement</h3>
+        <p>Malgré les modes PSM (leçon 2.2), Tesseract reste limité face à des mises en page très irrégulières (magazines avec texte qui suit des formes non rectangulaires, documents avec de nombreux encadrés imbriqués) sans un prétraitement de segmentation préalable plus sophistiqué (module 6).</p>
+
+        <h3>Polices exotiques ou très stylisées</h3>
+        <p>Les modèles de langue de Tesseract sont entraînés sur des polices courantes — une police très stylisée, calligraphique, ou un texte avec une mise en forme artistique inhabituelle dégrade significativement la reconnaissance, même à haute résolution.</p>
+
+        <h3>Documents avec un fort mélange de contenu (texte + tableaux + images)</h3>
+        <p>Rappel du module 1, leçon 5 : sans détection de mise en page dédiée (module 6), Tesseract traite un document dense en éléments hétérogènes de façon uniforme, ce qui peut mélanger dans le résultat final du texte de légende, du contenu de tableau et du texte narratif sans distinction claire.</p>
+
+        <div class="ascii">Signal indiquant que Tesseract seul ne suffira probablement pas :
+
+[ ] Le corpus contient une proportion significative d'écriture
+    manuscrite
+[ ] La mise en page est très irrégulière ou dense en éléments
+    hétérogènes (tableaux, encadrés, légendes)
+[ ] Les polices utilisées sont exotiques ou très stylisées
+[ ] Un budget existe pour une solution API ou LLM multimodal,
+    et la confidentialité stricte n'est pas une contrainte
+    bloquante (rappel module 4, leçon 5)</div>
+
+        <p>Ce module clôt l'étude de Tesseract. Avant de passer aux solutions API (module 4) ou aux modèles de vision (module 5), le module suivant montre comment le prétraitement d'image peut considérablement améliorer les résultats de Tesseract lui-même — souvent la première optimisation à essayer avant de changer d'outil.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Abandonner Tesseract au profit d'une solution payante dès le premier résultat décevant, sans avoir d'abord exploré le prétraitement d'image (module 3) qui peut souvent résoudre une part significative des problèmes de qualité à moindre coût. Beaucoup de "limites de Tesseract" sont en réalité des limites d'une image mal prétraitée.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : en utilisant la checklist ci-dessus, Tesseract seul suffirait-il pour votre corpus, ou identifiez-vous déjà des signaux qui orienteraient vers les modules suivants ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-3">
+      <span class="module-kicker">MODULE 03 / 08</span>
+      <h1>Prétraitement d'image pour améliorer l'OCR</h1>
+      <p class="intro">Rappel du module 2 (leçon 2.5) : beaucoup de "limites de Tesseract" sont en réalité des limites d'une image mal préparée. Ce module détaille les techniques de prétraitement qui améliorent le plus significativement les résultats OCR, souvent avant même d'envisager un changement d'outil.</p>
+
+      <section class="lesson" id="m3-l1" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 3.1</span>Pourquoi le prétraitement change tout : principe et impact mesurable</h2>
+
+        <p>Rappel de l'étape 1 du pipeline OCR générique (module 1, leçon 2) : le prétraitement intervient avant toute reconnaissance de caractères, et conditionne directement la qualité de tout ce qui suit. Cette leçon explique pourquoi cet impact est souvent plus déterminant que le choix du moteur OCR lui-même ou de ses paramètres fins.</p>
+
+        <p>Un moteur OCR, quel qu'il soit (Tesseract, module 2 ; API cloud, module 4), a été entraîné sur des images relativement "propres" — texte net, contraste suffisant, orientation correcte. Un scan réel s'écarte souvent de ces conditions idéales : ombres de reliure, légère rotation lors de la numérisation, papier jauni, grain de capteur. Le prétraitement vise à rapprocher l'image réelle des conditions d'entraînement du moteur, plutôt que de demander au moteur de compenser lui-même ces écarts.</p>
+
+        <div class="ascii">Sans prétraitement                        Avec prétraitement adapté
+──────────────────────                    ──────────────────────────
+Image brute, contraste faible,             Image binarisée, redressée,
+légèrement inclinée, bruitée               contraste maximisé, bruit réduit
+        │                                          │
+        ▼                                          ▼
+Moteur OCR (Tesseract, etc.)               Moteur OCR (MÊME moteur)
+        │                                          │
+        ▼                                          ▼
+Texte avec de nombreuses erreurs           Texte nettement plus fidèle,
+de caractères et de segmentation           avec le MÊME moteur, la MÊME
+                                            configuration</div>
+
+        <p>Un point empirique largement observé dans la pratique de l'OCR : améliorer le prétraitement d'image apporte souvent un gain de précision plus important et plus fiable qu'ajuster finement les paramètres du moteur OCR (module 2) ou changer de moteur entièrement (module 4). C'est pourquoi ce module intervient avant les modules sur les solutions API et les LLM multimodaux — un prétraitement soigné peut suffire à résoudre une part significative des problèmes de qualité, quel que soit le moteur utilisé ensuite.</p>
+
+        <h3>Les quatre familles de traitement de ce module</h3>
+        <ul>
+          <li><strong>Binarisation et contraste</strong> (leçon 3.2) — maximiser la distinction texte/fond.</li>
+          <li><strong>Débruitage et redressement</strong> (leçon 3.3) — éliminer les artefacts, corriger une légère rotation.</li>
+          <li><strong>Correction de perspective</strong> (leçon 3.4) — pour des photos de documents plutôt que des scans plats.</li>
+          <li><strong>Assemblage en pipeline</strong> (leçon 3.5) — combiner ces traitements dans le bon ordre.</li>
+        </ul>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Passer directement à un moteur OCR plus coûteux (API cloud, module 4) dès qu'un résultat est décevant, sans avoir d'abord exploré si un prétraitement d'image adapté résoudrait le problème à moindre coût. Le prétraitement devrait systématiquement être la première piste d'amélioration testée, avant d'envisager un changement d'outil plus onéreux.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un scan de mauvaise qualité que vous pourriez rencontrer, listez les défauts visuels probables (contraste, inclinaison, bruit) et associez chacun à la technique de ce module qui le corrigerait.
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l2" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 3.2</span>Binarisation, seuillage et amélioration du contraste</h2>
+
+        <p>La <strong>binarisation</strong> convertit une image en niveaux de gris ou en couleur vers une image strictement noir et blanc, chaque pixel étant classé comme "texte" (noir) ou "fond" (blanc) — l'une des transformations les plus impactantes du prétraitement OCR.</p>
+
+        <h3>Seuillage global simple</h3>
+        <pre><code class="language-python">import cv2
+
+image = cv2.imread("document_scanne.png", cv2.IMREAD_GRAYSCALE)
+
+# Seuillage global : tout pixel en dessous de 127 devient noir, au-dessus devient blanc
+_, image_binarisee = cv2.threshold(image, 127, 255, cv2.THRESH_BINARY)
+</code></pre>
+
+        <p>Ce seuillage global fonctionne bien sur des scans à éclairage uniforme, mais échoue sur des documents dont l'éclairage varie d'une zone à l'autre (une photo de document avec une ombre partielle, par exemple) — un seuil unique ne peut pas s'adapter à ces variations locales.</p>
+
+        <h3>Seuillage adaptatif : s'ajuster localement</h3>
+        <pre><code class="language-python"># Le seuillage adaptatif calcule un seuil DIFFÉRENT pour chaque région
+# de l'image, en fonction de son voisinage local — robuste aux
+# variations d'éclairage
+image_binarisee_adaptative = cv2.adaptiveThreshold(
+    image, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
+)
+</code></pre>
+
+        <h3>La méthode d'Otsu : trouver le seuil optimal automatiquement</h3>
+        <p>Plutôt que de choisir arbitrairement une valeur de seuil (127 dans l'exemple ci-dessus), la méthode d'Otsu calcule automatiquement le seuil optimal en analysant la distribution des niveaux de gris de l'image — une approche particulièrement utile quand on traite un grand nombre de documents avec des caractéristiques de contraste variables.</p>
+
+        <pre><code class="language-python">_, image_otsu = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+</code></pre>
+
+        <div class="ascii">Seuillage global                Seuillage adaptatif              Méthode d'Otsu
+─────────────────────           ─────────────────────           ─────────────────────
+Un seuil fixe pour toute         Un seuil par région locale        Seuil calculé
+l'image                          (robuste aux éclairages           automatiquement à
+                                  irréguliers)                      partir de l'histogramme
+
+Rapide, simple                   Plus robuste, légèrement          Pas de valeur à deviner
+                                  plus coûteux en calcul             manuellement</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Utiliser un seuillage global fixe sur un corpus de scans dont l'éclairage ou le contraste varie significativement d'un document à l'autre, produisant de bons résultats sur certains documents et des résultats médiocres sur d'autres. Le seuillage adaptatif ou la méthode d'Otsu offrent une robustesse bien supérieure face à cette hétérogénéité, au prix d'un coût de calcul très modéré.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Si vous avez accès à Python et OpenCV, testez les trois méthodes de seuillage ci-dessus sur une même image de document et comparez visuellement les résultats. Lequel préserve le mieux la lisibilité du texte ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l3" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 3.3</span>Débruitage, désinclinaison (deskew) et correction de rotation</h2>
+
+        <p>Au-delà du contraste (leçon 3.2), deux autres défauts fréquents des scans réels méritent un traitement dédié : le bruit visuel (rappel module 1, leçon 3) et l'inclinaison du document lors de la numérisation.</p>
+
+        <h3>Débruitage</h3>
+        <pre><code class="language-python">import cv2
+
+# Débruitage par filtre médian : remplace chaque pixel par la médiane
+# de son voisinage, efficace contre le bruit "poivre et sel" (points
+# isolés aberrants) sans trop flouter les contours du texte
+image_debruitee = cv2.medianBlur(image_binarisee, 3)
+
+# Alternative : débruitage non-local means, plus sophistiqué mais
+# plus coûteux en calcul, pour des images avec un bruit plus complexe
+image_debruitee_nlm = cv2.fastNlMeansDenoising(image, h=10)
+</code></pre>
+
+        <h3>Détecter l'angle d'inclinaison (skew)</h3>
+        <p>Une numérisation manuelle (scanner à plat, photo de document) introduit souvent une légère rotation involontaire du document par rapport aux bords de l'image — même quelques degrés d'inclinaison peuvent significativement perturber la segmentation en lignes (rappel module 1, leçon 2).</p>
+
+        <pre><code class="language-python">import cv2
+import numpy as np
+
+def detecter_angle_inclinaison(image_binaire: np.ndarray) -> float:
+    coordonnees = np.column_stack(np.where(image_binaire == 0))   # pixels de texte (noirs)
+    angle = cv2.minAreaRect(coordonnees)[-1]
+    if angle < -45:
+        angle = -(90 + angle)
+    else:
+        angle = -angle
+    return angle
+
+angle_detecte = detecter_angle_inclinaison(image_binarisee)
+print(f"Angle d'inclinaison détecté : {angle_detecte:.2f} degrés")
+</code></pre>
+
+        <h3>Corriger la rotation (deskew)</h3>
+        <pre><code class="language-python">def redresser_image(image: np.ndarray, angle: float) -> np.ndarray:
+    hauteur, largeur = image.shape[:2]
+    centre = (largeur // 2, hauteur // 2)
+    matrice_rotation = cv2.getRotationMatrix2D(centre, angle, 1.0)
+    return cv2.warpAffine(image, matrice_rotation, (largeur, hauteur),
+                            flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
+
+image_redressee = redresser_image(image_binarisee, angle_detecte)
+</code></pre>
+
+        <div class="ascii">Image inclinée (scan de travers) :          Après désinclinaison (deskew) :
+
+  ╱─────────────╱                            ┌─────────────┐
+ ╱  Texte       ╱                            │  Texte       │
+╱   incliné    ╱                             │  redressé    │
+─────────────╱                               └─────────────┘
+
+→ Les lignes de texte ne sont plus horizontales,   → Segmentation en lignes
+  perturbant la segmentation en lignes du            (module 1, leçon 2)
+  moteur OCR (module 1, leçon 2)                     nettement plus fiable</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Appliquer un débruitage trop agressif (un filtre de flou important) qui, en cherchant à éliminer le bruit, floute aussi les contours fins des caractères, dégradant la lisibilité pour le moteur OCR. Le débruitage doit être calibré pour éliminer le bruit visuel réel sans sacrifier la netteté des caractères — un compromis à valider visuellement, pas à appliquer systématiquement au maximum.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un scan légèrement incliné (quelques degrés), pourquoi cette inclinaison perturbe-t-elle spécifiquement l'étape de segmentation en lignes du pipeline OCR (rappel module 1, leçon 2), plutôt que la reconnaissance de caractères individuels ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l4" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 3.4</span>Détection et correction de la perspective / redressement</h2>
+
+        <p>Au-delà de la simple inclinaison (rotation dans le plan, leçon 3.3), une photo de document prise avec un smartphone (plutôt qu'un scanner à plat) introduit souvent une déformation de <strong>perspective</strong> : le document apparaît comme un quadrilatère non rectangulaire, avec des bords qui convergent selon l'angle de prise de vue.</p>
+
+        <h3>Détecter les quatre coins du document</h3>
+        <pre><code class="language-python">import cv2
+import numpy as np
+
+def detecter_contour_document(image: np.ndarray) -> np.ndarray:
+    gris = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    flou = cv2.GaussianBlur(gris, (5, 5), 0)
+    bords = cv2.Canny(flou, 75, 200)
+
+    contours, _ = cv2.findContours(bords, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+    plus_grand_contour = max(contours, key=cv2.contourArea)
+
+    perimetre = cv2.arcLength(plus_grand_contour, True)
+    approximation = cv2.approxPolyDP(plus_grand_contour, 0.02 * perimetre, True)
+
+    if len(approximation) == 4:
+        return approximation.reshape(4, 2)
+    raise ValueError("Impossible de détecter un quadrilatère à 4 coins")
+</code></pre>
+
+        <h3>Appliquer une transformation de perspective pour redresser le document</h3>
+        <pre><code class="language-python">def redresser_perspective(image: np.ndarray, coins: np.ndarray) -> np.ndarray:
+    largeur_cible, hauteur_cible = 1000, 1400   # dimensions du document redressé
+    points_cibles = np.array([
+        [0, 0], [largeur_cible, 0], [largeur_cible, hauteur_cible], [0, hauteur_cible]
+    ], dtype="float32")
+
+    matrice_transformation = cv2.getPerspectiveTransform(coins.astype("float32"), points_cibles)
+    return cv2.warpPerspective(image, matrice_transformation, (largeur_cible, hauteur_cible))
+</code></pre>
+
+        <div class="ascii">Photo avec perspective déformée :          Après correction de perspective :
+
+    ╱────────────╲                          ┌──────────────┐
+   ╱   Document    ╲                        │   Document     │
+  ╱   (trapèze,     ╲                       │   (rectangle   │
+ ╱    pris de biais) ╲                      │    redressé)   │
+╱──────────────────────╲                    └──────────────┘
+
+→ Les lignes de texte convergent selon         → Lignes de texte
+  l'angle de prise de vue, une distorsion        parallèles, mise en
+  que le simple redressement de rotation         page rectangulaire
+  (leçon 3.3) ne corrige pas                     restaurée</div>
+
+        <p>Cette correction est particulièrement pertinente pour des corpus alimentés par des photos de documents prises au smartphone (factures photographiées par des utilisateurs, par exemple) plutôt que par des scanners professionnels à plat, où ce type de déformation ne se produit généralement pas.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Confondre la correction de rotation simple (deskew, leçon 3.3) avec la correction de perspective — la première suffit pour un scan légèrement de travers mais à plat, la seconde est nécessaire pour une photo prise en angle, un cas bien plus fréquent avec des captures au smartphone qu'avec des scanners dédiés.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre corpus, la source des documents scannés est-elle plutôt un scanner à plat (rotation simple à corriger) ou des photos prises au smartphone par des utilisateurs (perspective à corriger) ? Cette distinction change-t-elle votre priorité de prétraitement ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l5" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 3.5</span>Construire un pipeline de prétraitement avec OpenCV et Pillow</h2>
+
+        <p>Cette dernière leçon du module assemble les techniques précédentes (binarisation, débruitage, redressement, correction de perspective) en un pipeline modulaire complet, dans l'ordre logique qui maximise la qualité du résultat final.</p>
+
+        <pre><code class="language-python">import cv2
+import numpy as np
+
+def pipeline_pretraitement_complet(chemin_image: str) -> np.ndarray:
+    image = cv2.imread(chemin_image)
+
+    # 1. Correction de perspective si le document n'est pas déjà rectangulaire
+    #    (pertinent pour des photos smartphone, leçon 3.4 — peut être ignoré
+    #    pour des scans déjà plats et rectangulaires)
+    try:
+        coins = detecter_contour_document(image)
+        image = redresser_perspective(image, coins)
+    except ValueError:
+        pass   # pas de quadrilatère net détecté, on continue sans cette étape
+
+    # 2. Conversion en niveaux de gris
+    gris = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    # 3. Débruitage (leçon 3.3)
+    debruite = cv2.fastNlMeansDenoising(gris, h=10)
+
+    # 4. Binarisation par la méthode d'Otsu (leçon 3.2)
+    _, binaire = cv2.threshold(debruite, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+    # 5. Correction de l'inclinaison résiduelle (leçon 3.3)
+    angle = detecter_angle_inclinaison(binaire)
+    image_finale = redresser_image(binaire, angle)
+
+    return image_finale
+
+# Utilisation avec Tesseract (module 2)
+image_pretraitee = pipeline_pretraitement_complet("document_scanne.jpg")
+texte = pytesseract.image_to_string(image_pretraitee, lang="fra")
+</code></pre>
+
+        <h3>Pourquoi cet ordre précis des étapes</h3>
+        <p>L'ordre choisi n'est pas arbitraire : la correction de perspective (étape 1) doit intervenir sur l'image couleur ou en niveaux de gris originale, avant toute binarisation, car elle a besoin de détecter des contours qui seraient déjà perdus après binarisation. Le débruitage (étape 3) intervient avant la binarisation (étape 4) pour éviter que du bruit ne soit interprété à tort comme des pixels de texte lors du seuillage. La correction d'inclinaison finale (étape 5) s'applique en dernier, sur l'image déjà binarisée et débruitée, pour une détection d'angle plus fiable.</p>
+
+        <div class="ascii">Ordre recommandé du pipeline de prétraitement :
+
+1. Correction de perspective   (sur image originale, AVANT binarisation)
+2. Niveaux de gris
+3. Débruitage                  (AVANT binarisation, pour ne pas figer le bruit)
+4. Binarisation (Otsu)
+5. Correction d'inclinaison    (sur image déjà binarisée, la plus fiable
+                                 à ce stade)
+
+→ Inverser cet ordre (par exemple, binariser avant de débruiter)
+  dégrade généralement la qualité du résultat final.</div>
+
+        <p>Ce module clôt la partie "amélioration de l'image source" du cours. Les modules suivants explorent des alternatives et compléments à Tesseract — les solutions API cloud (module 4) et les modèles de vision multimodaux (module 5) — qui peuvent parfois se dispenser d'un prétraitement aussi poussé grâce à leur propre robustesse intégrée, un compromis à évaluer au cas par cas.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Appliquer systématiquement l'intégralité de ce pipeline de prétraitement à cinq étapes sur tous les documents, y compris ceux qui sont déjà de bonne qualité (scan net, bien aligné), ajoutant un coût de calcul inutile. Une détection préalable de la qualité de l'image (résolution, contraste, angle d'inclinaison) permet de n'appliquer que les corrections réellement nécessaires à chaque document.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : en reprenant le pipeline complet ci-dessus, quelle étape retireriez-vous pour un corpus de scans déjà propres et bien alignés (scanner professionnel de bureau), afin d'éviter un traitement inutile ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-4">
+      <span class="module-kicker">MODULE 04 / 08</span>
+      <h1>Solutions API cloud d'OCR</h1>
+      <p class="intro">Face aux limites de Tesseract identifiées au module 2 (leçon 2.5) — écriture manuscrite, mises en page très complexes — les solutions API cloud des grands fournisseurs offrent une précision souvent supérieure, au prix d'un coût récurrent et d'une dépendance à un tiers externe.</p>
+
+      <section class="lesson" id="m4-l1" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 4.1</span>Panorama des solutions API</h2>
+
+        <p>Les trois principaux fournisseurs cloud proposent chacun un service d'OCR, avec des positionnements légèrement différents — un panorama qui rappelle directement celui déjà établi pour les bases de données vectorielles (cours bases de données vectorielles, module 1, leçon 3) : plusieurs solutions matures, chacune avec ses forces propres.</p>
+
+        <table>
+          <thead>
+            <tr><th>Solution</th><th>Fournisseur</th><th>Point fort distinctif</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Google Cloud Vision</td><td>Google</td><td>Précision générale élevée, bon support multilingue (module 4, leçon 2)</td></tr>
+            <tr><td>AWS Textract</td><td>Amazon</td><td>Extraction structurée de formulaires et tableaux native (module 4, leçon 3)</td></tr>
+            <tr><td>Azure Document Intelligence</td><td>Microsoft</td><td>Modèles prédéfinis par type de document, personnalisation fine (module 4, leçon 4)</td></tr>
+          </tbody>
+        </table>
+
+        <p>Ces trois solutions partagent un modèle d'usage commun : un appel API envoyant l'image ou le PDF, une réponse structurée (généralement JSON) contenant le texte reconnu, souvent enrichi d'informations de position et de confiance — un modèle similaire à celui déjà rencontré pour les API d'embedding (cours embeddings, module 2, leçon 5) : simplicité d'intégration, coût par appel, dépendance à un service externe.</p>
+
+        <div class="ascii">Point commun aux trois solutions cloud :
+
+Image/PDF ──► Appel API ──► Réponse structurée (JSON)
+                                  │
+                                  ├── texte reconnu
+                                  ├── positions (bounding boxes)
+                                  ├── scores de confiance
+                                  └── (selon la solution) structure de
+                                      tableaux, champs de formulaire</div>
+
+        <p>Le choix entre ces trois solutions (approfondi dans les leçons suivantes) dépend moins d'une différence de qualité brute généraliste — les trois sont matures et performantes sur du texte imprimé standard — que de leurs fonctionnalités spécialisées respectives et de leur intégration avec un écosystème cloud déjà en place (une équipe déjà sur AWS aura une intégration plus naturelle avec Textract, par exemple).</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Choisir une solution API uniquement sur la base de sa popularité générale, sans considérer l'écosystème cloud déjà utilisé par l'organisation (rappel du principe déjà établi pour le choix d'une base de données vectorielle, cours bases de données vectorielles, module 5, leçon 1) — une intégration cohérente avec l'infrastructure existante simplifie souvent significativement l'authentification, la facturation et le monitoring.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Votre organisation utilise-t-elle déjà un fournisseur cloud principal (AWS, Google Cloud, Azure) pour d'autres services ? Cette intégration existante orienterait-elle votre choix de solution OCR avant même de comparer les fonctionnalités en détail ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l2" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 4.2</span>Google Cloud Vision : usage et spécificités</h2>
+
+        <p><strong>Google Cloud Vision</strong> propose une API de détection de texte réputée pour sa précision générale élevée et son bon support multilingue, incluant une détection automatique de la langue — contrairement à Tesseract qui nécessite de spécifier explicitement la langue (rappel module 2, leçon 3).</p>
+
+        <pre><code class="language-python">from google.cloud import vision
+
+client = vision.ImageAnnotatorClient()
+
+with open("document_scanne.png", "rb") as fichier_image:
+    contenu = fichier_image.read()
+
+image = vision.Image(content=contenu)
+reponse = client.text_detection(image=image)
+
+texte_complet = reponse.text_annotations[0].description
+print(texte_complet)
+
+# Accès aux mots individuels avec leurs positions (bounding boxes)
+for annotation in reponse.text_annotations[1:]:
+    print(annotation.description, annotation.bounding_poly.vertices)
+</code></pre>
+
+        <h3>document_text_detection : une variante optimisée pour les documents denses</h3>
+        <p>Google Cloud Vision propose une seconde méthode, spécifiquement optimisée pour les documents denses en texte (par opposition à du texte épars sur une photo générique) — une distinction qui rejoint le choix des modes PSM de Tesseract (module 2, leçon 2), mais gérée ici automatiquement par un modèle dédié plutôt qu'un paramètre à configurer manuellement.</p>
+
+        <pre><code class="language-python">reponse_document = client.document_text_detection(image=image)
+
+# La réponse expose une structure hiérarchique : pages > blocs > paragraphes > mots
+for page in reponse_document.full_text_annotation.pages:
+    for bloc in page.blocks:
+        for paragraphe in bloc.paragraphs:
+            texte_paragraphe = "".join(
+                symbole.text for mot in paragraphe.words for symbole in mot.symbols
+            )
+            print(texte_paragraphe)
+</code></pre>
+
+        <p>Cette structure hiérarchique explicite (page → bloc → paragraphe → mot) est une différence notable par rapport à la sortie plus plate de Tesseract — elle rejoint la problématique de reconstitution de mise en page déjà abordée dans le cours nettoyage (module 2) mais ici partiellement résolue nativement par l'API elle-même.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Utiliser <code class="inline">text_detection</code> (méthode générique) sur des documents denses en texte structuré, alors que <code class="inline">document_text_detection</code> est spécifiquement optimisée pour ce cas et produit généralement une meilleure reconstitution de la structure hiérarchique du document.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un document dense en texte (rapport, contrat), quelle méthode de l'API Google Cloud Vision utiliseriez-vous en priorité ? Pour une photo contenant un panneau avec quelques mots épars, ce choix changerait-il ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l3" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 4.3</span>AWS Textract : formulaires, tableaux et extraction structurée</h2>
+
+        <p><strong>AWS Textract</strong> se distingue par une capacité native à extraire non seulement du texte brut, mais des structures de données organisées — tableaux et paires clé-valeur de formulaires — sans nécessiter le travail de reconstitution de structure manuel déjà rencontré pour les tableaux PDF (cours nettoyage, module 2) ou HTML (cours nettoyage, module 4).</p>
+
+        <pre><code class="language-python">import boto3
+
+client_textract = boto3.client("textract")
+
+with open("formulaire_scanne.png", "rb") as fichier:
+    reponse = client_textract.analyze_document(
+        Document={"Bytes": fichier.read()},
+        FeatureTypes=["TABLES", "FORMS"],   # active l'extraction structurée
+    )
+
+# Extraction des paires clé-valeur d'un formulaire
+blocs = {bloc["Id"]: bloc for bloc in reponse["Blocks"]}
+
+def extraire_texte_bloc(bloc: dict, blocs: dict) -> str:
+    if "Relationships" not in bloc:
+        return ""
+    mots = []
+    for relation in bloc["Relationships"]:
+        if relation["Type"] == "CHILD":
+            for id_enfant in relation["Ids"]:
+                enfant = blocs[id_enfant]
+                if enfant["BlockType"] == "WORD":
+                    mots.append(enfant["Text"])
+    return " ".join(mots)
+
+for bloc in reponse["Blocks"]:
+    if bloc["BlockType"] == "KEY_VALUE_SET" and "KEY" in bloc.get("EntityTypes", []):
+        cle = extraire_texte_bloc(bloc, blocs)
+        print(f"Champ détecté : {cle}")
+</code></pre>
+
+        <h3>Extraction de tableaux avec structure préservée</h3>
+        <pre><code class="language-python"># Textract regroupe les cellules de tableau avec leur position
+# ligne/colonne déjà résolue — rappel du besoin similaire pour
+# les tableaux PDF (cours nettoyage, module 2, leçon 3)
+for bloc in reponse["Blocks"]:
+    if bloc["BlockType"] == "TABLE":
+        print("Tableau détecté avec ses cellules structurées")
+        # Chaque CELL a un RowIndex et ColumnIndex explicites
+</code></pre>
+
+        <p>Cette capacité d'extraction structurée native positionne Textract comme un choix particulièrement pertinent pour des documents à fort contenu tabulaire ou formulaire (factures, formulaires administratifs, relevés bancaires) — un cas d'usage approfondi plus largement au module 6 de ce cours, dédié à l'extraction de structure.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Utiliser Textract uniquement en mode détection de texte simple (<code class="inline">detect_document_text</code>, sans <code class="inline">FeatureTypes</code>) sur des documents riches en tableaux et formulaires, se privant ainsi de la fonctionnalité structurée qui est précisément l'avantage distinctif de cette solution par rapport à Tesseract ou Google Cloud Vision.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre corpus, quelle proportion de documents contient des tableaux ou des formulaires structurés qui bénéficieraient spécifiquement de l'extraction native de Textract, plutôt qu'une simple extraction de texte brut ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l4" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 4.4</span>Azure Document Intelligence : modèles prédéfinis et personnalisés</h2>
+
+        <p><strong>Azure Document Intelligence</strong> (anciennement Azure Form Recognizer) se distingue par une bibliothèque de <strong>modèles prédéfinis</strong> spécialisés pour des types de documents courants (factures, reçus, cartes d'identité, documents fiscaux), en plus d'un modèle général et de la possibilité d'entraîner un modèle personnalisé sur ses propres documents.</p>
+
+        <pre><code class="language-python">from azure.ai.formrecognizer import DocumentAnalysisClient
+from azure.core.credentials import AzureKeyCredential
+
+client = DocumentAnalysisClient(
+    endpoint="https://votre-ressource.cognitiveservices.azure.com/",
+    credential=AzureKeyCredential("votre_cle_api"),
+)
+
+# Utilisation d'un modèle prédéfini spécialisé pour les factures
+with open("facture_scannee.pdf", "rb") as fichier:
+    operation = client.begin_analyze_document("prebuilt-invoice", document=fichier)
+    resultat = operation.result()
+
+for facture in resultat.documents:
+    montant_total = facture.fields.get("InvoiceTotal")
+    date_facture = facture.fields.get("InvoiceDate")
+    print(f"Montant : {montant_total.value if montant_total else 'non détecté'}")
+    print(f"Date : {date_facture.value if date_facture else 'non détecté'}")
+</code></pre>
+
+        <h3>Entraîner un modèle personnalisé sur ses propres documents</h3>
+        <p>Pour des types de documents très spécifiques à une organisation (un formulaire interne particulier, un type de contrat propriétaire) non couvert par les modèles prédéfinis, Azure Document Intelligence permet d'entraîner un modèle personnalisé à partir d'un petit ensemble de documents annotés — une approche qui rejoint le fine-tuning déjà rencontré pour les modèles d'embedding (cours embeddings, module 4, leçon 5) : investir dans une adaptation ciblée quand le générique ne suffit pas.</p>
+
+        <pre><code class="language-python"># Utilisation d'un modèle personnalisé entraîné préalablement
+# via la console Azure ou l'API d'entraînement
+operation = client.begin_analyze_document("mon-modele-personnalise-id", document=fichier)
+resultat = operation.result()
+</code></pre>
+
+        <div class="ascii">Modèle général (prebuilt-document)      Modèle prédéfini spécialisé          Modèle personnalisé
+────────────────────────────────       (prebuilt-invoice, etc.)             (entraîné sur mesure)
+─────────────────────────────────────────────────────────────────────────────────────────────────
+Extraction de texte et structure         Champs déjà nommés et                Adapté à un type de
+générique                                 typés (montant, date...)             document propriétaire
+
+Bon point de départ pour du              Gain de temps significatif           Nécessite un jeu de
+contenu non standard                     pour des types de documents           documents annotés
+                                          courants                              (investissement)</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Utiliser systématiquement le modèle général même pour des types de documents standards (factures, reçus) couverts par un modèle prédéfini spécialisé, se privant d'une extraction de champs déjà nommés et typés qui économiserait un travail de parsing manuel supplémentaire.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre corpus, un des modèles prédéfinis d'Azure Document Intelligence (factures, reçus, documents d'identité) correspondrait-il à une part significative de vos documents ? Sinon, un modèle personnalisé se justifierait-il compte tenu du volume de documents de ce type spécifique ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l5" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 4.5</span>Comparer Tesseract et les API cloud : coût, précision, confidentialité</h2>
+
+        <p>Cette dernière leçon du module synthétise l'arbitrage central entre Tesseract (module 2) et les solutions API cloud (leçons précédentes) — un arbitrage qui rejoint directement celui déjà établi pour le choix entre modèle d'embedding open-source et propriétaire (cours embeddings, module 4, leçon 2) et pour le choix d'une base de données vectorielle managée ou auto-hébergée (cours bases de données vectorielles, module 1, leçon 5).</p>
+
+        <table>
+          <thead>
+            <tr><th>Critère</th><th>Tesseract (local)</th><th>API cloud (Google/AWS/Azure)</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Coût</td><td>Gratuit (hors infrastructure)</td><td>Facturation par page/appel, récurrente</td></tr>
+            <tr><td>Précision sur texte imprimé standard</td><td>Bonne à très bonne</td><td>Généralement supérieure, surtout sur cas difficiles</td></tr>
+            <tr><td>Écriture manuscrite</td><td>Faible</td><td>Généralement bien meilleure</td></tr>
+            <tr><td>Confidentialité</td><td>Totale (traitement local)</td><td>Données transmises à un tiers</td></tr>
+            <tr><td>Extraction structurée (tableaux, formulaires)</td><td>Nécessite un travail supplémentaire (module 6)</td><td>Souvent native (notamment Textract)</td></tr>
+            <tr><td>Latence</td><td>Dépend du matériel local</td><td>Latence réseau incompressible</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Estimer le coût réel à l'échelle du corpus</h3>
+        <pre><code class="language-python">def estimer_cout_api_cloud(nb_pages: int, prix_par_page: float) -> float:
+    return nb_pages * prix_par_page
+
+# Exemple d'ordre de grandeur (les tarifs exacts évoluent, toujours
+# vérifier la grille tarifaire actuelle du fournisseur choisi)
+cout_estime = estimer_cout_api_cloud(nb_pages=50_000, prix_par_page=0.0015)
+print(f"Coût estimé pour 50 000 pages : {cout_estime:.2f}$")
+</code></pre>
+
+        <h3>Une approche hybride : router selon la difficulté</h3>
+        <p>Une pratique répandue et pragmatique, plutôt que de choisir une seule solution pour l'ensemble du corpus : utiliser Tesseract comme première ligne de traitement (gratuit, rapide, suffisant pour la majorité des documents de qualité standard), et router vers une API cloud uniquement les documents identifiés comme difficiles (faible confiance Tesseract, rappel module 2 leçon 4 ; écriture manuscrite détectée) — un principe de routage similaire à celui déjà rencontré dans le cours nettoyage (module 7, leçon 1) pour le choix d'outils d'extraction selon le type de document.</p>
+
+        <div class="ascii">Méthode de décision recommandée :
+
+Document à traiter
+        │
+        ▼
+Tesseract avec confiance moyenne par mot (module 2, leçon 4)
+        │
+        ├── confiance élevée ──► résultat conservé (gratuit, rapide)
+        │
+        └── confiance faible ──► re-traiter avec une API cloud
+                                   (coût justifié par la difficulté
+                                    réelle du document)</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Choisir une API cloud pour l'ensemble d'un corpus par précaution, en payant systématiquement pour une précision supplémentaire dont la majorité des documents (texte imprimé standard, déjà bien traité par Tesseract) n'a pas réellement besoin — un routage conditionnel (comme illustré ci-dessus) optimise le rapport coût/qualité bien mieux qu'un choix uniforme.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : en utilisant le tableau comparatif ci-dessus, une approche hybride Tesseract + API cloud vous semble-t-elle adaptée à votre corpus, ou l'un des deux extrêmes (tout Tesseract, ou tout API cloud) suffirait-il compte tenu de son homogénéité ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-5">
+      <span class="module-kicker">MODULE 05 / 08</span>
+      <h1>OCR avancé avec des modèles de vision (LLM multimodaux)</h1>
+      <p class="intro">Une approche plus récente bouscule le paysage établi dans les modules précédents : plutôt qu'un moteur OCR dédié, utiliser directement un LLM capable de "voir" une image pour en extraire et en comprendre le texte. Ce module explore cette approche, ses forces et ses pièges spécifiques.</p>
+
+      <section class="lesson" id="m5-l1" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 5.1</span>L'essor des modèles vision-langage pour l'OCR</h2>
+
+        <p>Les modèles de langage les plus récents (GPT-4o, Claude, Gemini) intègrent nativement une capacité de <strong>vision</strong> : ils peuvent recevoir une image en entrée, au même titre qu'un texte, et raisonner dessus — y compris en extraire le texte qu'elle contient. Cette capacité change fondamentalement l'approche par rapport aux modules précédents : au lieu d'un pipeline dédié (segmentation, reconnaissance de caractères, post-traitement linguistique — rappel module 1, leçon 2), un unique modèle traite l'image de bout en bout, en s'appuyant sur la même compréhension contextuelle qui lui permet par ailleurs de raisonner sur du texte.</p>
+
+        <div class="ascii">Pipeline OCR classique (Tesseract, API cloud) :
+
+Image ──► Prétraitement ──► Segmentation ──► Reconnaissance ──► Post-traitement
+          (module 3)         (module 1.2)      caractère par        linguistique
+                                                caractère            (module 1.2)
+
+
+Approche LLM multimodal (ce module) :
+
+Image ──► LLM multimodal (une seule requête, raisonnement de bout en bout)
+                │
+                ▼
+        Texte extrait ET compris contextuellement en une seule étape</div>
+
+        <p>Cette différence n'est pas seulement technique — elle change la nature même de la tâche. Un moteur OCR classique reconnaît des caractères sans "comprendre" ce qu'il lit (rappel du cours embeddings, module 1, sur la distinction entre traitement statistique et compréhension). Un LLM multimodal, en revanche, mobilise sa capacité de compréhension du langage pour désambiguïser des caractères ambigus à partir du sens probable de la phrase — un avantage significatif sur des cas difficiles (approfondi en leçon 5.3), mais aussi une source de risques spécifiques (leçon 5.4).</p>
+
+        <p>Cette évolution ne rend pas les modules précédents obsolètes — elle ajoute une option supplémentaire dans l'arsenal, avec ses propres compromis coût/précision/latence à évaluer, exactement comme pour le choix entre Tesseract et les API cloud (module 4, leçon 5).</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer les LLM multimodaux comme un remplacement universel et systématique de l'OCR classique, simplement parce qu'ils sont plus récents et plus sophistiqués en apparence. Comme pour tout choix technique de cette série de cours, la pertinence dépend du cas d'usage (leçon 5.3 et 5.4) — pas de la nouveauté de l'approche.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Avant de lire la suite de ce module, formulez une hypothèse : dans quel type de document un LLM multimodal apporterait-il le plus de valeur par rapport à Tesseract ou une API cloud dédiée à l'OCR ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l2" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 5.2</span>Extraction de texte via un LLM multimodal : approche et exemples</h2>
+
+        <p>Techniquement, l'usage d'un LLM multimodal pour l'OCR consiste à envoyer une image dans le cadre d'une requête au modèle, accompagnée d'une instruction précisant la tâche attendue — une approche par prompt plutôt que par API dédiée, très différente dans son fonctionnement des solutions des modules 2 et 4.</p>
+
+        <pre><code class="language-python">import anthropic
+import base64
+
+client = anthropic.Anthropic()
+
+with open("document_scanne.png", "rb") as fichier_image:
+    image_encodee = base64.standard_b64encode(fichier_image.read()).decode("utf-8")
+
+message = client.messages.create(
+    model="claude-sonnet-5",
+    max_tokens=4096,
+    messages=[{
+        "role": "user",
+        "content": [
+            {
+                "type": "image",
+                "source": {"type": "base64", "media_type": "image/png", "data": image_encodee},
+            },
+            {
+                "type": "text",
+                "text": "Extrait l'intégralité du texte visible dans cette image, "
+                        "en respectant la mise en page (titres, paragraphes, listes) "
+                        "le plus fidèlement possible. Ne commente pas, retourne "
+                        "uniquement le texte extrait.",
+            },
+        ],
+    }],
+)
+
+texte_extrait = message.content[0].text
+print(texte_extrait)
+</code></pre>
+
+        <h3>Guider l'extraction avec un prompt précis</h3>
+        <p>Contrairement à un appel Tesseract ou API cloud qui retourne un format de sortie fixe, un LLM multimodal peut être guidé par le prompt vers un format de sortie spécifique — reproduire la structure Markdown, extraire uniquement certains champs, ou retourner directement du JSON structuré (rejoignant ainsi les capacités natives déjà vues pour Textract et Azure au module 4).</p>
+
+        <pre><code class="language-python">prompt_json_structure = """Analyse cette facture scannée et retourne UNIQUEMENT
+un objet JSON avec les champs : numero_facture, date, montant_total, fournisseur.
+Si un champ n'est pas trouvé, utilise null."""
+
+# Le reste de l'appel est identique, seul le texte du prompt change
+</code></pre>
+
+        <p>Cette flexibilité de sortie, pilotée entièrement par le prompt plutôt que par des paramètres d'API rigides, est l'un des atouts distinctifs de cette approche — mais nécessite une discipline de conception de prompt (préciser explicitement le format attendu, les cas d'absence de donnée) similaire à celle déjà pratiquée dans le cours enrichissement de métadonnées (module 4) pour l'extraction d'entités ou la classification via LLM.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Écrire un prompt vague ("extrait le texte de cette image") sans préciser le format de sortie souhaité ni le comportement attendu face à des cas ambigus (texte illisible, champ absent). Un prompt précis, à l'image de ceux déjà pratiqués pour l'extraction d'entités (cours métadonnées, module 4), produit des résultats bien plus cohérents et exploitables en aval.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un type de document spécifique de votre corpus (facture, contrat, formulaire), rédigez le prompt que vous utiliseriez pour guider un LLM multimodal vers une extraction structurée adaptée à ce document précis.
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l3" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 5.3</span>Avantages : compréhension contextuelle, mise en page complexe</h2>
+
+        <p>Cette leçon détaille les cas où un LLM multimodal apporte un avantage mesurable par rapport aux approches des modules précédents — des avantages qui découlent directement de sa capacité de compréhension contextuelle, absente des moteurs OCR classiques.</p>
+
+        <h3>Désambiguïsation contextuelle de caractères incertains</h3>
+        <p>Rappel du module 1, leçon 5 : certains caractères sont visuellement ambigus ("0" vs "O", "1" vs "l"). Un moteur OCR classique reconnaît chaque caractère indépendamment (ou avec un post-traitement linguistique limité, module 1 leçon 2) ; un LLM multimodal peut mobiliser le sens global de la phrase pour lever l'ambiguïté — par exemple, déduire qu'un caractère ambigu est un "0" plutôt qu'un "O" parce que le contexte immédiat est un numéro de téléphone plutôt qu'un mot.</p>
+
+        <h3>Mise en page complexe et hétérogène</h3>
+        <p>Rappel du module 1, leçon 5, et module 6 : les mises en page mêlant texte, tableaux, encadrés et légendes de façon dense posent un défi de segmentation aux moteurs OCR classiques. Un LLM multimodal, en "voyant" l'image dans son ensemble plutôt qu'en la segmentant mécaniquement, peut souvent mieux restituer les relations logiques entre ces éléments (quel texte se rapporte à quel encadré, par exemple).</p>
+
+        <h3>Écriture manuscrite et documents dégradés</h3>
+        <p>Rappel du module 2, leçon 5 : Tesseract performe mal sur l'écriture manuscrite. Les modèles de vision multimodaux les plus récents montrent une performance sensiblement meilleure sur ce cas, bénéficiant d'un entraînement sur des volumes de données visuelles bien plus larges et variés que les moteurs OCR classiques.</p>
+
+        <div class="ascii">Cas d'usage                         OCR classique (Tesseract, API)    LLM multimodal
+────────────────────────────────────────────────────────────────────────────────
+Texte imprimé net, mise en page      Excellent, rapide, peu coûteux    Bon, mais plus lent
+simple                                                                  et coûteux sans
+                                                                        bénéfice net
+
+Caractères ambigus en contexte       Limité (post-traitement            Meilleur (compréhension
+clair                                linguistique basique)              du contexte global)
+
+Mise en page dense et hétérogène     Nécessite un travail dédié         Souvent meilleur
+                                     (module 6)                          nativement
+
+Écriture manuscrite                  Faible (Tesseract) à moyen         Souvent nettement
+                                     (API cloud spécialisées)            meilleur</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Utiliser un LLM multimodal pour du texte imprimé simple et bien structuré, où Tesseract ou une API cloud dédiée offrirait un résultat équivalent pour une fraction du coût et de la latence. L'avantage du LLM multimodal se manifeste surtout sur les cas difficiles (leçon ci-dessus), pas sur le cas standard qui reste le domaine de compétence naturel des modules précédents.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre corpus, quelle proportion de documents relèverait des cas où un LLM multimodal apporterait un avantage net (mise en page complexe, écriture manuscrite) plutôt que du cas standard bien couvert par Tesseract ou une API cloud classique ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l4" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 5.4</span>Limites : hallucination, coût, latence</h2>
+
+        <p>Cette leçon détaille les limites spécifiques de l'approche par LLM multimodal — des risques qui n'existent pas, ou existent sous une forme différente, avec les moteurs OCR classiques des modules précédents.</p>
+
+        <h3>Le risque d'hallucination : un LLM peut "inventer" du texte</h3>
+        <p>C'est la limite la plus critique et la plus spécifique à cette approche : un LLM multimodal, en cas de doute sur un passage illisible ou ambigu, peut générer un texte plausible mais factuellement incorrect plutôt que de signaler une incertitude — un comportement fondamentalement différent d'un moteur OCR classique, qui produit généralement un score de confiance faible ou un caractère incorrect isolé (rappel module 2, leçon 4) plutôt qu'un mot entièrement inventé mais cohérent avec le contexte.</p>
+
+        <div class="ascii">Face à un mot illisible/flou dans l'image :
+
+OCR classique (Tesseract) :              LLM multimodal :
+"L'ang[?]ment recommandé"                "L'alignement recommandé"
+  → caractère incorrect isolé,             → un mot COHÉRENT et PLAUSIBLE,
+    signal de faible confiance                mais peut-être complètement
+    disponible (module 2, leçon 4)           FAUX par rapport à l'original
+
+→ Le risque du LLM est plus insidieux : le résultat SEMBLE
+  cohérent, ce qui le rend plus difficile à détecter comme erroné
+  qu'une erreur de caractère isolée et visible.</div>
+
+        <h3>Coût significativement plus élevé par document</h3>
+        <p>Rappel des ordres de grandeur déjà rencontrés dans le cours embeddings (module 4, leçon 5) pour l'enrichissement par LLM : un appel à un LLM multimodal coûte généralement bien plus cher par page qu'un appel Tesseract (gratuit) ou même une API OCR dédiée (module 4) — un facteur déterminant pour un traitement à grande échelle.</p>
+
+        <h3>Latence plus élevée</h3>
+        <p>Un LLM multimodal traite généralement une image plus lentement qu'un moteur OCR dédié optimisé spécifiquement pour cette tâche — un facteur à considérer pour un traitement en masse d'un grand corpus, où la latence cumulée peut devenir significative.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Faire confiance aveuglément à une extraction par LLM multimodal parce que le résultat "a l'air cohérent", sans mécanisme de validation. Rappel du principe déjà établi tout au long de cette série (cours métadonnées, module 4, leçon 5, sur la validation des enrichissements LLM) : toute sortie de LLM devrait être validée sur un échantillon avant d'être généralisée, particulièrement ici où l'hallucination est plus difficile à détecter visuellement qu'une erreur OCR classique.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un document critique (contrat, document médical) où une erreur d'extraction aurait des conséquences importantes, l'hallucination potentielle d'un LLM multimodal changerait-elle votre choix par rapport à un moteur OCR classique, même si ce dernier est en moyenne moins précis sur les cas difficiles ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l5" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 5.5</span>Combiner OCR classique et LLM multimodal en pipeline hybride</h2>
+
+        <p>Cette dernière leçon du module propose une architecture qui capitalise sur les forces respectives des deux approches, plutôt que de choisir l'une au détriment de l'autre — un principe de routage conditionnel déjà rencontré à plusieurs reprises dans cette série de cours (module 4, leçon 5 ; cours nettoyage, module 7).</p>
+
+        <h3>Router selon la difficulté détectée</h3>
+        <pre><code class="language-python">def extraire_texte_hybride(chemin_image: str) -> dict:
+    # 1. Tentative avec Tesseract (rapide, gratuit, module 2)
+    resultat_tesseract = pytesseract.image_to_data(
+        Image.open(chemin_image), lang="fra", output_type=pytesseract.Output.DICT
+    )
+    confiances = [int(c) for c in resultat_tesseract["conf"] if int(c) >= 0]
+    confiance_moyenne = sum(confiances) / len(confiances) if confiances else 0
+
+    if confiance_moyenne >= 75:   # seuil à calibrer empiriquement (module 7)
+        texte = " ".join(m for m in resultat_tesseract["text"] if m.strip())
+        return {"texte": texte, "methode": "tesseract", "confiance": confiance_moyenne}
+
+    # 2. Confiance faible : recours au LLM multimodal pour les cas difficiles
+    texte_llm = extraire_via_llm_multimodal(chemin_image)   # leçon 5.2
+    return {"texte": texte_llm, "methode": "llm_multimodal", "confiance": None}
+</code></pre>
+
+        <h3>Utiliser le LLM multimodal comme validateur plutôt qu'extracteur principal</h3>
+        <p>Une variante intéressante : utiliser Tesseract ou une API cloud comme extracteur principal (rapide, économique), puis soumettre le résultat ET l'image originale à un LLM multimodal avec l'instruction de vérifier et corriger d'éventuelles erreurs — combinant la rapidité de l'OCR classique avec la capacité de désambiguïsation contextuelle du LLM, tout en limitant le risque d'hallucination pure (le LLM corrige un texte existant plutôt que de le générer entièrement).</p>
+
+        <pre><code class="language-python">def valider_et_corriger_avec_llm(texte_ocr: str, chemin_image: str) -> str:
+    prompt = f"""Voici un texte extrait par OCR d'une image, potentiellement
+avec quelques erreurs de reconnaissance de caractères :
+
+{texte_ocr}
+
+En comparant avec l'image fournie, corrige uniquement les erreurs
+évidentes de reconnaissance de caractères. Ne reformule pas le texte,
+ne comble pas les parties illisibles par une invention — indique
+[ILLISIBLE] si un passage reste incertain même avec l'image."""
+    # Appel au LLM multimodal avec l'image + ce prompt (structure de la leçon 5.2)
+    ...
+</code></pre>
+
+        <div class="ascii">Architecture hybride recommandée :
+
+Image
+  │
+  ▼
+Tesseract (module 2) ──► confiance élevée ──► Résultat final (rapide, gratuit)
+  │
+  └── confiance faible
+        │
+        ▼
+  LLM multimodal en VALIDATION/CORRECTION du texte Tesseract
+  (plutôt qu'extraction complète depuis zéro — limite le risque
+  d'hallucination pure, leçon 5.4)
+        │
+        ▼
+  Résultat final validé, avec marquage explicite des passages
+  restés incertains ([ILLISIBLE]) plutôt qu'une invention silencieuse</div>
+
+        <p>Ce module clôt l'exploration des différentes approches d'extraction de texte à partir d'images (Tesseract, API cloud, LLM multimodaux). Le module suivant aborde un défi transversal à ces trois approches : l'extraction de structure (tableaux, formulaires, mise en page), déjà effleurée à plusieurs reprises mais qui mérite un traitement approfondi dédié.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Concevoir un pipeline hybride complexe avec plusieurs niveaux de routage et de validation dès le premier prototype, avant même d'avoir mesuré si Tesseract seul suffit pour la majorité du corpus réel. Comme pour chaque architecture avancée rencontrée dans cette série de cours, la complexité doit être ajoutée progressivement, en fonction de besoins mesurés empiriquement (module 7).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : à partir de l'architecture hybride proposée ci-dessus, quel seuil de confiance Tesseract choisiriez-vous comme point de bascule vers le LLM multimodal, et comment le valideriez-vous empiriquement sur votre propre corpus ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-6">
+      <span class="module-kicker">MODULE 06 / 08</span>
+      <h1>Extraction de structure : tableaux, formulaires, mise en page</h1>
+      <p class="intro">Extraire du texte brut (modules 2 à 5) ne suffit pas toujours : un document scanné contient souvent des tableaux, des formulaires et une mise en page dont la structure logique doit être préservée. Ce module approfondit ce défi, déjà effleuré à plusieurs reprises dans les modules précédents.</p>
+
+      <section class="lesson" id="m6-l1" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 6.1</span>Le défi spécifique des tableaux dans les documents scannés</h2>
+
+        <p>Rappel des tableaux déjà rencontrés dans le cours nettoyage (module 2, pour les PDF ; module 3, pour Word ; module 4, pour HTML) : un tableau perd son sens si ses valeurs sont séparées de leurs en-têtes de colonnes. Pour un document scanné, ce défi est encore plus prononcé, car il n'existe aucune structure native (contrairement au HTML ou au DOCX) — la structure tabulaire doit être entièrement <strong>reconstruite visuellement</strong> à partir de l'image.</p>
+
+        <div class="ascii">Tableau dans un PDF natif                 Tableau dans un document scanné
+(cours nettoyage, module 2)               (ce module)
+──────────────────────────────           ──────────────────────────────
+Positions de texte disponibles            Uniquement des pixels — aucune
+nativement, structure                     information de structure native ;
+géométrique détectable                    tout doit être déduit de lignes,
+(pdfplumber)                              d'espacements et d'alignements
+                                           visuels</div>
+
+        <p>Un moteur OCR de base (Tesseract en mode texte simple, module 2) extrait le contenu d'un tableau ligne par ligne, dans l'ordre où le texte apparaît visuellement, sans préserver la relation colonne — un problème analogue à celui déjà rencontré pour l'extraction naïve de tableaux PDF (cours nettoyage, module 2, leçon 3), mais sans même la possibilité de s'appuyer sur des positions de texte précises et fiables, puisque ces positions doivent elles-mêmes être déduites de l'image par OCR.</p>
+
+        <pre><code class="language-python"># Extraction naïve d'un tableau scanné avec Tesseract simple
+texte_tableau_naif = pytesseract.image_to_string(image_tableau, lang="fra")
+print(texte_tableau_naif)
+# "Trimestre Ventes Marge Q1 4.2M€ 18% Q2 4.8M€ 19%"
+# → Toutes les cellules sont concaténées en une seule chaîne,
+#   la relation ligne/colonne est complètement perdue
+</code></pre>
+
+        <p>Ce constat motive les techniques des leçons suivantes : la détection de mise en page (leçon 6.2) pour identifier la zone du tableau et ses lignes/colonnes internes, avant même de lancer la reconnaissance de caractères sur chaque cellule individuellement.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Appliquer un OCR de texte brut standard sur un document contenant des tableaux importants, sans détection préalable de leur structure, puis tenter de "reparser" le texte concaténé résultant avec des heuristiques fragiles (comptage d'espaces, par exemple) — une approche nettement moins fiable qu'une détection de structure en amont (leçon 6.2).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un tableau scanné de votre corpus (réel ou imaginé), imaginez le résultat d'une extraction de texte brut naïve comme illustré ci-dessus. Quelles ambiguïtés concrètes cela créerait-il pour interpréter les valeurs du tableau ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l2" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 6.2</span>Détection de mise en page (layout detection) et modèles dédiés</h2>
+
+        <p>La <strong>détection de mise en page</strong> (layout detection) est une étape qui précède la reconnaissance de caractères proprement dite : elle identifie, sur l'image du document, les régions qui correspondent à des types de contenu distincts (titre, paragraphe, tableau, image, légende) avant de traiter chaque région selon sa nature.</p>
+
+        <h3>Solutions basées sur des modèles de vision dédiés</h3>
+        <p>Des librairies comme <strong>LayoutParser</strong> utilisent des modèles de détection d'objets (une technique de vision par ordinateur, similaire dans son principe à la détection de visages ou de véhicules sur une image) entraînés spécifiquement pour reconnaître les éléments de mise en page d'un document.</p>
+
+        <pre><code class="language-python">import layoutparser as lp
+
+modele = lp.Detectron2LayoutModel(
+    "lp://PubLayNet/faster_rcnn_R_50_FPN_3x/config",
+    extra_config=["MODEL.ROI_HEADS.SCORE_THRESH_TEST", 0.8],
+    label_map={0: "Text", 1: "Title", 2: "List", 3: "Table", 4: "Figure"},
+)
+
+image = cv2.imread("document_scanne.png")
+resultat_layout = modele.detect(image)
+
+for bloc in resultat_layout:
+    print(f"Type détecté : {bloc.type}, position : {bloc.block}")
+    if bloc.type == "Table":
+        # Ne traiter cette région qu'avec une extraction de tableau dédiée
+        image_tableau_isolee = bloc.crop_image(image)
+</code></pre>
+
+        <h3>Traiter chaque région selon sa nature détectée</h3>
+        <p>Une fois les régions identifiées, chacune peut être traitée avec la méthode la plus appropriée à sa nature : OCR de texte standard pour les paragraphes (modules 2 et 4), extraction de tableau dédiée (leçon suivante) pour les régions "Table", et exclusion pure et simple pour les figures et images sans texte pertinent.</p>
+
+        <pre><code class="language-python">def traiter_document_par_region(image, resultat_layout) -> dict:
+    contenu_par_type = {"titres": [], "paragraphes": [], "tableaux": []}
+
+    for bloc in resultat_layout:
+        region_image = bloc.crop_image(image)
+        if bloc.type == "Title":
+            contenu_par_type["titres"].append(pytesseract.image_to_string(region_image))
+        elif bloc.type == "Text":
+            contenu_par_type["paragraphes"].append(pytesseract.image_to_string(region_image))
+        elif bloc.type == "Table":
+            contenu_par_type["tableaux"].append(extraire_tableau_structure(region_image))
+
+    return contenu_par_type
+</code></pre>
+
+        <div class="ascii">Sans détection de mise en page :          Avec détection de mise en page :
+
+Toute la page traitée comme un            Chaque région traitée selon
+seul bloc de texte homogène,               sa nature :
+qu'elle contienne un titre, un
+paragraphe ou un tableau                   Titre    ──► OCR simple
+                                            Paragraphe ──► OCR simple
+                                            Tableau   ──► extraction
+                                                          structurée (leçon 6.3)</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Traiter un document à mise en page riche (rapport avec titres, paragraphes, tableaux et figures mêlés) avec un seul appel OCR uniforme sur la page entière, sans détection préalable de mise en page — le résultat mélange alors du texte de nature très différente sans distinction claire, un problème que la reconstitution de structure post-hoc peine à corriger efficacement.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un document dense de votre corpus (rapport, catalogue), quels types de régions (titre, paragraphe, tableau, figure) identifieriez-vous visuellement ? Ce document bénéficierait-il significativement d'une détection de mise en page préalable ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l3" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 6.3</span>Extraction de formulaires et de champs clé-valeur</h2>
+
+        <p>Rappel du module 4 (leçon 4.3, AWS Textract) : de nombreux documents scannés sont des formulaires (factures, fiches administratives, questionnaires) où l'information utile se présente sous forme de paires "étiquette : valeur" plutôt que de texte continu — un cas qui mérite un traitement spécifique.</p>
+
+        <h3>Le principe de la détection clé-valeur</h3>
+        <p>Un formulaire scanné présente généralement des étiquettes fixes ("Nom :", "Date de naissance :", "Montant total :") suivies ou précédées de leur valeur associée, souvent séparées visuellement (deux points, espacement, alignement en colonne). La détection clé-valeur identifie ces paires en analysant la proximité spatiale et les motifs visuels typiques (deux-points, cases à remplir).</p>
+
+        <pre><code class="language-python"># Rappel du module 4 (AWS Textract), approfondi ici conceptuellement
+def associer_cle_valeur_par_proximite(mots_avec_positions: list[dict]) -> list[dict]:
+    """Approche heuristique simplifiée : une étiquette suivie d'un
+    deux-points est probablement suivie de sa valeur sur la même ligne
+    ou juste en dessous."""
+    paires = []
+    for i, mot in enumerate(mots_avec_positions):
+        if mot["texte"].endswith(":"):
+            candidats_valeur = [
+                m for m in mots_avec_positions[i+1:i+4]
+                if abs(m["y"] - mot["y"]) < 20   # même ligne approximativement
+            ]
+            if candidats_valeur:
+                paires.append({
+                    "cle": mot["texte"].rstrip(":"),
+                    "valeur": " ".join(m["texte"] for m in candidats_valeur),
+                })
+    return paires
+</code></pre>
+
+        <h3>Modèles spécialisés pour des formulaires standardisés</h3>
+        <p>Rappel du module 4, leçon 4 (Azure Document Intelligence) : pour des types de formulaires très courants (factures, reçus), des modèles prédéfinis évitent d'avoir à implémenter cette logique de détection clé-valeur soi-même — un cas où la solution API spécialisée apporte un gain de fiabilité significatif par rapport à une heuristique maison.</p>
+
+        <div class="ascii">Formulaire scanné typique :
+
+┌─────────────────────────────────────┐
+│  Nom : Jean Dupont                    │
+│  Date de naissance : 14/03/1985       │
+│  Adresse : 12 rue de la Paix, Paris   │
+└─────────────────────────────────────┘
+
+→ Détection clé-valeur : {"Nom": "Jean Dupont",
+                           "Date de naissance": "14/03/1985",
+                           "Adresse": "12 rue de la Paix, Paris"}
+
+Plutôt qu'un texte plat : "Nom : Jean Dupont Date de naissance :
+14/03/1985 Adresse : 12 rue de la Paix, Paris" (structure perdue)</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Implémenter une heuristique de détection clé-valeur maison fragile (basée uniquement sur la présence de deux-points, par exemple) pour un volume important de formulaires standardisés, alors qu'un modèle prédéfini d'une API cloud (module 4) résoudrait le problème de façon plus robuste et avec moins d'effort de développement et de maintenance.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un type de formulaire de votre corpus, les étiquettes suivent-elles un format suffisamment cohérent (toujours suivies de deux-points, positions similaires d'un document à l'autre) pour qu'une heuristique simple fonctionne, ou la variabilité justifierait-elle un modèle plus robuste ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l4" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 6.4</span>Reconstituer l'ordre de lecture sur des mises en page complexes</h2>
+
+        <p>Rappel du problème déjà rencontré pour les PDF natifs à colonnes multiples (cours nettoyage, module 2, leçon 5) : sur un document scanné à mise en page complexe, l'ordre dans lequel le texte doit être lu n'est pas toujours celui de son apparition brute sur l'image — un défi qui se pose ici sans les informations de position natives d'un PDF, uniquement à partir de l'analyse visuelle.</p>
+
+        <h3>Trier les blocs détectés selon leur position</h3>
+        <p>Une fois les blocs de mise en page identifiés (leçon 6.2), les ordonner correctement nécessite de trier selon leur position verticale ET horizontale, en tenant compte de la structure en colonnes éventuelle — un tri naïf uniquement par coordonnée verticale (haut vers bas) mélangerait les colonnes de la même façon que déjà observé pour les PDF (cours nettoyage, module 2, leçon 5).</p>
+
+        <pre><code class="language-python">def trier_blocs_par_colonnes(blocs: list[dict], seuil_x_colonne: float) -> list[dict]:
+    """Rappel direct de separer_colonnes du cours nettoyage (module 2,
+    leçon 5), appliqué ici à des blocs détectés par layout detection
+    plutôt qu'à des positions de texte natif PDF."""
+    colonne_gauche = sorted(
+        [b for b in blocs if b["x"] < seuil_x_colonne], key=lambda b: b["y"]
+    )
+    colonne_droite = sorted(
+        [b for b in blocs if b["x"] >= seuil_x_colonne], key=lambda b: b["y"]
+    )
+    return colonne_gauche + colonne_droite
+</code></pre>
+
+        <h3>Utiliser les relations logiques détectées entre blocs</h3>
+        <p>Au-delà du simple tri géométrique, certains outils de détection de mise en page identifient aussi des relations logiques entre blocs (une légende associée à une figure, un titre associé à la section qui suit) — une information supplémentaire pour reconstituer non seulement l'ordre, mais aussi les groupements logiques, similaire dans son esprit aux métadonnées de relation entre chunks déjà étudiées dans le cours enrichissement de métadonnées (module 5, leçon 3).</p>
+
+        <div class="ascii">Document à 2 colonnes (rappel du même défi pour les PDF natifs,
+cours nettoyage module 2, leçon 5, ici sans positions natives) :
+
+┌─────────┬─────────┐
+│ Colonne │ Colonne │        Ordre de lecture correct :
+│ gauche   │ droite  │        1. Toute la colonne gauche, de haut en bas
+│ (haut)   │ (haut)  │        2. Toute la colonne droite, de haut en bas
+│    ↓     │    ↓    │
+│ Colonne │ Colonne │        PAS : ligne 1 gauche, ligne 1 droite,
+│ gauche   │ droite  │              ligne 2 gauche, ligne 2 droite...
+│ (bas)    │ (bas)   │              (résultat incohérent)
+└─────────┴─────────┘</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Trier les blocs détectés uniquement par leur coordonnée verticale (haut vers bas) sans tenir compte de leur appartenance à une colonne, produisant un texte qui mélange les colonnes ligne par ligne plutôt que colonne par colonne — exactement l'erreur déjà identifiée pour l'extraction PDF native (cours nettoyage, module 2, leçon 5), reproduite ici sur des documents scannés.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un document à trois colonnes (plus complexe que l'exemple à deux colonnes ci-dessus), comment adapteriez-vous la fonction <code class="inline">trier_blocs_par_colonnes</code> pour gérer ce cas ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l5" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 6.5</span>Valider et corriger automatiquement les extractions structurées</h2>
+
+        <p>Cette dernière leçon du module aborde la validation des extractions structurées (tableaux, formulaires) — un prolongement direct des principes de validation déjà établis pour l'extraction de texte simple (module 2, leçon 4) mais adapté aux spécificités de contenu structuré.</p>
+
+        <h3>Valider la cohérence structurelle d'un tableau extrait</h3>
+        <pre><code class="language-python">def valider_coherence_tableau(tableau_extrait: list[list[str]]) -> list[str]:
+    alertes = []
+    if not tableau_extrait:
+        return ["Tableau vide ou non détecté"]
+
+    nb_colonnes_attendu = len(tableau_extrait[0])
+    for i, ligne in enumerate(tableau_extrait[1:], start=1):
+        if len(ligne) != nb_colonnes_attendu:
+            alertes.append(
+                f"Ligne {i} a {len(ligne)} colonnes, attendu {nb_colonnes_attendu}"
+            )
+    return alertes
+</code></pre>
+
+        <h3>Valider un champ clé-valeur selon son type attendu</h3>
+        <p>Rappel du cours métadonnées (module 3, leçon 3) sur les types de données catégorielles, numériques et de date : un champ de formulaire détecté comme "Date de naissance" devrait être validé contre un format de date plausible, un champ "Montant" contre un format numérique — une divergence signalant probablement une erreur d'extraction plutôt qu'une valeur réellement atypique.</p>
+
+        <pre><code class="language-python">import re
+
+def valider_champ_selon_type(nom_champ: str, valeur: str) -> bool:
+    validateurs = {
+        "date": lambda v: bool(re.match(r"\d{1,2}/\d{1,2}/\d{4}", v)),
+        "montant": lambda v: bool(re.match(r"[\d\s]+[,.]?\d*\s*€?$", v)),
+        "email": lambda v: "@" in v and "." in v,
+    }
+    for mot_cle, validateur in validateurs.items():
+        if mot_cle in nom_champ.lower():
+            return validateur(valeur)
+    return True   # pas de validateur spécifique connu pour ce type de champ
+
+if not valider_champ_selon_type("Date de naissance", "14/O3/1985"):
+    print("Valeur suspecte détectée — probable confusion O/0 (rappel module 1, leçon 5)")
+</code></pre>
+
+        <h3>Boucle de correction semi-automatique</h3>
+        <p>Pour les champs signalés comme suspects par ces validations, une correction semi-automatique peut tenter des substitutions courantes (rappel des confusions caractères du module 1, leçon 5 : O/0, l/1) avant de recourir à une validation humaine — une approche qui rejoint directement les méthodes de correction post-OCR approfondies au module 7.</p>
+
+        <p>Ce module clôt la partie "extraction de structure" du cours. Le module suivant élargit cette logique de validation à l'ensemble du texte extrait (pas seulement les éléments structurés), avec des métriques formelles de qualité OCR et des stratégies de correction post-traitement plus générales.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Valider uniquement la présence d'un champ (le champ "Montant" a-t-il été détecté ?) sans valider la plausibilité de sa valeur (le montant détecté a-t-il un format numérique cohérent ?). Les deux niveaux de validation sont complémentaires et nécessaires pour une confiance réelle dans l'extraction structurée.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : pour un type de formulaire de votre corpus, quels champs mériteraient une validation de format spécifique (comme les exemples date/montant/email ci-dessus), et quelle action prendriez-vous face à une valeur qui échoue à cette validation ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-7">
+      <span class="module-kicker">MODULE 07 / 08</span>
+      <h1>Qualité, validation et post-traitement de l'OCR</h1>
+      <p class="intro">Comme pour chaque étape du pipeline RAG déjà étudiée dans cette série, la qualité de l'OCR ne devrait pas reposer sur une confiance intuitive mais sur des métriques mesurables. Ce module formalise l'évaluation et la correction post-OCR.</p>
+
+      <section class="lesson" id="m7-l1" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 7.1</span>Mesurer la qualité d'une extraction OCR (métriques CER/WER)</h2>
+
+        <p>Deux métriques standard permettent de mesurer objectivement la qualité d'une extraction OCR, en la comparant à un texte de référence connu (vérité terrain) — un principe similaire aux métriques recall@k et MRR déjà utilisées pour évaluer le retrieval dans les cours précédents, mais adapté à la comparaison de deux textes plutôt qu'à un classement de résultats.</p>
+
+        <h3>CER (Character Error Rate) : taux d'erreur au niveau caractère</h3>
+        <p>Le CER mesure la proportion de caractères qui diffèrent entre le texte extrait et le texte de référence, en tenant compte des insertions, suppressions et substitutions nécessaires pour transformer l'un en l'autre (distance d'édition, déjà rencontrée dans le cours chunking pour la détection de similarité approximative de lignes).</p>
+
+        <pre><code class="language-python">import Levenshtein
+
+def calculer_cer(texte_extrait: str, texte_reference: str) -> float:
+    distance = Levenshtein.distance(texte_extrait, texte_reference)
+    return distance / max(len(texte_reference), 1)
+
+texte_ref = "Le chunking est une étape essentielle pour un bon système RAG."
+texte_ocr = "Le chunklng est une étape essentielle pour un bon systeme RAG."
+
+cer = calculer_cer(texte_ocr, texte_ref)
+print(f"CER : {cer:.2%}")   # ex: 3.2% — proportion de caractères erronés
+</code></pre>
+
+        <h3>WER (Word Error Rate) : taux d'erreur au niveau mot</h3>
+        <p>Le WER applique le même principe de distance d'édition, mais au niveau des mots plutôt que des caractères — une métrique parfois plus représentative de l'impact réel sur la compréhension, car un seul caractère erroné dans un mot le rend généralement tout aussi incompréhensible qu'un mot entièrement faux.</p>
+
+        <pre><code class="language-python">def calculer_wer(texte_extrait: str, texte_reference: str) -> float:
+    mots_extraits = texte_extrait.split()
+    mots_reference = texte_reference.split()
+    distance = Levenshtein.distance(mots_extraits, mots_reference)   # distance sur des listes de mots
+    return distance / max(len(mots_reference), 1)
+
+wer = calculer_wer(texte_ocr, texte_ref)
+print(f"WER : {wer:.2%}")
+</code></pre>
+
+        <div class="ascii">CER (Character Error Rate)              WER (Word Error Rate)
+─────────────────────────               ─────────────────────
+Sensible aux erreurs de                 Sensible aux erreurs qui
+caractères isolés (confusions           rendent un mot entier
+O/0, l/1 — rappel module 1,              incompréhensible
+leçon 5)
+
+Utile pour évaluer la précision          Utile pour évaluer l'impact
+"fine" d'un moteur OCR                   réel sur la lisibilité et
+                                          la compréhension du texte</div>
+
+        <p>Ces deux métriques nécessitent un texte de référence fiable ("vérité terrain") pour être calculées — un jeu d'évaluation à construire spécifiquement, sujet approfondi en leçon 7.4, en réutilisant la méthodologie déjà pratiquée pour les jeux d'évaluation de retrieval dans les cours précédents (chunking, module 7 ; embeddings, module 7).</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Ne calculer qu'une seule des deux métriques (souvent le CER, plus simple à interpréter en apparence) sans considérer le WER, qui reflète parfois mieux l'impact réel sur la compréhension humaine et sur les traitements en aval (chunking, embedding) qui opèrent au niveau du mot ou du token plutôt que du caractère isolé.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Avec la formule ci-dessus, calculez mentalement (ou avec le code si vous y avez accès) le CER approximatif entre "systeme" (sans accent, erreur OCR typique) et "système" (référence). Ce petit écart caractère par caractère aurait-il un impact au niveau du WER pour ce mot ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l2" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 7.2</span>Détecter automatiquement une extraction OCR de mauvaise qualité</h2>
+
+        <p>En production, un texte de référence pour calculer le CER/WER (leçon 7.1) n'est généralement pas disponible pour chaque nouveau document traité. Cette leçon détaille des heuristiques de détection de mauvaise qualité qui ne nécessitent pas de vérité terrain — un principe similaire aux métriques de qualité de texte déjà établies dans le cours nettoyage (module 7, leçon 3).</p>
+
+        <h3>Score de confiance moyen du moteur OCR</h3>
+        <p>Rappel du module 2, leçon 4 : Tesseract (et les API cloud, module 4) retournent généralement un score de confiance par mot ou par caractère. Un score de confiance moyen anormalement bas sur l'ensemble d'un document est un signal direct et peu coûteux à calculer.</p>
+
+        <pre><code class="language-python">def score_confiance_document(donnees_ocr: dict, seuil_alerte: float = 70) -> dict:
+    confiances = [int(c) for c in donnees_ocr["conf"] if int(c) >= 0]
+    confiance_moyenne = sum(confiances) / len(confiances) if confiances else 0
+    return {
+        "confiance_moyenne": confiance_moyenne,
+        "alerte": confiance_moyenne < seuil_alerte,
+    }
+</code></pre>
+
+        <h3>Analyse de la plausibilité linguistique</h3>
+        <p>Rappel du cours nettoyage (module 7, leçon 3) : un ratio anormalement élevé de "mots" qui ne correspondent à aucun mot reconnu d'un dictionnaire de la langue attendue est un signal fort de dégradation OCR — un texte de bonne qualité contient presque exclusivement des mots reconnaissables, alors qu'un texte OCR dégradé accumule des suites de caractères qui ne forment pas de mots réels.</p>
+
+        <pre><code class="language-python">import enchant   # bibliothèque de vérification orthographique
+
+dictionnaire_fr = enchant.Dict("fr_FR")
+
+def ratio_mots_reconnus(texte: str) -> float:
+    mots = [m.strip(".,;:!?") for m in texte.split() if m.strip(".,;:!?")]
+    if not mots:
+        return 1.0
+    mots_reconnus = sum(1 for m in mots if dictionnaire_fr.check(m))
+    return mots_reconnus / len(mots)
+
+ratio = ratio_mots_reconnus(texte_ocr_suspect)
+if ratio < 0.7:   # seuil à calibrer empiriquement sur des documents connus
+    print(f"Qualité OCR suspecte : seulement {ratio:.0%} de mots reconnus")
+</code></pre>
+
+        <h3>Détection de motifs répétitifs anormaux</h3>
+        <p>Une extraction OCR fortement dégradée produit parfois des motifs répétitifs incohérents (le même caractère ou groupe de caractères erroné répété anormalement) — un signal supplémentaire, complémentaire aux deux précédents, particulièrement utile face à des images de très mauvaise qualité (bruit extrême, résolution insuffisante — rappel module 1, leçon 3) où le moteur OCR "invente" des motifs à partir de bruit visuel pur.</p>
+
+        <div class="ascii">Signal de détection             Coût de calcul       Fiabilité
+──────────────────────────────────────────────────────────────────
+Confiance moyenne du moteur      Très faible           Bonne (nécessite un
+(déjà disponible, module 2)                             moteur qui l'expose)
+
+Ratio de mots reconnus            Faible à modéré       Bonne, indépendante
+(dictionnaire)                                          du moteur utilisé
+
+Motifs répétitifs anormaux        Modéré                Complémentaire, utile
+                                                        pour les cas extrêmes</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Se fier uniquement au score de confiance retourné par le moteur OCR sans vérification complémentaire par dictionnaire, alors que ce score peut parfois rester artificiellement élevé même sur un texte globalement incohérent (le moteur étant confiant caractère par caractère tout en produisant des mots qui n'existent pas dans la langue attendue).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre pipeline OCR, combinez-vous ces trois signaux (confiance moteur, ratio de mots reconnus, motifs répétitifs) ou vous appuieriez-vous sur un seul ? Quel serait le compromis entre fiabilité de détection et coût de calcul ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l3" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 7.3</span>Correction post-OCR : dictionnaires, règles, modèles de langue</h2>
+
+        <p>Une fois une zone de texte suspecte détectée (leçon 7.2), plusieurs techniques permettent de corriger automatiquement certaines erreurs OCR, sans nécessiter un retraitement complet de l'image ni un recours systématique à un LLM multimodal (module 5, coûteux à grande échelle).</p>
+
+        <h3>Correction par distance au dictionnaire</h3>
+        <pre><code class="language-python">import enchant
+
+dictionnaire_fr = enchant.Dict("fr_FR")
+
+def corriger_mot_par_dictionnaire(mot: str) -> str:
+    if dictionnaire_fr.check(mot):
+        return mot   # déjà un mot valide, rien à corriger
+
+    suggestions = dictionnaire_fr.suggest(mot)
+    return suggestions[0] if suggestions else mot   # meilleure suggestion, ou inchangé
+
+texte_corrige = " ".join(corriger_mot_par_dictionnaire(m) for m in texte_ocr.split())
+</code></pre>
+
+        <h3>Règles de correction ciblées sur les confusions connues</h3>
+        <p>Rappel du module 1, leçon 5 : certaines confusions de caractères sont particulièrement fréquentes et prévisibles (O/0, l/1/I, rn/m). Des règles de correction ciblées, appliquées uniquement dans des contextes où l'ambiguïté est probable (un chiffre au milieu d'une séquence de lettres, par exemple), peuvent corriger ces cas sans dictionnaire complet.</p>
+
+        <pre><code class="language-python">import re
+
+def corriger_confusions_chiffres_lettres(mot: str) -> str:
+    # Si le mot est composé presque entièrement de lettres mais contient
+    # un "0" isolé au milieu, c'est probablement un "O" mal reconnu
+    if re.match(r"^[A-Za-z]*0[A-Za-z]+$", mot):
+        return mot.replace("0", "O")
+    return mot
+</code></pre>
+
+        <h3>Correction via un modèle de langue contextuel</h3>
+        <p>Une approche plus sophistiquée utilise un modèle de langue (qui prédit la probabilité d'une séquence de mots) pour identifier et corriger des mots peu probables dans leur contexte — une approche conceptuellement proche du post-traitement linguistique déjà intégré dans certains moteurs OCR (rappel module 1, leçon 2), mais appliquée ici comme une étape de correction externe et personnalisable, potentiellement avec un LLM léger utilisé uniquement pour cette tâche de correction ciblée (rappel module 5, leçon 5, sur l'usage du LLM en validation plutôt qu'en extraction complète).</p>
+
+        <div class="ascii">Technique de correction              Coût             Portée de correction
+──────────────────────────────────────────────────────────────────────
+Dictionnaire (distance d'édition)      Faible            Mots isolés hors
+                                                          contexte, fautes
+                                                          d'orthographe simples
+
+Règles ciblées (confusions connues)     Très faible       Cas spécifiques
+                                                          prévisibles (O/0...)
+
+Modèle de langue / LLM contextuel        Modéré à élevé    Cohérence contextuelle,
+                                                            corrections plus fines</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Appliquer une correction par dictionnaire de façon aveugle sur l'ensemble du texte, y compris sur des mots qui sont volontairement absents du dictionnaire standard (noms propres, termes techniques, références de contrat) — une "correction" qui remplacerait alors une donnée correcte mais rare par un mot du dictionnaire plus fréquent mais erroné. Toujours limiter la correction automatique aux zones identifiées comme suspectes (leçon 7.2), pas à l'ensemble du texte indistinctement.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre corpus, quels types de mots (noms propres, jargon technique, références) risqueraient d'être mal "corrigés" par une correction dictionnaire trop agressive ? Comment protégeriez-vous ces cas ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l4" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 7.4</span>Construire un jeu d'évaluation pour comparer les moteurs OCR</h2>
+
+        <p>Rappel de la méthode déjà pratiquée à plusieurs reprises dans cette série (cours chunking, module 7 ; cours embeddings, module 7 ; cours bases de données vectorielles, module 8) : comparer objectivement plusieurs approches nécessite un jeu d'évaluation représentatif, construit sur son propre corpus plutôt que sur des benchmarks génériques.</p>
+
+        <h3>Constituer un échantillon représentatif avec vérité terrain</h3>
+        <pre><code class="language-python">jeu_evaluation_ocr = [
+    {
+        "chemin_image": "echantillon_scan_qualite_haute.png",
+        "texte_reference": "Texte de référence transcrit manuellement...",
+        "categorie": "qualite_haute",
+    },
+    {
+        "chemin_image": "echantillon_scan_qualite_faible.png",
+        "texte_reference": "Autre texte de référence transcrit...",
+        "categorie": "qualite_faible",
+    },
+    {
+        "chemin_image": "echantillon_tableau.png",
+        "texte_reference": "Référence incluant la structure du tableau...",
+        "categorie": "tableau",
+    },
+]
+</code></pre>
+
+        <p>La constitution de la vérité terrain (transcription manuelle fiable de chaque échantillon) est un investissement initial nécessaire, similaire à la construction d'un jeu de questions-réponses pour évaluer le retrieval (cours chunking, module 7, leçon 1) — un effort ponctuel qui paie ensuite sur toutes les comparaisons futures.</p>
+
+        <h3>Comparer plusieurs moteurs sur ce jeu</h3>
+        <pre><code class="language-python">moteurs_a_comparer = {
+    "tesseract": lambda img: pytesseract.image_to_string(Image.open(img), lang="fra"),
+    "tesseract_pretraite": lambda img: pytesseract.image_to_string(
+        Image.fromarray(pipeline_pretraitement_complet(img)), lang="fra"
+    ),
+    "google_vision": lambda img: extraire_via_google_vision(img),
+    "llm_multimodal": lambda img: extraire_via_llm_multimodal(img),
+}
+
+resultats = {}
+for nom, fonction_extraction in moteurs_a_comparer.items():
+    cer_total, wer_total = 0, 0
+    for cas in jeu_evaluation_ocr:
+        texte_obtenu = fonction_extraction(cas["chemin_image"])
+        cer_total += calculer_cer(texte_obtenu, cas["texte_reference"])
+        wer_total += calculer_wer(texte_obtenu, cas["texte_reference"])
+
+    resultats[nom] = {
+        "cer_moyen": cer_total / len(jeu_evaluation_ocr),
+        "wer_moyen": wer_total / len(jeu_evaluation_ocr),
+    }
+
+for nom, r in resultats.items():
+    print(f"{nom:22s} | CER moyen={r['cer_moyen']:.1%} | WER moyen={r['wer_moyen']:.1%}")
+</code></pre>
+
+        <div class="ascii">Exemple illustratif de résultat comparatif (données fictives, à
+reproduire sur VOTRE corpus) :
+
+Moteur                    CER moyen    WER moyen
+────────────────────────────────────────────────
+tesseract                   4.2%         8.1%
+tesseract_pretraite          1.8%         3.4%   ← gain du prétraitement (module 3)
+google_vision                1.5%         2.9%
+llm_multimodal                1.1%         2.2%   ← meilleur sur ce jeu, mais coût
+                                                     et latence bien supérieurs (module 5)</div>
+
+        <p>Segmenter les résultats par catégorie (qualité haute/faible, tableau) permet en plus d'identifier <em>où</em> chaque moteur excelle ou échoue spécifiquement — une information plus actionnable qu'une moyenne globale unique pour orienter une architecture hybride (module 4, leçon 5 ; module 5, leçon 5).</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Comparer les moteurs OCR uniquement sur un score moyen global, sans segmenter par catégorie de difficulté (qualité de scan, présence de tableaux, écriture manuscrite). Un moteur peut exceller sur les cas simples et faiblir sur les cas difficiles, une nuance perdue dans une moyenne unique mais cruciale pour concevoir un pipeline hybride pertinent.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre corpus, esquissez 3 catégories de documents (comme "qualite_haute", "qualite_faible", "tableau" dans l'exemple) que vous incluriez dans un jeu d'évaluation OCR représentatif.
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l5" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 7.5</span>Boucle d'amélioration continue et gestion des cas limites</h2>
+
+        <p>Cette dernière leçon du module clôt la partie qualité avec un principe déjà établi à plusieurs reprises dans cette série (cours nettoyage, module 7 ; cours bases de données vectorielles, module 7) : la qualité d'un pipeline OCR en production doit être surveillée et améliorée dans la durée, pas validée une seule fois puis oubliée.</p>
+
+        <h3>Journaliser systématiquement les cas de faible confiance</h3>
+        <pre><code class="language-python">import logging
+
+logger = logging.getLogger("pipeline_ocr")
+
+def traiter_avec_journalisation(chemin_image: str) -> dict:
+    resultat = extraire_texte_hybride(chemin_image)   # rappel module 5, leçon 5
+
+    if resultat.get("confiance") is not None and resultat["confiance"] < 70:
+        logger.warning(f"Faible confiance OCR pour {chemin_image} : {resultat['confiance']}")
+
+    return resultat
+</code></pre>
+
+        <h3>Construire un jeu de cas limites à partir de la production réelle</h3>
+        <p>Rappel du principe de tests de non-régression déjà établi dans le cours nettoyage (module 7, leçon 5) : les documents ayant posé problème en production (faible confiance, alertes de qualité) devraient être ajoutés au jeu d'évaluation (leçon 7.4) au fil du temps, créant une bibliothèque de cas limites de plus en plus représentative des difficultés réelles rencontrées, plutôt qu'un jeu figé constitué une seule fois au départ.</p>
+
+        <h3>Réévaluer périodiquement le choix d'architecture</h3>
+        <p>Rappel du principe déjà établi dans le cours bases de données vectorielles (module 7, leçon 5, dimensionnement prévisionnel) : à mesure que le corpus évolue (nouveaux types de documents, nouvelles langues) et que les outils progressent (nouvelles versions de Tesseract, nouveaux modèles multimodaux), le choix d'architecture optimal peut changer — une réévaluation périodique, informée par les métriques accumulées, vaut mieux qu'une décision figée définitivement au lancement du projet.</p>
+
+        <div class="ascii">Boucle d'amélioration continue recommandée :
+
+1. Journaliser les cas de faible confiance en production
+2. Enrichir régulièrement le jeu d'évaluation (leçon 7.4) avec
+   ces cas réels, annotés avec leur vérité terrain
+3. Réévaluer périodiquement les moteurs/architectures sur ce
+   jeu enrichi (comparaison de la leçon 7.4)
+4. Ajuster le pipeline (routage hybride, seuils de confiance)
+   en fonction des résultats
+5. Retour à l'étape 1 — boucle continue, pas un exercice ponctuel</div>
+
+        <p>Ce module clôt la partie "qualité et validation" du cours. Le dernier module assemble l'ensemble des techniques vues (Tesseract, prétraitement, API cloud, LLM multimodaux, extraction de structure, validation) dans un pipeline complet et un exercice de synthèse.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer la mise en place initiale du pipeline OCR comme un projet ponctuel terminé une fois déployé, sans mécanisme de journalisation ni de réévaluation périodique — une dégradation progressive de la qualité (nouveaux types de documents non anticipés, dérive des besoins) peut alors passer inaperçue pendant longtemps.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : à quelle fréquence estimeriez-vous raisonnable de réévaluer votre pipeline OCR une fois en production (mensuel, trimestriel, uniquement lors de l'ajout d'un nouveau type de document) ? Justifiez selon la stabilité attendue de votre corpus.
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-8">
+      <span class="module-kicker">MODULE 08 / 08 — FINAL</span>
+      <h1>Implémentation complète et étude de cas</h1>
+      <p class="intro">Ce dernier module assemble l'ensemble des techniques de ce cours en un pipeline exécutable de bout en bout, propose une comparaison empirique complète, une méthode de débogage, et clôt le cours avec un exercice de synthèse.</p>
+
+      <section class="lesson" id="m8-l1" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 8.1</span>Pipeline complet : du scan brut au texte propre pour le chunking</h2>
+
+        <p>Voici un pipeline complet qui relie la détection du besoin d'OCR (rappel cours nettoyage, module 2, leçon 4) au texte final propre, prêt pour le chunking — assemblant le prétraitement (module 3), le choix de moteur (modules 2, 4, 5), l'extraction de structure (module 6) et la validation (module 7).</p>
+
+        <pre><code class="language-python">def pipeline_ocr_complet(chemin_document: str) -> dict:
+    # 1. Détection du besoin d'OCR (rappel cours nettoyage, module 2, leçon 4)
+    if not necessite_ocr(chemin_document):
+        return {"texte": extraire_texte_natif(chemin_document), "ocr_utilise": False}
+
+    # 2. Détection de mise en page pour router chaque région (module 6, leçon 2)
+    resultat_layout = detecter_mise_en_page(chemin_document)
+
+    contenu = {"titres": [], "paragraphes": [], "tableaux": []}
+    for bloc in resultat_layout:
+        # 3. Prétraitement de la région avant OCR (module 3)
+        region_pretraitee = pipeline_pretraitement_complet_region(bloc)
+
+        if bloc.type == "Table":
+            # 4a. Extraction de tableau structurée (module 6, leçon 1 et 3)
+            contenu["tableaux"].append(extraire_tableau_structure(region_pretraitee))
+        else:
+            # 4b. Extraction hybride Tesseract/LLM selon la confiance (module 5, leçon 5)
+            resultat_texte = extraire_texte_hybride(region_pretraitee)
+            cle = "titres" if bloc.type == "Title" else "paragraphes"
+            contenu[cle].append(resultat_texte["texte"])
+
+    # 5. Validation de qualité globale (module 7, leçon 2)
+    texte_assemble = assembler_contenu_ordonne(contenu, resultat_layout)   # module 6, leçon 4
+    diagnostics = diagnostiquer_extraction(texte_assemble)
+
+    # 6. Nettoyage transversal (rappel cours nettoyage, module 5) avant le chunking
+    texte_final = nettoyer_texte_complet(texte_assemble)
+
+    return {
+        "texte": texte_final,
+        "ocr_utilise": True,
+        "tableaux_detectes": len(contenu["tableaux"]),
+        "alertes_qualite": diagnostics,
+    }
+</code></pre>
+
+        <p>Ce pipeline illustre la continuité entre ce cours et la série complète de préparation de données pour RAG : l'OCR résout un problème d'accès à l'information (un document image devient du texte), tandis que le chunking, l'embedding, l'enrichissement de métadonnées et l'indexation (cours précédents de la série) prennent le relais une fois ce texte disponible — l'OCR n'étant qu'une étape d'entrée supplémentaire dans un pipeline déjà bien établi.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Traiter le texte issu de l'OCR comme équivalent en qualité à un texte extrait nativement (rappel cours nettoyage), en lui appliquant exactement le même chunking sans tenir compte du fait qu'il peut contenir des erreurs de caractères résiduelles (module 7) qui n'existent pas dans un texte natif — une vigilance supplémentaire, notamment sur les métriques de qualité (module 7, leçon 2), reste de mise même après un pipeline OCR soigné.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Dans le pipeline ci-dessus, identifiez à quel module de ce cours correspond chaque étape numérotée. Pour votre propre projet, quelle étape simplifieriez-vous pour une première version minimale ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l2" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 8.2</span>Comparaison empirique Tesseract vs API cloud vs LLM multimodal</h2>
+
+        <p>Rappel de la méthode déjà établie au module 7 (leçon 4) : cette leçon l'étend à une comparaison complète intégrant le coût et la latence, pour une décision d'architecture finale éclairée — un prolongement direct de la démarche déjà pratiquée pour comparer des bases de données vectorielles (cours bases de données vectorielles, module 8, leçon 2).</p>
+
+        <pre><code class="language-python">configurations_a_comparer = {
+    "tesseract_seul": lambda img: pytesseract.image_to_string(Image.open(img), lang="fra"),
+    "tesseract_pretraite": lambda img: pytesseract.image_to_string(
+        Image.fromarray(pipeline_pretraitement_complet(img)), lang="fra"
+    ),
+    "api_cloud": lambda img: extraire_via_google_vision(img),
+    "llm_multimodal": lambda img: extraire_via_llm_multimodal(img),
+    "hybride_tesseract_llm": lambda img: extraire_texte_hybride(img)["texte"],
+}
+
+resultats_complets = {}
+for nom, fonction in configurations_a_comparer.items():
+    debut = time.perf_counter()
+    cer_total = sum(calculer_cer(fonction(cas["chemin_image"]), cas["texte_reference"])
+                     for cas in jeu_evaluation_ocr)
+    duree_totale = time.perf_counter() - debut
+
+    resultats_complets[nom] = {
+        "cer_moyen": cer_total / len(jeu_evaluation_ocr),
+        "latence_moyenne_s": duree_totale / len(jeu_evaluation_ocr),
+        "cout_estime_par_page": estimer_cout_configuration(nom),
+    }
+</code></pre>
+
+        <div class="ascii">Exemple illustratif de synthèse comparative (données fictives, à
+reproduire sur VOTRE corpus) :
+
+Configuration              CER      Latence/page   Coût/page
+──────────────────────────────────────────────────────────────
+tesseract_seul              4.2%     0.3s            0$
+tesseract_pretraite          1.8%     0.5s            0$
+api_cloud                    1.5%     0.8s            0.0015$
+llm_multimodal                1.1%     3.2s            0.01$
+hybride_tesseract_llm         1.3%     0.6s (moyenne)  0.002$ (moyenne,
+                                                        seuls les cas
+                                                        difficiles utilisent
+                                                        le LLM)
+
+→ L'approche hybride offre souvent le meilleur compromis
+  qualité/coût/latence, rappel du principe établi au module 5,
+  leçon 5.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Choisir une configuration uniquement sur la base du CER le plus bas, sans considérer le coût et la latence à l'échelle réelle du corpus — un gain marginal de précision (1.1% vs 1.3% de CER) ne justifie pas nécessairement un coût par page 5 fois supérieur si le volume de documents est important.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre corpus (volume estimé de pages), calculez le coût total mensuel approximatif de chacune des cinq configurations ci-dessus. Ce calcul confirme-t-il l'approche hybride comme la plus économique, ou votre volume est-il suffisamment faible pour que le LLM multimodal seul reste abordable ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l3" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 8.3</span>Débogage d'un pipeline OCR qui produit un texte dégradé</h2>
+
+        <p>Cette leçon synthétise, sous forme de grille de diagnostic, les causes les plus fréquentes de dégradation rencontrées tout au long de ce cours — un réflexe à avoir avant de chercher une solution.</p>
+
+        <table>
+          <thead>
+            <tr><th>Symptôme observé</th><th>Cause probable</th><th>Module de référence</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Texte complètement vide ou incohérent</td><td>Résolution de scan insuffisante</td><td>Module 1, leçon 3</td></tr>
+            <tr><td>Mots corrompus par des caractères aléatoires</td><td>Contraste faible ou bruit non traité</td><td>Module 3, leçons 2-3</td></tr>
+            <tr><td>Colonnes mélangées dans le texte final</td><td>Mauvais PSM ou absence de détection de mise en page</td><td>Module 2, leçon 2 ; Module 6, leçon 4</td></tr>
+            <tr><td>Accents et caractères spéciaux systématiquement faux</td><td>Mauvaise langue configurée</td><td>Module 2, leçon 3</td></tr>
+            <tr><td>Tableaux illisibles ou valeurs sans en-têtes</td><td>Absence d'extraction structurée dédiée</td><td>Module 6, leçons 1-3</td></tr>
+            <tr><td>Texte plausible mais factuellement incorrect</td><td>Hallucination d'un LLM multimodal</td><td>Module 5, leçon 4</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Méthode de diagnostic étape par étape</h3>
+        <ol>
+          <li><strong>Inspecter l'image source</strong> : la qualité visuelle (résolution, contraste, inclinaison) est-elle suffisante avant même de blâmer le moteur OCR (rappel module 1, leçon 3) ?</li>
+          <li><strong>Isoler chaque étape du pipeline</strong> : comparer le résultat avant/après prétraitement (module 3), avec différents PSM (module 2), pour localiser où la dégradation apparaît.</li>
+          <li><strong>Vérifier les métriques de confiance</strong> (module 7, leçon 2) sur le document précis qui pose problème.</li>
+          <li><strong>Comparer plusieurs moteurs</strong> sur ce document spécifique (module 7, leçon 4) pour déterminer si le problème est spécifique à un moteur ou inhérent à la difficulté du document.</li>
+        </ol>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Changer de moteur OCR (par exemple, passer de Tesseract à une API cloud) dès le premier résultat décevant, sans avoir d'abord vérifié la qualité de l'image source (module 1, leçon 3) ni testé un prétraitement adapté (module 3) — un réflexe de diagnostic à combattre, cohérent avec le principe déjà établi tout au long de cette série : toujours inspecter concrètement la cause avant de changer de composant.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour chacun des 3 symptômes du tableau qui vous semblent les plus probables sur votre projet, notez la première vérification concrète que vous feriez.
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l4" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 8.4</span>Étude de cas et exercice final</h2>
+
+        <p>Cet exercice de synthèse mobilise l'ensemble des concepts de ce cours — prenez le temps de le traiter sérieusement, c'est l'exercice qui ancre le plus durablement l'apprentissage.</p>
+
+        <div class="callout exercise">
+          <strong>Énoncé</strong>
+          Un cabinet comptable veut numériser 15 ans d'archives papier (environ 80 000 pages) pour les rendre interrogeables via un système RAG. Ces archives contiennent : des factures avec des tableaux de lignes de produits, des relevés bancaires scannés au smartphone par les clients (souvent en perspective légère), des notes manuscrites de commentaires d'audit, et des formulaires administratifs standardisés. Le cabinet a un budget modeste et une forte exigence de confidentialité (données financières clients).
+          <br><br>
+          Concevez une stratégie d'OCR complète : quelle approche pour chaque type de document (en citant les modules pertinents), comment gérer la contrainte de confidentialité, et comment organiser le pipeline pour rester dans un budget modeste malgré le volume important.
+        </div>
+
+        <p>Quelques pistes de réflexion pour vous guider (à consulter après avoir tenté l'exercice vous-même) :</p>
+
+        <h3>Piste pour la contrainte de confidentialité</h3>
+        <p>Des données financières clients avec une forte exigence de confidentialité orientent fortement vers Tesseract en local (module 2) plutôt que des API cloud ou LLM multimodaux qui transmettent les données à un tiers (rappel module 4, leçon 5) — sauf pour les cas les plus difficiles où le gain de précision justifierait une exception ponctuelle et documentée.</p>
+
+        <h3>Piste pour les factures avec tableaux</h3>
+        <p>Une détection de mise en page (module 6, leçon 2) et une extraction de tableau structurée (module 6, leçon 1) sont prioritaires ici — le contenu financier précis (montants, quantités) doit impérativement conserver sa structure ligne/colonne pour rester exploitable.</p>
+
+        <h3>Piste pour les relevés photographiés en perspective</h3>
+        <p>La correction de perspective (module 3, leçon 4) est une étape de prétraitement incontournable avant tout OCR sur ces documents, la déformation géométrique dégradant sinon fortement la qualité de reconnaissance.</p>
+
+        <h3>Piste pour les notes manuscrites</h3>
+        <p>Rappel du module 1 (leçon 5) et du module 5 (leçon 3) : l'écriture manuscrite est le point faible de Tesseract. Si la confidentialité stricte exclut les solutions cloud/LLM pour ce contenu, il faut accepter un taux d'erreur plus élevé sur ces notes spécifiques, ou envisager une validation humaine ciblée uniquement sur ce sous-ensemble (probablement un faible volume par rapport aux 80 000 pages totales).</p>
+
+        <h3>Piste pour tenir le budget à ce volume</h3>
+        <p>Une architecture hybride (module 5, leçon 5) où Tesseract avec prétraitement (module 3) traite la majorité des documents standards, avec un routage vers une validation humaine ciblée (plutôt qu'une API cloud coûteuse, compte tenu de la confidentialité) pour les cas de faible confiance (module 7, leçon 2), permettrait de maîtriser le coût tout en respectant la contrainte de confidentialité.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Recommander systématiquement les LLM multimodaux ou les API cloud (module 4-5) pour leur précision supérieure, sans tenir compte de la contrainte de confidentialité stricte énoncée dans le cas — un rappel du principe transversal de toute cette série : la meilleure solution est celle qui respecte les contraintes réelles du projet, pas celle qui maximise un seul critère de qualité isolément.
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l5" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 8.5</span>Ressources pour aller plus loin</h2>
+
+        <p>Pour approfondir au-delà de ce cours, quelques pistes organisées par thème.</p>
+
+        <h3>Documentation officielle des outils</h3>
+        <ul>
+          <li>Documentation Tesseract (dépôt officiel tesseract-ocr) — référence complète pour les paramètres PSM, la gestion des langues et l'entraînement de modèles personnalisés (module 2).</li>
+          <li>Documentation OpenCV — référence pour les techniques de prétraitement d'image approfondies au module 3.</li>
+          <li>Documentation Google Cloud Vision, AWS Textract et Azure Document Intelligence — référence pour les spécificités de chaque API cloud (module 4).</li>
+          <li>Documentation LayoutParser — référence pour la détection de mise en page approfondie au module 6.</li>
+        </ul>
+
+        <h3>Pour la suite logique de cette série de cours</h3>
+        <ul>
+          <li>Le cours "Parsing de Documents Complexes — Tableaux PDF et Mises en Page Multi-Colonnes" (prochain de cette série, Bloc 4) approfondira spécifiquement les défis de mise en page déjà effleurés au module 6 de ce cours, avec une couverture plus large au-delà du seul cas des documents scannés.</li>
+          <li>Le cours "NLP de Base pour la Structuration" abordera la tokenization et la reconnaissance d'entités nommées, des techniques qui s'appliquent directement au texte issu de l'OCR une fois nettoyé.</li>
+        </ul>
+
+        <h3>Pour la pratique</h3>
+        <ul>
+          <li>Reproduire la comparaison empirique de la leçon 8.2 sur un échantillon réel de vos documents scannés — la meilleure façon de transformer ce cours en compétence opérationnelle durable.</li>
+          <li>Construire progressivement le jeu d'évaluation de la leçon 7.4 à partir des cas réels rencontrés, plutôt que de le considérer comme un exercice ponctuel.</li>
+        </ul>
+
+        <p>Ce cours a couvert l'OCR en profondeur — de Tesseract aux API cloud et aux modèles de vision multimodaux, en passant par le prétraitement d'image et l'extraction de structure. Combiné aux cours précédents de la série (chunking, embeddings, nettoyage de texte, enrichissement de métadonnées, bases de données vectorielles), il complète la capacité à ingérer n'importe quel type de document — y compris ceux qui n'existent que sous forme d'image — dans un système RAG robuste.</p>
+
+        <div class="finale">
+          <p>Vous avez terminé les 8 modules du cours sur l'OCR et l'extraction de documents scannés.</p>
+          <a href="#top">← Retour en haut de la formation</a>
+        </div>
+      </section>
+    </div>
+
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+  hljs.highlightAll();
+  const sidebar = document.getElementById('sidebar');
+  document.getElementById('menuToggle').addEventListener('click', () => { sidebar.classList.toggle('open'); });
+  const lessonLinks = document.querySelectorAll('[data-lesson]');
+  const storageKey = 'ocr-extraction-course-progress';
+  const done = JSON.parse(localStorage.getItem(storageKey) || '{}');
+  function updateProgressBar() {
+    const total = 40;
+    const completed = Object.values(done).filter(Boolean).length;
+    document.getElementById('progressFill').style.width = Math.min(100, (completed / total * 100)) + '%';
+  }
+  lessonLinks.forEach(link => {
+    const id = link.dataset.lesson;
+    if (done[id]) link.querySelector('.lesson-check').classList.add('done');
+    link.addEventListener('click', () => {
+      done[id] = true;
+      localStorage.setItem(storageKey, JSON.stringify(done));
+      link.querySelector('.lesson-check').classList.add('done');
+      updateProgressBar();
+      sidebar.classList.remove('open');
+    });
+  });
+  updateProgressBar();
+</script>
+</body>
+</html>

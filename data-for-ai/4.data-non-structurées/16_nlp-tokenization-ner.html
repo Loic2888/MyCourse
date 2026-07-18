@@ -1,0 +1,2226 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NLP de Base pour la Structuration — Tokenization et Named Entity Recognition</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<style>
+  :root {
+    --bg: #f4f6f8; --bg-alt: #e8edf1; --panel: #ffffff; --text: #1f2430; --text-muted: #5b6472;
+    --accent: #0891b2; --accent-dark: #0e7490; --pitfall: #f59e0b; --border: #dbe2e8;
+    --chunk-1: #7c5cff; --chunk-2: #17b8a6; --chunk-3: #ff6b6b; --chunk-4: #ffb020;
+    --font-display: "Space Grotesk", sans-serif; --font-body: "Inter", system-ui, sans-serif; --font-mono: "JetBrains Mono", monospace;
+    --sidebar-width: 300px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font-body); color: var(--text); background: var(--bg); line-height: 1.65; }
+  .layout { display: flex; min-height: 100vh; }
+  .sidebar { width: var(--sidebar-width); flex-shrink: 0; background: var(--panel); border-right: 1px solid var(--border); padding: 1.5rem 1rem 3rem; overflow-y: auto; position: sticky; top: 0; height: 100vh; }
+  .sidebar a.brand { display: block; font-family: var(--font-display); font-weight: 700; font-size: 1rem; margin-bottom: 1.5rem; color: var(--text); text-decoration: none; padding: 0.4rem 0.5rem; }
+  .sidebar a.brand span { color: var(--accent); }
+  .module-group { margin-bottom: 0.35rem; border-radius: 8px; }
+  .module-title { font-family: var(--font-display); font-weight: 600; font-size: 0.88rem; padding: 0.55rem 0.6rem; display: flex; gap: 0.5rem; align-items: baseline; color: var(--text); text-decoration: none; }
+  .module-title .n { font-family: var(--font-mono); font-size: 0.72rem; opacity: 0.7; }
+  .lesson-list { list-style: none; padding-left: 0.6rem; margin-bottom: 0.4rem; }
+  .lesson-list li a { display: flex; align-items: center; gap: 0.5rem; padding: 0.32rem 0.5rem; border-radius: 6px; color: var(--text-muted); text-decoration: none; font-size: 0.83rem; }
+  .lesson-list li a:hover { background: var(--bg-alt); color: var(--text); }
+  .lesson-list li a.active { color: var(--accent-dark); font-weight: 600; background: rgba(8,145,178,0.1); }
+  .lesson-check { width: 12px; height: 12px; flex-shrink: 0; border: 1.5px solid var(--text-muted); border-radius: 3px; }
+  .lesson-check.done { background: var(--chunk-2); border-color: var(--chunk-2); }
+  .progress-bar { height: 4px; background: var(--border); position: sticky; top: 0; z-index: 10; }
+  .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--chunk-1), var(--accent)); width: 0%; transition: width 0.2s ease; }
+  .content { flex: 1; max-width: 760px; margin: 0 auto; padding: 3rem 2rem 6rem; }
+  .module-kicker { font-family: var(--font-mono); font-size: 0.8rem; color: var(--accent-dark); background: rgba(8,145,178,0.08); border: 1px dashed var(--accent); display: inline-block; padding: 0.2rem 0.8rem; border-radius: 999px; margin-bottom: 1rem; }
+  section.lesson { border-top: 2px dashed var(--border); padding-top: 2rem; margin-top: 2rem; position: relative; padding-left: 1.1rem; border-left: 4px solid var(--lesson-color, var(--accent)); }
+  section.lesson h2 { font-family: var(--font-display); font-size: 1.5rem; margin-bottom: 1rem; }
+  section.lesson h2 .tag { font-family: var(--font-mono); font-size: 0.7rem; color: var(--lesson-color, var(--accent)); display: block; margin-bottom: 0.3rem; }
+  section.lesson h3 { font-family: var(--font-display); font-size: 1.1rem; margin: 1.4rem 0 0.6rem; }
+  section.lesson p, section.lesson ul, section.lesson ol { margin-bottom: 1rem; }
+  section.lesson li { margin-left: 1.3rem; margin-bottom: 0.35rem; }
+  pre { border-radius: 8px; padding: 1rem; overflow-x: auto; margin: 1rem 0; font-size: 0.85rem; }
+  code.inline { font-family: var(--font-mono); background: var(--bg-alt); padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.85em; }
+  .ascii { font-family: var(--font-mono); font-size: 0.78rem; background: #1e222b; color: #d7dce2; padding: 1rem 1.2rem; border-radius: 8px; overflow-x: auto; margin: 1rem 0; line-height: 1.5; white-space: pre; }
+  .callout { border-left: 4px solid var(--accent); background: var(--bg-alt); padding: 1rem 1.2rem; border-radius: 0 8px 8px 0; margin: 1.2rem 0; }
+  .callout strong { font-family: var(--font-display); display: block; margin-bottom: 0.3rem; font-size: 0.92rem; }
+  .callout.pitfall { border-left-color: var(--pitfall); }
+  .callout.exercise { border-left-color: var(--chunk-2); }
+  .menu-toggle { display: none; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.88rem; }
+  thead tr { text-align: left; border-bottom: 2px solid var(--border); }
+  th, td { padding: 0.5rem 0.6rem; }
+  tbody tr { border-bottom: 1px solid var(--border); }
+
+  .hero {
+    border-bottom: 2px dashed var(--border);
+    padding: 3rem 0 2.5rem;
+    text-align: center;
+    margin-bottom: 1rem;
+  }
+  .hero .tag {
+    display: inline-block; font-family: var(--font-mono); font-size: 0.8rem;
+    color: var(--accent-dark); background: rgba(8,145,178,0.1);
+    border: 1px dashed var(--accent); border-radius: 999px;
+    padding: 0.25rem 0.9rem; margin-bottom: 1.25rem;
+  }
+  .hero-title {
+    font-family: var(--font-display); font-size: clamp(1.8rem, 5vw, 2.6rem);
+    font-weight: 700; margin: 0 auto 1rem; letter-spacing: -0.01em;
+  }
+  .hero-title span {
+    background: linear-gradient(90deg, var(--chunk-1), var(--accent), var(--chunk-2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .hero-lead { max-width: 620px; margin: 0 auto; color: var(--text-muted); font-size: 1.02rem; }
+  .strip { display: flex; justify-content: center; gap: 0.4rem; margin: 2rem auto 0; max-width: 520px; }
+  .strip .seg { height: 8px; flex: 1; border-radius: 3px; }
+  .strip .seg:nth-child(1) { background: var(--chunk-1); }
+  .strip .seg:nth-child(2) { background: var(--chunk-2); }
+  .strip .seg:nth-child(3) { background: var(--chunk-3); }
+  .strip .seg:nth-child(4) { background: var(--chunk-4); }
+  .strip .seg:nth-child(5) { background: var(--chunk-1); }
+  .strip .seg:nth-child(6) { background: var(--chunk-2); }
+
+  .module-block { border-top: 3px solid var(--border); padding-top: 2.5rem; margin-top: 3rem; }
+  .module-block:first-of-type { border-top: none; margin-top: 0; }
+  .module-block > h1 { font-family: var(--font-display); font-size: 2rem; margin-bottom: 0.5rem; }
+  .module-block > p.intro { color: var(--text-muted); margin-bottom: 2rem; font-size: 1.02rem; }
+
+  .finale {
+    margin-top: 3rem; padding: 1.5rem; border-radius: 10px;
+    background: linear-gradient(135deg, rgba(124,92,255,0.08), rgba(23,184,166,0.08));
+    border: 1px dashed var(--accent);
+    text-align: center;
+  }
+  .finale p { color: var(--text-muted); margin-bottom: 0.8rem; }
+  .finale a {
+    display: inline-block; background: var(--accent); color: white;
+    text-decoration: none; padding: 0.6rem 1.4rem; border-radius: 6px;
+    font-family: var(--font-display); font-weight: 600; font-size: 0.9rem;
+  }
+
+  @media (max-width: 860px) {
+    .sidebar { position: fixed; left: -100%; z-index: 20; transition: left 0.2s ease; box-shadow: 4px 0 12px rgba(0,0,0,0.15); background: var(--panel); }
+    .sidebar.open { left: 0; }
+    .menu-toggle { display: block; position: fixed; top: 1rem; left: 1rem; z-index: 30; background: var(--accent); color: white; border: none; border-radius: 6px; padding: 0.5rem 0.75rem; cursor: pointer; font-size: 1rem; }
+    .content { padding: 4.5rem 1.25rem 3rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-bar-fill" id="progressFill"></div></div>
+<button class="menu-toggle" id="menuToggle">☰</button>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar">
+    <a class="brand" href="#top">NLP<span>Structuration</span></a>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-1"><span class="n">01</span> Fondamentaux du NLP</a>
+      <ul class="lesson-list">
+        <li><a href="#m1-l1" data-lesson="m1-l1"><span class="lesson-check"></span>Pourquoi le NLP de base reste essentiel</a></li>
+        <li><a href="#m1-l2" data-lesson="m1-l2"><span class="lesson-check"></span>Du texte brut aux unités linguistiques</a></li>
+        <li><a href="#m1-l3" data-lesson="m1-l3"><span class="lesson-check"></span>Panorama des tâches de structuration</a></li>
+        <li><a href="#m1-l4" data-lesson="m1-l4"><span class="lesson-check"></span>Où ça s'insère dans le pipeline</a></li>
+        <li><a href="#m1-l5" data-lesson="m1-l5"><span class="lesson-check"></span>Erreurs et fausses évidences</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-2"><span class="n">02</span> Tokenization en profondeur</a>
+      <ul class="lesson-list">
+        <li><a href="#m2-l1" data-lesson="m2-l1"><span class="lesson-check"></span>Qu'est-ce qu'un token</a></li>
+        <li><a href="#m2-l2" data-lesson="m2-l2"><span class="lesson-check"></span>Mots vs sous-mots</a></li>
+        <li><a href="#m2-l3" data-lesson="m2-l3"><span class="lesson-check"></span>Algorithmes : BPE, WordPiece, SentencePiece</a></li>
+        <li><a href="#m2-l4" data-lesson="m2-l4"><span class="lesson-check"></span>Tokenization multilingue et cas particuliers</a></li>
+        <li><a href="#m2-l5" data-lesson="m2-l5"><span class="lesson-check"></span>Choisir et configurer un tokenizer</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-3"><span class="n">03</span> NER : fondamentaux</a>
+      <ul class="lesson-list">
+        <li><a href="#m3-l1" data-lesson="m3-l1"><span class="lesson-check"></span>Qu'est-ce qu'une entité nommée</a></li>
+        <li><a href="#m3-l2" data-lesson="m3-l2"><span class="lesson-check"></span>Catégories d'entités standard</a></li>
+        <li><a href="#m3-l3" data-lesson="m3-l3"><span class="lesson-check"></span>Approches historiques (règles, gazetteers)</a></li>
+        <li><a href="#m3-l4" data-lesson="m3-l4"><span class="lesson-check"></span>Approches statistiques (CRF)</a></li>
+        <li><a href="#m3-l5" data-lesson="m3-l5"><span class="lesson-check"></span>Approches neuronales modernes</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-4"><span class="n">04</span> Mettre en œuvre la NER</a>
+      <ul class="lesson-list">
+        <li><a href="#m4-l1" data-lesson="m4-l1"><span class="lesson-check"></span>spaCy prêt à l'emploi</a></li>
+        <li><a href="#m4-l2" data-lesson="m4-l2"><span class="lesson-check"></span>Modèles Hugging Face</a></li>
+        <li><a href="#m4-l3" data-lesson="m4-l3"><span class="lesson-check"></span>NER via LLM (prompt engineering)</a></li>
+        <li><a href="#m4-l4" data-lesson="m4-l4"><span class="lesson-check"></span>Comparer précision, rappel, coût, latence</a></li>
+        <li><a href="#m4-l5" data-lesson="m4-l5"><span class="lesson-check"></span>Post-traitement des entités</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-5"><span class="n">05</span> Entités personnalisées et NER de domaine</a>
+      <ul class="lesson-list">
+        <li><a href="#m5-l1" data-lesson="m5-l1"><span class="lesson-check"></span>Quand le standard ne suffit pas</a></li>
+        <li><a href="#m5-l2" data-lesson="m5-l2"><span class="lesson-check"></span>Annoter un jeu de données</a></li>
+        <li><a href="#m5-l3" data-lesson="m5-l3"><span class="lesson-check"></span>Fine-tuner un modèle de NER</a></li>
+        <li><a href="#m5-l4" data-lesson="m5-l4"><span class="lesson-check"></span>NER par LLM en few-shot</a></li>
+        <li><a href="#m5-l5" data-lesson="m5-l5"><span class="lesson-check"></span>Évaluer un modèle personnalisé</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-6"><span class="n">06</span> Au-delà de la NER</a>
+      <ul class="lesson-list">
+        <li><a href="#m6-l1" data-lesson="m6-l1"><span class="lesson-check"></span>Part-of-Speech tagging</a></li>
+        <li><a href="#m6-l2" data-lesson="m6-l2"><span class="lesson-check"></span>Analyse de dépendances syntaxiques</a></li>
+        <li><a href="#m6-l3" data-lesson="m6-l3"><span class="lesson-check"></span>Résolution de coréférences</a></li>
+        <li><a href="#m6-l4" data-lesson="m6-l4"><span class="lesson-check"></span>Extraction de relations entre entités</a></li>
+        <li><a href="#m6-l5" data-lesson="m6-l5"><span class="lesson-check"></span>Détection de langue et segmentation</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-7"><span class="n">07</span> Intégrer le NLP dans le pipeline RAG</a>
+      <ul class="lesson-list">
+        <li><a href="#m7-l1" data-lesson="m7-l1"><span class="lesson-check"></span>Entités comme métadonnées</a></li>
+        <li><a href="#m7-l2" data-lesson="m7-l2"><span class="lesson-check"></span>Tokenization et chunking : aligner les unités</a></li>
+        <li><a href="#m7-l3" data-lesson="m7-l3"><span class="lesson-check"></span>Enrichir la recherche avec des entités</a></li>
+        <li><a href="#m7-l4" data-lesson="m7-l4"><span class="lesson-check"></span>Pipeline NLP scalable</a></li>
+        <li><a href="#m7-l5" data-lesson="m7-l5"><span class="lesson-check"></span>Pièges d'intégration</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-8"><span class="n">08</span> Implémentation complète</a>
+      <ul class="lesson-list">
+        <li><a href="#m8-l1" data-lesson="m8-l1"><span class="lesson-check"></span>Pipeline complet tokenization + NER</a></li>
+        <li><a href="#m8-l2" data-lesson="m8-l2"><span class="lesson-check"></span>Comparaison empirique des approches</a></li>
+        <li><a href="#m8-l3" data-lesson="m8-l3"><span class="lesson-check"></span>Débogage d'une extraction dégradée</a></li>
+        <li><a href="#m8-l4" data-lesson="m8-l4"><span class="lesson-check"></span>Étude de cas et exercice final</a></li>
+        <li><a href="#m8-l5" data-lesson="m8-l5"><span class="lesson-check"></span>Ressources pour aller plus loin</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main class="content">
+    <header class="hero" id="top">
+      <span class="tag">// data-for-ai · 4.data-non-structurées · Formation 16</span>
+      <h1 class="hero-title">NLP de Base pour la <span>Structuration</span></h1>
+      <p class="hero-lead">Tokenization et Named Entity Recognition — les fondations du traitement du langage qui transforment un texte propre en unités linguistiques exploitables et en entités structurées. 8 modules, 40 leçons.</p>
+      <div class="strip" aria-hidden="true">
+        <div class="seg"></div><div class="seg"></div><div class="seg"></div>
+        <div class="seg"></div><div class="seg"></div><div class="seg"></div>
+      </div>
+    </header>
+
+    <div class="module-block" id="module-1">
+      <span class="module-kicker">MODULE 01 / 08</span>
+      <h1>Fondamentaux du NLP pour la structuration de données</h1>
+      <p class="intro">Après cinq cours consacrés à extraire, nettoyer et parser des documents (nettoyage, OCR, parsing), et quatre autres consacrés au pipeline RAG lui-même (chunking, embeddings, métadonnées, bases vectorielles), ce dernier cours du Bloc 4 revient aux fondations du traitement automatique du langage — des briques déjà mobilisées implicitement, mais jamais expliquées en profondeur.</p>
+
+      <section class="lesson" id="m1-l1" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 1.1</span>Pourquoi le NLP de base reste essentiel dans un pipeline RAG déjà avancé</h2>
+
+        <p>Un lecteur attentif de cette série de cours aura remarqué que deux notions reviennent constamment sans jamais avoir été expliquées en détail : le <strong>token</strong> (mentionné dès le cours chunking, module 1, leçon 4, pour mesurer la taille d'un chunk) et l'<strong>entité nommée</strong> (mentionnée dans le cours métadonnées, module 4, leçon 2, pour l'enrichissement sémantique). Ce cours comble ce manque en traitant ces deux notions — et les tâches de NLP qui les entourent — comme un sujet à part entière.</p>
+
+        <p>Pourquoi ce report jusqu'à maintenant ? Parce que ces briques de NLP, bien que fondamentales, sont souvent utilisées comme des "boîtes noires" fonctionnelles dans un pipeline RAG (on appelle <code class="inline">tiktoken.encode()</code> ou <code class="inline">spacy.load()</code> sans se demander ce qui se passe à l'intérieur). Ce cours ouvre ces boîtes noires — un investissement qui paie quand un comportement inattendu survient (un tokenizer qui découpe étrangement un mot, un modèle NER qui rate systématiquement un type d'entité) et qu'il faut comprendre <em>pourquoi</em> plutôt que de simplement changer d'outil au hasard.</p>
+
+        <div class="ascii">Cours précédents de cette série             Ce cours (fondations NLP)
+────────────────────────────────           ──────────────────────────
+"Compter les tokens avec tiktoken"          Comment un tokenizer découpe
+(cours chunking, module 1, leçon 4)         réellement le texte, et pourquoi
+                                            (module 2)
+
+"Extraire des entités avec spaCy"           Comment la NER fonctionne,
+(cours métadonnées, module 4, leçon 2)      quelles approches existent,
+                                            leurs forces et limites
+                                            (modules 3-5)
+
+→ Ce cours n'introduit pas de nouvelles étapes du pipeline RAG —
+  il explique EN PROFONDEUR des briques déjà utilisées ailleurs
+  dans la série, souvent superficiellement.</div>
+
+        <p>Cette compréhension approfondie a un impact concret : elle permet de diagnostiquer des comportements inattendus (pourquoi ce tokenizer coupe-t-il "anticonstitutionnellement" en 7 morceaux ?), de choisir intelligemment entre plusieurs outils disponibles (spaCy vs Hugging Face vs LLM pour la NER, module 4), et d'aller au-delà des cas déjà couverts en configurant ou personnalisant ces outils pour des besoins spécifiques (module 5).</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer la tokenization et la NER comme des détails d'implémentation déjà résolus par les librairies utilisées, sans jamais chercher à comprendre leur fonctionnement interne — jusqu'au jour où un comportement inattendu (mauvais découpage, entité ratée) bloque un débogage faute de comprendre ce qui se passe réellement sous le capot.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Repensez à un moment, dans les cours précédents de cette série, où vous avez utilisé <code class="inline">tiktoken</code>, <code class="inline">spaCy</code> ou un équivalent sans vous interroger sur son fonctionnement interne. Qu'est-ce que ce cours pourrait vous apporter pour mieux comprendre ou déboguer cet usage ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l2" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 1.2</span>Du texte brut aux unités linguistiques : le rôle de la structuration</h2>
+
+        <p>Rappel du cours nettoyage (module 1, leçon 3) : un texte peut être structuré, semi-structuré ou non structuré selon la présence d'un schéma explicite. Cette leçon introduit une distinction complémentaire, propre au NLP : même un texte parfaitement "propre" (nettoyé, bien encodé) reste, pour un ordinateur, une simple séquence de caractères — sans découpage en mots, sans reconnaissance des entités qu'il mentionne, sans structure grammaticale explicite.</p>
+
+        <p>La <strong>structuration linguistique</strong> est le processus qui transforme cette séquence brute de caractères en unités porteuses de sens exploitables : des tokens (module 2), des entités (modules 3-5), des relations grammaticales (module 6). C'est une couche de traitement distincte du nettoyage (qui corrige des artefacts d'extraction) et du chunking (qui découpe en fragments de taille gérable) — elle s'intéresse à la nature linguistique du contenu, pas à sa forme ou son volume.</p>
+
+        <div class="ascii">Texte brut (après nettoyage, cours nettoyage) :
+
+"Jean Dupont a signé le contrat avec Acme Corp le 14 mars 2025."
+
+                    │
+                    ▼ Structuration linguistique (CE COURS)
+                    │
+Tokens  : ["Jean", "Dupont", "a", "signé", "le", "contrat", ...]
+                    (module 2)
+
+Entités : [PERSONNE: "Jean Dupont"], [ORGANISATION: "Acme Corp"],
+          [DATE: "14 mars 2025"]
+                    (modules 3-5)
+
+Relations : (Jean Dupont, a_signé, contrat), (contrat, avec, Acme Corp)
+                    (module 6, leçon 4)</div>
+
+        <p>Cette structuration ne remplace aucune étape déjà vue dans la série — elle s'insère précisément entre le nettoyage/chunking et l'enrichissement de métadonnées, fournissant les briques de base (tokens comptés, entités détectées) que le cours métadonnées utilisait déjà, mais sans jamais expliquer comment elles étaient produites.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Confondre structuration linguistique et structuration documentaire (déjà vue dans le cours chunking, module 5, pour les breadcrumbs et hiérarchies de titres). La première s'intéresse à la nature du <em>langage</em> contenu dans le texte (mots, entités, grammaire) ; la seconde à l'organisation du <em>document</em> lui-même (sections, titres). Les deux sont complémentaires mais distinctes.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour la phrase d'exemple ci-dessus, essayez d'identifier mentalement ses tokens (unités de mots) avant de lire le module 2 — combien en comptez-vous, et où placeriez-vous les limites entre eux ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l3" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 1.3</span>Panorama des tâches de NLP de structuration</h2>
+
+        <p>Le NLP couvre un très large éventail de tâches — ce cours se concentre délibérément sur celles qui ont une utilité directe et immédiate pour un pipeline RAG, laissant de côté des sujets plus vastes (traduction automatique, génération de texte, analyse de sentiment) qui débordent du périmètre de cette série de cours sur la préparation de données.</p>
+
+        <table>
+          <thead>
+            <tr><th>Tâche</th><th>Ce qu'elle produit</th><th>Module de ce cours</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Tokenization</td><td>Découpage du texte en unités (mots, sous-mots)</td><td>Module 2</td></tr>
+            <tr><td>Named Entity Recognition (NER)</td><td>Identification et catégorisation d'entités (personnes, lieux...)</td><td>Modules 3-5</td></tr>
+            <tr><td>Part-of-Speech tagging (POS)</td><td>Étiquetage grammatical de chaque mot (nom, verbe, adjectif...)</td><td>Module 6</td></tr>
+            <tr><td>Analyse de dépendances</td><td>Relations grammaticales entre les mots d'une phrase</td><td>Module 6</td></tr>
+            <tr><td>Résolution de coréférences</td><td>Identification des mentions qui désignent la même entité</td><td>Module 6</td></tr>
+            <tr><td>Extraction de relations</td><td>Relations sémantiques entre entités détectées</td><td>Module 6</td></tr>
+          </tbody>
+        </table>
+
+        <p>Ces tâches ne sont pas indépendantes — elles s'enchaînent souvent logiquement : la tokenization (module 2) est un prérequis technique pour presque toutes les autres tâches, tandis que la NER (modules 3-5) alimente directement la résolution de coréférences et l'extraction de relations (module 6) en fournissant les entités sur lesquelles ces tâches raisonnent.</p>
+
+        <div class="ascii">Dépendances entre les tâches de ce cours :
+
+Tokenization (module 2)
+     │
+     ├──► NER (modules 3-5) ──┬──► Résolution de coréférences (module 6.3)
+     │                         └──► Extraction de relations (module 6.4)
+     │
+     └──► POS tagging (module 6.1) ──► Analyse de dépendances (module 6.2)</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Vouloir appliquer systématiquement l'intégralité de ce panorama de tâches à un corpus, alors que seule une partie (souvent tokenization + NER) répond à un besoin réel identifié dans le pipeline RAG. Rappel du principe déjà établi à de nombreuses reprises dans cette série : ajouter de la sophistication progressivement, en fonction de besoins mesurés (approfondi au module 7).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Parmi les six tâches du tableau ci-dessus, lesquelles avez-vous déjà mobilisées, même implicitement, dans les cours précédents de cette série (chunking, métadonnées) ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l4" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 1.4</span>Où ce cours s'insère dans le pipeline RAG</h2>
+
+        <p>Contrairement aux cours précédents qui ajoutaient une étape nouvelle et bien délimitée au pipeline (l'OCR avant l'extraction, le parsing pour les documents complexes), ce cours explique des briques qui interviennent à <strong>plusieurs points</strong> du pipeline déjà construit — un rôle transversal plutôt qu'une étape unique et localisée.</p>
+
+        <div class="ascii">Extraction/nettoyage    Chunking          Enrichissement       Recherche
+(cours nettoyage,        (cours chunking)   de métadonnées        (cours embeddings,
+ cours OCR, parsing)                        (cours métadonnées)    module 7)
+        │                    │                    │                    │
+        │                    ▼                    │                    │
+        │            Tokenization              ◄──┘                    │
+        │            (module 2, utilisée                                │
+        │             pour mesurer la taille                              │
+        │             des chunks)                                        │
+        │                                          │                    │
+        │                                          ▼                    │
+        │                                    NER (modules 3-5,          │
+        │                                    utilisée pour               │
+        │                                    enrichir les                │
+        │                                    métadonnées)                │
+        │                                          │                    ▼
+        └──────────────────────────────────────────┴──► Filtrage et enrichissement
+                                                           de la recherche par
+                                                           entités (module 7)</div>
+
+        <p>Ce positionnement transversal explique pourquoi ce cours vient en dernier dans le Bloc 4 — il consolide et explique des briques déjà utilisées dans les cours précédents, plutôt que d'introduire une étape nouvelle et isolée. Le module 7 de ce cours revient explicitement sur ces points d'intégration pour boucler la boucle avec l'ensemble de la série.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Traiter ce cours comme une étape supplémentaire à ajouter séquentiellement après tous les autres, alors que ses techniques (tokenization, NER) sont déjà utilisées en pratique dès les premiers cours de la série — ce cours explique et approfondit, il n'ajoute pas une nouvelle étape isolée dans le pipeline.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          En reprenant le schéma ci-dessus, identifiez à quel moment précis de votre propre pipeline RAG (réel ou imaginé) la tokenization intervient, et à quel autre moment la NER intervient.
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l5" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 1.5</span>Erreurs courantes et fausses évidences</h2>
+
+        <p>Cette dernière leçon du module fondateur rassemble des malentendus fréquents sur la tokenization et la NER — des notions qui semblent simples en apparence mais recèlent des subtilités qui seront développées dans les modules suivants.</p>
+
+        <h3>1. "Un token, c'est un mot"</h3>
+        <p>Rappel implicite du cours embeddings (module 1, leçon 4) : un token ne correspond pas toujours à un mot entier. Un tokenizer moderne peut découper un mot rare en plusieurs sous-parties, ou au contraire fusionner un mot très court avec son voisin — une nuance approfondie au module 2.</p>
+
+        <h3>2. "La NER reconnaît toutes les entités importantes automatiquement"</h3>
+        <p>Un modèle de NER standard (module 3) reconnaît les catégories sur lesquelles il a été entraîné (personnes, organisations, lieux, dates) — des entités spécifiques à un domaine (références de contrat, codes produits) échappent à ces catégories standard, un cas traité au module 5.</p>
+
+        <h3>3. "Plus le modèle est sophistiqué, plus les résultats sont fiables"</h3>
+        <p>Rappel d'un principe déjà établi à plusieurs reprises dans cette série (cours embeddings, module 4 ; cours chunking, module 4) : un modèle plus sophistiqué (LLM, module 4, leçon 3) n'est pas automatiquement supérieur à un modèle plus simple et spécialisé (spaCy, module 4, leçon 1) pour toutes les tâches et tous les budgets — un arbitrage détaillé au module 4, leçon 4.</p>
+
+        <h3>4. "La tokenization et la NER sont des tâches indépendantes du reste du pipeline"</h3>
+        <p>Rappel de la leçon 1.4 : ces tâches sont profondément intégrées au pipeline RAG déjà construit — un mauvais choix de tokenizer peut affecter la mesure de taille des chunks (cours chunking), une NER incohérente peut fausser le filtrage par métadonnées (cours métadonnées, module 3).</p>
+
+        <div class="ascii">Fausse évidence                          Réalité plus nuancée
+──────────────────────────────────────────────────────────────────────
+Token = mot                               Token = unité de découpage,
+                                          parfois plus fine qu'un mot
+                                          entier (module 2)
+
+NER = détection automatique de            NER = détection des catégories
+"toutes les entités importantes"          ENTRAÎNÉES uniquement (module 3),
+                                          personnalisation nécessaire
+                                          pour le reste (module 5)
+
+Modèle sophistiqué = toujours             Dépend du compromis coût/
+meilleur                                  précision/latence pour la
+                                          tâche précise (module 4)
+
+Tâches NLP indépendantes du               Profondément intégrées au
+reste du pipeline                         pipeline RAG (module 7)</div>
+
+        <p>Ces quatre points reviendront sous des formes concrètes tout au long des modules suivants — les garder à l'esprit permet d'aborder chaque technique avec un regard critique plutôt qu'une confiance excessive dans sa sophistication apparente.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Choisir un outil de NLP (tokenizer, modèle de NER) uniquement sur sa réputation générale ou sa date de sortie récente, sans vérifier s'il correspond réellement aux besoins spécifiques de son propre corpus et de son propre budget — un piège déjà identifié à de multiples reprises dans cette série de cours.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : parmi les quatre fausses évidences listées, laquelle vous semblait la plus intuitive avant cette leçon ? Qu'est-ce qui change dans votre approche maintenant que cette nuance est explicite ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-2">
+      <span class="module-kicker">MODULE 02 / 08</span>
+      <h1>Tokenization en profondeur</h1>
+      <p class="intro">Rappel du cours chunking (module 1, leçon 4) et du cours embeddings (module 1, leçon 4) : la tokenization a déjà été utilisée pour mesurer la taille des chunks et comprendre les limites des modèles. Ce module explique enfin comment elle fonctionne réellement.</p>
+
+      <section class="lesson" id="m2-l1" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 2.1</span>Qu'est-ce qu'un token et pourquoi la tokenization n'est jamais triviale</h2>
+
+        <p>Un <strong>token</strong> est l'unité atomique qu'un modèle de langage ou de traitement du texte manipule réellement — pas nécessairement un mot, mais l'unité résultant du découpage effectué par un algorithme de <strong>tokenization</strong>. Cette leçon explique pourquoi ce découpage, qui semble intuitif à première vue (couper aux espaces, non ?), est en réalité une décision de conception aux implications profondes.</p>
+
+        <h3>Le problème du découpage naïf par espaces</h3>
+        <pre><code class="language-python">texte = "Le chunking, c'est essentiel — n'est-ce pas ?"
+
+# Découpage naïf par espaces
+tokens_naifs = texte.split()
+print(tokens_naifs)
+# ["Le", "chunking,", "c'est", "essentiel", "—", "n'est-ce", "pas", "?"]
+# Problèmes : la virgule reste collée à "chunking", l'apostrophe
+# fusionne deux mots dans "c'est" et "n'est-ce", le point d'interrogation
+# est un token à part entière séparé par un espace avant lui (typographie
+# française) mais pas en anglais
+</code></pre>
+
+        <p>Ce découpage naïf pose de nombreux problèmes : la ponctuation reste parfois collée aux mots (rendant "chunking," différent de "chunking" pour un système qui compare des chaînes exactes), les contractions ("c'est", "n'est-ce") mélangent plusieurs unités de sens en un seul token, et les conventions typographiques varient selon la langue (rappel du cours nettoyage, module 5, leçon 5, sur les espaces insécables français).</p>
+
+        <h3>Ce qu'un "bon" tokenizer doit résoudre</h3>
+        <ul>
+          <li><strong>Séparer la ponctuation</strong> des mots qu'elle accompagne, sans perdre l'information de ponctuation elle-même.</li>
+          <li><strong>Gérer les contractions et mots composés</strong> de façon cohérente avec la langue traitée.</li>
+          <li><strong>Traiter les mots inconnus</strong> (jamais rencontrés à l'entraînement) sans échouer — un défi majeur qui a motivé le développement de la tokenization par sous-mots (leçon 2.2).</li>
+          <li><strong>Rester réversible</strong> : pouvoir reconstituer le texte original à partir des tokens, une propriété nécessaire pour un LLM qui doit générer du texte cohérent en sortie.</li>
+        </ul>
+
+        <div class="ascii">Découpage naïf (espaces)              Tokenizer moderne (ex: GPT, module 2.3)
+
+"chunking,"  → 1 token collé            "chunking" + ","  → 2 tokens séparés
+"c'est"      → 1 token fusionné          "c" + "'" + "est" → sous-tokens qui
+                                          préservent la structure
+"anticonstitutionnellement"             "anti" + "constitution" + "nellement"
+→ 1 token énorme, rare, mal              → décomposé en morceaux plus
+  représenté dans le vocabulaire           fréquents et mieux appris</div>
+
+        <p>Cette dernière ligne de l'exemple illustre le problème central que résout la tokenization par sous-mots (approfondie en leçon 2.2) : un mot rare traité comme une seule unité serait mal représenté dans un modèle entraîné sur des fréquences de mots, alors que ses morceaux constitutifs (des préfixes, racines, suffixes courants) sont, eux, bien représentés.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Implémenter son propre découpage naïf par espaces et ponctuation pour un besoin qui interagit avec un modèle de langage (embedding, LLM), sans utiliser le tokenizer réel de ce modèle. Rappel du cours embeddings (module 1, leçon 4) : le nombre de tokens compté par une méthode naïve peut diverger significativement du nombre réel de tokens vu par le modèle, faussant tout calcul de coût ou de limite de contexte.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Reprenez la phrase d'exemple de ce module. Pour chaque problème identifié (ponctuation collée, contraction, typographie), proposez comment un tokenizer bien conçu devrait le traiter.
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l2" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 2.2</span>Tokenization par mots vs par sous-mots</h2>
+
+        <p>Cette leçon détaille l'évolution historique qui a mené des tokenizers par mots entiers (limités) vers les tokenizers par sous-mots (dominants aujourd'hui) — un parallèle direct avec l'évolution des word embeddings vers les embeddings contextuels déjà présentée dans le cours embeddings (module 2, leçon 1).</p>
+
+        <h3>Tokenization par mots entiers : la limite du vocabulaire fixe</h3>
+        <p>L'approche la plus simple : chaque mot distinct du corpus d'entraînement reçoit un identifiant unique dans un vocabulaire fixe. Le problème majeur : tout mot rencontré après l'entraînement mais absent du vocabulaire (un nom propre, un néologisme, une faute de frappe) devient un "mot inconnu" (souvent représenté par un token spécial <code class="inline">[UNK]</code>), perdant toute information sur sa forme réelle.</p>
+
+        <pre><code class="language-python"># Illustration du problème du vocabulaire fixe
+vocabulaire = {"le": 0, "chat": 1, "dort": 2, "chien": 3}   # vocabulaire limité
+
+def tokeniser_par_mot_avec_vocabulaire_fixe(texte: str) -> list[int]:
+    return [vocabulaire.get(mot, -1) for mot in texte.lower().split()]   # -1 = [UNK]
+
+print(tokeniser_par_mot_avec_vocabulaire_fixe("Le chat ronronne"))
+# [0, 1, -1] → "ronronne" est totalement PERDU, remplacé par un token
+# générique qui ne porte plus aucune information sur ce mot spécifique
+</code></pre>
+
+        <h3>Tokenization par sous-mots : la solution moderne</h3>
+        <p>Plutôt qu'un vocabulaire de mots entiers, un tokenizer par sous-mots (BPE, WordPiece, SentencePiece — détaillés en leçon 2.3) construit un vocabulaire de fragments de mots (préfixes, racines, suffixes, voire caractères isolés en dernier recours) suffisamment riche pour reconstituer <em>n'importe quel</em> mot, même jamais rencontré à l'entraînement, en le décomposant en morceaux connus.</p>
+
+        <pre><code class="language-python">import tiktoken
+
+encodeur = tiktoken.encoding_for_model("gpt-4o")
+
+# Même un mot rare ou inventé peut être tokenisé sans perte d'information
+tokens = encodeur.encode("ronronnexplique")   # mot inventé, jamais vu à l'entraînement
+print(tokens)                                   # une liste de plusieurs IDs
+print(encodeur.decode(tokens))                  # "ronronnexplique" — reconstitué EXACTEMENT
+</code></pre>
+
+        <div class="ascii">Vocabulaire fixe (mots entiers)          Sous-mots (BPE, WordPiece...)
+──────────────────────────────          ─────────────────────────────
+Mot connu     → 1 token précis            Mot connu     → souvent 1 token
+Mot inconnu   → [UNK], information         Mot inconnu   → décomposé en
+                PERDUE                                     morceaux connus,
+                                                            AUCUNE perte
+
+Vocabulaire limité (ex: 50 000            Vocabulaire similaire en taille,
+mots) → ne couvre jamais tous les          mais COMBINABLE pour couvrir
+mots possibles d'une langue                un nombre infini de mots</div>
+
+        <p>Cette capacité à toujours reconstituer le texte original, sans jamais perdre d'information même sur des mots inconnus, explique pourquoi la tokenization par sous-mots est devenue le standard universel des modèles de langage modernes — un principe déjà exploité implicitement dans le cours embeddings (module 1, leçon 4) sans jamais être expliqué en détail jusqu'ici.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Penser qu'un token correspond toujours à un mot complet même avec un tokenizer par sous-mots moderne — un mot courant peut effectivement rester un seul token, mais un mot rare, un nom propre non standard, ou un terme technique spécifique peut être décomposé en plusieurs tokens, ce qui affecte directement le comptage de tokens (rappel cours chunking, module 1, leçon 4).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Avec le code ci-dessus (ou mentalement), estimez si un nom de famille rare de votre connaissance serait probablement tokenisé en un seul token ou décomposé en plusieurs sous-parties par un tokenizer BPE standard.
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l3" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 2.3</span>Algorithmes de tokenization : BPE, WordPiece, SentencePiece</h2>
+
+        <p>Cette leçon détaille les trois algorithmes de tokenization par sous-mots les plus utilisés, chacun avec une méthode légèrement différente pour construire son vocabulaire de fragments.</p>
+
+        <h3>BPE (Byte Pair Encoding)</h3>
+        <p>Rappel implicite du cours embeddings (module 1, leçon 4) où <code class="inline">tiktoken</code> a été utilisé sans expliquer son fonctionnement : BPE construit son vocabulaire en fusionnant itérativement les paires de caractères (ou de tokens) les plus fréquentes du corpus d'entraînement, en commençant caractère par caractère et en construisant progressivement des unités plus longues.</p>
+
+        <pre><code class="language-python"># Illustration simplifiée du principe d'apprentissage de BPE
+from collections import Counter
+
+def apprendre_fusions_bpe(corpus: list[str], nb_fusions: int) -> list[tuple]:
+    mots = [list(mot) + ["&lt;/w&gt;"] for mot in corpus]   # commence caractère par caractère
+    fusions = []
+
+    for _ in range(nb_fusions):
+        paires = Counter()
+        for mot in mots:
+            for i in range(len(mot) - 1):
+                paires[(mot[i], mot[i + 1])] += 1
+
+        if not paires:
+            break
+        meilleure_paire = paires.most_common(1)[0][0]
+        fusions.append(meilleure_paire)
+
+        # Fusionner cette paire partout où elle apparaît
+        mots = [fusionner_paire(mot, meilleure_paire) for mot in mots]
+
+    return fusions
+</code></pre>
+
+        <p>C'est cet algorithme (ou une variante) qui est utilisé par <code class="inline">tiktoken</code> pour les modèles OpenAI, déjà rencontré dans le cours embeddings (module 1, leçon 4) et le cours chunking (module 1, leçon 4) sans explication de son mécanisme interne jusqu'à cette leçon.</p>
+
+        <h3>WordPiece</h3>
+        <p>Utilisé notamment par BERT, WordPiece suit un principe similaire à BPE (fusion itérative) mais choisit la paire à fusionner selon un critère différent : celle qui maximise la vraisemblance du corpus d'entraînement selon un modèle de langage, plutôt que la simple fréquence brute — une différence subtile mais qui peut produire des vocabulaires légèrement différents.</p>
+
+        <h3>SentencePiece</h3>
+        <p>Une différence plus notable : SentencePiece traite le texte comme une séquence brute d'unicode, <strong>sans présupposer que les espaces séparent les mots</strong> — un choix de conception qui le rend particulièrement adapté aux langues qui n'utilisent pas d'espaces entre les mots (rappel implicite du cours chunking, module 3, leçon 3, sur les langues sans notion d'espace comme le chinois), approfondi en leçon 2.4.</p>
+
+        <pre><code class="language-python">import sentencepiece as spm
+
+# SentencePiece traite l'espace lui-même comme un caractère normal
+# (souvent représenté par le symbole "▁"), plutôt que comme un séparateur
+# implicite présupposé avant la tokenization
+modele = spm.SentencePieceProcessor(model_file="mon_modele.model")
+tokens = modele.encode("Le chunking est essentiel", out_type=str)
+print(tokens)   # ex: ['▁Le', '▁chun', 'king', '▁est', '▁essentiel']
+</code></pre>
+
+        <div class="ascii">BPE                    WordPiece               SentencePiece
+──────────────        ──────────────          ──────────────────
+Fusion par              Fusion par               Traite l'espace
+fréquence brute         vraisemblance            comme un caractère
+                       (modèle de langage)       normal (pas de
+Utilisé par : GPT,                               présupposé de mots
+tiktoken                Utilisé par : BERT        séparés par espace)
+
+                                                 Utilisé par : T5,
+                                                 modèles multilingues</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Penser que tous les tokenizers par sous-mots produisent des résultats équivalents ou interchangeables. Rappel du cours embeddings (module 2, leçon 3) : utiliser le tokenizer d'un modèle pour mesurer la taille de tokens qui seront réellement traités par un autre modèle produit une estimation approximative, potentiellement trompeuse.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un corpus contenant potentiellement des langues sans séparation par espaces (chinois, japonais), lequel des trois algorithmes présentés serait le plus naturellement adapté, et pourquoi ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l4" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 2.4</span>Tokenization multilingue et cas particuliers</h2>
+
+        <p>Rappel du cours chunking (module 3, leçon 3) qui avait évoqué ce défi sans le développer : cette leçon approfondit les cas où la tokenization se heurte à des particularités linguistiques ou typographiques spécifiques.</p>
+
+        <h3>Langues sans séparateur d'espace explicite</h3>
+        <p>Le chinois, le japonais et le thaï, entre autres, n'utilisent pas d'espaces pour séparer les mots — un découpage par espaces y est simplement inapplicable. Ces langues nécessitent soit un tokenizer entraîné spécifiquement pour détecter les limites de mots (des outils comme <code class="inline">jieba</code> pour le chinois), soit un tokenizer par sous-mots comme SentencePiece (leçon 2.3) qui ne présuppose justement pas cette séparation.</p>
+
+        <pre><code class="language-python">import jieba
+
+texte_chinois = "我喜欢学习自然语言处理"
+tokens = list(jieba.cut(texte_chinois))
+print(tokens)   # ['我', '喜欢', '学习', '自然语言', '处理']
+# Un découpage par "caractère" ou par "espace" serait inadapté ici —
+# jieba utilise un modèle statistique pour identifier les limites
+# de mots réelles dans cette langue
+</code></pre>
+
+        <h3>Ponctuation et typographie spécifiques à une langue</h3>
+        <p>Rappel du cours nettoyage (module 5, leçon 5) : le français utilise des espaces insécables avant certains signes de ponctuation double. Un tokenizer mal configuré pour cette convention peut soit ignorer cette subtilité (traitant l'espace insécable comme un espace normal), soit au contraire mal segmenter la ponctuation qui en résulte.</p>
+
+        <h3>Mots composés et agglutination</h3>
+        <p>Des langues comme l'allemand ou le finnois forment des mots composés très longs par agglutination (plusieurs mots collés en un seul), un défi similaire à celui des mots rares déjà traité par la tokenization par sous-mots (leçon 2.2), mais à une échelle bien plus systématique dans ces langues.</p>
+
+        <div class="ascii">Défi linguistique                     Solution typique
+──────────────────────────────────────────────────────────────────────
+Langue sans espaces (chinois)          Tokenizer dédié (jieba) ou
+                                       SentencePiece (leçon 2.3)
+
+Typographie spécifique (français,      Configuration ou prétraitement
+espaces insécables)                   dédié (rappel cours nettoyage,
+                                       module 5)
+
+Agglutination (allemand, finnois)      Tokenization par sous-mots,
+                                       naturellement adaptée (leçon 2.2)</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Appliquer un tokenizer entraîné et optimisé principalement pour l'anglais à un corpus dans une langue aux caractéristiques très différentes (chinois, allemand), sans vérifier que ses résultats restent cohérents — un piège similaire à celui déjà identifié pour les modèles d'embedding (cours embeddings, module 4, leçon 4) et pour Tesseract (cours OCR, module 2, leçon 3).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Votre corpus contient-il des langues aux caractéristiques particulières (sans espaces, forte agglutination) ? Si oui, cela orienterait-il votre choix de tokenizer vers une solution spécifique plutôt qu'un tokenizer générique optimisé pour l'anglais ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l5" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 2.5</span>Choisir et configurer un tokenizer pour son cas d'usage</h2>
+
+        <p>Cette dernière leçon du module synthétise les éléments précédents en une méthode de décision concrète — un prolongement direct de la méthode de choix de modèle d'embedding déjà établie dans le cours embeddings (module 4, leçon 1).</p>
+
+        <h3>Aligner le tokenizer sur le modèle en aval</h3>
+        <p>Rappel critique du cours embeddings (module 2, leçon 3) : toujours utiliser le tokenizer réellement associé au modèle qui traitera le texte en aval (embedding, LLM), jamais un tokenizer générique par défaut — un décalage produit des comptages de tokens inexacts qui faussent le dimensionnement des chunks (cours chunking) et les limites de contexte.</p>
+
+        <pre><code class="language-python"># Toujours utiliser le tokenizer SPÉCIFIQUE au modèle utilisé en aval
+import tiktoken
+from transformers import AutoTokenizer
+
+# Pour un modèle OpenAI
+encodeur_openai = tiktoken.encoding_for_model("gpt-4o")
+
+# Pour un modèle open-source spécifique (rappel cours embeddings, module 2)
+tokenizer_bge = AutoTokenizer.from_pretrained("BAAI/bge-base-en-v1.5")
+
+# Le nombre de tokens peut DIFFÉRER significativement entre les deux
+# pour le MÊME texte — ne jamais les utiliser de façon interchangeable
+</code></pre>
+
+        <h3>Vérifier le vocabulaire et la couverture linguistique</h3>
+        <p>Rappel de la leçon 2.4 : pour un corpus multilingue ou dans une langue peu représentée, vérifier que le tokenizer envisagé a été entraîné sur un corpus incluant cette langue en proportion suffisante — un tokenizer entraîné presque exclusivement sur de l'anglais peut décomposer excessivement des mots d'autres langues en de nombreux petits fragments, gonflant artificiellement le nombre de tokens et le coût associé.</p>
+
+        <pre><code class="language-python">def comparer_couverture_tokenizer(texte: str, tokenizers: dict) -> dict:
+    resultats = {}
+    for nom, encodeur in tokenizers.items():
+        nb_tokens = len(encodeur.encode(texte)) if hasattr(encodeur, "encode") else len(encodeur(texte)["input_ids"])
+        resultats[nom] = {"nb_tokens": nb_tokens, "ratio_car_par_token": len(texte) / nb_tokens}
+    return resultats
+
+# Un ratio caractères/token anormalement bas pour une langue donnée
+# signale une mauvaise couverture de cette langue par ce tokenizer
+</code></pre>
+
+        <h3>Grille de décision récapitulative</h3>
+        <div class="ascii">1. Quel modèle en aval utilisera ce texte tokenisé (embedding,
+   LLM) ? → utiliser SON tokenizer spécifique, jamais un autre
+
+2. Le corpus est-il multilingue ou dans une langue peu
+   représentée ? → vérifier la couverture (ratio caractères/
+   token) avant de généraliser un choix
+
+3. Le corpus contient-il des langues sans séparation par
+   espaces ? → privilégier SentencePiece ou un tokenizer
+   dédié (jieba pour le chinois, leçon 2.4)
+
+4. Le comptage de tokens sert-il à dimensionner des chunks
+   (cours chunking) ? → s'assurer que ce comptage correspond
+   exactement au tokenizer du modèle d'embedding utilisé</div>
+
+        <p>Ce module clôt l'exploration approfondie de la tokenization. Le module suivant aborde la seconde brique fondamentale de ce cours : la reconnaissance d'entités nommées (NER), déjà mobilisée dans le cours métadonnées sans jamais avoir été expliquée dans son fonctionnement.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Changer de modèle d'embedding (cours embeddings, module 4) sans revérifier que le tokenizer utilisé pour mesurer la taille des chunks (cours chunking) correspond bien au nouveau modèle — un oubli qui peut faire dériver silencieusement le dimensionnement réel des chunks par rapport à ce qui était prévu et validé initialement.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : en reprenant votre pipeline RAG (cours chunking, module 2, leçon 3), vérifiez explicitement que le tokenizer utilisé pour dimensionner vos chunks correspond exactement au modèle d'embedding utilisé en aval.
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-3">
+      <span class="module-kicker">MODULE 03 / 08</span>
+      <h1>Reconnaissance d'entités nommées (NER) : fondamentaux</h1>
+      <p class="intro">Rappel du cours métadonnées (module 4, leçon 2) : la NER a déjà été utilisée pour enrichir des chunks de métadonnées d'entités. Ce module explique enfin ce qu'est une entité nommée et comment les différentes générations d'approches la détectent.</p>
+
+      <section class="lesson" id="m3-l1" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 3.1</span>Qu'est-ce qu'une entité nommée et pourquoi la reconnaître</h2>
+
+        <p>Une <strong>entité nommée</strong> est une mention dans un texte qui désigne un objet du monde réel appartenant à une catégorie précise et généralement unique : une personne ("Jean Dupont"), une organisation ("Acme Corp"), un lieu ("Paris"), une date ("14 mars 2025"). La <strong>Named Entity Recognition</strong> (NER) est la tâche qui consiste à repérer automatiquement ces mentions dans un texte et à leur assigner leur catégorie.</p>
+
+        <p>Contrairement à la tokenization (module 2), qui découpe systématiquement tout le texte sans distinction, la NER opère une sélection : la grande majorité des tokens d'un texte ne font partie d'aucune entité (les mots-outils, les verbes, les adjectifs) — seule une fraction, souvent minoritaire, correspond à des entités nommées reconnaissables.</p>
+
+        <div class="ascii">Texte : "Jean Dupont a signé le contrat avec Acme Corp le 14 mars 2025 à Paris."
+
+Tokens (module 2) : TOUS les mots sont découpés en tokens, sans distinction
+
+Entités (NER, ce module) :
+  "Jean Dupont"    → PERSONNE
+  "Acme Corp"       → ORGANISATION
+  "14 mars 2025"    → DATE
+  "Paris"           → LIEU
+
+  (les autres mots — "a", "signé", "le", "contrat", "avec", "à" — ne
+   font partie d'AUCUNE entité)</div>
+
+        <p>Pourquoi cette sélection a-t-elle une telle importance pour un pipeline RAG ? Rappel du cours métadonnées (module 4, leçon 2) : les entités extraites permettent un filtrage précis ("tous les chunks qui mentionnent Acme Corp") impossible à obtenir par la seule recherche vectorielle sémantique (cours embeddings), qui capture la similarité de sens mais pas la présence exacte d'un nom propre spécifique.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Confondre la NER avec une simple recherche de mots-clés capitalisés (majuscule en début de mot). De nombreuses entités ne commencent pas par une majuscule dans certains contextes, et de nombreux mots capitalisés (début de phrase, titres) ne sont pas des entités — une distinction qui nécessite une véritable analyse contextuelle, pas une simple règle de casse.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour la phrase d'exemple ci-dessus, identifiez mentalement toutes les entités et leur catégorie avant de continuer — combien en trouvez-vous, et à quelle catégorie standard (leçon 3.2) appartiennent-elles ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l2" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 3.2</span>Catégories d'entités standard</h2>
+
+        <p>La plupart des modèles de NER généralistes sont entraînés pour reconnaître un ensemble standard de catégories, largement partagé entre différents outils et jeux de données — une convention qui facilite la comparaison entre approches (module 4) mais qui a aussi ses propres limites (approfondies au module 5 pour les besoins spécifiques à un domaine).</p>
+
+        <table>
+          <thead>
+            <tr><th>Catégorie</th><th>Code standard (souvent utilisé)</th><th>Exemple</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Personne</td><td>PER / PERSON</td><td>"Jean Dupont"</td></tr>
+            <tr><td>Organisation</td><td>ORG</td><td>"Acme Corp", "Nations Unies"</td></tr>
+            <tr><td>Lieu</td><td>LOC / GPE</td><td>"Paris", "France"</td></tr>
+            <tr><td>Date/heure</td><td>DATE / TIME</td><td>"14 mars 2025", "15h30"</td></tr>
+            <tr><td>Montant monétaire</td><td>MONEY</td><td>"1 250 €"</td></tr>
+            <tr><td>Pourcentage</td><td>PERCENT</td><td>"18%"</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Le format BIO pour l'annotation d'entités multi-mots</h3>
+        <p>Puisqu'une entité peut s'étendre sur plusieurs tokens ("Jean Dupont" = 2 tokens), un format d'annotation standard, le <strong>BIO</strong> (Beginning-Inside-Outside), marque explicitement le début et la continuation d'une entité — un format que la plupart des modèles de NER produisent ou consomment en interne.</p>
+
+        <pre><code class="language-python"># Format BIO : B-XXX (début d'entité), I-XXX (continuation), O (hors entité)
+tokens =    ["Jean", "Dupont", "travaille", "chez", "Acme", "Corp"]
+etiquettes = ["B-PER", "I-PER",  "O",         "O",    "B-ORG", "I-ORG"]
+
+# "Jean Dupont" = une seule entité PERSONNE en 2 tokens (B-PER puis I-PER)
+# "Acme Corp"   = une seule entité ORGANISATION en 2 tokens (B-ORG puis I-ORG)
+</code></pre>
+
+        <div class="ascii">Séquence de tokens avec annotation BIO :
+
+Jean      Dupont    travaille  chez    Acme      Corp
+B-PER     I-PER     O          O       B-ORG     I-ORG
+└──────────────┘                        └──────────────┘
+  1 entité PERSONNE                       1 entité ORGANISATION
+  (2 tokens fusionnés)                    (2 tokens fusionnés)</div>
+
+        <p>Comprendre ce format BIO est utile pour interpréter la sortie brute de nombreux modèles de NER (avant leur post-traitement en entités lisibles, approfondi au module 4, leçon 5) et pour préparer un jeu de données d'entraînement personnalisé (module 5, leçon 2).</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Traiter chaque token étiqueté individuellement sans les regrouper en entités complètes selon le format BIO, produisant des fragments d'entités séparés ("Jean" et "Dupont" comme deux entités PERSONNE distinctes) plutôt qu'une seule entité cohérente "Jean Dupont".
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour la phrase "Marie Curie a travaillé à l'Institut du Radium à Paris", esquissez l'annotation BIO complète, token par token.
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l3" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 3.3</span>Approches historiques : règles et gazetteers</h2>
+
+        <p>Avant les approches statistiques et neuronales (leçons 3.4-3.5), la NER était principalement réalisée par des systèmes de <strong>règles</strong> explicites et des <strong>gazetteers</strong> (listes de référence) — des approches encore pertinentes aujourd'hui pour des cas simples et bien définis.</p>
+
+        <h3>Règles basées sur des motifs (patterns)</h3>
+        <pre><code class="language-python">import re
+
+def detecter_dates_par_regle(texte: str) -> list[str]:
+    motif_date = r"\d{1,2}\s+(?:janvier|février|mars|avril|mai|juin|juillet|" \
+                 r"août|septembre|octobre|novembre|décembre)\s+\d{4}"
+    return re.findall(motif_date, texte, re.IGNORECASE)
+
+print(detecter_dates_par_regle("Le contrat a été signé le 14 mars 2025."))
+# ['14 mars 2025']
+</code></pre>
+
+        <h3>Gazetteers : listes de référence</h3>
+        <p>Un gazetteer est une liste préétablie d'entités connues (noms de villes, noms d'entreprises du CAC 40, prénoms courants) contre laquelle le texte est comparé directement — une approche simple et rapide, mais limitée aux entités déjà présentes dans la liste.</p>
+
+        <pre><code class="language-python">GAZETTEER_VILLES_FRANCAISES = {"Paris", "Lyon", "Marseille", "Toulouse", "Nice"}
+
+def detecter_villes_par_gazetteer(tokens: list[str]) -> list[str]:
+    return [token for token in tokens if token in GAZETTEER_VILLES_FRANCAISES]
+</code></pre>
+
+        <div class="ascii">Règles (patterns)                     Gazetteers (listes)
+──────────────────────                ──────────────────────
+Bon pour : formats structurés          Bon pour : entités connues
+(dates, numéros de téléphone,          à l'avance et STABLES
+codes postaux, montants)               (villes, entreprises listées)
+
+Limite : ne généralise pas à           Limite : ne détecte QUE ce qui
+des formats non prévus                 est dans la liste, rien de nouveau</div>
+
+        <p>Ces approches restent pertinentes aujourd'hui en complément des approches modernes (modules 3.4-3.5, module 4) — notamment pour des catégories d'entités à format très structuré (numéros de sécurité sociale, références de contrat suivant un format fixe) où une règle simple est plus fiable et rapide qu'un modèle statistique ou neuronal, un principe similaire au choix entre règles et deep learning déjà établi dans le cours parsing (module 4, leçon 4).</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer les approches par règles et gazetteers comme complètement obsolètes face aux modèles modernes (leçons 3.4-3.5, module 4). Pour des catégories d'entités très structurées et prévisibles, elles restent souvent plus fiables, plus rapides et sans coût de calcul qu'un modèle statistique ou neuronal — un principe de choix par les besoins réels plutôt que par la sophistication apparente, déjà établi à plusieurs reprises dans cette série.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre corpus, quelles catégories d'entités auraient un format suffisamment structuré et prévisible (numéros de référence, codes, montants) pour bénéficier d'une simple règle plutôt que d'un modèle plus sophistiqué ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l4" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 3.4</span>Approches statistiques : CRF et modèles de séquence</h2>
+
+        <p>Entre les règles rigides (leçon 3.3) et les modèles neuronaux modernes (leçon 3.5), une génération intermédiaire d'approches statistiques a dominé la NER pendant plusieurs années — les <strong>Conditional Random Fields</strong> (CRF) restent une référence historique importante à comprendre.</p>
+
+        <h3>Le principe des CRF</h3>
+        <p>Un CRF modélise la probabilité d'une séquence d'étiquettes BIO (rappel leçon 3.2) entière, en tenant compte à la fois des caractéristiques de chaque mot (est-il capitalisé ? précédé d'un titre comme "M." ou "Dr." ?) et des dépendances entre étiquettes voisines (une étiquette I-PER ne peut suivre logiquement qu'une étiquette B-PER ou I-PER, jamais un O) — une amélioration significative par rapport à une classification mot par mot indépendante.</p>
+
+        <pre><code class="language-python"># Illustration conceptuelle des caractéristiques utilisées par un CRF
+def extraire_caracteristiques(mot: str, mot_precedent: str, position: int) -> dict:
+    return {
+        "est_capitalise": mot[0].isupper(),
+        "precede_par_titre": mot_precedent.lower() in ("m.", "mme", "dr.", "pr."),
+        "longueur": len(mot),
+        "contient_chiffre": any(c.isdigit() for c in mot),
+        "position_dans_phrase": position,
+    }
+
+# Un CRF apprend les poids optimaux de CHAQUE caractéristique,
+# et surtout les TRANSITIONS probables entre étiquettes consécutives
+</code></pre>
+
+        <h3>Pourquoi la modélisation de séquence compte</h3>
+        <p>Un classifieur naïf qui évaluerait chaque mot indépendamment pourrait produire des séquences incohérentes (un I-PER isolé sans B-PER avant lui, ce qui n'a pas de sens logique). Un CRF, en modélisant la séquence entière, apprend ces contraintes structurelles et produit des annotations BIO toujours cohérentes.</p>
+
+        <div class="ascii">Classification indépendante            Modélisation de séquence (CRF)
+(mot par mot, sans contexte)            (tient compte des transitions)
+──────────────────────────             ──────────────────────────────
+Risque de séquences incohérentes:       Séquences toujours cohérentes :
+O, I-PER, O, B-PER, I-PER               O, B-PER, I-PER, O, O
+   ↑ incohérent : I-PER sans               (respecte les règles de
+     B-PER avant                            transition BIO)</div>
+
+        <p>Bien que largement dépassés par les approches neuronales en termes de précision brute (leçon 3.5), les CRF restent pédagogiquement importants pour comprendre le principe de modélisation de séquence — un principe qui, sous une forme différente, reste présent dans les architectures neuronales modernes également.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Ignorer complètement cette génération d'approches statistiques en pensant qu'elle n'a plus aucune pertinence pratique. Pour des ressources de calcul très limitées ou des besoins de très faible latence, un CRF léger et rapide peut encore constituer un choix pragmatique face à un modèle neuronal plus lourd — un arbitrage similaire à celui déjà rencontré pour Tesseract vs LLM multimodal dans le cours OCR (module 5, leçon 3).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour la séquence d'étiquettes "O, B-ORG, O, I-PER" (incohérente), identifiez précisément où se situe l'incohérence et comment un CRF l'éviterait structurellement.
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l5" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 3.5</span>Approches neuronales modernes : BERT-NER et au-delà</h2>
+
+        <p>Cette dernière leçon du module présente l'état de l'art actuel : des modèles basés sur des transformers (rappel cours embeddings, module 2, leçon 2, sur l'attention) qui combinent la puissance de représentation contextuelle déjà expliquée pour les embeddings avec une couche de classification de séquence inspirée des CRF (leçon 3.4).</p>
+
+        <h3>Le principe : BERT + une couche de classification</h3>
+        <p>Un modèle comme BERT-NER prend un transformer pré-entraîné (rappel cours embeddings, module 2, sur les embeddings contextuels) et lui ajoute une couche de classification finale qui prédit, pour chaque token, son étiquette BIO — combinant ainsi la compréhension contextuelle profonde du transformer (qui désambiguïse "Jean" comme prénom grâce au contexte, pas seulement sa forme) avec la structure de séquence déjà présente dans les CRF.</p>
+
+        <pre><code class="language-python">from transformers import AutoTokenizer, AutoModelForTokenClassification, pipeline
+
+tokenizer = AutoTokenizer.from_pretrained("dslim/bert-base-NER")
+modele = AutoModelForTokenClassification.from_pretrained("dslim/bert-base-NER")
+
+pipeline_ner = pipeline("ner", model=modele, tokenizer=tokenizer, aggregation_strategy="simple")
+
+resultats = pipeline_ner("Jean Dupont a signé le contrat avec Acme Corp le 14 mars 2025 à Paris.")
+for entite in resultats:
+    print(f"{entite['word']} → {entite['entity_group']} (score: {entite['score']:.2f})")
+</code></pre>
+
+        <h3>Pourquoi le contexte fait la différence</h3>
+        <p>Rappel du cours embeddings (module 2, leçon 1) sur l'ambiguïté de mots comme "avocat" : un modèle neuronal moderne peut distinguer "Washington" en tant que lieu (la ville) de "Washington" en tant que personne (un nom de famille), en s'appuyant sur le contexte de la phrase entière — une capacité que les règles (leçon 3.3) ou même les CRF (leçon 3.4), qui s'appuient sur des caractéristiques plus superficielles, ne peuvent égaler.</p>
+
+        <div class="ascii">"Washington a signé la loi hier."      "Il vit à Washington depuis 2020."
+
+→ Contexte : "a signé" (verbe               → Contexte : "vit à" (préposition
+   d'action typique d'une personne)             de lieu typique)
+
+→ Modèle neuronal moderne : PERSONNE        → Modèle neuronal moderne : LIEU
+
+Une règle simple ou un gazetteer ne peuvent PAS distinguer ces deux
+cas sans analyse contextuelle profonde — exactement le même principe
+de désambiguïsation déjà vu pour les embeddings contextuels
+(cours embeddings, module 2, leçon 1)</div>
+
+        <p>Cette capacité de désambiguïsation contextuelle explique pourquoi les modèles neuronaux ont largement remplacé les CRF comme approche de référence pour la NER généraliste — un principe qui rejoint directement l'évolution déjà présentée dans le cours embeddings (module 2, leçon 1) des word embeddings statiques vers les embeddings contextuels.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Supposer qu'un modèle neuronal moderne élimine tout besoin des approches plus simples (règles, gazetteers, CRF) — rappel du principe déjà établi en leçon 3.3 : le meilleur choix dépend du cas d'usage précis, pas uniquement de la sophistication de l'approche, un arbitrage détaillé au module 4.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : trouvez un autre exemple de mot ambigu (comme "Washington") qui pourrait désigner soit une personne, soit un lieu ou une organisation selon le contexte, illustrant l'intérêt d'une approche neuronale contextuelle plutôt qu'une simple règle ou un gazetteer.
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-4">
+      <span class="module-kicker">MODULE 04 / 08</span>
+      <h1>Mettre en œuvre la NER en pratique</h1>
+      <p class="intro">Rappel du cours métadonnées (module 4, leçon 2) qui avait déjà présenté spaCy et le LLM pour l'extraction d'entités, sans les comparer en détail. Ce module approfondit chaque option et fournit une méthode de choix rigoureuse.</p>
+
+      <section class="lesson" id="m4-l1" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 4.1</span>Utiliser spaCy pour la NER prête à l'emploi</h2>
+
+        <p><strong>spaCy</strong> est une librairie de NLP industrielle qui propose des modèles de NER pré-entraînés prêts à l'emploi, dans de nombreuses langues, avec un bon compromis vitesse/précision — le choix le plus direct pour démarrer rapidement, déjà mentionné dans le cours métadonnées (module 4, leçon 2).</p>
+
+        <pre><code class="language-python">import spacy
+
+nlp = spacy.load("fr_core_news_lg")   # modèle français, taille "large"
+
+doc = nlp("Jean Dupont a signé le contrat avec Acme Corp le 14 mars 2025 à Paris.")
+
+for entite in doc.ents:
+    print(f"{entite.text} → {entite.label_} (position {entite.start_char}-{entite.end_char})")
+# Jean Dupont → PER (0-11)
+# Acme Corp → ORG (37-46)
+# 14 mars 2025 → DATE (50-62)
+# Paris → LOC (66-71)
+</code></pre>
+
+        <h3>Les différentes tailles de modèles spaCy</h3>
+        <p>spaCy propose plusieurs tailles de modèles pour une même langue (<code class="inline">sm</code>, <code class="inline">md</code>, <code class="inline">lg</code>, <code class="inline">trf</code>) — un arbitrage direct entre vitesse et précision, similaire au choix entre modèles d'embedding de tailles différentes déjà rencontré dans le cours embeddings (module 4, leçon 1).</p>
+
+        <table>
+          <thead>
+            <tr><th>Taille</th><th>Caractéristique</th><th>Cas d'usage</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code class="inline">sm</code></td><td>Petit, rapide, précision correcte</td><td>Prototypage, contraintes de latence fortes</td></tr>
+            <tr><td><code class="inline">md</code>/<code class="inline">lg</code></td><td>Plus volumineux, meilleure précision</td><td>Bon compromis pour la production</td></tr>
+            <tr><td><code class="inline">trf</code></td><td>Basé sur un transformer (rappel module 3, leçon 5)</td><td>Précision maximale, coût de calcul plus élevé</td></tr>
+          </tbody>
+        </table>
+
+        <div class="ascii">spaCy sm/md/lg (CNN classique)          spaCy trf (transformer)
+──────────────────────────────         ────────────────────────
+Rapide, léger, pas de GPU               Plus précis (rappel module 3,
+nécessaire                              leçon 5, sur les transformers),
+                                        mais plus lent et gourmand
+Bon point de départ par défaut          en ressources</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Utiliser le modèle <code class="inline">sm</code> par défaut pour un cas d'usage en production qui nécessite une précision élevée, sans avoir testé si un modèle plus grand (<code class="inline">lg</code> ou <code class="inline">trf</code>) améliorerait significativement les résultats sur son propre corpus — rappel du principe d'évaluation empirique déjà établi à de multiples reprises dans cette série.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Si vous avez accès à Python, installez spaCy et testez-le sur une phrase de votre corpus. Les entités détectées correspondent-elles à vos attentes ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l2" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 4.2</span>Utiliser des modèles Hugging Face pour la NER</h2>
+
+        <p>Rappel du module 3, leçon 5 : les modèles basés sur des transformers (BERT-NER et variantes) sont accessibles via l'écosystème Hugging Face, offrant un choix plus large de modèles spécialisés que spaCy, notamment pour des langues ou domaines moins courants.</p>
+
+        <pre><code class="language-python">from transformers import pipeline
+
+# Modèle NER pour le français, hébergé sur le Hub Hugging Face
+pipeline_ner = pipeline(
+    "ner",
+    model="Jean-Baptiste/camembert-ner",
+    aggregation_strategy="simple",   # regroupe automatiquement les tokens B-/I- (rappel module 3.2)
+)
+
+resultats = pipeline_ner("Jean Dupont a signé le contrat avec Acme Corp le 14 mars 2025 à Paris.")
+for entite in resultats:
+    print(f"{entite['word']} → {entite['entity_group']} (score: {entite['score']:.2f})")
+</code></pre>
+
+        <h3>Explorer le Hub pour un modèle adapté à son domaine</h3>
+        <p>Contrairement à spaCy (leçon 4.1), qui propose un nombre limité de modèles officiels par langue, le Hub Hugging Face héberge des milliers de modèles de NER, y compris certains déjà fine-tunés sur des domaines spécifiques (biomédical, juridique) — un premier réflexe avant d'envisager son propre fine-tuning (module 5, leçon 3).</p>
+
+        <pre><code class="language-python"># Exemple : un modèle NER spécialisé pour le domaine biomédical
+pipeline_ner_biomedical = pipeline("ner", model="d4data/biomedical-ner-all", aggregation_strategy="simple")
+</code></pre>
+
+        <div class="ascii">spaCy                                    Hugging Face
+──────────────────────                   ──────────────────────
+Nombre limité de modèles officiels,       Vaste catalogue, y compris
+mais bien intégrés et maintenus           des modèles de niche ou
+                                          spécialisés par domaine
+API simple, pipeline complet
+(tokenization + NER + autres              Nécessite souvent d'assembler
+tâches du module 6)                       soi-même le pipeline complet</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Choisir un modèle Hugging Face au hasard sur le Hub sans vérifier sa fiche de modèle (données d'entraînement, langue couverte, date de publication, nombre de téléchargements) — une vérification similaire à celle déjà recommandée pour choisir un modèle d'embedding (cours embeddings, module 4, leçon 3, sur la lecture du benchmark MTEB).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre domaine spécifique (juridique, médical, technique), une recherche rapide sur le Hub Hugging Face révélerait-elle probablement un modèle de NER déjà spécialisé pour ce domaine ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l3" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 4.3</span>NER via LLM : prompt engineering pour l'extraction d'entités</h2>
+
+        <p>Rappel direct du cours métadonnées (module 4, leçon 2) qui avait déjà illustré l'extraction d'entités via LLM — cette leçon approfondit la technique avec un focus sur la qualité du prompt, déterminante pour la fiabilité du résultat.</p>
+
+        <pre><code class="language-python">from openai import OpenAI
+import json
+
+client = OpenAI()
+
+def extraire_entites_via_llm(texte: str) -> dict:
+    prompt = f"""Extrait les entités nommées de ce texte selon ces catégories :
+- PERSONNE : noms de personnes physiques
+- ORGANISATION : entreprises, institutions
+- LIEU : villes, pays, régions
+- DATE : dates explicites
+
+Réponds au format JSON avec ces catégories comme clés, chacune contenant
+une liste des entités trouvées (liste vide si aucune).
+
+Texte : {texte}"""
+
+    reponse = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}],
+        response_format={"type": "json_object"},
+    )
+    return json.loads(reponse.choices[0].message.content)
+
+entites = extraire_entites_via_llm("Jean Dupont a signé le contrat avec Acme Corp le 14 mars 2025 à Paris.")
+print(entites)
+</code></pre>
+
+        <h3>Les bonnes pratiques de prompt pour une extraction fiable</h3>
+        <ul>
+          <li><strong>Définir précisément chaque catégorie</strong> plutôt que de se fier à un nom de catégorie seul — une définition explicite réduit l'ambiguïté d'interprétation par le modèle.</li>
+          <li><strong>Spécifier le comportement pour l'absence d'entité</strong> ("liste vide si aucune") pour éviter que le modèle n'invente une entité par défaut.</li>
+          <li><strong>Demander un format structuré</strong> (JSON) plutôt qu'un texte libre, pour faciliter le traitement programmatique en aval.</li>
+        </ul>
+
+        <h3>Le few-shot pour améliorer la fiabilité</h3>
+        <p>Fournir quelques exemples annotés directement dans le prompt (technique déjà mentionnée pour la personnalisation au module 5, leçon 4) améliore généralement la cohérence du format de sortie et la précision sur des cas ambigus, au prix d'un prompt plus long et donc plus coûteux (rappel cours embeddings, module 4, leçon 5, sur le calcul de coût des appels LLM).</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Écrire un prompt vague ("extrait les entités de ce texte") sans définir précisément les catégories attendues ni le format de sortie souhaité, produisant des résultats incohérents d'un appel à l'autre — rappel du principe déjà établi dans le cours OCR (module 5, leçon 2) sur la nécessité d'un prompt précis pour une extraction fiable.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre domaine, rédigez un prompt d'extraction d'entités avec des définitions précises pour 3-4 catégories pertinentes à votre corpus.
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l4" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 4.4</span>Comparer les approches : précision, rappel, coût, latence</h2>
+
+        <p>Cette leçon synthétise l'arbitrage central entre les trois approches présentées (spaCy, Hugging Face, LLM) — un arbitrage qui rejoint directement celui déjà établi pour l'OCR (cours OCR, module 5, leçon 3) et le parsing de documents (cours parsing, module 5, leçon 5).</p>
+
+        <table>
+          <thead>
+            <tr><th>Critère</th><th>spaCy</th><th>Hugging Face (BERT-NER)</th><th>LLM</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Précision sur catégories standard</td><td>Bonne</td><td>Bonne à très bonne</td><td>Bonne à très bonne</td></tr>
+            <tr><td>Flexibilité (catégories personnalisées)</td><td>Faible sans fine-tuning</td><td>Faible sans fine-tuning</td><td>Élevée (juste changer le prompt)</td></tr>
+            <tr><td>Coût par document</td><td>Quasi nul</td><td>Faible (calcul local)</td><td>Plus élevé (appel API)</td></tr>
+            <tr><td>Latence</td><td>Très rapide</td><td>Rapide à modérée</td><td>Plus lente (latence réseau)</td></tr>
+            <tr><td>Risque d'hallucination</td><td>Absent (classification stricte)</td><td>Absent</td><td>Présent (rappel cours OCR, module 5, leçon 4)</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Méthode de décision</h3>
+        <div class="ascii">1. Les catégories standard (PER, ORG, LOC, DATE) suffisent-elles ?
+   → OUI : spaCy ou Hugging Face (rapide, économique, sans risque
+     d'hallucination)
+   → NON : catégories personnalisées nécessaires (module 5)
+
+2. Le volume de documents est-il très élevé ?
+   → OUI : privilégier spaCy/Hugging Face (coût par document
+     quasi nul), réserver le LLM aux cas difficiles (routage
+     hybride, comme déjà pratiqué dans le cours OCR module 4.5)
+   → NON : le LLM reste une option viable même pour un usage
+     généralisé
+
+3. Une flexibilité de catégories ad hoc est-elle nécessaire
+   sans réentraînement ?
+   → OUI : LLM (changement de prompt immédiat, pas de fine-tuning)
+   → NON : un modèle spécialisé (spaCy, Hugging Face) suffit</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Choisir systématiquement le LLM pour la NER par facilité d'implémentation (un simple prompt), sans considérer le coût cumulé à l'échelle d'un corpus volumineux — un modèle spécialisé (spaCy, Hugging Face) offre souvent un bien meilleur rapport coût/précision pour des catégories standard à grande échelle.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          En suivant la méthode de décision ci-dessus, quelle approche recommanderiez-vous pour votre propre corpus et vos besoins de catégories d'entités ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l5" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 4.5</span>Post-traitement des entités extraites (normalisation, déduplication)</h2>
+
+        <p>Cette dernière leçon du module traite une étape souvent négligée : les entités brutes extraites, quelle que soit l'approche utilisée, nécessitent généralement un post-traitement avant d'être exploitables comme métadonnées (rappel cours métadonnées, module 4, leçon 2).</p>
+
+        <h3>Normalisation des variantes d'une même entité</h3>
+        <p>Une même entité peut apparaître sous plusieurs formes dans un texte ("Jean Dupont", "M. Dupont", "J. Dupont") — sans normalisation, ces variantes seraient traitées comme des entités distinctes, fragmentant l'information et compliquant le filtrage (rappel cours métadonnées, module 7, leçon 3, sur la cohérence des valeurs de métadonnées).</p>
+
+        <pre><code class="language-python">def normaliser_entites_personnes(entites: list[str]) -> dict[str, str]:
+    """Regroupe les variantes probables d'une même personne par
+    similarité de nom de famille (heuristique simplifiée)."""
+    groupes = {}
+    for entite in entites:
+        mots = entite.replace(".", "").split()
+        nom_famille = mots[-1] if mots else entite
+        if nom_famille not in groupes:
+            groupes[nom_famille] = entite   # garder la forme la plus complète rencontrée
+        elif len(entite) > len(groupes[nom_famille]):
+            groupes[nom_famille] = entite
+    return {variante: groupes[variante.split()[-1] if variante.split() else variante]
+            for variante in entites}
+</code></pre>
+
+        <h3>Déduplication des entités au sein d'un même chunk</h3>
+        <pre><code class="language-python">def dedupliquer_entites(entites: list[dict]) -> list[dict]:
+    vues = set()
+    resultat = []
+    for entite in entites:
+        cle = (entite["texte"].lower().strip(), entite["categorie"])
+        if cle not in vues:
+            vues.add(cle)
+            resultat.append(entite)
+    return resultat
+</code></pre>
+
+        <h3>Filtrer les faux positifs évidents</h3>
+        <p>Certaines entités extraites, notamment par des modèles moins précis ou des LLM sur des cas ambigus, peuvent être des faux positifs manifestes (un mot commun mal classé comme organisation) — un filtre de plausibilité minimal (longueur, présence dans un dictionnaire de mots communs à exclure) réduit ce bruit avant l'utilisation en aval.</p>
+
+        <div class="ascii">Entités brutes                          Après post-traitement
+────────────────────                    ──────────────────────────
+"Jean Dupont", "M. Dupont",              "Jean Dupont" (forme normalisée
+"J. Dupont" (3 variantes)                unique, variantes regroupées)
+
+"Acme Corp", "Acme Corp",                "Acme Corp" (dédupliqué,
+"Acme Corp" (répétitions)                une seule occurrence conservée)
+
+"Le" (faux positif, mal classé          Filtré (ne correspond à aucune
+comme ORGANISATION)                      entité plausible)</div>
+
+        <p>Ce module clôt l'exploration pratique de la NER avec les approches standard. Le module suivant traite le cas où ces catégories standard ne suffisent pas — les entités personnalisées et le NER de domaine.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Utiliser directement les entités brutes extraites comme métadonnées sans aucun post-traitement, laissant coexister des variantes multiples d'une même entité réelle — un problème qui dégrade directement la fiabilité du filtrage par métadonnées (rappel cours métadonnées, module 3), un même Jean Dupont pouvant être "invisible" à un filtre qui cherche une forme différente de son nom.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : pour votre corpus, quelles variantes probables d'une même entité (noms de personnes, d'organisations) anticipez-vous rencontrer, et comment les normaliseriez-vous ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-5">
+      <span class="module-kicker">MODULE 05 / 08</span>
+      <h1>Entités personnalisées et NER de domaine</h1>
+      <p class="intro">Rappel du module 3, leçon 2 : les catégories standard (PER, ORG, LOC, DATE) ne couvrent pas les besoins spécifiques à un domaine métier. Ce module détaille comment étendre la NER à des entités personnalisées — références de contrat, codes produits, terminologie propre à une organisation.</p>
+
+      <section class="lesson" id="m5-l1" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 5.1</span>Quand les catégories standard ne suffisent pas</h2>
+
+        <p>Les modèles de NER généralistes (module 4) sont entraînés sur des corpus qui couvrent des entités "universelles" — personnes, organisations, lieux, dates. De nombreux besoins réels dépassent ce périmètre : une référence de contrat interne ("REF-2025-0847"), un code produit ("SKU-4471-B"), un nom de médicament, une terminologie juridique spécifique à un type de clause.</p>
+
+        <div class="ascii">Catégories standard (module 3, leçon 2)     Catégories personnalisées (ce module)
+────────────────────────────────────       ─────────────────────────────────────
+PERSONNE, ORGANISATION, LIEU, DATE           RÉFÉRENCE_CONTRAT, CODE_PRODUIT,
+                                             NOM_MEDICAMENT, TYPE_CLAUSE...
+
+Couvertes par les modèles généralistes       Nécessitent une adaptation :
+(module 4)                                  fine-tuning (leçon 5.3) ou LLM
+                                             en few-shot (leçon 5.4)</div>
+
+        <p>Un signal clair qu'une catégorie personnalisée est nécessaire : un modèle généraliste (spaCy, Hugging Face, module 4) échoue systématiquement ou classe incorrectement ce type de mention (une référence de contrat classée par erreur comme un simple nombre, ou complètement ignorée), un cas différent d'une simple erreur ponctuelle de reconnaissance.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Tenter de forcer une entité personnalisée dans une catégorie standard proche mais inadaptée (classer une référence de contrat comme "organisation" faute de mieux), produisant des métadonnées incohérentes et peu exploitables pour un filtrage précis (rappel cours métadonnées, module 3).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre domaine, listez 2-3 catégories d'entités spécifiques qui ne correspondent à aucune catégorie standard du module 3 (leçon 3.2).
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l2" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 5.2</span>Annoter un jeu de données pour un domaine spécifique</h2>
+
+        <p>Fine-tuner un modèle de NER (leçon 5.3) nécessite un jeu de données annoté au format BIO (rappel module 3, leçon 2) — cette leçon détaille la méthode d'annotation, un effort qui rejoint la démarche déjà pratiquée pour d'autres jeux d'évaluation dans cette série (cours chunking, module 7 ; cours OCR, module 7).</p>
+
+        <h3>Utiliser un outil d'annotation</h3>
+        <p>Des outils comme <strong>Label Studio</strong> ou <strong>Prodigy</strong> facilitent l'annotation manuelle en proposant une interface où un annotateur sélectionne des passages de texte et leur assigne une catégorie — bien plus efficace qu'une annotation manuelle en code brut.</p>
+
+        <pre><code class="language-python"># Format d'export typique d'un outil d'annotation (simplifié)
+exemple_annote = {
+    "texte": "La référence REF-2025-0847 concerne le produit SKU-4471-B.",
+    "entites": [
+        {"debut": 13, "fin": 27, "categorie": "REFERENCE_CONTRAT"},
+        {"debut": 48, "fin": 59, "categorie": "CODE_PRODUIT"},
+    ],
+}
+</code></pre>
+
+        <h3>Convertir vers le format BIO pour l'entraînement</h3>
+        <pre><code class="language-python">def convertir_en_bio(texte: str, entites: list[dict], tokenizer) -> list[tuple]:
+    tokens = tokenizer(texte)
+    etiquettes = ["O"] * len(tokens)
+
+    for entite in entites:
+        indices_tokens = [i for i, tok in enumerate(tokens)
+                           if tok.idx >= entite["debut"] and tok.idx < entite["fin"]]
+        for j, idx in enumerate(indices_tokens):
+            etiquettes[idx] = f"B-{entite['categorie']}" if j == 0 else f"I-{entite['categorie']}"
+
+    return list(zip([str(t) for t in tokens], etiquettes))
+</code></pre>
+
+        <h3>Combien d'exemples annotés sont nécessaires ?</h3>
+        <p>Il n'existe pas de chiffre universel, mais quelques centaines à quelques milliers d'exemples annotés par catégorie constituent généralement un point de départ raisonnable pour un fine-tuning (leçon 5.3) — un volume bien moindre que celui nécessaire pour entraîner un modèle depuis zéro, grâce au pré-entraînement déjà effectué par le modèle de base (rappel cours embeddings, module 2, sur le fine-tuning à partir d'un modèle pré-entraîné).</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Annoter un jeu de données trop petit ou trop peu diversifié (toujours le même format de mention pour une catégorie), produisant un modèle qui généralise mal aux variations réelles rencontrées en production — rappel du principe déjà établi dans le cours OCR (module 7, leçon 2) sur la nécessité d'un jeu représentatif de la diversité réelle.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour une catégorie personnalisée de votre domaine, esquissez 3-4 exemples de phrases représentatives que vous incluriez dans un jeu d'annotation, en variant le contexte et la formulation.
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l3" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 5.3</span>Fine-tuner un modèle de NER personnalisé</h2>
+
+        <p>Une fois le jeu de données annoté (leçon 5.2), le fine-tuning consiste à poursuivre l'entraînement d'un modèle pré-entraîné (rappel module 3, leçon 5) sur ces exemples spécifiques, un principe déjà rencontré pour les modèles d'embedding (cours embeddings, module 2, leçon 4) et les modèles de détection de tableaux (cours parsing, module 4, leçon 5).</p>
+
+        <pre><code class="language-python">from transformers import AutoTokenizer, AutoModelForTokenClassification, TrainingArguments, Trainer
+import numpy as np
+
+tokenizer = AutoTokenizer.from_pretrained("camembert-base")
+categories = ["O", "B-REFERENCE_CONTRAT", "I-REFERENCE_CONTRAT",
+              "B-CODE_PRODUIT", "I-CODE_PRODUIT"]
+
+modele = AutoModelForTokenClassification.from_pretrained(
+    "camembert-base", num_labels=len(categories)
+)
+
+arguments_entrainement = TrainingArguments(
+    output_dir="./modele-ner-personnalise",
+    num_train_epochs=5,
+    per_device_train_batch_size=8,
+    learning_rate=2e-5,
+)
+
+entraineur = Trainer(
+    model=modele,
+    args=arguments_entrainement,
+    train_dataset=jeu_donnees_entrainement,   # préparé selon le format de la leçon 5.2
+    eval_dataset=jeu_donnees_validation,
+)
+
+entraineur.train()
+</code></pre>
+
+        <h3>Fine-tuner avec spaCy directement</h3>
+        <p>Alternative à Hugging Face : spaCy propose également un flux de fine-tuning intégré, particulièrement adapté si le reste du pipeline utilise déjà spaCy (rappel module 4, leçon 1) pour bénéficier d'une intégration cohérente.</p>
+
+        <pre><code class="language-bash">python -m spacy train config.cfg --output ./modele-ner-personnalise \
+  --paths.train ./donnees_entrainement.spacy --paths.dev ./donnees_validation.spacy
+</code></pre>
+
+        <div class="ascii">Étapes du fine-tuning d'un modèle de NER personnalisé :
+
+1. Jeu de données annoté (leçon 5.2), séparé en train/validation
+2. Modèle de base pré-entraîné (rappel module 3, leçon 5)
+3. Entraînement sur les nouvelles catégories, en réutilisant les
+   représentations déjà apprises par le modèle pré-entraîné
+4. Évaluation sur le jeu de validation (leçon 5.5)
+5. Déploiement si les résultats sont satisfaisants, sinon retour
+   à l'étape 1 avec plus/de meilleures données</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Se lancer dans le fine-tuning avant d'avoir vérifié qu'un modèle généraliste (module 4) ou une approche par LLM en few-shot (leçon 5.4), moins coûteuse à mettre en œuvre, ne suffirait pas déjà — rappel du principe déjà établi à de multiples reprises dans cette série : le fine-tuning est un investissement à réserver aux cas où les alternatives plus simples ont été essayées et jugées insuffisantes.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre besoin de catégories personnalisées, le volume de documents concernés justifierait-il l'investissement d'annotation et de fine-tuning, ou une approche par LLM en few-shot (leçon 5.4) serait-elle suffisante à votre échelle ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l4" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 5.4</span>NER par LLM avec catégories personnalisées et few-shot</h2>
+
+        <p>Rappel de la leçon 4.3 : la NER par LLM offre une flexibilité immédiate pour des catégories personnalisées, simplement en modifiant le prompt — sans annotation ni fine-tuning (leçons 5.2-5.3). Cette leçon détaille comment renforcer sa fiabilité via des exemples en contexte (few-shot).</p>
+
+        <pre><code class="language-python">def extraire_entites_personnalisees_few_shot(texte: str) -> dict:
+    prompt = f"""Extrait les entités suivantes de ce texte :
+- REFERENCE_CONTRAT : identifiants de contrat au format REF-AAAA-NNNN
+- CODE_PRODUIT : identifiants de produit au format SKU-NNNN-X
+
+Exemples :
+Texte : "Voir le contrat REF-2024-0012 pour le produit SKU-8821-A."
+Résultat : {{"REFERENCE_CONTRAT": ["REF-2024-0012"], "CODE_PRODUIT": ["SKU-8821-A"]}}
+
+Texte : "Aucune référence mentionnée dans ce paragraphe."
+Résultat : {{"REFERENCE_CONTRAT": [], "CODE_PRODUIT": []}}
+
+Texte à analyser : {texte}
+Résultat :"""
+
+    reponse = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}],
+        response_format={"type": "json_object"},
+    )
+    return json.loads(reponse.choices[0].message.content)
+</code></pre>
+
+        <p>Ces exemples en few-shot servent deux objectifs : clarifier le format exact attendu pour chaque catégorie (le motif précis "REF-AAAA-NNNN"), et illustrer explicitement le comportement attendu en l'absence d'entité (liste vide plutôt qu'une invention) — rappel du principe déjà établi en leçon 4.3 sur les bonnes pratiques de prompt.</p>
+
+        <h3>Le compromis face au fine-tuning</h3>
+        <div class="ascii">LLM en few-shot (cette leçon)            Fine-tuning (leçon 5.3)
+──────────────────────────────           ──────────────────────────
+Aucune annotation ni entraînement         Nécessite un jeu de données
+nécessaire — juste un bon prompt          annoté et un entraînement
+
+Coût par appel (rappel cours              Coût d'entraînement ponctuel,
+embeddings, module 4, leçon 5)            puis coût d'inférence très
+                                          faible (modèle local, module 4)
+
+Flexible : changer de catégorie =         Rigide : changer de catégorie
+changer le prompt                         nécessite un ré-entraînement</div>
+
+        <p>Le choix entre ces deux approches rejoint directement la méthode de décision du module 4 (leçon 4.4) : le few-shot convient pour un volume modéré ou des besoins évolutifs, le fine-tuning devient plus économique à très grande échelle avec des catégories stables dans le temps.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Fournir des exemples en few-shot non représentatifs de la diversité réelle des formats rencontrés (toujours le même format de référence), ce qui limite la capacité du LLM à généraliser à des variations légèrement différentes rencontrées en production.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour la catégorie personnalisée esquissée au module 5, leçon 1, rédigez un prompt few-shot avec au moins 2 exemples couvrant des formats légèrement différents de cette entité.
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l5" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 5.5</span>Évaluer et valider un modèle de NER personnalisé</h2>
+
+        <p>Cette dernière leçon du module applique les principes d'évaluation déjà établis à plusieurs reprises dans cette série (cours chunking, module 7 ; cours OCR, module 7 ; cours parsing, module 7) à l'évaluation spécifique d'un modèle de NER, standard ou personnalisé.</p>
+
+        <h3>Précision, rappel et F1 par catégorie</h3>
+        <pre><code class="language-python">def evaluer_ner(predictions: list[dict], verite_terrain: list[dict]) -> dict:
+    """Calcule précision, rappel et F1 pour chaque catégorie séparément —
+    une entité est considérée correcte si son texte ET sa catégorie
+    correspondent exactement à la vérité terrain."""
+    resultats_par_categorie = {}
+
+    for categorie in set(e["categorie"] for e in verite_terrain):
+        vrais_positifs = sum(
+            1 for p in predictions
+            if p["categorie"] == categorie and any(
+                v["texte"] == p["texte"] and v["categorie"] == categorie for v in verite_terrain
+            )
+        )
+        faux_positifs = sum(1 for p in predictions if p["categorie"] == categorie) - vrais_positifs
+        faux_negatifs = sum(1 for v in verite_terrain if v["categorie"] == categorie) - vrais_positifs
+
+        precision = vrais_positifs / max(vrais_positifs + faux_positifs, 1)
+        rappel = vrais_positifs / max(vrais_positifs + faux_negatifs, 1)
+        f1 = 2 * precision * rappel / max(precision + rappel, 1e-9)
+
+        resultats_par_categorie[categorie] = {"precision": precision, "rappel": rappel, "f1": f1}
+
+    return resultats_par_categorie
+</code></pre>
+
+        <h3>Le compromis précision/rappel selon l'usage en aval</h3>
+        <p>Rappel du cours métadonnées (module 3, sur le filtrage) : selon l'usage prévu des entités extraites, privilégier la précision (éviter les faux positifs, quitte à manquer quelques entités réelles) ou le rappel (capturer un maximum d'entités, quitte à inclure quelques faux positifs) peut être préférable. Un filtrage de sécurité (exclure des documents confidentiels selon des entités personnes détectées) devrait privilégier un rappel élevé — mieux vaut sur-filtrer que sous-filtrer dans ce cas précis.</p>
+
+        <div class="ascii">Usage en aval                          Priorité recommandée
+──────────────────────────────────────────────────────────────────────
+Filtrage de sécurité/confidentialité    Rappel élevé (ne rien manquer,
+                                        quitte à quelques faux positifs)
+
+Affichage de métadonnées à l'utilisateur Précision élevée (éviter les
+                                        entités erronées visibles)
+
+Statistiques globales sur le corpus     Équilibre précision/rappel (F1)</div>
+
+        <p>Ce module clôt l'exploration de la NER, standard et personnalisée. Le module suivant élargit la perspective à d'autres tâches de NLP complémentaires — POS tagging, analyse de dépendances, résolution de coréférences, extraction de relations — déjà effleurées dans le cours métadonnées sans être expliquées en détail.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Évaluer un modèle de NER personnalisé uniquement sur un score global moyen, sans distinguer les métriques par catégorie — une catégorie rare mais critique peut avoir une performance très dégradée, masquée par de bonnes performances sur des catégories plus fréquentes dans le score moyen.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : pour votre cas d'usage principal des entités extraites (filtrage, affichage, statistiques), la précision ou le rappel devrait-il être priorisé selon la grille ci-dessus ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-6">
+      <span class="module-kicker">MODULE 06 / 08</span>
+      <h1>Au-delà de la NER : autres tâches de structuration</h1>
+      <p class="intro">Rappel du panorama du module 1 (leçon 1.3) : la NER n'est qu'une des tâches de structuration linguistique. Ce module couvre les autres — POS tagging, dépendances syntaxiques, coréférences et relations — dont certaines ont déjà été effleurées dans le cours métadonnées sans être expliquées.</p>
+
+      <section class="lesson" id="m6-l1" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 6.1</span>Part-of-Speech tagging (étiquetage grammatical) et ses usages</h2>
+
+        <p>Le <strong>Part-of-Speech tagging</strong> (POS tagging, étiquetage grammatical) assigne à chaque token sa catégorie grammaticale — nom, verbe, adjectif, préposition — une information de base qui alimente souvent des tâches plus complexes comme l'analyse de dépendances (leçon 6.2).</p>
+
+        <pre><code class="language-python">import spacy
+
+nlp = spacy.load("fr_core_news_sm")
+doc = nlp("Le chunking découpe intelligemment le texte.")
+
+for token in doc:
+    print(f"{token.text:15s} → {token.pos_:10s} ({spacy.explain(token.pos_)})")
+# Le              → DET        (determiner)
+# chunking         → NOUN       (noun)
+# découpe          → VERB       (verb)
+# intelligemment    → ADV        (adverb)
+# le               → DET        (determiner)
+# texte             → NOUN       (noun)
+</code></pre>
+
+        <h3>Usages pratiques du POS tagging pour un pipeline RAG</h3>
+        <p>Le POS tagging permet des filtres syntaxiques utiles en amont d'autres traitements : extraire uniquement les groupes nominaux d'un texte pour identifier des concepts clés, ou filtrer les verbes pour repérer des actions décrites dans un document — des signaux qui peuvent enrichir la classification de chunks déjà pratiquée dans le cours métadonnées (module 4, leçon 3).</p>
+
+        <pre><code class="language-python">def extraire_groupes_nominaux(doc) -> list[str]:
+    """Utilise le POS tagging et les dépendances (leçon 6.2) pour
+    identifier les groupes nominaux, souvent porteurs des concepts
+    clés d'un texte."""
+    return [chunk.text for chunk in doc.noun_chunks]
+
+doc = nlp("Le chunking sémantique découpe intelligemment le texte long.")
+print(extraire_groupes_nominaux(doc))
+# ["Le chunking sémantique", "le texte long"]
+</code></pre>
+
+        <div class="ascii">POS tagging seul                        Usage combiné avec d'autres tâches
+──────────────────────                  ───────────────────────────────────
+Étiquette chaque mot                     Groupes nominaux (POS + dépendances,
+individuellement                         leçon 6.2) → concepts clés d'un texte
+
+Peu utile isolément pour un              Filtre de verbes → actions/événements
+pipeline RAG                             mentionnés dans un document</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer le POS tagging comme une fin en soi plutôt qu'un prérequis technique pour des tâches plus utiles (groupes nominaux, dépendances, leçon 6.2) — rarement exploité directement, il sert surtout de brique de base pour d'autres analyses.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre corpus, l'extraction de groupes nominaux (concepts clés) apporterait-elle une valeur pour enrichir vos métadonnées de chunk (rappel cours métadonnées, module 4) ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l2" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 6.2</span>Analyse de dépendances syntaxiques</h2>
+
+        <p>L'<strong>analyse de dépendances</strong> va plus loin que le POS tagging (leçon 6.1) en établissant les relations grammaticales entre les mots d'une phrase — quel mot est le sujet de quel verbe, quel adjectif modifie quel nom — une structure en arbre qui capture la grammaire complète de la phrase.</p>
+
+        <pre><code class="language-python">import spacy
+
+nlp = spacy.load("fr_core_news_sm")
+doc = nlp("Jean Dupont a signé le contrat avec Acme Corp.")
+
+for token in doc:
+    print(f"{token.text:12s} → dépend de '{token.head.text}' (relation : {token.dep_})")
+# Jean          → dépend de 'Dupont' (relation : nsubj partiel...)
+# Dupont        → dépend de 'signé' (relation : nsubj — SUJET du verbe)
+# a             → dépend de 'signé' (relation : aux — auxiliaire)
+# signé         → dépend de 'signé' (relation : ROOT — racine de la phrase)
+# contrat       → dépend de 'signé' (relation : obj — objet direct)
+# Acme          → dépend de 'contrat' (relation : nmod — modifieur nominal)
+</code></pre>
+
+        <h3>Utiliser les dépendances pour relier des entités entre elles</h3>
+        <p>Cette structure de dépendances est directement exploitable pour l'extraction de relations entre entités (approfondie en leçon 6.4) : en identifiant que "Dupont" est le sujet du verbe "signé" et que "contrat" en est l'objet, on peut construire automatiquement une relation structurée "Dupont — a_signé — contrat", sans dépendre uniquement de la proximité textuelle comme le ferait une heuristique plus simple.</p>
+
+        <pre><code class="language-python">def extraire_relation_sujet_verbe_objet(doc) -> list[tuple]:
+    relations = []
+    for token in doc:
+        if token.dep_ == "ROOT" and token.pos_ == "VERB":
+            sujets = [enfant.text for enfant in token.children if enfant.dep_ == "nsubj"]
+            objets = [enfant.text for enfant in token.children if enfant.dep_ == "obj"]
+            for sujet in sujets:
+                for objet in objets:
+                    relations.append((sujet, token.text, objet))
+    return relations
+</code></pre>
+
+        <div class="ascii">Arbre de dépendances simplifié pour "Jean Dupont a signé le contrat" :
+
+                signé (ROOT, verbe)
+               /   |    \
+          Dupont   a    contrat
+          (nsubj) (aux)  (obj)
+            │
+          Jean
+        (relation avec Dupont)
+
+→ Cette structure permet de déduire automatiquement : QUI a fait
+  QUOI, une information bien plus riche qu'une simple liste
+  d'entités détectées isolément (module 3-5)</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Extraire des relations entre entités uniquement par proximité textuelle (deux entités dans la même phrase), sans exploiter la structure de dépendances qui révèle la relation grammaticale réelle — une approche par proximité peut créer des relations erronées entre entités qui n'ont en réalité aucun lien direct dans la phrase.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour la phrase "Le contrat signé par Jean Dupont mentionne Acme Corp comme fournisseur", quelle relation l'analyse de dépendances permettrait-elle d'extraire entre "Jean Dupont" et "contrat" ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l3" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 6.3</span>Résolution de coréférences</h2>
+
+        <p>Rappel du cours métadonnées (module 5, leçon 2) qui avait déjà abordé la résolution de coréférences via LLM sans expliquer les approches sous-jacentes — cette leçon comble ce manque en présentant le fonctionnement technique de cette tâche.</p>
+
+        <h3>Le problème : identifier les mentions d'une même entité</h3>
+        <p>Un texte réel désigne rarement une même entité toujours par son nom complet — pronoms ("il", "elle"), désignations partielles ("le contrat", "cette clause") se substituent au nom complet après sa première mention. La résolution de coréférences identifie automatiquement quelles mentions se réfèrent à la même entité réelle.</p>
+
+        <pre><code class="language-python">import spacy
+# spaCy nécessite une extension dédiée (comme coreferee) pour cette tâche,
+# contrairement au POS tagging et aux dépendances inclus nativement
+
+texte = "Jean Dupont a signé le contrat. Il en est très satisfait."
+# "Il" (leçon 6.3) fait référence à "Jean Dupont" — une coréférence
+# à résoudre pour que "Il en est très satisfait" ait un sens exploitable
+# isolément (rappel cours métadonnées, module 5, leçon 2, sur ce même
+# problème rencontré au niveau du chunk)
+</code></pre>
+
+        <h3>Approche par règles simples vs modèles neuronaux</h3>
+        <p>Une approche simple par règles peut résoudre les pronoms les plus évidents (le pronom fait référence à la dernière entité mentionnée de genre et nombre compatibles) — une heuristique fragile qui échoue dès que plusieurs entités compatibles sont mentionnées récemment. Les modèles neuronaux modernes de résolution de coréférences (comme ceux intégrés dans certaines extensions spaCy, ou via un LLM comme déjà présenté dans le cours métadonnées) analysent un contexte plus large pour lever ces ambiguïtés.</p>
+
+        <div class="ascii">Règle simple (dernière entité             Modèle neuronal / LLM
+compatible)                               (rappel cours métadonnées, 5.2)
+──────────────────────────────           ──────────────────────────────
+Rapide, mais échoue dès que                Analyse un contexte plus large,
+plusieurs entités compatibles              gère mieux les cas ambigus
+sont mentionnées récemment                 avec plusieurs candidats
+                                           possibles</div>
+
+        <p>Ce lien avec le cours métadonnées (module 5, leçon 2) illustre bien le rôle de ce cours : expliquer en profondeur une technique qui avait déjà été appliquée concrètement, sans jamais détailler comment elle fonctionnait réellement.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Utiliser une règle simple de résolution de coréférences (dernière entité compatible) sur des textes où plusieurs entités du même genre sont fréquemment mentionnées à proximité — un cas où cette heuristique produit fréquemment des résolutions incorrectes, nécessitant une approche plus robuste (modèle neuronal ou LLM).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour la phrase "Jean a rencontré Pierre. Il lui a donné le contrat.", la résolution du pronom "Il" est-elle ambiguë (Jean ou Pierre) ? Qu'est-ce qui, dans un contexte plus large, pourrait lever cette ambiguïté ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l4" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 6.4</span>Extraction de relations entre entités</h2>
+
+        <p>Rappel du cours métadonnées (module 6, leçon 2) qui avait déjà présenté l'extraction de triplets (sujet, relation, objet) via LLM pour construire un graphe de connaissances — cette leçon relie cette technique aux fondations de ce cours : NER (modules 3-5) et analyse de dépendances (leçon 6.2).</p>
+
+        <h3>Combiner NER et dépendances pour une extraction sans LLM</h3>
+        <pre><code class="language-python">def extraire_relations_entre_entites(doc, entites_detectees: list[dict]) -> list[tuple]:
+    """Combine la NER (modules 3-5) et l'analyse de dépendances (leçon 6.2)
+    pour extraire des relations sans recourir à un LLM."""
+    relations = []
+    for token in doc:
+        if token.dep_ == "ROOT" and token.pos_ == "VERB":
+            sujets_entites = [e for e in entites_detectees if e["texte"] in
+                               [enfant.text for enfant in token.children if enfant.dep_ == "nsubj"]]
+            objets_entites = [e for e in entites_detectees if e["texte"] in
+                               [enfant.text for enfant in token.children if enfant.dep_ in ("obj", "nmod")]]
+            for sujet in sujets_entites:
+                for objet in objets_entites:
+                    relations.append((sujet["texte"], token.lemma_, objet["texte"]))
+    return relations
+</code></pre>
+
+        <h3>Comparaison avec l'extraction par LLM (rappel cours métadonnées)</h3>
+        <div class="ascii">NER + dépendances (cette leçon)          LLM (rappel cours métadonnées, 6.2)
+──────────────────────────────           ────────────────────────────────────
+Rapide, sans coût d'appel API             Plus flexible, capture des relations
+                                          implicites non exprimées par une
+Limité aux relations exprimées            structure grammaticale simple
+GRAMMATICALEMENT de façon directe
+(sujet-verbe-objet)                       Coût par appel, risque
+                                          d'hallucination (rappel cours OCR,
+Peut manquer des relations plus           module 5, leçon 4)
+complexes ou implicites</div>
+
+        <p>Cette combinaison NER + dépendances constitue une alternative économique à l'extraction de relations par LLM déjà présentée dans le cours métadonnées — pertinente pour des relations exprimées de façon grammaticalement directe, avec un repli vers le LLM pour des cas plus complexes ou ambigus, un principe de routage hybride déjà établi à de multiples reprises dans cette série.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Se limiter à l'extraction de relations par NER + dépendances pour des textes où les relations importantes sont souvent exprimées de façon implicite ou complexe (à travers plusieurs phrases), un cas où cette approche grammaticale simple échoue et où le LLM (cours métadonnées, module 6) apporte une réelle valeur ajoutée.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre corpus, les relations entre entités importantes sont-elles généralement exprimées par une structure grammaticale simple (sujet-verbe-objet) ou de façon plus complexe et implicite ? Cette réponse oriente-t-elle vers l'approche par dépendances ou par LLM ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l5" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 6.5</span>Détection de langue et segmentation de phrases</h2>
+
+        <p>Cette dernière leçon du module traite deux tâches de NLP plus élémentaires mais tout aussi essentielles — déjà mentionnées dans les cours précédents (cours métadonnées, module 6, leçon 1, pour la détection de langue) mais jamais expliquées dans leur fonctionnement.</p>
+
+        <h3>Détection de langue</h3>
+        <p>Rappel du cours métadonnées (module 6, leçon 1) où <code class="inline">langdetect</code> avait été utilisé sans explication : ces outils fonctionnent généralement en comparant la distribution de séquences de caractères (n-grammes) du texte à des profils statistiques appris pour chaque langue, une approche différente mais complémentaire à celle des modèles de langue neuronaux (module 3, leçon 5).</p>
+
+        <pre><code class="language-python">from langdetect import detect, detect_langs
+
+texte = "Le chunking est une étape essentielle."
+print(detect(texte))                # 'fr'
+print(detect_langs(texte))          # [fr:0.999...] — avec score de confiance
+</code></pre>
+
+        <h3>Segmentation de phrases</h3>
+        <p>Rappel du cours chunking (module 3, leçon 2) où la segmentation par <code class="inline">". "</code> avait été présentée comme une heuristique simple mais fragile (piégée par les abréviations). Un segmenteur de phrases dédié (souvent basé sur un modèle statistique ou un ensemble de règles plus riche que le simple point) gère mieux ces cas ambigus.</p>
+
+        <pre><code class="language-python">import spacy
+
+nlp = spacy.load("fr_core_news_sm")
+doc = nlp("M. Dupont a signé le contrat. Il est arrivé à 14h30, soit après l'heure prévue.")
+
+for phrase in doc.sents:
+    print(phrase.text)
+# "M. Dupont a signé le contrat." → "M." n'est PAS interprété comme
+#                                    une fin de phrase malgré le point
+# "Il est arrivé à 14h30, soit après l'heure prévue."
+</code></pre>
+
+        <div class="ascii">Segmentation naïve (point + espace,     Segmenteur dédié (spaCy, ce module)
+cours chunking, module 3, leçon 2)
+──────────────────────────────          ──────────────────────────────────
+Piégée par "M. Dupont" (coupe            Reconnaît les abréviations
+après "M.")                              courantes, ne coupe pas à tort
+
+Piégée par "14h30" si un point            Gère les cas numériques et de
+suit un chiffre dans certains             ponctuation complexe correctement
+contextes</div>
+
+        <p>Ce module clôt l'exploration des tâches de NLP au-delà de la NER. Le module suivant revient explicitement sur l'intégration de l'ensemble de ces briques (tokenization, NER, POS, dépendances, coréférences, relations, détection de langue) dans le pipeline RAG déjà construit tout au long de cette série.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Continuer à utiliser une segmentation de phrases naïve par point et espace (rappel cours chunking, module 3, leçon 2) alors qu'un segmenteur dédié comme celui de spaCy, déjà disponible dans la plupart des pipelines NLP, résout ce problème de façon nettement plus fiable pour un coût de calcul minime.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : en repensant au cours chunking (module 3, leçon 2), la segmentation de phrases naïve par point posait-elle problème sur votre corpus ? Un segmenteur dédié comme spaCy résoudrait-il ce problème rétroactivement ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-7">
+      <span class="module-kicker">MODULE 07 / 08</span>
+      <h1>Intégrer le NLP dans le pipeline RAG</h1>
+      <p class="intro">Ce module revient explicitement sur les points d'intégration déjà esquissés au module 1 (leçon 1.4) — comment la tokenization et la NER, désormais bien comprises, s'articulent concrètement avec le chunking, les métadonnées et la recherche déjà construits dans les cours précédents de cette série.</p>
+
+      <section class="lesson" id="m7-l1" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 7.1</span>Utiliser les entités extraites comme métadonnées</h2>
+
+        <p>Rappel du cours métadonnées (module 4, leçon 2) : les entités extraites deviennent des métadonnées de chunk exploitables pour le filtrage. Cette leçon boucle la boucle en appliquant la compréhension approfondie de la NER (modules 3-5) à ce même besoin.</p>
+
+        <pre><code class="language-python">def enrichir_chunk_avec_entites(chunk: dict, pipeline_ner) -> dict:
+    """Combine tokenization implicite (module 2) et NER (modules 3-5)
+    pour enrichir un chunk, exactement comme déjà pratiqué dans le
+    cours métadonnées (module 4, leçon 2), mais avec une compréhension
+    complète du fonctionnement sous-jacent."""
+    entites_brutes = pipeline_ner(chunk["texte"])
+    entites_normalisees = normaliser_entites_personnes(  # rappel module 4, leçon 5
+        [e["word"] for e in entites_brutes if e["entity_group"] == "PER"]
+    )
+
+    chunk["metadata"]["entites_personnes"] = list(set(entites_normalisees.values()))
+    chunk["metadata"]["entites_organisations"] = [
+        e["word"] for e in entites_brutes if e["entity_group"] == "ORG"
+    ]
+    return chunk
+</code></pre>
+
+        <p>Cette intégration illustre bien le rôle de ce cours dans la série : il n'introduit pas une nouvelle métadonnée mais explique en profondeur comment celle déjà utilisée (cours métadonnées, module 4) est concrètement produite, avec tous les choix de modèle (module 4), de post-traitement (module 4, leçon 5) et de personnalisation (module 5) désormais compris.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Réintégrer une NER brute sans post-traitement (rappel module 4, leçon 5, sur la normalisation et la déduplication) directement comme métadonnée, reproduisant les problèmes de variantes multiples et de doublons déjà identifiés — l'intégration au pipeline métadonnées devrait toujours passer par les étapes de nettoyage déjà établies.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          En reprenant le schéma de métadonnées structurelles du cours métadonnées (module 2, leçon 5), où ajouteriez-vous précisément les champs d'entités enrichis par ce cours ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l2" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 7.2</span>Tokenization et chunking : aligner les unités</h2>
+
+        <p>Rappel du cours chunking (module 1, leçon 4 ; module 2) : la taille des chunks se mesure en tokens, comptés via le tokenizer du modèle d'embedding utilisé. Cette leçon approfondit un point d'intégration subtil : la cohérence entre le découpage en chunks et les frontières de tokens.</p>
+
+        <h3>Le risque de couper un token en plein milieu du chunking</h3>
+        <p>Rappel du cours chunking (module 2, leçon 1) sur le chunking par caractères : un découpage naïf par position de caractère peut couper un token en plein milieu (par exemple au milieu d'un sous-mot BPE, rappel module 2, leçon 2), produisant un chunk qui commence ou finit par un fragment de token incohérent une fois retokenisé pour l'embedding.</p>
+
+        <pre><code class="language-python">import tiktoken
+
+encodeur = tiktoken.encoding_for_model("gpt-4o")
+
+def chunker_en_respectant_les_tokens(texte: str, taille_max_tokens: int) -> list[str]:
+    """Rappel du cours chunking (module 2, leçon 3) : découper directement
+    sur les IDs de tokens, jamais sur les caractères bruts, pour éviter
+    de fragmenter un token en plein milieu."""
+    tokens = encodeur.encode(texte)
+    chunks = []
+    for i in range(0, len(tokens), taille_max_tokens):
+        chunks.append(encodeur.decode(tokens[i:i + taille_max_tokens]))
+    return chunks
+</code></pre>
+
+        <h3>Aligner la NER avec les frontières de chunks</h3>
+        <p>Un défi similaire, plus spécifique à ce cours : si une entité (module 3) est fragmentée entre deux chunks adjacents (rappel du problème de fragmentation déjà identifié pour les tableaux dans le cours chunking, module 5), elle devient partiellement ou totalement méconnaissable pour la NER appliquée après le chunking — une raison supplémentaire de privilégier l'extraction d'entités <em>avant</em> le chunking final, ou sur le document complet plutôt que chunk par chunk isolément.</p>
+
+        <div class="ascii">NER appliquée APRÈS un chunking qui        NER appliquée sur le texte COMPLET,
+fragmente une entité :                      puis chunks enrichis a posteriori :
+
+Chunk 1 : "...le contrat signé par           Document entier analysé par NER :
+           Jean"                              "Jean Dupont" détecté comme UNE
+Chunk 2 : "Dupont le 14 mars..."              seule entité PERSONNE complète
+                                                        │
+→ "Jean" et "Dupont" détectés comme                     ▼
+  DEUX entités partielles distinctes,        Chaque chunk hérite ensuite des
+  ou pas détectés du tout                    entités qui le CONCERNENT, sans
+                                             fragmentation</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Appliquer la NER chunk par chunk après un découpage qui ignore les frontières d'entités, risquant de fragmenter des entités à cheval sur deux chunks. Privilégier l'extraction d'entités sur le document complet (ou au moins sur des unités plus larges que le chunk final), puis répercuter les entités détectées sur les chunks concernés.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Dans votre pipeline, la NER est-elle appliquée avant ou après le chunking final ? Si après, chunk par chunk, quel risque de fragmentation d'entités cela pourrait-il introduire ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l3" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 7.3</span>Enrichir la recherche avec des entités (filtrage, boosting)</h2>
+
+        <p>Rappel du cours métadonnées (module 3) sur le filtrage par métadonnées et du cours embeddings (module 7) sur la recherche hybride — cette leçon détaille comment les entités extraites (modules 3-5) peuvent enrichir spécifiquement la qualité du retrieval, au-delà du simple filtrage déjà couvert.</p>
+
+        <h3>Filtrage exact par entité (rappel)</h3>
+        <pre><code class="language-python"># Rappel direct du cours métadonnées, module 3
+resultats = vectorstore.search(
+    query_vector=embed(question),
+    filter={"entites_organisations": {"$in": ["Acme Corp"]}},
+    k=5,
+)
+</code></pre>
+
+        <h3>Boosting de score selon la présence d'entités de la question</h3>
+        <p>Une technique complémentaire au filtrage strict : plutôt que d'exclure les chunks sans l'entité recherchée, augmenter (booster) le score des chunks qui la contiennent, en combinaison avec le score de similarité vectorielle — une approche qui rejoint la fusion de scores déjà présentée dans le cours embeddings (module 7, leçon 4, Reciprocal Rank Fusion).</p>
+
+        <pre><code class="language-python">def rechercher_avec_boosting_entites(question: str, entites_question: list[str], k: int = 5):
+    resultats_vectoriels = vectorstore.search(query_vector=embed(question), top_k=30)
+
+    for resultat in resultats_vectoriels:
+        entites_chunk = resultat["metadata"].get("entites_organisations", []) + \
+                        resultat["metadata"].get("entites_personnes", [])
+        bonus = 0.1 * sum(1 for e in entites_question if e in entites_chunk)
+        resultat["score_final"] = resultat["score"] + bonus
+
+    return sorted(resultats_vectoriels, key=lambda r: r["score_final"], reverse=True)[:k]
+</code></pre>
+
+        <h3>Extraire les entités de la question elle-même</h3>
+        <p>Pour appliquer ce boosting, il faut d'abord détecter les entités mentionnées dans la <em>question</em> de l'utilisateur — en appliquant la même NER (modules 3-4) à la question qu'aux chunks du corpus, une symétrie de traitement qui rejoint le principe déjà établi dans le cours embeddings (module 1, leçon 4) sur l'usage cohérent du même modèle pour l'ingestion et la requête.</p>
+
+        <div class="ascii">Question utilisateur : "Quelles sont les obligations d'Acme Corp ?"
+        │
+        ▼
+NER appliquée à la question (modules 3-4) ──► entité détectée : "Acme Corp"
+        │
+        ▼
+Recherche vectorielle + boosting des chunks qui mentionnent
+CETTE MÊME entité "Acme Corp" (cette leçon)</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Extraire les entités uniquement des chunks à l'ingestion, sans jamais appliquer la même extraction à la question de l'utilisateur au moment de la recherche — rendant impossible tout boosting ou filtrage basé sur les entités mentionnées dans la question elle-même.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour une question typique de vos utilisateurs qui mentionnerait une entité spécifique (personne, organisation), le boosting par entité apporterait-il une amélioration mesurable par rapport à la recherche vectorielle seule ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l4" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 7.4</span>Pipeline NLP scalable : performance et traitement par lots</h2>
+
+        <p>Rappel du principe déjà établi dans le cours nettoyage (module 6) et le cours métadonnées (module 4, leçon 5) sur les coûts à l'échelle : appliquer la NER (et la tokenization) à un corpus volumineux nécessite des optimisations de performance spécifiques.</p>
+
+        <h3>Traitement par lots (batching)</h3>
+        <pre><code class="language-python">def traiter_ner_par_lots(chunks: list[dict], pipeline_ner, taille_lot: int = 32) -> list[dict]:
+    """Le traitement par lots exploite le parallélisme du modèle
+    (particulièrement efficace sur GPU) plutôt que traiter chaque
+    chunk séquentiellement — un gain de performance substantiel
+    à l'échelle d'un corpus volumineux."""
+    for i in range(0, len(chunks), taille_lot):
+        lot = chunks[i:i + taille_lot]
+        textes = [c["texte"] for c in lot]
+        resultats_lot = pipeline_ner(textes, batch_size=taille_lot)
+
+        for chunk, entites in zip(lot, resultats_lot):
+            chunk["entites"] = entites
+    return chunks
+</code></pre>
+
+        <h3>Choisir un modèle adapté au volume (rappel module 4, leçon 4)</h3>
+        <p>Rappel de la méthode de décision du module 4 : à très grande échelle, privilégier un modèle léger et rapide (spaCy <code class="inline">sm</code>, module 4, leçon 1) plutôt qu'un LLM coûteux par appel — un principe de dimensionnement déjà établi pour l'OCR (cours OCR, module 4, leçon 5) et le parsing (cours parsing, module 4, leçon 4).</p>
+
+        <h3>Paralléliser sur plusieurs processus ou machines</h3>
+        <pre><code class="language-python">from multiprocessing import Pool
+
+def traiter_corpus_en_parallele(chemins_documents: list[str], nb_processus: int = 4) -> list[dict]:
+    with Pool(nb_processus) as pool:
+        resultats = pool.map(traiter_document_avec_nlp, chemins_documents)
+    return resultats
+</code></pre>
+
+        <div class="ascii">Volume de corpus         Stratégie recommandée
+──────────────────────────────────────────────────────────────────
+Petit (< 10 000 chunks)   Traitement séquentiel simple, modèle
+                          au choix (module 4)
+
+Moyen (10k - 1M chunks)    Traitement par lots (batching), modèle
+                          léger privilégié (spaCy sm/md)
+
+Très grand (> 1M chunks)   Batching + parallélisation multi-processus
+                          ou multi-machines, modèle optimisé pour
+                          la vitesse en priorité</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Traiter un corpus volumineux chunk par chunk séquentiellement sans exploiter le traitement par lots, alors que la plupart des modèles de NER (spaCy, Hugging Face) sont conçus pour tirer parti du traitement par lots avec un gain de performance significatif, particulièrement sur GPU.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre volume de corpus, dans quelle catégorie du tableau ci-dessus vous situez-vous, et quelle stratégie d'optimisation en découle ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l5" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 7.5</span>Pièges d'intégration entre NLP et le reste du pipeline</h2>
+
+        <p>Cette dernière leçon du module synthétise les pièges d'intégration les plus fréquents entre les techniques de ce cours et le reste du pipeline RAG déjà construit dans la série — une consolidation des points d'attention déjà mentionnés dans les leçons précédentes.</p>
+
+        <table>
+          <thead>
+            <tr><th>Piège d'intégration</th><th>Conséquence</th><th>Référence</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Tokenizer de comptage différent du modèle d'embedding réel</td><td>Chunks mal dimensionnés</td><td>Module 2, leçon 5 ; cours embeddings, module 2</td></tr>
+            <tr><td>NER appliquée après un chunking qui fragmente les entités</td><td>Entités partielles ou manquées</td><td>Module 7, leçon 2</td></tr>
+            <tr><td>Entités brutes non normalisées utilisées comme métadonnées</td><td>Filtrage incohérent (variantes multiples)</td><td>Module 4, leçon 5</td></tr>
+            <tr><td>NER non appliquée à la question utilisateur</td><td>Boosting/filtrage par entité impossible côté requête</td><td>Module 7, leçon 3</td></tr>
+            <tr><td>Modèle NER trop coûteux pour le volume réel</td><td>Latence ou coût d'ingestion excessifs</td><td>Module 7, leçon 4</td></tr>
+          </tbody>
+        </table>
+
+        <div class="ascii">Checklist d'intégration avant mise en production :
+
+[ ] Le tokenizer utilisé pour dimensionner les chunks correspond
+    EXACTEMENT au modèle d'embedding réellement utilisé
+[ ] La NER est appliquée avant le chunking final, ou sur des
+    unités suffisamment larges pour ne pas fragmenter les entités
+[ ] Les entités extraites sont normalisées et dédupliquées avant
+    d'être utilisées comme métadonnées
+[ ] La même NER est appliquée à la question utilisateur pour
+    permettre le boosting/filtrage par entité
+[ ] Le modèle de NER choisi est adapté au volume réel du corpus
+    (rappel de la méthode de décision, module 4, leçon 4)</div>
+
+        <p>Ce module clôt la partie "intégration" du cours. Le dernier module assemble l'ensemble des techniques vues (tokenization, NER standard et personnalisée, autres tâches de NLP, intégration) dans un pipeline complet et un exercice de synthèse, clôturant également le Bloc 4 de cette série.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Découvrir ces pièges d'intégration un par un en production au fil des incidents, plutôt que de les vérifier systématiquement avant la mise en production via une checklist comme celle ci-dessus — un rappel du principe de validation proactive déjà établi à de multiples reprises dans cette série de cours.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : en utilisant la checklist ci-dessus, combien de points seraient déjà satisfaits dans votre pipeline actuel (réel ou imaginé), et lequel mériterait le plus d'attention immédiate ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-8">
+      <span class="module-kicker">MODULE 08 / 08 — FINAL</span>
+      <h1>Implémentation complète et étude de cas</h1>
+      <p class="intro">Ce dernier module assemble l'ensemble des techniques de ce cours en un pipeline exécutable de bout en bout, propose une comparaison empirique, une méthode de débogage, et clôt à la fois ce cours et le Bloc 4 de cette série.</p>
+
+      <section class="lesson" id="m8-l1" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 8.1</span>Pipeline complet : tokenization + NER + structuration pour le chunking/métadonnées</h2>
+
+        <p>Voici un pipeline complet qui relie la tokenization (module 2) et la NER (modules 3-5), avec les autres tâches de structuration (module 6) et les points d'intégration (module 7), pour livrer des chunks enrichis prêts pour l'indexation.</p>
+
+        <pre><code class="language-python">import spacy
+import tiktoken
+
+nlp = spacy.load("fr_core_news_lg")
+encodeur_tokens = tiktoken.encoding_for_model("gpt-4o")   # rappel module 2, leçon 5 :
+                                                            # DOIT correspondre au modèle
+                                                            # d'embedding réellement utilisé
+
+def pipeline_nlp_complet(document_texte: str) -> dict:
+    # 1. Analyse NLP complète sur le DOCUMENT ENTIER (rappel module 7, leçon 2 :
+    #    éviter la fragmentation d'entités par un chunking prématuré)
+    doc = nlp(document_texte)
+
+    entites_document = [
+        {"texte": ent.text, "categorie": ent.label_, "debut": ent.start_char, "fin": ent.end_char}
+        for ent in doc.ents
+    ]
+    entites_normalisees = normaliser_entites_personnes(   # rappel module 4, leçon 5
+        [e["texte"] for e in entites_document if e["categorie"] == "PER"]
+    )
+
+    # 2. Chunking en respectant les frontières de tokens (rappel module 7, leçon 2)
+    chunks_bruts = chunker_en_respectant_les_tokens(document_texte, taille_max_tokens=400)
+
+    # 3. Répercuter les entités du document sur chaque chunk selon leur position
+    chunks_enrichis = []
+    for chunk_texte in chunks_bruts:
+        debut_chunk = document_texte.index(chunk_texte)
+        fin_chunk = debut_chunk + len(chunk_texte)
+        entites_du_chunk = [e for e in entites_document if debut_chunk <= e["debut"] < fin_chunk]
+
+        chunks_enrichis.append({
+            "texte": chunk_texte,
+            "nb_tokens": len(encodeur_tokens.encode(chunk_texte)),
+            "entites_personnes": list(set(entites_normalisees.get(e["texte"], e["texte"])
+                                           for e in entites_du_chunk if e["categorie"] == "PER")),
+            "entites_organisations": [e["texte"] for e in entites_du_chunk if e["categorie"] == "ORG"],
+        })
+
+    return {"chunks": chunks_enrichis, "nb_entites_totales": len(entites_document)}
+</code></pre>
+
+        <p>Ce pipeline illustre la continuité entre ce cours et l'ensemble de la série de préparation de données pour RAG : la tokenization (module 2) alimente le dimensionnement des chunks (cours chunking), la NER (modules 3-5) alimente l'enrichissement de métadonnées (cours métadonnées), et le tout converge vers l'indexation dans une base vectorielle (cours bases de données vectorielles).</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Appliquer l'analyse NLP chunk par chunk après le découpage plutôt que sur le document entier avant chunking, reproduisant le risque de fragmentation d'entités déjà identifié au module 7, leçon 2 — l'ordre des opérations dans ce pipeline (NER sur le document entier, puis chunking, puis répercussion des entités) n'est pas arbitraire.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Dans le pipeline ci-dessus, identifiez à quel module de ce cours correspond chaque étape numérotée. Pour votre propre projet, quelle étape simplifieriez-vous pour une première version minimale ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l2" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 8.2</span>Comparaison empirique des approches NER sur un corpus réel</h2>
+
+        <p>Rappel de la méthode déjà établie au module 4 (leçon 4) et systématiquement pratiquée dans cette série (cours OCR, module 8 ; cours parsing, module 8) : cette leçon étend la comparaison à l'échelle d'un corpus complet avec coût et latence.</p>
+
+        <pre><code class="language-python">approches_ner = {
+    "spacy_sm": lambda texte: spacy.load("fr_core_news_sm")(texte).ents,
+    "spacy_lg": lambda texte: spacy.load("fr_core_news_lg")(texte).ents,
+    "huggingface_bert": lambda texte: pipeline_ner_huggingface(texte),
+    "llm_few_shot": lambda texte: extraire_entites_personnalisees_few_shot(texte),
+}
+
+resultats = {}
+for nom, fonction in approches_ner.items():
+    debut = time.perf_counter()
+    scores_f1 = [evaluer_ner(fonction(cas["texte"]), cas["verite_terrain"])
+                  for cas in jeu_evaluation_ner]
+    duree = time.perf_counter() - debut
+
+    resultats[nom] = {
+        "f1_moyen": sum(s["f1"] for scores in scores_f1 for s in scores.values()) / len(scores_f1),
+        "latence_moyenne_ms": (duree / len(jeu_evaluation_ner)) * 1000,
+    }
+</code></pre>
+
+        <div class="ascii">Exemple illustratif de synthèse comparative (données fictives, à
+reproduire sur VOTRE corpus) :
+
+Approche              F1 moyen    Latence/doc    Coût/doc
+──────────────────────────────────────────────────────────────
+spacy_sm                0.81        8ms            0$
+spacy_lg                 0.87        22ms           0$
+huggingface_bert          0.89        45ms           0$ (GPU local)
+llm_few_shot              0.91        280ms          0.0008$
+
+→ Un gain de F1 modeste (0.87 → 0.91) pour spaCy lg vs LLM,
+  au prix d'une latence 13x supérieure et d'un coût par
+  document non négligeable à grande échelle — cohérent avec
+  la méthode de décision du module 4, leçon 4.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Choisir l'approche au F1 le plus élevé sans considérer le rapport coût/bénéfice à l'échelle réelle de son corpus — un gain marginal de précision ne justifie pas toujours un coût et une latence largement supérieurs, surtout pour des catégories d'entités standard bien couvertes par des modèles plus légers.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour votre volume estimé de documents, calculez le coût et la latence totale de chacune des quatre approches ci-dessus. Cette comparaison confirme-t-elle votre choix pressenti au module 4, leçon 4 ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l3" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 8.3</span>Débogage d'une extraction NLP dégradée</h2>
+
+        <p>Cette leçon synthétise, sous forme de grille de diagnostic, les causes les plus fréquentes de dégradation rencontrées tout au long de ce cours.</p>
+
+        <table>
+          <thead>
+            <tr><th>Symptôme observé</th><th>Cause probable</th><th>Module de référence</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Comptage de tokens incohérent avec la limite du modèle</td><td>Tokenizer utilisé différent du modèle réel</td><td>Module 2, leçon 5</td></tr>
+            <tr><td>Entité coupée en deux fragments distincts</td><td>NER appliquée après un chunking fragmentant</td><td>Module 7, leçon 2</td></tr>
+            <tr><td>Même personne comptée comme plusieurs entités distinctes</td><td>Absence de normalisation</td><td>Module 4, leçon 5</td></tr>
+            <tr><td>Entité de domaine jamais détectée</td><td>Catégorie non couverte par le modèle standard</td><td>Module 5, leçons 1-4</td></tr>
+            <tr><td>Résolution de pronom incorrecte</td><td>Ambiguïté entre plusieurs entités candidates</td><td>Module 6, leçon 3</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Méthode de diagnostic étape par étape</h3>
+        <ol>
+          <li><strong>Isoler le document ou la phrase problématique</strong> et reproduire le comportement hors du reste du corpus.</li>
+          <li><strong>Vérifier le tokenizer utilisé</strong> à chaque étape (comptage, modèle NER, modèle d'embedding) — sont-ils tous cohérents entre eux (rappel module 2, leçon 5) ?</li>
+          <li><strong>Inspecter les entités brutes avant post-traitement</strong> (module 4, leçon 5) pour savoir si le problème vient de l'extraction elle-même ou du post-traitement.</li>
+          <li><strong>Comparer plusieurs approches</strong> (méthode du module 8, leçon 2) sur ce cas précis pour déterminer si le problème est spécifique à un modèle ou inhérent à la difficulté du texte.</li>
+        </ol>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Changer de modèle de NER dès le premier résultat décevant, sans avoir vérifié si le problème vient en réalité d'un défaut d'intégration (tokenizer incohérent, fragmentation par chunking) plutôt que du modèle lui-même — rappel du réflexe de diagnostic déjà établi à de multiples reprises dans cette série : toujours inspecter la cause réelle avant de changer de composant.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour chacun des 3 symptômes du tableau qui vous semblent les plus probables sur votre projet, notez la première vérification concrète que vous feriez.
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l4" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 8.4</span>Étude de cas et exercice final</h2>
+
+        <p>Cet exercice de synthèse mobilise l'ensemble des concepts de ce cours — prenez le temps de le traiter sérieusement, c'est l'exercice qui ancre le plus durablement l'apprentissage.</p>
+
+        <div class="callout exercise">
+          <strong>Énoncé</strong>
+          Un cabinet d'avocats veut structurer 50 000 contrats pour un système RAG interne. Ces contrats mentionnent des parties (personnes et organisations), des références de clauses standardisées (format "ART-NN.N"), des montants financiers, et des dates d'échéance importantes. Les avocats veulent pouvoir filtrer par partie contractante et par type de clause, et poser des questions comme "quelles obligations incombent à telle organisation ?". Le volume est important, mais la précision sur les références de clauses est critique (elles servent de preuves légales).
+          <br><br>
+          Concevez une stratégie NLP complète : quelle approche de tokenization pour le dimensionnement des chunks, quelle approche de NER pour les entités standard (personnes, organisations) vs les références de clauses personnalisées, comment structurer l'extraction de relations (obligations liées à une organisation), et comment valider la précision compte tenu de l'enjeu légal.
+        </div>
+
+        <p>Quelques pistes de réflexion pour vous guider (à consulter après avoir tenté l'exercice vous-même) :</p>
+
+        <h3>Piste pour la tokenization</h3>
+        <p>Rappel du module 2, leçon 5 : utiliser impérativement le tokenizer du modèle d'embedding effectivement choisi (cours embeddings) pour dimensionner les chunks, avec une attention particulière à ne jamais fragmenter une référence de clause en plein milieu (rappel module 7, leçon 2).</p>
+
+        <h3>Piste pour les entités standard vs personnalisées</h3>
+        <p>Les personnes et organisations relèvent des catégories standard (module 3) — un modèle spaCy ou Hugging Face (module 4) suffirait probablement. Les références de clauses au format spécifique ("ART-NN.N") relèvent d'une catégorie personnalisée (module 5) : compte tenu du format très structuré et prévisible, une règle simple (rappel module 3, leçon 3) pourrait suffire et serait plus fiable qu'un modèle statistique pour ce cas précis — un exemple concret où l'approche la plus simple bat la plus sophistiquée.</p>
+
+        <h3>Piste pour l'extraction de relations</h3>
+        <p>Rappel du module 6, leçon 4 : combiner NER et analyse de dépendances pour les relations exprimées grammaticalement de façon directe ("l'organisation X doit verser..."), avec un repli vers le LLM (rappel cours métadonnées, module 6) pour des obligations plus complexes réparties sur plusieurs phrases.</p>
+
+        <h3>Piste pour la validation vu l'enjeu légal</h3>
+        <p>Compte tenu de la criticité légale des références de clauses, une validation systématique par règle (module 3, leçon 3) plutôt qu'une confiance dans un modèle statistique probabiliste, complétée par un jeu de test représentatif (rappel module 5, leçon 5) avec un seuil de rappel très élevé (rappel module 5, leçon 5, sur la priorité au rappel pour les usages à enjeu de sécurité/légal) — mieux vaut signaler une référence ambiguë pour vérification humaine que la manquer silencieusement.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Recommander systématiquement le modèle le plus sophistiqué (LLM) pour l'ensemble de cet exercice, alors que les références de clauses au format très structuré bénéficieraient davantage d'une règle simple et parfaitement fiable — un rappel du principe transversal de toute cette série : la meilleure solution est celle adaptée au besoin réel, pas la plus impressionnante techniquement.
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l5" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 8.5</span>Ressources pour aller plus loin</h2>
+
+        <p>Pour approfondir au-delà de ce cours, quelques pistes organisées par thème.</p>
+
+        <h3>Documentation officielle des outils</h3>
+        <ul>
+          <li>Documentation spaCy — référence complète pour la NER, le POS tagging, les dépendances et la segmentation de phrases (modules 4 et 6).</li>
+          <li>Documentation Hugging Face Transformers — référence pour les modèles de NER basés sur des transformers (modules 3-5).</li>
+          <li>Documentation tiktoken et SentencePiece — référence pour les algorithmes de tokenization (module 2).</li>
+        </ul>
+
+        <h3>Publications de référence</h3>
+        <ul>
+          <li>Le papier original sur BERT — pour comprendre en profondeur l'architecture derrière BERT-NER (module 3, leçon 5).</li>
+          <li>Les publications sur BPE, WordPiece et SentencePiece — pour approfondir les algorithmes de tokenization (module 2, leçon 3).</li>
+        </ul>
+
+        <h3>Pour la pratique</h3>
+        <ul>
+          <li>Reproduire la comparaison empirique de la leçon 8.2 sur un échantillon réel de votre corpus — la meilleure façon de transformer ce cours en compétence opérationnelle durable.</li>
+          <li>Construire progressivement un jeu d'annotation (module 5, leçon 2) à partir des cas réels de votre domaine, même sans besoin immédiat de fine-tuning.</li>
+        </ul>
+
+        <p>Ce cours clôt le <strong>Bloc 4 — Données Non Structurées</strong> de cette série (OCR, parsing de documents complexes, NLP de base). Combiné au Bloc 3 (chunking, embeddings, nettoyage, métadonnées, bases de données vectorielles), l'ensemble couvre désormais la chaîne complète de préparation de données pour RAG — de l'image d'un document scanné jusqu'aux entités structurées prêtes pour l'indexation et la recherche. Les blocs suivants de cette série abordent la préparation de données pour des agents IA et pour le fine-tuning de modèles — des extensions naturelles pour qui souhaite aller plus loin.</p>
+
+        <div class="finale">
+          <p>Vous avez terminé les 8 modules du cours sur le NLP de base — et le Bloc 4 de cette série sur les données non structurées.</p>
+          <a href="#top">← Retour en haut de la formation</a>
+        </div>
+      </section>
+    </div>
+
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+  hljs.highlightAll();
+  const sidebar = document.getElementById('sidebar');
+  document.getElementById('menuToggle').addEventListener('click', () => { sidebar.classList.toggle('open'); });
+  const lessonLinks = document.querySelectorAll('[data-lesson]');
+  const storageKey = 'nlp-tokenization-ner-course-progress';
+  const done = JSON.parse(localStorage.getItem(storageKey) || '{}');
+  function updateProgressBar() {
+    const total = 40;
+    const completed = Object.values(done).filter(Boolean).length;
+    document.getElementById('progressFill').style.width = Math.min(100, (completed / total * 100)) + '%';
+  }
+  lessonLinks.forEach(link => {
+    const id = link.dataset.lesson;
+    if (done[id]) link.querySelector('.lesson-check').classList.add('done');
+    link.addEventListener('click', () => {
+      done[id] = true;
+      localStorage.setItem(storageKey, JSON.stringify(done));
+      link.querySelector('.lesson-check').classList.add('done');
+      updateProgressBar();
+      sidebar.classList.remove('open');
+    });
+  });
+  updateProgressBar();
+</script>
+</body>
+</html>
