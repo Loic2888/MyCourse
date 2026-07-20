@@ -1,0 +1,2124 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Logs et Traces d'Agents IA — Nettoyage et Structuration pour Debug et Amélioration</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<style>
+  :root {
+    --bg: #f4f6f8; --bg-alt: #e8edf1; --panel: #ffffff; --text: #1f2430; --text-muted: #5b6472;
+    --accent: #0891b2; --accent-dark: #0e7490; --pitfall: #f59e0b; --border: #dbe2e8;
+    --chunk-1: #7c5cff; --chunk-2: #17b8a6; --chunk-3: #ff6b6b; --chunk-4: #ffb020;
+    --font-display: "Space Grotesk", sans-serif; --font-body: "Inter", system-ui, sans-serif; --font-mono: "JetBrains Mono", monospace;
+    --sidebar-width: 300px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font-body); color: var(--text); background: var(--bg); line-height: 1.65; }
+  .layout { display: flex; min-height: 100vh; }
+  .sidebar { width: var(--sidebar-width); flex-shrink: 0; background: var(--panel); border-right: 1px solid var(--border); padding: 1.5rem 1rem 3rem; overflow-y: auto; position: sticky; top: 0; height: 100vh; }
+  .sidebar a.brand { display: block; font-family: var(--font-display); font-weight: 700; font-size: 1rem; margin-bottom: 1.5rem; color: var(--text); text-decoration: none; padding: 0.4rem 0.5rem; }
+  .sidebar a.brand span { color: var(--accent); }
+  .module-group { margin-bottom: 0.35rem; border-radius: 8px; }
+  .module-title { font-family: var(--font-display); font-weight: 600; font-size: 0.88rem; padding: 0.55rem 0.6rem; display: flex; gap: 0.5rem; align-items: baseline; color: var(--text); text-decoration: none; }
+  .module-title .n { font-family: var(--font-mono); font-size: 0.72rem; opacity: 0.7; }
+  .lesson-list { list-style: none; padding-left: 0.6rem; margin-bottom: 0.4rem; }
+  .lesson-list li a { display: flex; align-items: center; gap: 0.5rem; padding: 0.32rem 0.5rem; border-radius: 6px; color: var(--text-muted); text-decoration: none; font-size: 0.83rem; }
+  .lesson-list li a:hover { background: var(--bg-alt); color: var(--text); }
+  .lesson-list li a.active { color: var(--accent-dark); font-weight: 600; background: rgba(8,145,178,0.1); }
+  .lesson-check { width: 12px; height: 12px; flex-shrink: 0; border: 1.5px solid var(--text-muted); border-radius: 3px; }
+  .lesson-check.done { background: var(--chunk-2); border-color: var(--chunk-2); }
+  .progress-bar { height: 4px; background: var(--border); position: sticky; top: 0; z-index: 10; }
+  .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--chunk-1), var(--accent)); width: 0%; transition: width 0.2s ease; }
+  .content { flex: 1; max-width: 760px; margin: 0 auto; padding: 3rem 2rem 6rem; }
+  .module-kicker { font-family: var(--font-mono); font-size: 0.8rem; color: var(--accent-dark); background: rgba(8,145,178,0.08); border: 1px dashed var(--accent); display: inline-block; padding: 0.2rem 0.8rem; border-radius: 999px; margin-bottom: 1rem; }
+  section.lesson { border-top: 2px dashed var(--border); padding-top: 2rem; margin-top: 2rem; position: relative; padding-left: 1.1rem; border-left: 4px solid var(--lesson-color, var(--accent)); }
+  section.lesson h2 { font-family: var(--font-display); font-size: 1.5rem; margin-bottom: 1rem; }
+  section.lesson h2 .tag { font-family: var(--font-mono); font-size: 0.7rem; color: var(--lesson-color, var(--accent)); display: block; margin-bottom: 0.3rem; }
+  section.lesson h3 { font-family: var(--font-display); font-size: 1.1rem; margin: 1.4rem 0 0.6rem; }
+  section.lesson p, section.lesson ul, section.lesson ol { margin-bottom: 1rem; }
+  section.lesson li { margin-left: 1.3rem; margin-bottom: 0.35rem; }
+  pre { border-radius: 8px; padding: 1rem; overflow-x: auto; margin: 1rem 0; font-size: 0.85rem; }
+  code.inline { font-family: var(--font-mono); background: var(--bg-alt); padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.85em; }
+  .ascii { font-family: var(--font-mono); font-size: 0.78rem; background: #1e222b; color: #d7dce2; padding: 1rem 1.2rem; border-radius: 8px; overflow-x: auto; margin: 1rem 0; line-height: 1.5; white-space: pre; }
+  .callout { border-left: 4px solid var(--accent); background: var(--bg-alt); padding: 1rem 1.2rem; border-radius: 0 8px 8px 0; margin: 1.2rem 0; }
+  .callout strong { font-family: var(--font-display); display: block; margin-bottom: 0.3rem; font-size: 0.92rem; }
+  .callout.pitfall { border-left-color: var(--pitfall); }
+  .callout.exercise { border-left-color: var(--chunk-2); }
+  .menu-toggle { display: none; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.88rem; }
+  thead tr { text-align: left; border-bottom: 2px solid var(--border); }
+  th, td { padding: 0.5rem 0.6rem; }
+  tbody tr { border-bottom: 1px solid var(--border); }
+
+  .hero {
+    border-bottom: 2px dashed var(--border);
+    padding: 3rem 0 2.5rem;
+    text-align: center;
+    margin-bottom: 1rem;
+  }
+  .hero .tag {
+    display: inline-block; font-family: var(--font-mono); font-size: 0.8rem;
+    color: var(--accent-dark); background: rgba(8,145,178,0.1);
+    border: 1px dashed var(--accent); border-radius: 999px;
+    padding: 0.25rem 0.9rem; margin-bottom: 1.25rem;
+  }
+  .hero-title {
+    font-family: var(--font-display); font-size: clamp(1.8rem, 5vw, 2.6rem);
+    font-weight: 700; margin: 0 auto 1rem; letter-spacing: -0.01em;
+  }
+  .hero-title span {
+    background: linear-gradient(90deg, var(--chunk-1), var(--accent), var(--chunk-2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .hero-lead { max-width: 620px; margin: 0 auto; color: var(--text-muted); font-size: 1.02rem; }
+  .strip { display: flex; justify-content: center; gap: 0.4rem; margin: 2rem auto 0; max-width: 520px; }
+  .strip .seg { height: 8px; flex: 1; border-radius: 3px; }
+  .strip .seg:nth-child(1) { background: var(--chunk-1); }
+  .strip .seg:nth-child(2) { background: var(--chunk-2); }
+  .strip .seg:nth-child(3) { background: var(--chunk-3); }
+  .strip .seg:nth-child(4) { background: var(--chunk-4); }
+  .strip .seg:nth-child(5) { background: var(--chunk-1); }
+  .strip .seg:nth-child(6) { background: var(--chunk-2); }
+
+  .module-block { border-top: 3px solid var(--border); padding-top: 2.5rem; margin-top: 3rem; }
+  .module-block:first-of-type { border-top: none; margin-top: 0; }
+  .module-block > h1 { font-family: var(--font-display); font-size: 2rem; margin-bottom: 0.5rem; }
+  .module-block > p.intro { color: var(--text-muted); margin-bottom: 2rem; font-size: 1.02rem; }
+
+  .finale {
+    margin-top: 3rem; padding: 1.5rem; border-radius: 10px;
+    background: linear-gradient(135deg, rgba(124,92,255,0.08), rgba(23,184,166,0.08));
+    border: 1px dashed var(--accent);
+    text-align: center;
+  }
+  .finale p { color: var(--text-muted); margin-bottom: 0.8rem; }
+  .finale a {
+    display: inline-block; background: var(--accent); color: white;
+    text-decoration: none; padding: 0.6rem 1.4rem; border-radius: 6px;
+    font-family: var(--font-display); font-weight: 600; font-size: 0.9rem;
+  }
+
+  @media (max-width: 860px) {
+    .sidebar { position: fixed; left: -100%; z-index: 20; transition: left 0.2s ease; box-shadow: 4px 0 12px rgba(0,0,0,0.15); background: var(--panel); }
+    .sidebar.open { left: 0; }
+    .menu-toggle { display: block; position: fixed; top: 1rem; left: 1rem; z-index: 30; background: var(--accent); color: white; border: none; border-radius: 6px; padding: 0.5rem 0.75rem; cursor: pointer; font-size: 1rem; }
+    .content { padding: 4.5rem 1.25rem 3rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-bar-fill" id="progressFill"></div></div>
+<button class="menu-toggle" id="menuToggle">☰</button>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar">
+    <a class="brand" href="#top">Logs<span>&amp;Traces</span></a>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-1"><span class="n">01</span> Fondamentaux des logs et traces d'agents</a>
+      <ul class="lesson-list">
+        <li><a href="#m1-l1" data-lesson="m1-l1"><span class="lesson-check"></span>Log, trace, span : les distinctions de base</a></li>
+        <li><a href="#m1-l2" data-lesson="m1-l2"><span class="lesson-check"></span>Pourquoi les logs d'agents diffèrent des logs classiques</a></li>
+        <li><a href="#m1-l3" data-lesson="m1-l3"><span class="lesson-check"></span>Ce qu'il faut capturer : prompts, réponses, décisions</a></li>
+        <li><a href="#m1-l4" data-lesson="m1-l4"><span class="lesson-check"></span>Où ça s'insère dans l'architecture d'un agent</a></li>
+        <li><a href="#m1-l5" data-lesson="m1-l5"><span class="lesson-check"></span>Erreurs courantes de logging</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-2"><span class="n">02</span> Anatomie d'une trace d'agent</a>
+      <ul class="lesson-list">
+        <li><a href="#m2-l1" data-lesson="m2-l1"><span class="lesson-check"></span>Trace, span et arborescence d'exécution</a></li>
+        <li><a href="#m2-l2" data-lesson="m2-l2"><span class="lesson-check"></span>Tracer un appel LLM unique</a></li>
+        <li><a href="#m2-l3" data-lesson="m2-l3"><span class="lesson-check"></span>Tracer une boucle agentique multi-étapes</a></li>
+        <li><a href="#m2-l4" data-lesson="m2-l4"><span class="lesson-check"></span>Corrélation : trace_id, span_id, parent_id</a></li>
+        <li><a href="#m2-l5" data-lesson="m2-l5"><span class="lesson-check"></span>Le standard OpenTelemetry pour les agents IA</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-3"><span class="n">03</span> Nettoyage et normalisation des logs bruts</a>
+      <ul class="lesson-list">
+        <li><a href="#m3-l1" data-lesson="m3-l1"><span class="lesson-check"></span>Pourquoi les logs bruts sont rarement exploitables</a></li>
+        <li><a href="#m3-l2" data-lesson="m3-l2"><span class="lesson-check"></span>Normaliser des formats hétérogènes</a></li>
+        <li><a href="#m3-l3" data-lesson="m3-l3"><span class="lesson-check"></span>Extraire des champs structurés d'un texte libre</a></li>
+        <li><a href="#m3-l4" data-lesson="m3-l4"><span class="lesson-check"></span>Gérer le volume : échantillonnage et rétention</a></li>
+        <li><a href="#m3-l5" data-lesson="m3-l5"><span class="lesson-check"></span>Pièges courants de nettoyage</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-4"><span class="n">04</span> Anonymisation et données sensibles</a>
+      <ul class="lesson-list">
+        <li><a href="#m4-l1" data-lesson="m4-l1"><span class="lesson-check"></span>Pourquoi les logs d'agents contiennent des PII</a></li>
+        <li><a href="#m4-l2" data-lesson="m4-l2"><span class="lesson-check"></span>Détecter les PII dans prompts et réponses</a></li>
+        <li><a href="#m4-l3" data-lesson="m4-l3"><span class="lesson-check"></span>Techniques de masquage et de rédaction</a></li>
+        <li><a href="#m4-l4" data-lesson="m4-l4"><span class="lesson-check"></span>Conformité et durée de rétention</a></li>
+        <li><a href="#m4-l5" data-lesson="m4-l5"><span class="lesson-check"></span>Pièges du sur- et sous-masquage</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-5"><span class="n">05</span> Structurer les logs pour le débogage</a>
+      <ul class="lesson-list">
+        <li><a href="#m5-l1" data-lesson="m5-l1"><span class="lesson-check"></span>Ce qui rend un log réellement débogable</a></li>
+        <li><a href="#m5-l2" data-lesson="m5-l2"><span class="lesson-check"></span>Logger les décisions intermédiaires de l'agent</a></li>
+        <li><a href="#m5-l3" data-lesson="m5-l3"><span class="lesson-check"></span>Reconstituer une session complète</a></li>
+        <li><a href="#m5-l4" data-lesson="m5-l4"><span class="lesson-check"></span>Outils de visualisation de traces</a></li>
+        <li><a href="#m5-l5" data-lesson="m5-l5"><span class="lesson-check"></span>Écrire des logs qui répondent aux vraies questions</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-6"><span class="n">06</span> Métriques et signaux d'amélioration</a>
+      <ul class="lesson-list">
+        <li><a href="#m6-l1" data-lesson="m6-l1"><span class="lesson-check"></span>Des logs bruts aux métriques agrégées</a></li>
+        <li><a href="#m6-l2" data-lesson="m6-l2"><span class="lesson-check"></span>Taux de succès, d'erreur, latence</a></li>
+        <li><a href="#m6-l3" data-lesson="m6-l3"><span class="lesson-check"></span>Détecter les patterns d'échec récurrents</a></li>
+        <li><a href="#m6-l4" data-lesson="m6-l4"><span class="lesson-check"></span>Identifier les questions mal gérées</a></li>
+        <li><a href="#m6-l5" data-lesson="m6-l5"><span class="lesson-check"></span>La boucle de feedback vers l'amélioration continue</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-7"><span class="n">07</span> Pipeline de traitement à grande échelle</a>
+      <ul class="lesson-list">
+        <li><a href="#m7-l1" data-lesson="m7-l1"><span class="lesson-check"></span>Architecture d'un pipeline de traitement de logs</a></li>
+        <li><a href="#m7-l2" data-lesson="m7-l2"><span class="lesson-check"></span>Stockage : bases, entrepôts, coûts, rétention</a></li>
+        <li><a href="#m7-l3" data-lesson="m7-l3"><span class="lesson-check"></span>Traitement en continu vs en batch</a></li>
+        <li><a href="#m7-l4" data-lesson="m7-l4"><span class="lesson-check"></span>Alerting basé sur les logs</a></li>
+        <li><a href="#m7-l5" data-lesson="m7-l5"><span class="lesson-check"></span>Sécuriser l'accès aux logs</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-8"><span class="n">08</span> Implémentation complète et étude de cas</a>
+      <ul class="lesson-list">
+        <li><a href="#m8-l1" data-lesson="m8-l1"><span class="lesson-check"></span>Checklist de conception d'un système de logging</a></li>
+        <li><a href="#m8-l2" data-lesson="m8-l2"><span class="lesson-check"></span>Pipeline complet : capture à stockage</a></li>
+        <li><a href="#m8-l3" data-lesson="m8-l3"><span class="lesson-check"></span>Étude de cas : déboguer un agent via ses logs</a></li>
+        <li><a href="#m8-l4" data-lesson="m8-l4"><span class="lesson-check"></span>Exercice final</a></li>
+        <li><a href="#m8-l5" data-lesson="m8-l5"><span class="lesson-check"></span>Synthèse et clôture du Bloc 5</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main class="content">
+    <header class="hero" id="top">
+      <span class="tag">// data-for-ai · 5.prepa-data-for-agent-IA · Formation 19</span>
+      <h1 class="hero-title">Logs et Traces <span>d'Agents IA</span></h1>
+      <p class="hero-lead">Nettoyage et structuration pour debug et amélioration — comment capturer, nettoyer, anonymiser et structurer les traces d'exécution d'un agent IA pour en faire un outil réel de diagnostic et d'amélioration continue. 8 modules, 40 leçons.</p>
+      <div class="strip" aria-hidden="true">
+        <div class="seg"></div><div class="seg"></div><div class="seg"></div>
+        <div class="seg"></div><div class="seg"></div><div class="seg"></div>
+      </div>
+    </header>
+
+    <div class="module-block" id="module-1">
+      <span class="module-kicker">MODULE 01 / 08</span>
+      <h1>Fondamentaux des logs et traces d'agents IA</h1>
+      <p class="intro">Ce dernier cours du bloc "Préparation de Données pour Agents IA" traite une dimension qui referme la boucle des cours précédents : une fois qu'un agent utilise le function calling (cours 17) et gère des données statiques et temps réel (cours 18), comment observer ce qu'il fait réellement, diagnostiquer ses échecs, et transformer cette observation en amélioration continue.</p>
+
+      <section class="lesson" id="m1-l1" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 1.1</span>Log, trace, span : les distinctions de base</h2>
+
+        <p>Trois termes reviennent constamment dans ce domaine, et sont souvent confondus alors qu'ils désignent des concepts précis et complémentaires.</p>
+
+        <div class="ascii">LOG (journal)
+  Un enregistrement ponctuel d'un événement, horodaté — "l'appel
+  à la fonction obtenir_stock a échoué à 14h32:07". Un log est
+  généralement une entrée isolée, sans structure hiérarchique
+  intrinsèque avec d'autres logs.
+
+SPAN
+  Une unité de travail avec un début et une fin mesurés — "la
+  génération de la réponse par le LLM a duré de 14h32:05.100 à
+  14h32:06.850". Un span capture une DURÉE, pas seulement un
+  instant.
+
+TRACE
+  L'arborescence complète de spans qui représente le traitement
+  d'une seule requête utilisateur de bout en bout — la question
+  posée, la décision du LLM, l'appel de fonction, la validation,
+  la réponse finale, chacun étant un span de cette même trace.</div>
+
+        <p>Cette hiérarchie n'est pas un détail terminologique : elle détermine directement ce qu'on peut faire avec les données collectées. Un simple log isolé ("erreur de validation") indique QU'un problème est survenu ; une trace complète permet de reconstituer POURQUOI — quelle question a mené à quelle décision, quels arguments ont été générés, à quelle étape précise la validation a échoué (rappel cours 17, module 4).</p>
+
+        <div class="ascii">Relation entre les trois concepts :
+
+TRACE (une requête utilisateur complète)
+├── SPAN : réception de la question             [LOG : question reçue]
+├── SPAN : décision du LLM (200ms)                [LOG : outil choisi]
+├── SPAN : appel de fonction (450ms)
+│   ├── SPAN : validation des arguments (5ms)     [LOG : validation OK]
+│   └── SPAN : exécution de l'appel (445ms)        [LOG : résultat reçu]
+└── SPAN : formulation de la réponse (800ms)       [LOG : réponse envoyée]
+
+→ Chaque LOG documente un ÉVÉNEMENT ponctuel ; chaque SPAN mesure
+  une DURÉE ; la TRACE relie l'ensemble en une histoire complète</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Se contenter de logs isolés et non reliés entre eux (une pratique héritée du logging applicatif classique) pour un système agentique dont la valeur diagnostique réside précisément dans la capacité à reconstituer l'enchaînement complet des décisions — un agent qui échoue silencieusement après trois étapes de raisonnement est indiagnosticable si ces trois étapes ne sont pas reliées dans une même trace.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour l'agent de suivi de commande des cours précédents (17, 18), esquissez les spans que contiendrait une trace complète pour la question "où en est ma commande CMD-123456 ?".
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l2" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 1.2</span>Pourquoi les logs d'agents IA diffèrent des logs applicatifs classiques</h2>
+
+        <p>Un système logiciel classique (une API REST, par exemple) a un comportement largement déterministe : une même requête, avec les mêmes paramètres, produit systématiquement le même chemin d'exécution. Un agent IA n'a pas cette propriété — le LLM peut choisir des chemins différents (quel outil appeler, avec quels arguments, dans quel ordre) pour des questions très similaires, voire identiques.</p>
+
+        <div class="ascii">Logging applicatif classique                Logging d'agent IA
+────────────────────────────                ────────────────────────────
+Chemin d'exécution largement                  Chemin d'exécution VARIABLE
+prévisible à l'avance                         d'une requête à l'autre,
+                                             même pour des questions
+Le log sert principalement à                  similaires
+CONFIRMER que le chemin attendu
+s'est bien déroulé                            Le log doit capturer QUEL
+                                             chemin a été emprunté, pas
+Les erreurs sont généralement                  seulement s'il a réussi
+des EXCEPTIONS clairement
+identifiables (stack trace)                   Les "erreurs" incluent des
+                                             cas plus subtils : décision
+                                             correcte mais réponse de
+                                             mauvaise qualité, boucle
+                                             agentique qui tourne en rond
+                                             (rappel cours 17, module 6)</div>
+
+        <p>Cette différence de nature justifie un contenu de log spécifique : au-delà des informations techniques classiques (latence, code d'erreur), un log d'agent doit capturer le <strong>raisonnement</strong> — quelle décision a été prise, sur la base de quelles informations, avec quel degré de confiance apparent — pour permettre de comprendre non seulement "qu'est-ce qui a échoué" mais "pourquoi le modèle a-t-il choisi cette voie".</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Réutiliser telles quelles les pratiques de logging d'une application classique (uniquement les erreurs techniques, les codes de statut, la latence) pour un agent IA, en omettant l'information la plus précieuse pour le débogage d'un agent : la trace du raisonnement et des décisions qui ont mené au résultat observé.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Décrivez un scénario où un agent produirait une réponse techniquement "réussie" (aucune erreur, aucun crash) mais néanmoins incorrecte ou inadaptée — un cas que le logging classique ne détecterait pas.
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l3" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 1.3</span>Ce qu'il faut capturer : prompts, réponses, décisions</h2>
+
+        <p>Cette leçon détaille le contenu minimal qu'une trace d'agent IA devrait capturer pour être réellement exploitable en débogage et en amélioration.</p>
+
+        <pre><code class="language-python">from dataclasses import dataclass, field
+from datetime import datetime
+
+@dataclass
+class SpanAgent:
+    """Structure minimale d'un span pour un système agentique —
+    au-delà des champs techniques classiques (durée, statut),
+    inclut explicitement le CONTENU du raisonnement."""
+    trace_id: str
+    span_id: str
+    type_span: str  # "decision_llm", "appel_fonction", "validation", ...
+    horodatage_debut: datetime
+    horodatage_fin: datetime
+    entree: dict       # ce qui a été fourni au LLM ou à la fonction
+    sortie: dict       # ce qui a été produit
+    metadonnees: dict  # modèle utilisé, nombre de tokens, coût estimé
+</code></pre>
+
+        <div class="ascii">Les quatre catégories d'information à capturer :
+
+1. ENTRÉE                    2. DÉCISION
+   Le prompt exact envoyé       Quel outil (ou aucun) le LLM
+   au LLM, avec le contexte      a choisi d'appeler, avec quels
+   fourni (rappel modules         arguments (rappel cours 17,
+   RAG et function calling)      module 1, leçon 1.3)
+
+3. SORTIE                    4. MÉTADONNÉES TECHNIQUES
+   La réponse brute du LLM,      Latence, nombre de tokens,
+   AVANT et APRÈS validation      modèle utilisé, coût estimé,
+   (rappel cours 17, module 4)   fraîcheur des données utilisées
+                                (rappel cours 18, module 5)</div>
+
+        <p>Capturer le prompt exact (catégorie 1) est particulièrement précieux : rappel du cours 17 (module 3), la qualité de la description d'un schéma influence directement la décision du modèle — sans le prompt exact envoyé, il est impossible de savoir, après coup, si un échec provient d'une mauvaise décision du modèle ou d'un contexte mal formé qui l'a induit en erreur.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Logger uniquement la décision finale de l'agent (quelle fonction a été appelée) sans conserver le prompt exact qui a mené à cette décision — un débogage a posteriori se heurte alors à une question sans réponse possible : le modèle a-t-il mal interprété une situation par ailleurs bien présentée, ou la situation elle-même lui était-elle mal présentée ?
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour la structure <code class="inline">SpanAgent</code> ci-dessus, quel champ supplémentaire ajouteriez-vous pour faciliter le débogage d'une boucle agentique multi-étapes (rappel cours 17, module 6) ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l4" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 1.4</span>Où le logging s'insère dans l'architecture d'un agent</h2>
+
+        <p>Cette leçon situe le logging dans le pipeline complet d'un agent, en reliant explicitement ce cours aux deux précédents (function calling, cours 17 ; gestion temps réel/statique, cours 18).</p>
+
+        <div class="ascii">Le logging traverse TOUTES les étapes déjà vues dans ce bloc :
+
+Question utilisateur
+        │
+        ▼ [LOG : requête reçue, horodatage, identifiant utilisateur]
+Décision du LLM (RAG ou function calling — cours 18, module 4)
+        │
+        ▼ [LOG : source choisie, raisonnement apparent]
+Appel de fonction (cours 17) ou recherche RAG (cours 9-13)
+        │
+        ▼ [LOG : arguments, résultat, validation — cours 17, module 4]
+Gestion de la fraîcheur, cache, repli éventuel (cours 18, module 5-7)
+        │
+        ▼ [LOG : fraîcheur de la donnée, cache utilisé ou non, repli déclenché]
+Formulation de la réponse finale
+        │
+        ▼ [LOG : réponse envoyée, latence totale, coût estimé]</div>
+
+        <p>Ce schéma illustre que le logging n'est pas une couche ajoutée après coup, mais un fil qui devrait accompagner chaque décision déjà prise dans les cours précédents : le mécanisme de journalisation d'audit du cours 17 (module 7, leçon 7.4) et le monitoring de fraîcheur du cours 18 (module 7, leçon 7.4) sont en réalité des instances particulières du sujet traité en profondeur dans ce cours 19.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer le logging comme une fonctionnalité indépendante à ajouter une fois l'agent construit, plutôt que comme une préoccupation transverse à intégrer dès la conception de chaque composant (function calling, gestion de fraîcheur, orchestration) — un logging ajouté après coup capture rarement les informations qui se sont révélées, après un incident, être les plus précieuses.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour l'architecture de l'agent de support des cours 17-18, identifiez à quelle étape précise vous ajouteriez un log si vous deviez n'en choisir qu'une seule, la plus critique pour le débogage.
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l5" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 1.5</span>Erreurs courantes de logging</h2>
+
+        <p>Cette dernière leçon du module recense les erreurs les plus fréquentes lors de la mise en place d'un système de logging pour un agent IA — des erreurs approfondies individuellement dans les modules suivants.</p>
+
+        <h3>Erreur 1 : sous-logger</h3>
+        <p>Ne capturer que le strict minimum technique (succès/échec, latence globale) sans le contenu du raisonnement — rendant tout débogage a posteriori impossible pour les cas les plus subtils (rappel leçon 1.2).</p>
+
+        <h3>Erreur 2 : sur-logger sans structure</h3>
+        <p>À l'inverse, tout capturer sans discipline de structuration (texte libre non structuré, formats incohérents entre composants) produit un volume de données inexploitable — un problème approfondi au module 3 de ce cours.</p>
+
+        <h3>Erreur 3 : logger des données sensibles sans protection</h3>
+        <p>Les prompts et réponses d'un agent contiennent fréquemment des informations personnelles (nom, email, numéro de commande relié à une identité) — les logger sans anonymisation crée un risque de conformité et de sécurité significatif, traité en détail au module 4.</p>
+
+        <h3>Erreur 4 : ne jamais exploiter les logs collectés</h3>
+        <p>Un système qui collecte scrupuleusement des logs volumineux, mais dont personne ne consulte ni n'analyse jamais le contenu, n'apporte aucune valeur réelle — le module 6 de ce cours traite spécifiquement comment transformer des logs en signaux d'amélioration concrets.</p>
+
+        <div class="ascii">Les quatre erreurs à éviter, résumées :
+
+1. SOUS-LOGGER          →  Débogage impossible pour les cas subtils
+2. SUR-LOGGER sans structure  →  Volume inexploitable
+3. Données sensibles NON PROTÉGÉES  →  Risque de conformité et sécurité
+4. Logs jamais EXPLOITÉS  →  Investissement sans retour</div>
+
+        <p>Les modules suivants traitent chacune de ces erreurs : le module 2 détaille la structure technique d'une trace, le module 3 la discipline de nettoyage et normalisation, le module 4 la protection des données sensibles, et les modules 5-6 l'exploitation effective des logs pour le débogage et l'amélioration continue.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Traiter ces quatre erreurs comme des choix indépendants les uns des autres, alors qu'elles s'équilibrent mutuellement : résoudre l'erreur 1 (sous-logger) en capturant davantage de contenu aggrave mécaniquement le risque de l'erreur 3 (données sensibles) si l'anonymisation n'est pas conçue en parallèle — la conception d'un système de logging doit traiter ces quatre dimensions simultanément, pas séquentiellement.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de synthèse</strong>
+          Pour clore ce module : parmi les quatre erreurs listées, laquelle vous semble la plus probable dans un projet que vous avez connu ou pourriez rencontrer — et pourquoi ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-2">
+      <span class="module-kicker">MODULE 02 / 08</span>
+      <h1>Anatomie d'une trace d'agent</h1>
+      <p class="intro">Ce module approfondit techniquement les concepts introduits à la leçon 1.1 : comment structurer concrètement une trace d'agent, la corréler entre composants, et s'appuyer sur des standards existants plutôt que de réinventer un format propriétaire.</p>
+
+      <section class="lesson" id="m2-l1" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 2.1</span>Trace, span et l'arborescence d'une exécution d'agent</h2>
+
+        <p>Rappel de la leçon 1.1 : une trace est une arborescence de spans. Cette leçon détaille comment cette arborescence se construit concrètement pour un agent, en particulier quand plusieurs outils sont appelés en séquence ou en parallèle (rappel cours 17, module 6).</p>
+
+        <pre><code class="language-python">import uuid
+from datetime import datetime
+
+class Trace:
+    def __init__(self):
+        self.trace_id = str(uuid.uuid4())
+        self.spans = []
+
+    def demarrer_span(self, type_span: str, span_parent_id: str = None) -> str:
+        span_id = str(uuid.uuid4())
+        self.spans.append({
+            "span_id": span_id, "parent_id": span_parent_id, "type": type_span,
+            "debut": datetime.utcnow(), "fin": None, "donnees": {},
+        })
+        return span_id
+
+    def terminer_span(self, span_id: str, donnees: dict) -> None:
+        for span in self.spans:
+            if span["span_id"] == span_id:
+                span["fin"] = datetime.utcnow()
+                span["donnees"] = donnees
+</code></pre>
+
+        <div class="ascii">Arborescence pour une requête utilisant deux outils en parallèle
+(rappel cours 17, module 6, leçon 6.2, sur les appels en parallèle) :
+
+TRACE (une requête utilisateur)
+│
+├── SPAN : décision du LLM
+│   └── parent_id: aucun (racine)
+│
+├── SPAN : appel fonction A (stock produit)
+│   └── parent_id: décision du LLM
+│
+├── SPAN : appel fonction B (délai de livraison)
+│   └── parent_id: décision du LLM
+│       (A et B partagent le MÊME parent, exécutés en parallèle
+│        — leurs horodatages peuvent se chevaucher)
+│
+└── SPAN : formulation de la réponse finale
+    └── parent_id: décision du LLM
+        (attend la fin de A ET B avant de commencer)</div>
+
+        <p>Cette structure en arbre, plutôt qu'une simple liste chronologique de logs, permet de répondre à des questions de débogage précises : combien de temps chaque outil a-t-il pris individuellement, les appels étaient-ils réellement parallèles ou séquentiels malgré une intention de parallélisme, quel span exact a échoué au sein d'une chaîne complexe.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Enregistrer les spans comme une simple liste chronologique plate, sans champ <code class="inline">parent_id</code> explicite reliant chaque span à son contexte d'origine — une liste plate rend impossible de distinguer des appels réellement parallèles d'appels séquentiels rapprochés, une distinction pourtant cruciale pour diagnostiquer un problème de performance.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour l'étude de cas logistique du cours 18 (statut de colis + statistiques agrégées), esquissez l'arborescence de spans qu'une requête combinant ces deux besoins produirait.
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l2" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 2.2</span>Tracer un appel LLM unique</h2>
+
+        <p>Cette leçon détaille le contenu minimal d'un span représentant un seul appel à un LLM — le type de span le plus fréquent dans une trace d'agent, et souvent celui qui concentre l'essentiel du coût et de la latence (rappel cours 17, leçon 1.4).</p>
+
+        <pre><code class="language-python">def tracer_appel_llm(trace: Trace, parent_id: str, prompt: str, outils_disponibles: list) -> dict:
+    span_id = trace.demarrer_span("appel_llm", parent_id)
+    reponse = appeler_llm(prompt, outils=outils_disponibles)
+    trace.terminer_span(span_id, {
+        "prompt_complet": prompt,                          # rappel leçon 1.3
+        "modele": reponse.modele,
+        "nombre_tokens_entree": reponse.usage.tokens_entree,
+        "nombre_tokens_sortie": reponse.usage.tokens_sortie,
+        "cout_estime_usd": calculer_cout(reponse.usage, reponse.modele),
+        "outil_choisi": reponse.appel_fonction.name if reponse.appel_fonction else None,
+        "arguments_generes": reponse.appel_fonction.arguments if reponse.appel_fonction else None,
+        "reponse_texte": reponse.texte if not reponse.appel_fonction else None,
+    })
+    return reponse
+</code></pre>
+
+        <div class="ascii">Pourquoi le coût et les tokens comptent autant que la latence :
+
+Un agent qui fonctionne correctement mais dont le COÛT par
+requête augmente progressivement (prompts de plus en plus
+longs, rappels cours RAG sur le nombre de chunks récupérés)
+est un problème tout aussi réel qu'une latence dégradée —
+un problème invisible sans ce champ dans la trace</div>
+
+        <p>Le champ <code class="inline">prompt_complet</code> mérite une attention particulière : il contient potentiellement le contenu intégral du contexte transmis au modèle, ce qui peut inclure des chunks RAG volumineux (cours 9-13) ou des données utilisateur sensibles — un point qui motive directement le module 4 de ce cours sur l'anonymisation.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Logger uniquement la réponse du LLM sans le prompt complet qui lui a été soumis, par souci de réduire le volume de données stockées — un choix qui semble économiser de l'espace mais qui élimine précisément l'information la plus utile pour diagnostiquer pourquoi un modèle a mal interprété une situation.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour la structure de span ci-dessus, quel champ ajouteriez-vous pour permettre de calculer, après coup, si un appel LLM aurait pu être évité (par exemple, servi depuis un cache — rappel cours 18, module 5) ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l3" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 2.3</span>Tracer une boucle agentique multi-étapes</h2>
+
+        <p>Rappel du cours 17, module 6, leçon 6.5 : un agent peut itérer plusieurs fois (appeler un outil, observer le résultat, décider d'un nouvel appel) avant de produire une réponse finale. Tracer correctement ce type de boucle est plus délicat qu'un appel unique, car le nombre d'itérations n'est pas connu à l'avance.</p>
+
+        <pre><code class="language-python">def tracer_boucle_agentique(trace: Trace, parent_id: str, question: str,
+                              max_iterations: int = 5) -> dict:
+    span_boucle_id = trace.demarrer_span("boucle_agentique", parent_id)
+    iteration = 0
+    contexte = [question]
+    while iteration < max_iterations:
+        span_iteration_id = trace.demarrer_span(f"iteration_{iteration}", span_boucle_id)
+        reponse = tracer_appel_llm(trace, span_iteration_id, "\n".join(contexte), OUTILS)
+        trace.terminer_span(span_iteration_id, {"numero_iteration": iteration})
+        if not reponse.appel_fonction:
+            break  # le LLM a produit une réponse finale, la boucle s'arrête
+        contexte.append(executer_et_formater_resultat(reponse.appel_fonction))
+        iteration += 1
+    trace.terminer_span(span_boucle_id, {"nombre_iterations_total": iteration + 1})
+    return reponse
+</code></pre>
+
+        <div class="ascii">Ce que la trace d'une boucle agentique doit permettre de répondre :
+
+"Combien d'itérations cette requête a-t-elle nécessité ?"
+   → Un nombre anormalement élevé peut signaler un agent qui
+     "tourne en rond" (rappel cours 17, module 6, leçon 6.5)
+
+"À quelle itération précise la réponse finale a-t-elle émergé ?"
+   → Utile pour évaluer si le nombre max d'itérations configuré
+     est bien calibré (ni trop bas, ni inutilement élevé)
+
+"Le contexte accumulé au fil des itérations est-il resté
+ cohérent, ou a-t-il dérivé ?"
+   → Nécessite de pouvoir consulter le prompt complet de
+     CHAQUE itération, pas seulement de la dernière (rappel
+     leçon 2.2)</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Ne tracer que l'itération finale d'une boucle agentique (celle qui produit la réponse envoyée à l'utilisateur), en perdant les itérations intermédiaires — cela empêche de diagnostiquer pourquoi la boucle a nécessité plusieurs itérations, ou de détecter un agent qui a exploré des chemins inutiles avant de converger vers la bonne réponse.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour une boucle agentique qui atteint son <code class="inline">max_iterations</code> sans avoir produit de réponse finale, quelles informations la trace devrait-elle capturer pour permettre de comprendre pourquoi ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l4" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 2.4</span>Corrélation : trace_id, span_id, parent_id</h2>
+
+        <p>Cette leçon formalise le mécanisme technique qui permet de reconstituer une trace complète à partir de spans potentiellement enregistrés par des composants différents (le service qui reçoit la requête, celui qui appelle le LLM, celui qui exécute les fonctions) — un enjeu qui devient critique dès qu'un agent repose sur une architecture distribuée plutôt qu'un unique processus.</p>
+
+        <div class="ascii">Les trois identifiants de corrélation :
+
+TRACE_ID
+  Identifiant unique pour l'ENSEMBLE d'une requête utilisateur,
+  généré une seule fois au tout début et propagé à travers
+  TOUS les composants impliqués dans son traitement
+
+SPAN_ID
+  Identifiant unique pour CHAQUE unité de travail au sein
+  de cette trace — généré à chaque nouvelle étape
+
+PARENT_ID
+  Référence vers le span_id du span qui a déclenché ce
+  span-ci — permet de reconstruire l'arborescence
+  (rappel leçon 2.1) même si les spans sont enregistrés
+  dans des systèmes de stockage séparés</div>
+
+        <pre><code class="language-python">def propager_contexte_trace(requete_http, trace_id: str, span_parent_id: str) -> dict:
+    """Le trace_id et le span_id du span appelant doivent être
+    transmis explicitement lors de tout appel entre composants
+    (par exemple, via des en-têtes HTTP), pour que le composant
+    receveur puisse créer ses propres spans avec le bon parent_id."""
+    return {
+        "headers": {
+            "X-Trace-Id": trace_id,
+            "X-Parent-Span-Id": span_parent_id,
+        }
+    }
+</code></pre>
+
+        <p>Sans cette propagation explicite, chaque composant génère des logs isolés qu'il devient impossible de relier après coup — un problème particulièrement fréquent dans les architectures en microservices, où le composant qui reçoit la question utilisateur, celui qui appelle le LLM, et celui qui exécute les fonctions peuvent être trois services distincts avec des systèmes de logging indépendants.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Générer un identifiant de trace différent à chaque composant plutôt que de propager le même trace_id de bout en bout — un oubli fréquent quand les composants ont été développés indépendamment, qui rend impossible la reconstitution d'une trace complète malgré un logging par ailleurs soigné à chaque étape individuelle.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour une architecture où le service qui reçoit les questions utilisateur et celui qui exécute les fonctions sont deux services séparés, à quel moment précis le trace_id doit-il être transmis de l'un à l'autre ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l5" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 2.5</span>Le standard OpenTelemetry appliqué aux agents IA</h2>
+
+        <p>Plutôt que de concevoir un format de trace entièrement propriétaire (comme illustré à des fins pédagogiques dans les leçons précédentes), la pratique de référence en production s'appuie sur <strong>OpenTelemetry</strong>, un standard ouvert pour la collecte de traces, largement adopté au-delà même du domaine des agents IA.</p>
+
+        <pre><code class="language-python">from opentelemetry import trace
+
+tracer = trace.get_tracer("agent-ia-support-client")
+
+def repondre_avec_otel(question: str) -> str:
+    with tracer.start_as_current_span("decision_llm") as span_decision:
+        span_decision.set_attribute("prompt", question)
+        reponse = appeler_llm(question)
+        span_decision.set_attribute("outil_choisi", reponse.outil or "aucun")
+
+        if reponse.appel_fonction:
+            with tracer.start_as_current_span("appel_fonction") as span_fonction:
+                span_fonction.set_attribute("nom_fonction", reponse.appel_fonction.name)
+                resultat = executer_fonction(reponse.appel_fonction)
+                span_fonction.set_attribute("succes", resultat.succes)
+
+        return reponse.texte
+</code></pre>
+
+        <div class="ascii">Pourquoi s'appuyer sur OpenTelemetry plutôt qu'un format propriétaire :
+
+Format propriétaire (leçons précédentes)   OpenTelemetry (standard)
+────────────────────────────────           ────────────────────────────
+Doit être développé et maintenu             Bibliothèque mature, déjà
+en interne                                  intégrée à la plupart des
+                                           frameworks d'observabilité
+Aucun outil de visualisation
+existant compatible                         Compatible nativement avec
+                                           de nombreux outils de
+Corrélation manuelle des                    visualisation de traces
+trace_id/span_id à implémenter               (approfondi module 5, leçon 5.4)
+soi-même (rappel leçon 2.4)
+                                           Propagation de contexte
+                                           (trace_id, span_id) gérée
+                                           automatiquement par la
+                                           bibliothèque</div>
+
+        <p>Ce module a délibérément commencé par une implémentation "à la main" (leçons 2.1 à 2.4) avant d'introduire ce standard : comprendre les concepts sous-jacents (trace, span, corrélation) reste nécessaire même en utilisant une bibliothèque existante, pour configurer correctement cette bibliothèque et interpréter les traces qu'elle produit — un principe pédagogique déjà appliqué dans ce cours (rappel cours 17, où la validation manuelle a précédé Pydantic).</p>
+
+        <div class="ascii">Ce module clôt la partie "structure technique" du cours. Le module
+suivant traite un problème pratique fréquent : une fois les traces
+collectées (via OpenTelemetry ou un format propriétaire), leur
+contenu brut est rarement directement exploitable et nécessite un
+nettoyage et une normalisation systématiques.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Réinventer un système de tracing complet en interne sans évaluer d'abord si un standard existant comme OpenTelemetry répondrait au besoin — au-delà du temps de développement économisé, s'appuyer sur un standard ouvert garantit une compatibilité immédiate avec l'écosystème d'outils de visualisation et d'analyse déjà existant.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : dans quelles circonstances un format de trace propriétaire (plutôt qu'OpenTelemetry) resterait-il malgré tout justifié ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-3">
+      <span class="module-kicker">MODULE 03 / 08</span>
+      <h1>Nettoyage et normalisation des logs bruts</h1>
+      <p class="intro">Une fois les traces collectées (module 2), leur contenu brut est rarement directement exploitable. Ce module traite la discipline de nettoyage et de normalisation nécessaire pour transformer des logs bruts, hétérogènes et volumineux en données réellement analysables — en s'appuyant directement sur les techniques de nettoyage de texte déjà couvertes au cours 11.</p>
+
+      <section class="lesson" id="m3-l1" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 3.1</span>Pourquoi les logs bruts sont rarement exploitables tels quels</h2>
+
+        <p>Un système agentique réel combine généralement plusieurs composants (service web, orchestrateur d'agent, fonctions appelées, éventuellement plusieurs fournisseurs de LLM) — chacun avec ses propres conventions de logging, produisant un ensemble hétérogène plutôt qu'un flux uniforme.</p>
+
+        <div class="ascii">Exemple de logs bruts hétérogènes provenant de trois composants
+différents d'un même agent :
+
+Composant A (service web, format texte libre) :
+  "2026-07-21 09:14:02 INFO Request received from user 4471"
+
+Composant B (orchestrateur, format JSON) :
+  {"ts": 1753088042, "event": "llm_call", "model": "claude-x",
+   "tokens_in": 1204, "tokens_out": 89}
+
+Composant C (fonction appelée, format JSON différent) :
+  {"timestamp": "2026-07-21T09:14:03.500Z", "fn": "obtenir_stock",
+   "status": "ok", "duration_ms": 340}
+
+→ Trois horodatages dans trois FORMATS différents, trois
+  structures de champs différentes, aucune clé de corrélation
+  commune visible sans traitement (rappel module 2, leçon 2.4)</div>
+
+        <p>Sans un travail de normalisation, il est impossible de répondre à des questions simples comme "combien de temps s'est-il écoulé entre la réception de la requête et l'appel de fonction ?" — les données existent, mais dans des formats qui ne permettent pas de les combiner directement. Ce problème rejoint directement celui déjà traité au cours 11 (nettoyage de texte non structuré) et au cours 12 (enrichissement de métadonnées), appliqué ici aux logs plutôt qu'aux documents.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Supposer que la simple collecte de logs suffit à en faire une ressource exploitable, sans investir dans une étape de normalisation dédiée — un ensemble de logs volumineux mais hétérogènes n'est pas plus exploitable qu'aucun log, il donne seulement une fausse impression de disposer de données utiles.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour les trois formats de logs de l'exemple ci-dessus, identifiez les champs qui devraient être présents dans TOUS les logs normalisés pour permettre une corrélation fiable.
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l2" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 3.2</span>Normaliser des formats hétérogènes</h2>
+
+        <p>Cette leçon détaille une approche standard pour ramener des logs hétérogènes à un schéma commun — un principe similaire à celui de l'enrichissement de métadonnées déjà couvert au cours 12, appliqué ici à des événements de logs plutôt qu'à des chunks documentaires.</p>
+
+        <pre><code class="language-python">from datetime import datetime, timezone
+
+def normaliser_log(log_brut: dict, source_composant: str) -> dict:
+    """Ramène un log d'un format hétérogène vers un schéma commun,
+    quel que soit le composant d'origine (rappel leçon 3.1)."""
+    schema_commun = {
+        "horodatage_iso": None,
+        "composant_source": source_composant,
+        "trace_id": log_brut.get("trace_id") or log_brut.get("traceId"),
+        "type_evenement": None,
+        "donnees": {},
+    }
+    if source_composant == "service_web":
+        schema_commun["horodatage_iso"] = parser_horodatage_texte(log_brut["timestamp_texte"])
+        schema_commun["type_evenement"] = "requete_recue"
+    elif source_composant == "orchestrateur":
+        schema_commun["horodatage_iso"] = datetime.fromtimestamp(
+            log_brut["ts"], tz=timezone.utc).isoformat()
+        schema_commun["type_evenement"] = log_brut["event"]
+        schema_commun["donnees"] = {"tokens": log_brut.get("tokens_in", 0) + log_brut.get("tokens_out", 0)}
+    return schema_commun
+</code></pre>
+
+        <div class="ascii">Principe de normalisation en deux temps :
+
+1. IDENTIFIER LA SOURCE
+   Déterminer de quel composant provient chaque log brut,
+   pour appliquer la règle de transformation appropriée
+
+2. TRANSFORMER VERS UN SCHÉMA COMMUN
+   Format d'horodatage unifié (ISO 8601 recommandé), noms de
+   champs cohérents entre composants, structure de données
+   prévisible pour les traitements en aval (modules 5-6)</div>
+
+        <p>Le choix d'un format d'horodatage unifié (ISO 8601 dans l'exemple) mérite une attention particulière : rappel de la leçon 3.1, des horodatages dans des formats et fuseaux horaires différents rendent toute corrélation temporelle fragile et sujette à erreur — un piège approfondi à la leçon 3.5.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Normaliser les champs de contenu (noms, structure) sans porter la même rigueur aux horodatages, en particulier leur fuseau horaire — un mélange d'horodatages en heure locale et en UTC au sein d'un même système de logs peut fausser silencieusement tous les calculs de latence et de séquencement d'événements.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour le composant C de l'exemple de la leçon 3.1 (fonction appelée), écrivez la règle de transformation qui le ramènerait au schéma commun de cette leçon.
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l3" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 3.3</span>Extraire des champs structurés depuis un texte de log libre</h2>
+
+        <p>Certains composants, en particulier des systèmes plus anciens ou des bibliothèques tierces, produisent des logs en texte libre plutôt qu'en JSON structuré. Rappel du cours 16 (NLP de base) : les techniques d'extraction d'entités (NER) et de reconnaissance de motifs s'appliquent directement à ce problème.</p>
+
+        <pre><code class="language-python">import re
+
+def extraire_champs_log_texte(ligne_log: str) -> dict:
+    """Applique des expressions régulières pour extraire des champs
+    structurés d'un log en texte libre — une version simplifiée des
+    techniques d'extraction d'entités du cours 16, appliquée à un
+    format suffisamment régulier pour ne pas nécessiter un modèle NER
+    complet."""
+    motif = re.compile(
+        r"(?P<horodatage>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) "
+        r"(?P<niveau>\w+) (?P<message>.+)"
+    )
+    correspondance = motif.match(ligne_log)
+    if not correspondance:
+        return {"erreur_parsing": True, "ligne_brute": ligne_log}
+    champs = correspondance.groupdict()
+    utilisateur_trouve = re.search(r"user (\d+)", champs["message"])
+    if utilisateur_trouve:
+        champs["utilisateur_id"] = utilisateur_trouve.group(1)
+    return champs
+</code></pre>
+
+        <div class="ascii">Quand utiliser des expressions régulières vs un modèle NER complet
+(rappel cours 16, sur les compromis de complexité d'extraction) :
+
+Format de log SUFFISAMMENT RÉGULIER        Format de log IRRÉGULIER ou
+                                          en LANGAGE NATUREL LIBRE
+────────────────────────────────           ────────────────────────────
+Expressions régulières simples et           Un modèle NER (rappel cours 16,
+rapides suffisent — le format               module 5) devient nécessaire
+suit toujours la même structure             pour extraire des entités
+                                           (noms, identifiants) dont la
+Cas fréquent : logs générés par             position et la formulation
+un framework ou une bibliothèque            varient trop pour des règles
+avec un format fixe et documenté            simples</div>
+
+        <p>Le champ <code class="inline">erreur_parsing</code> dans l'exemple ci-dessus est délibéré : plutôt que de faire échouer silencieusement l'extraction ou de lever une exception qui interromprait tout le traitement, marquer explicitement les lignes qui n'ont pas pu être parsées permet de les traiter séparément — et souvent de découvrir un nouveau format de log apparu après une mise à jour d'un composant, un signal précieux en soi.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Écrire des expressions régulières trop rigides qui échouent silencieusement (sans marquage explicite de l'échec) dès qu'un composant modifie légèrement son format de log — sans un champ comme <code class="inline">erreur_parsing</code>, ces échecs passent inaperçus et une portion croissante des logs devient silencieusement non exploitée.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour le log texte libre "2026-07-21 09:14:02 INFO Request received from user 4471", vérifiez que le motif de l'exemple ci-dessus l'extrairait correctement. Que se passerait-il si le format changeait pour "user_id=4471" plutôt que "user 4471" ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l4" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 3.4</span>Gérer le volume : échantillonnage et rétention</h2>
+
+        <p>Un agent IA en production, surtout à volume élevé, peut générer un nombre de logs considérable — en particulier si les recommandations du module 1 (capturer le prompt complet, les décisions intermédiaires) sont suivies scrupuleusement. Cette leçon traite comment gérer ce volume sans perdre l'information la plus précieuse.</p>
+
+        <div class="ascii">Stratégies de gestion du volume, du plus simple au plus sophistiqué :
+
+1. RÉTENTION À DURÉE LIMITÉE
+   Conserver les traces complètes pendant une période limitée
+   (jours à semaines), puis les archiver ou les supprimer —
+   similaire au principe de péremption déjà vu au cours 18
+
+2. ÉCHANTILLONNAGE UNIFORME
+   Ne conserver en détail qu'un pourcentage des traces (par
+   exemple 10%), suffisant pour une analyse statistique
+   (module 6) sans stocker l'intégralité du volume
+
+3. ÉCHANTILLONNAGE CIBLÉ SUR LES CAS INTÉRESSANTS
+   Toujours conserver les traces qui contiennent une ERREUR,
+   une VALIDATION ÉCHOUÉE (rappel cours 17, module 4), ou une
+   LATENCE ANORMALEMENT ÉLEVÉE — même si l'échantillonnage
+   général est réduit pour les cas nominaux</div>
+
+        <pre><code class="language-python">import random
+
+def decider_retention_trace(trace: dict, taux_echantillonnage: float = 0.1) -> bool:
+    """Combine échantillonnage uniforme (stratégie 2) et ciblage
+    des cas intéressants (stratégie 3) — l'approche la plus
+    équilibrée en pratique."""
+    a_une_erreur = any(span.get("erreur") for span in trace["spans"])
+    latence_anormale = trace["latence_totale_ms"] > SEUIL_LATENCE_ANORMALE
+    if a_une_erreur or latence_anormale:
+        return True  # toujours conservée intégralement
+    return random.random() < taux_echantillonnage
+</code></pre>
+
+        <p>Cette approche combinée résout une tension centrale : conserver 100% des traces devient rapidement coûteux et difficile à exploiter (rappel du piège du "sur-logger sans structure", leçon 1.5), tandis qu'un échantillonnage purement uniforme risque de manquer précisément les cas les plus utiles au débogage — les erreurs et anomalies, qui sont par nature statistiquement rares.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Appliquer un échantillonnage purement uniforme sans jamais garantir la conservation des cas anormaux (erreurs, latence élevée, validation échouée) — cette pratique peut faire disparaître, par pur hasard statistique, les traces les plus utiles pour diagnostiquer les problèmes réels du système.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Au-delà des erreurs et de la latence, quel autre critère justifierait de toujours conserver une trace, même sous un régime d'échantillonnage réduit ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l5" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 3.5</span>Pièges courants de nettoyage</h2>
+
+        <p>Cette dernière leçon du module recense des pièges spécifiques au nettoyage de logs, en complément des principes généraux déjà vus.</p>
+
+        <h3>Piège 1 : troncature silencieuse des champs longs</h3>
+        <p>De nombreux systèmes de stockage de logs tronquent automatiquement les champs dépassant une certaine longueur — un prompt complet volumineux (rappel module 1, leçon 1.3) peut ainsi être coupé sans avertissement, rendant le débogage a posteriori incomplet sans que rien ne le signale.</p>
+
+        <h3>Piège 2 : problèmes d'encodage de caractères</h3>
+        <p>Des logs contenant des caractères spéciaux ou multilingues (rappel cours 11, sur le nettoyage de texte extrait) peuvent être corrompus si l'encodage n'est pas géré uniformément à travers la chaîne de traitement — un problème qui peut rendre certains logs illisibles ou fausser une recherche textuelle ultérieure.</p>
+
+        <h3>Piège 3 : incohérence de fuseaux horaires malgré la normalisation</h3>
+        <p>Rappel de la leçon 3.2 : même après normalisation au format ISO 8601, une erreur de conversion de fuseau horaire à la source (un composant qui envoie une heure locale sans indiquer son décalage) peut introduire des incohérences silencieuses dans le séquencement des événements.</p>
+
+        <h3>Piège 4 : perte de la relation trace_id/span_id lors du nettoyage</h3>
+        <p>Un traitement de nettoyage trop agressif (déduplication, filtrage) peut par erreur retirer ou modifier les champs de corrélation (rappel module 2, leçon 2.4), rendant les traces orphelines ou incomplètes une fois "nettoyées".</p>
+
+        <div class="ascii">Ce module clôt la partie "nettoyage" du cours. Le module suivant
+aborde un sujet qui recoupe directement le nettoyage mais avec un
+objectif différent : protéger les données personnelles qui peuvent
+apparaître dans le contenu des logs, plutôt que d'en assurer la
+seule exploitabilité technique.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer le nettoyage des logs comme terminé une fois le pipeline de normalisation mis en place, sans processus de vérification continue (échantillons audités périodiquement) pour détecter ces pièges silencieux (troncature, encodage, fuseaux horaires) qui peuvent apparaître ou s'aggraver avec le temps, notamment après une mise à jour d'un composant source.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de synthèse</strong>
+          Pour clore ce module : parmi les quatre pièges listés, lequel vous semble le plus difficile à détecter en production, et quel indicateur simple permettrait de le repérer ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-4">
+      <span class="module-kicker">MODULE 04 / 08</span>
+      <h1>Anonymisation et gestion des données sensibles</h1>
+      <p class="intro">Rappel de la leçon 1.5 (erreur 3) : les logs d'un agent conversationnel contiennent souvent, par nature, des informations personnelles. Ce module traite comment les détecter et les protéger sans sacrifier la valeur diagnostique établie aux modules précédents.</p>
+
+      <section class="lesson" id="m4-l1" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 4.1</span>Pourquoi les logs d'agents contiennent souvent des données sensibles</h2>
+
+        <p>Contrairement à un système logiciel classique où les données personnelles transitent généralement par des champs identifiés (un formulaire avec un champ "email"), un agent conversationnel reçoit des données personnelles de façon non structurée, noyées dans le texte libre des questions utilisateur — rendant leur présence moins évidente à détecter.</p>
+
+        <div class="ascii">Exemple de données personnelles noyées dans un prompt libre :
+
+"Bonjour, je m'appelle Marie Dubois, mon email est
+ marie.dubois@exemple.fr, pouvez-vous vérifier le statut de
+ ma commande CMD-789012 ? Mon numéro de téléphone est le
+ 06 12 34 56 78 si vous avez besoin de me rappeler."
+
+→ Ce SEUL message, s'il est loggé intégralement (rappel module 1,
+  leçon 1.3, sur l'importance de capturer le prompt complet),
+  contient : un nom complet, un email, un numéro de téléphone,
+  et un identifiant de commande reliant potentiellement le tout
+  à un compte client précis</div>
+
+        <p>Cette tension est directe avec les principes du module 1 : capturer le prompt exact (leçon 1.3) est précieux pour le débogage, mais ce même prompt peut contenir des informations qu'il ne faudrait pas conserver telles quelles indéfiniment, ni exposer à quiconque a accès aux logs. Ce module ne remet pas en cause la nécessité de capturer ce contenu, mais impose de le protéger correctement.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer que le risque de données personnelles ne concerne que des champs explicitement nommés (comme "email" ou "téléphone" dans une base de données classique), en sous-estimant leur présence fréquente et non structurée dans le texte libre échangé avec un agent conversationnel.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour l'exemple de message ci-dessus, listez toutes les informations personnelles qu'il contient, y compris celles qui pourraient sembler moins évidentes au premier regard.
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l2" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 4.2</span>Détecter les PII dans les prompts et réponses</h2>
+
+        <p>Rappel direct du cours 16 (NLP de base, module 5, Named Entity Recognition) : la détection d'informations personnelles identifiables (PII — Personally Identifiable Information) s'appuie sur les mêmes techniques d'extraction d'entités déjà couvertes, appliquées ici spécifiquement à la détection de contenu sensible plutôt qu'à l'enrichissement de métadonnées.</p>
+
+        <pre><code class="language-python">import re
+
+PATTERNS_PII = {
+    "email": re.compile(r"[\w.+-]+@[\w-]+\.[a-z]{2,}"),
+    "telephone_fr": re.compile(r"0[1-9](?:[\s.-]?\d{2}){4}"),
+    "numero_carte": re.compile(r"\b(?:\d{4}[\s-]?){3}\d{4}\b"),
+}
+
+def detecter_pii(texte: str) -> dict:
+    """Combine des expressions régulières pour les motifs très
+    réguliers (email, téléphone) avec un modèle NER (rappel
+    cours 16) pour les entités moins structurées comme les
+    noms propres, plus difficiles à capturer par des règles."""
+    detections = {}
+    for type_pii, motif in PATTERNS_PII.items():
+        correspondances = motif.findall(texte)
+        if correspondances:
+            detections[type_pii] = correspondances
+    entites_nommees = modele_ner(texte)  # rappel cours 16, module 5
+    noms_detectes = [e.texte for e in entites_nommees if e.type == "PERSONNE"]
+    if noms_detectes:
+        detections["noms_propres"] = noms_detectes
+    return detections
+</code></pre>
+
+        <div class="ascii">Répartition des techniques de détection selon le type de PII :
+
+Motif RÉGULIER (email, téléphone,          Motif IRRÉGULIER (noms propres,
+numéro de carte, IBAN...)                  adresses complètes...)
+────────────────────────────────           ────────────────────────────────
+Expressions régulières suffisent            Nécessite un modèle NER
+généralement — même principe que            (rappel cours 16) capable de
+la leçon 3.3 sur l'extraction de             reconnaître un nom dans son
+champs de logs                              contexte, sans motif fixe</div>
+
+        <p>Cette détection doit s'appliquer aussi bien aux prompts (ce que l'utilisateur écrit) qu'aux réponses générées par le LLM — un modèle peut, par exemple, répéter dans sa réponse une information personnelle fournie plus tôt dans la conversation, ce qui multiplie les occurrences à protéger dans une même trace.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Détecter les PII uniquement dans les messages de l'utilisateur en supposant que les réponses générées par le LLM n'en contiennent jamais — un modèle qui répète ou reformule une information personnelle fournie par l'utilisateur (par exemple, en confirmant "je vérifie donc pour Marie Dubois...") introduit cette même donnée sensible dans un contenu que la détection ne couvrirait pas si elle ne cible que l'entrée utilisateur.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour le message de la leçon 4.1, vérifiez quels champs seraient détectés par les expressions régulières de l'exemple ci-dessus, et lesquels nécessiteraient le modèle NER.
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l3" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 4.3</span>Techniques de masquage et de rédaction</h2>
+
+        <p>Une fois les PII détectées (leçon 4.2), plusieurs techniques permettent de les protéger dans les logs, chacune avec un compromis différent entre protection et utilité diagnostique conservée.</p>
+
+        <table>
+          <thead><tr><th>Technique</th><th>Principe</th><th>Utilité diagnostique conservée</th></tr></thead>
+          <tbody>
+            <tr><td>Suppression totale</td><td>Retirer entièrement la donnée sensible du log</td><td>Faible — perd même l'indice qu'une PII était présente à cet endroit</td></tr>
+            <tr><td>Masquage (redaction)</td><td>Remplacer par un jeton générique, ex : <code class="inline">[EMAIL]</code></td><td>Moyenne — préserve la structure et le contexte de la phrase sans exposer la valeur</td></tr>
+            <tr><td>Hachage</td><td>Remplacer par une empreinte non réversible</td><td>Élevée — permet de vérifier que deux logs concernent le même utilisateur sans révéler qui il est</td></tr>
+            <tr><td>Tokenisation réversible</td><td>Remplacer par un jeton, avec une table de correspondance séparée et sécurisée</td><td>Élevée — permet une "dé-anonymisation" contrôlée en cas d'investigation légitime</td></tr>
+          </tbody>
+        </table>
+
+        <pre><code class="language-python">import hashlib
+
+def masquer_pii(texte: str, detections: dict) -> str:
+    for type_pii, valeurs in detections.items():
+        for valeur in valeurs:
+            if type_pii == "email":
+                texte = texte.replace(valeur, "[EMAIL]")  # masquage simple
+            elif type_pii == "noms_propres":
+                empreinte = hashlib.sha256(valeur.encode()).hexdigest()[:8]
+                texte = texte.replace(valeur, f"[PERSONNE_{empreinte}]")  # hachage
+    return texte
+
+# "je m'appelle Marie Dubois, mon email est marie.dubois@exemple.fr"
+#   → "je m'appelle [PERSONNE_a3f9c21b], mon email est [EMAIL]"
+</code></pre>
+
+        <p>La <strong>tokenisation réversible avec hachage</strong> (comme illustré pour les noms propres ci-dessus) offre un compromis particulièrement utile pour le débogage : elle permet de repérer que deux traces différentes concernent le même utilisateur (même empreinte de hachage) — précieux pour identifier des problèmes récurrents pour une personne donnée — sans jamais exposer son identité réelle dans les logs eux-mêmes.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Choisir systématiquement la suppression totale par excès de prudence, en perdant ainsi la capacité de repérer des patterns liés à un même utilisateur à travers plusieurs traces — un compromis souvent plus protecteur qu'utile, alors que le hachage (leçon suivante) offre une protection équivalente tout en conservant cette capacité de corrélation.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour le numéro de commande (CMD-789012) de l'exemple de la leçon 4.1, quelle technique de masquage choisiriez-vous, sachant qu'il est souvent nécessaire pour le débogage de reconstituer le parcours complet d'une commande spécifique ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l4" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 4.4</span>Conformité et durée de rétention</h2>
+
+        <p>Au-delà des techniques de masquage, la gestion des logs contenant des données personnelles est encadrée par des exigences réglementaires (comme le RGPD en Europe) qui imposent des principes précis sur leur conservation.</p>
+
+        <div class="ascii">Principes réglementaires clés applicables aux logs d'agents IA :
+
+MINIMISATION DES DONNÉES
+  Ne collecter et conserver que ce qui est réellement
+  nécessaire au débogage et à l'amélioration — rappel du
+  piège "sur-logger" (leçon 1.5), qui rejoint ici une
+  obligation réglementaire et pas seulement une bonne pratique
+
+LIMITATION DE LA DURÉE DE CONSERVATION
+  Les logs contenant des PII ne devraient pas être conservés
+  indéfiniment — une durée de rétention définie et justifiée
+  (rappel module 3, leçon 3.4, sur la rétention à durée
+  limitée) devient ici une exigence de conformité
+
+DROIT À L'EFFACEMENT
+  Un utilisateur peut demander la suppression de ses données
+  personnelles — un système de logs doit permettre de
+  retrouver et supprimer les entrées le concernant, ce qui
+  suppose une capacité de recherche par identifiant utilisateur
+  (rappel des champs de corrélation, module 2, leçon 2.4)</div>
+
+        <p>Le principe de minimisation rejoint directement une tension déjà identifiée au module 1 : capturer davantage de contenu améliore la capacité de débogage (leçon 1.2), mais chaque donnée supplémentaire capturée, si elle est personnelle, doit être justifiée par ce même besoin de débogage — une conservation "par défaut, au cas où" de données personnelles non nécessaires n'est ni une bonne pratique ni, dans de nombreuses juridictions, conforme aux exigences réglementaires.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Conserver indéfiniment l'intégralité des logs contenant des données personnelles "au cas où ils seraient utiles un jour", sans politique de rétention définie ni processus de suppression — une pratique qui expose à un risque de conformité croissant avec le temps, sans bénéfice diagnostique proportionné au-delà d'une fenêtre de quelques semaines à quelques mois dans la plupart des cas.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un agent de support client, quelle durée de rétention proposeriez-vous pour les traces complètes (avec PII masquées, rappel leçon 4.3), et pour les métriques agrégées anonymes (approfondi module 6) ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l5" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 4.5</span>Pièges du sur-masquage et du sous-masquage</h2>
+
+        <p>Cette dernière leçon du module traite un équilibre délicat : masquer insuffisamment expose des données personnelles ; masquer excessivement détruit la valeur diagnostique que ce cours cherche à préserver depuis le module 1.</p>
+
+        <div class="ascii">Le compromis à trouver, illustré par un exemple concret :
+
+SOUS-MASQUAGE                             SUR-MASQUAGE
+────────────────────────                  ────────────────────────
+"je m'appelle Marie Dubois,                "[PERSONNE_a3f9], mon
+mon email est marie.dubois@                 [MASQUÉ] est [MASQUÉ],
+exemple.fr, ma commande est                 ma commande est [MASQUÉ]"
+CMD-789012"
+                                           → Impossible de savoir
+→ Expose le nom, l'email en                  QUEL TYPE d'information
+  clair — risque de conformité                a été masqué, ni de
+  et de sécurité (leçon 4.4)                 corréler la même commande
+                                             à travers plusieurs
+                                           traces pour le débogage
+
+ÉQUILIBRE RECHERCHÉ :
+"je m'appelle [PERSONNE_a3f9], mon email est [EMAIL], ma
+commande est [COMMANDE_f8e2]"
+→ Protège l'identité tout en préservant la STRUCTURE et le
+  TYPE de chaque donnée masquée, avec une possibilité de
+  corrélation via le hachage (rappel leçon 4.3)</div>
+
+        <p>Ce module clôt la partie "protection des données" du cours. Le module suivant revient sur l'objectif initial de ce cours — le débogage — en s'appuyant sur des logs désormais nettoyés (module 3) et protégés (ce module) pour les structurer efficacement à cette fin.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Masquer de façon uniforme toutes les données sensibles avec un jeton générique identique (par exemple, "[MASQUÉ]" pour tout type de PII), perdant ainsi l'information sur le TYPE de donnée masquée — une distinction pourtant utile pour comprendre le contexte d'un log sans exposer sa valeur exacte, comme illustré par l'exemple d'équilibre ci-dessus.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : à qui revient la responsabilité de calibrer ce compromis (équipe technique, équipe conformité/légale, les deux ensemble) — et pourquoi cette décision ne devrait-elle pas reposer sur une seule de ces perspectives ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-5">
+      <span class="module-kicker">MODULE 05 / 08</span>
+      <h1>Structurer les logs pour le débogage</h1>
+      <p class="intro">Ce module revient sur l'objectif initial de ce cours en s'appuyant sur des traces désormais bien structurées (module 2), nettoyées (module 3) et protégées (module 4) : comment les organiser et les consulter pour réellement diagnostiquer un problème d'agent en production.</p>
+
+      <section class="lesson" id="m5-l1" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 5.1</span>Ce qui rend un log réellement débogable</h2>
+
+        <p>Un log techniquement bien structuré (module 2-3) n'est pas automatiquement un log <em>débogable</em> — la différence tient à la présence d'un contexte suffisant pour comprendre non seulement CE qui s'est passé, mais POURQUOI, sans avoir à deviner ou à reproduire le problème.</p>
+
+        <div class="ascii">Log techniquement correct mais peu débogable :
+{"trace_id": "abc123", "type": "erreur_validation",
+ "horodatage": "2026-07-21T09:14:03Z"}
+
+→ Confirme QU'une erreur de validation s'est produite, mais
+  ne dit RIEN sur la fonction concernée, les arguments générés,
+  ni la raison du rejet — un débogage nécessiterait de retrouver
+  séparément les autres spans de cette même trace (rappel
+  module 2, leçon 2.1) pour reconstituer le contexte
+
+Log structuré pour le débogage :
+{"trace_id": "abc123", "type": "erreur_validation",
+ "horodatage": "2026-07-21T09:14:03Z",
+ "fonction": "obtenir_statut_commande",
+ "arguments_recus": {"numero_commande": "CMD-78901X"},
+ "regle_violee": "pattern ^CMD-\\d{6}$ non respecté",
+ "prompt_utilisateur_associe": "où en est ma commande CMD-78901X ?"}
+
+→ Permet de comprendre IMMÉDIATEMENT que l'utilisateur a
+  fourni un numéro de commande mal formé (probablement une
+  faute de frappe), sans reconstruction ni investigation
+  supplémentaire</div>
+
+        <p>Le principe général : un log débogable anticipe les questions qu'une personne se poserait en l'examinant, et y répond directement dans sa structure plutôt que de forcer une reconstruction manuelle à partir de fragments épars — un principe qui rejoint directement l'esprit du module 1 (capturer le raisonnement, pas seulement le résultat).</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer qu'un log est suffisant dès lors qu'il est techniquement bien formé et structuré (rappel modules 2-3), sans vérifier explicitement qu'il contient assez de contexte pour être compris isolément, sans nécessiter de reconstituer manuellement l'ensemble de la trace à chaque investigation.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour le log "techniquement correct mais peu débogable" de l'exemple, quelle serait la toute première question que vous poseriez en le consultant — et quel champ supplémentaire y répondrait directement ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l2" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 5.2</span>Logger les décisions intermédiaires de l'agent</h2>
+
+        <p>Rappel du cours 18 (module 4, leçon 4.2) : un agent hybride décide, à chaque requête, quelle source consulter (RAG statique ou function calling temps réel). Cette décision elle-même — pas seulement son résultat — mérite d'être loggée explicitement, car elle constitue souvent la clé pour comprendre un comportement inattendu.</p>
+
+        <pre><code class="language-python">def logger_decision_routage(trace: Trace, parent_id: str, question: str,
+                              outils_proposes: list, outil_choisi: str) -> None:
+    """Capture non seulement QUEL outil a été choisi, mais aussi
+    quelles ALTERNATIVES étaient disponibles — essentiel pour
+    comprendre si le modèle a fait un choix parmi plusieurs
+    options plausibles (rappel cours 18, module 4, leçon 4.2)."""
+    span_id = trace.demarrer_span("decision_routage", parent_id)
+    trace.terminer_span(span_id, {
+        "question": question,
+        "outils_disponibles": [o["name"] for o in outils_proposes],
+        "outil_choisi": outil_choisi,
+        "outil_attendu_a_posteriori": None,  # rempli lors d'une revue manuelle
+    })
+</code></pre>
+
+        <div class="ascii">Pourquoi logger les ALTERNATIVES non choisies compte :
+
+Sans les alternatives                     Avec les alternatives
+────────────────────────                  ────────────────────────
+On sait que l'outil A a été               On sait que les outils A ET B
+choisi                                     étaient disponibles, et que
+                                          le modèle a choisi A plutôt
+Impossible de savoir si le                  que B — permet de vérifier
+choix était évident ou s'il                si les DESCRIPTIONS des deux
+y avait une ambiguïté entre                 outils (rappel cours 17,
+plusieurs options plausibles                module 3) prêtaient à
+                                           confusion pour ce cas précis</div>
+
+        <p>Le champ <code class="inline">outil_attendu_a_posteriori</code>, volontairement laissé vide dans l'exemple, illustre une pratique précieuse pour l'amélioration continue (approfondie au module 6) : lors d'une revue manuelle de traces problématiques, annoter après coup quel aurait été le bon choix permet de constituer, au fil du temps, un jeu de données pour évaluer et améliorer la qualité du routage.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Logger uniquement l'outil finalement choisi par le modèle sans conserver la liste des outils qui lui étaient proposés à ce moment précis — sans cette information, il devient impossible de distinguer un choix évident (un seul outil pertinent) d'un choix ambigu (plusieurs outils plausibles), une distinction pourtant essentielle pour améliorer les descriptions de schéma (rappel cours 17, module 3).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour l'agent de support des cours précédents, décrivez une situation où logger les alternatives non choisies aurait permis de diagnostiquer un problème qu'un simple log du choix final n'aurait pas révélé.
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l3" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 5.3</span>Reconstituer une session complète à partir des logs</h2>
+
+        <p>Une seule requête utilisateur (une trace, rappel module 2) constitue rarement toute l'histoire : la plupart des interactions avec un agent conversationnel s'étalent sur plusieurs échanges successifs au sein d'une même session. Cette leçon traite comment relier plusieurs traces entre elles pour reconstituer le fil complet d'une conversation.</p>
+
+        <pre><code class="language-python">def rassembler_session(session_id: str, magasin_traces) -> list[dict]:
+    """Une session regroupe PLUSIEURS traces (une par message
+    utilisateur), reliées par un identifiant de session commun
+    — distinct du trace_id qui identifie une seule requête
+    (rappel module 2, leçon 2.4)."""
+    traces_de_la_session = magasin_traces.rechercher(session_id=session_id)
+    return sorted(traces_de_la_session, key=lambda t: t["horodatage_debut"])
+</code></pre>
+
+        <div class="ascii">Hiérarchie complète de corrélation dans ce cours :
+
+SESSION_ID
+  Regroupe toutes les traces d'une même conversation
+  │
+  ├── TRACE_ID (message utilisateur n°1)
+  │   └── spans (décision, appel de fonction, réponse...)
+  │
+  ├── TRACE_ID (message utilisateur n°2)
+  │   └── spans (...)
+  │
+  └── TRACE_ID (message utilisateur n°3)
+      └── spans (...)
+
+→ Reconstituer la SESSION complète permet de répondre à des
+  questions qu'une trace isolée ne peut pas éclairer : "l'agent
+  a-t-il bien tenu compte du contexte des messages précédents ?"
+  "la conversation a-t-elle dérivé progressivement vers une
+  réponse incorrecte au fil des échanges ?"</div>
+
+        <p>Cette reconstitution de session est particulièrement précieuse pour diagnostiquer des problèmes qui n'apparaissent qu'après plusieurs échanges — un agent qui, par exemple, "oublie" progressivement une contrainte mentionnée au début de la conversation, un problème invisible si l'analyse se limite à une seule trace isolée.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Analyser systématiquement les traces de façon isolée, une par une, sans jamais les regrouper par session — cette pratique manque les problèmes qui n'émergent qu'au fil d'une conversation multi-tours, un mode d'échec fréquent pour les agents conversationnels mais invisible à l'échelle d'une seule requête.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Décrivez un scénario de conversation à trois messages où un problème n'apparaîtrait qu'au troisième message, mais dont l'origine réelle se trouverait dans le premier — un cas qui illustre l'intérêt de la reconstitution de session.
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l4" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 5.4</span>Outils de visualisation de traces</h2>
+
+        <p>Rappel du module 2, leçon 2.5 : s'appuyer sur OpenTelemetry pour la collecte de traces permet de bénéficier d'un écosystème d'outils de visualisation déjà existant plutôt que de construire une interface de consultation entièrement sur mesure.</p>
+
+        <div class="ascii">Ce qu'un bon outil de visualisation de traces doit permettre :
+
+VUE CHRONOLOGIQUE (timeline / gantt)
+  Visualiser chaque span comme une barre horizontale, avec
+  sa durée et sa position dans l'arborescence — rend
+  immédiatement visible quelle étape a pris le plus de temps
+
+RECHERCHE ET FILTRAGE
+  Retrouver une trace précise par trace_id, ou filtrer par
+  critère (toutes les traces avec une erreur de validation,
+  rappel cours 17 module 4 ; toutes celles dépassant un
+  seuil de latence)
+
+VUE DÉTAILLÉE D'UN SPAN
+  Consulter le contenu complet d'un span (prompt, arguments,
+  résultat — rappel module 1, leçon 1.3), avec les données
+  sensibles déjà masquées (rappel module 4)
+
+CORRÉLATION INTER-TRACES
+  Regrouper les traces d'une même session (rappel leçon 5.3)
+  ou d'un même utilisateur pour une vue d'ensemble</div>
+
+        <p>Plusieurs plateformes d'observabilité (généralistes ou spécialisées pour les applications à base de LLM) offrent ces fonctionnalités nativement à partir de traces au format OpenTelemetry — un argument supplémentaire, après celui déjà avancé au module 2, en faveur de standards ouverts plutôt que d'outils de visualisation propriétaires développés en interne.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Investir massivement dans la collecte de traces détaillées (modules 1 à 4) sans investir équivalemment dans leur consultation effective — des traces riches mais uniquement accessibles via des requêtes techniques manuelles dans une base de données brute sont rarement consultées au quotidien, ce qui annule une grande partie de leur valeur potentielle.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Parmi les quatre fonctionnalités listées ci-dessus, laquelle vous semble la plus critique pour une équipe qui découvre et diagnostique un incident en production pour la première fois ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l5" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 5.5</span>Écrire des logs qui répondent aux questions qu'on se pose en production</h2>
+
+        <p>Cette dernière leçon du module propose une méthode concrète pour concevoir la structure de ses logs : plutôt que de partir du contenu techniquement disponible et de le logger tel quel, partir des questions qu'une équipe se pose réellement en production, et concevoir les logs pour y répondre directement.</p>
+
+        <div class="ascii">Méthode : partir des questions, pas des données disponibles
+
+Question fréquente en production                Champ de log à prévoir
+──────────────────────────────────────           ──────────────────────────
+"Pourquoi cette réponse a-t-elle pris             Latence par span, pas
+si longtemps ?"                                   seulement la latence
+                                                  totale (rappel module 2)
+
+"Pourquoi le modèle a-t-il choisi cet              Outils disponibles ET
+outil plutôt qu'un autre ?"                         choisi (rappel leçon 5.2)
+
+"Cet utilisateur a-t-il rencontré ce                Session_id, identifiant
+même problème plusieurs fois ?"                      utilisateur haché
+                                                    (rappel module 4, leçon 4.3)
+
+"Cette erreur est-elle nouvelle ou                  Horodatage de première
+récurrente ?"                                       occurrence d'un type
+                                                    d'erreur donné
+                                                    (approfondi module 6)</div>
+
+        <p>Cette méthode inverse volontairement l'approche naïve ("logger tout ce qui est techniquement accessible") au profit d'une conception guidée par l'usage réel — reprenant le même principe que la conception de schémas de function calling au cours 17 (module 3) : concevoir en pensant à celui qui consultera le résultat, pas seulement à ce qui est techniquement produisible.</p>
+
+        <div class="ascii">Ce module clôt la partie "structuration pour le débogage" du cours.
+Le module suivant change de perspective : au-delà du débogage
+ponctuel d'un incident individuel, comment agréger l'ensemble des
+logs collectés en métriques qui orientent l'amélioration continue
+du système.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Concevoir la structure des logs uniquement à partir de ce que le système peut techniquement capturer, sans jamais consulter les personnes qui devront réellement déboguer des incidents avec ces logs — une conception isolée de l'usage final aboutit souvent à des logs complets en apparence, mais qui ne répondent pas aux questions concrètes posées lors d'un vrai incident.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de synthèse</strong>
+          Pour clore ce module : formulez une question que vous vous poseriez probablement en production face à un agent qui se comporte mal, et le champ de log précis qui permettrait d'y répondre directement.
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-6">
+      <span class="module-kicker">MODULE 06 / 08</span>
+      <h1>Extraire des métriques et signaux d'amélioration</h1>
+      <p class="intro">Au-delà du débogage ponctuel d'incidents individuels (module 5), les logs collectés constituent une ressource précieuse pour identifier des tendances et orienter l'amélioration continue du système. Ce module traite comment transformer un volume de traces en métriques exploitables.</p>
+
+      <section class="lesson" id="m6-l1" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 6.1</span>Des logs bruts aux métriques agrégées</h2>
+
+        <p>Une trace individuelle répond à la question "que s'est-il passé pour CETTE requête ?" ; une métrique agrégée répond à "comment le système se comporte-t-il globalement ?" — deux perspectives complémentaires, la seconde nécessitant un traitement d'agrégation sur l'ensemble des traces collectées.</p>
+
+        <pre><code class="language-python">from collections import defaultdict
+
+def calculer_metriques_periode(traces: list[dict]) -> dict:
+    """Transforme un ensemble de traces individuelles en
+    métriques agrégées — rappel du principe de fenêtrage déjà
+    couvert au cours 18, module 6, leçon 6.4, appliqué ici aux
+    traces d'agent plutôt qu'aux événements métier."""
+    total = len(traces)
+    erreurs = sum(1 for t in traces if t.get("a_une_erreur"))
+    latences = [t["latence_totale_ms"] for t in traces]
+    outils_utilises = defaultdict(int)
+    for t in traces:
+        for span in t["spans"]:
+            if span["type"] == "appel_fonction":
+                outils_utilises[span["donnees"]["nom_fonction"]] += 1
+    return {
+        "nombre_requetes": total,
+        "taux_erreur": erreurs / total if total else 0,
+        "latence_p50_ms": percentile(latences, 50),
+        "latence_p95_ms": percentile(latences, 95),
+        "repartition_outils": dict(outils_utilises),
+    }
+</code></pre>
+
+        <div class="ascii">Pourquoi les percentiles (p50, p95) plutôt qu'une simple moyenne :
+
+Moyenne SEULE                             Percentiles (p50, p95)
+────────────────────────                  ────────────────────────
+Peut masquer une minorité de               Le p50 (médiane) montre
+requêtes très lentes derrière               l'expérience TYPIQUE
+une majorité rapide                         Le p95 montre l'expérience
+                                           des 5% de requêtes les
+Une moyenne de 500ms peut                   PLUS LENTES — souvent celles
+cacher un mélange de requêtes                qui génèrent le plus de
+à 100ms et d'autres à 3000ms                plaintes utilisateur</div>
+
+        <p>Cette distinction entre moyenne et percentiles rejoint un principe déjà présent implicitement au cours 18 (leçon 3.4, sur la latence) : les cas les plus lents ne sont pas de simples anomalies statistiques à ignorer, ils représentent souvent l'expérience réelle d'une portion significative des utilisateurs, et méritent d'être surveillés spécifiquement plutôt que noyés dans une moyenne globale rassurante.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Ne surveiller que la latence moyenne d'un système, sans jamais examiner les percentiles élevés (p95, p99) — un système avec une moyenne excellente peut malgré tout offrir une expérience très dégradée à une portion non négligeable de ses utilisateurs, un problème invisible sans cette décomposition.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour l'agent de support des cours précédents, au-delà de la latence et du taux d'erreur, quelle autre métrique agrégée pertinente pourrait être calculée à partir des traces collectées ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l2" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 6.2</span>Taux de succès, taux d'erreur de validation, latence</h2>
+
+        <p>Cette leçon détaille trois métriques fondamentales, en les reliant explicitement aux mécanismes déjà couverts dans les cours précédents de ce bloc.</p>
+
+        <div class="ascii">Taux de SUCCÈS FONCTIONNEL
+  La réponse finale a-t-elle été produite sans erreur technique
+  ni blocage ? Une métrique nécessaire mais rappel de la
+  leçon 1.2 : insuffisante seule, car elle ne capture pas la
+  QUALITÉ de la réponse, seulement son achèvement technique
+
+Taux d'ERREUR DE VALIDATION
+  Rappel direct du cours 17, module 4 : quelle proportion des
+  appels de fonction générés par le LLM échouent la validation
+  structurelle ? Un taux élevé et croissant signale souvent un
+  schéma mal conçu (cours 17, module 3) plutôt qu'un problème
+  du modèle lui-même
+
+Taux de RECOURS AU REPLI
+  Rappel cours 18, module 7, leçon 7.1 : à quelle fréquence
+  le système a-t-il dû recourir à une stratégie de repli
+  (cache expiré, réponse d'indisponibilité) plutôt qu'à une
+  réponse fraîche et complète ?</div>
+
+        <pre><code class="language-python">def calculer_taux_erreur_validation_par_fonction(traces: list[dict]) -> dict:
+    """Décomposer le taux d'erreur PAR FONCTION, plutôt que
+    globalement, permet d'identifier précisément QUEL schéma
+    (rappel cours 17, module 3) nécessite une révision."""
+    tentatives_par_fonction = defaultdict(lambda: {"total": 0, "erreurs": 0})
+    for trace in traces:
+        for span in trace["spans"]:
+            if span["type"] == "validation":
+                nom = span["donnees"]["nom_fonction"]
+                tentatives_par_fonction[nom]["total"] += 1
+                if not span["donnees"]["valide"]:
+                    tentatives_par_fonction[nom]["erreurs"] += 1
+    return {nom: v["erreurs"] / v["total"] for nom, v in tentatives_par_fonction.items() if v["total"]}
+</code></pre>
+
+        <p>Décomposer une métrique par composant spécifique (ici, par fonction) plutôt que de la calculer uniquement de façon globale est un principe qui reviendra à la leçon 6.4 : une moyenne agrégée sur l'ensemble du système masque souvent un problème localisé à un seul composant, qu'une décomposition plus fine révèle immédiatement.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Calculer un taux d'erreur de validation global pour l'ensemble du système sans le décomposer par fonction individuelle — un taux global de 2% peut sembler acceptable, alors qu'il pourrait en réalité cacher une fonction spécifique avec un taux d'échec de 40%, noyée statistiquement parmi d'autres fonctions qui fonctionnent parfaitement.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Si le taux d'erreur de validation d'une fonction spécifique augmente soudainement après une période stable, quelles causes possibles (rappel cours 17) envisageriez-vous en priorité ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l3" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 6.3</span>Détecter les patterns d'échec récurrents</h2>
+
+        <p>Au-delà des métriques agrégées de la leçon précédente, cette leçon traite comment identifier des <strong>regroupements</strong> parmi les échecs individuels — des cas qui, pris isolément, semblent être des incidents ponctuels, mais qui révèlent un problème systémique une fois rassemblés.</p>
+
+        <pre><code class="language-python">def regrouper_erreurs_par_similarite(traces_en_erreur: list[dict], seuil: float = 0.85) -> list[list]:
+    """Rappel cours 18, module 5, leçon 5.3 (cache sémantique) —
+    la même technique d'embeddings s'applique ici pour regrouper
+    des questions utilisateur différentes en formulation mais
+    similaires dans leur intention, qui ont toutes échoué."""
+    groupes = []
+    for trace in traces_en_erreur:
+        embedding = calculer_embedding(trace["question_utilisateur"])
+        groupe_trouve = False
+        for groupe in groupes:
+            if similarite_cosinus(embedding, groupe["embedding_moyen"]) >= seuil:
+                groupe["traces"].append(trace)
+                groupe_trouve = True
+                break
+        if not groupe_trouve:
+            groupes.append({"embedding_moyen": embedding, "traces": [trace]})
+    return sorted(groupes, key=lambda g: len(g["traces"]), reverse=True)
+</code></pre>
+
+        <div class="ascii">Pourquoi regrouper plutôt qu'examiner chaque échec isolément :
+
+10 échecs isolés et non regroupés          10 échecs regroupés en 1 pattern
+────────────────────────────────           ────────────────────────────────
+Chacun semble être un incident              Révèle qu'un SEUL problème
+ponctuel et distinct                        sous-jacent (par exemple, une
+                                           formulation ambiguë d'un
+Investigation dispersée, effort             schéma) explique 10 échecs
+répété pour des cas qui                     apparemment différents
+partagent en réalité la même
+cause racine                                Une SEULE correction (rappel
+                                           cours 17, module 3) résout
+                                           potentiellement l'ensemble
+                                           du groupe</div>
+
+        <p>Cette approche de regroupement change fondamentalement la priorisation du travail de débogage : plutôt que de traiter les échecs dans l'ordre chronologique de leur apparition, elle permet de s'attaquer en priorité aux patterns qui regroupent le plus grand nombre d'occurrences — le principe classique consistant à traiter d'abord les problèmes ayant le plus d'impact cumulé.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Traiter chaque trace en erreur individuellement, dans l'ordre où elle est rencontrée, sans jamais chercher à regrouper les échecs similaires — cette approche disperse l'effort de débogage et peut faire manquer un pattern systémique qui, une fois identifié, se résoudrait par une seule correction plutôt que par de nombreux ajustements ponctuels.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un agent de support, décrivez un pattern d'échec plausible qui regrouperait plusieurs questions utilisateur formulées différemment mais révélant le même problème sous-jacent.
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l4" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 6.4</span>Identifier les questions mal gérées pour améliorer les prompts et schémas</h2>
+
+        <p>Cette leçon relie directement les métriques et patterns des leçons précédentes à une action concrète d'amélioration, en bouclant explicitement vers les cours 17 (schémas de function calling) et 18 (routage statique/temps réel).</p>
+
+        <div class="ascii">De la métrique à l'action concrète d'amélioration :
+
+SIGNAL détecté (leçons 6.1-6.3)          ACTION d'amélioration correspondante
+────────────────────────────────           ────────────────────────────────
+Taux d'erreur de validation élevé          Réviser le SCHÉMA de cette
+pour une fonction spécifique               fonction (rappel cours 17,
+                                          module 3) : description plus
+                                          claire, contraintes mieux
+                                          calibrées
+
+Pattern récurrent de mauvais              Réviser les DESCRIPTIONS des
+routage entre deux outils                  outils concernés pour réduire
+proches (rappel cours 18,                  l'ambiguïté (rappel cours 17,
+module 4, leçon 4.2)                       module 1, leçon 1.2)
+
+Recours fréquent au repli pour             Réviser le TTL du cache ou la
+une source spécifique                       fiabilité de cette source
+(rappel cours 18, module 7)                 (rappel cours 18, module 5, 7)</div>
+
+        <p>Ce tableau illustre la valeur cumulative de l'ensemble de cette série de cours : les logs et métriques de ce cours 19 ne sont utiles que parce qu'ils pointent vers des leviers d'amélioration concrets déjà établis aux cours 17 et 18 — sans cette connaissance préalable des mécanismes sous-jacents, un signal de métrique resterait un simple chiffre sans action claire à en tirer.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Collecter et analyser des métriques détaillées sans jamais boucler explicitement vers une action de correction dans les composants concernés (schémas, descriptions, configuration de cache) — l'analyse de métriques n'a de valeur que si elle débouche sur des changements concrets, pas comme exercice de reporting isolé.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour chacun des trois signaux du tableau ci-dessus, à quelle fréquence (quotidienne, hebdomadaire, mensuelle) recommanderiez-vous de les examiner pour déclencher une action de correction ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l5" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 6.5</span>La boucle de feedback vers l'amélioration continue</h2>
+
+        <p>Cette dernière leçon du module formalise l'ensemble du cycle décrit dans ce module en une boucle continue, qui referme la logique de ce cours sur elle-même : les logs alimentent les métriques, qui orientent les corrections, qui elles-mêmes génèrent de nouveaux logs à analyser.</p>
+
+        <div class="ascii">La boucle de feedback complète :
+
+Agent en production
+        │
+        ▼
+Collecte de traces (modules 1-2)
+        │
+        ▼
+Nettoyage, normalisation, protection (modules 3-4)
+        │
+        ▼
+Structuration pour le débogage (module 5)
+        │
+        ▼
+Agrégation en métriques et détection de patterns (ce module)
+        │
+        ▼
+Action de correction (schémas, descriptions, configuration —
+rappel cours 17, 18)
+        │
+        ▼
+Déploiement de la correction
+        │
+        └──────────────► Retour à "Agent en production", avec
+                          de nouvelles traces à analyser pour
+                          VÉRIFIER que la correction a bien
+                          amélioré les métriques concernées</div>
+
+        <p>Le dernier maillon de cette boucle — vérifier que la correction a effectivement amélioré la métrique visée, plutôt que de supposer qu'elle l'a fait — est souvent négligé mais essentiel : une correction censée réduire un taux d'erreur de validation devrait être suivie d'une nouvelle mesure de ce même taux, sur une nouvelle période, pour confirmer son efficacité réelle plutôt que présumée.</p>
+
+        <div class="ascii">Ce module clôt la partie "exploitation des logs" du cours. Le module
+suivant change d'échelle : comment faire fonctionner l'ensemble de
+ce pipeline (collecte, nettoyage, structuration, métriques) de façon
+fiable et performante à un volume de production réel, potentiellement
+bien supérieur aux exemples de ce cours.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Appliquer une correction identifiée grâce aux métriques (module 6) sans jamais revenir mesurer si elle a effectivement amélioré la situation — une boucle de feedback qui s'arrête à l'action corrective, sans vérification a posteriori, n'est qu'une boucle à moitié fermée, qui ne garantit pas que l'amélioration continue a réellement eu lieu.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de synthèse</strong>
+          Pour clore ce module : après avoir révisé la description d'un schéma pour corriger un problème de routage (rappel leçon 6.4), quelle métrique précise surveilleriez-vous dans les jours suivants pour confirmer l'efficacité de cette correction ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-7">
+      <span class="module-kicker">MODULE 07 / 08</span>
+      <h1>Pipeline de traitement des logs à grande échelle</h1>
+      <p class="intro">Les modules précédents ont traité le contenu et la structure des logs à l'échelle d'une trace ou d'un petit ensemble. Ce module aborde le passage à l'échelle : comment faire fonctionner ce pipeline complet de façon fiable pour un agent en production, potentiellement à fort volume.</p>
+
+      <section class="lesson" id="m7-l1" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 7.1</span>Architecture d'un pipeline de traitement de logs</h2>
+
+        <p>Cette leçon assemble les composants des modules précédents (collecte, nettoyage, protection, structuration) dans une architecture de pipeline complète, en s'appuyant sur les concepts de streaming déjà couverts au cours 18 (module 6).</p>
+
+        <div class="ascii">Architecture de référence d'un pipeline de logs d'agent :
+
+Agent en production (émet des traces — modules 1-2)
+                │
+                ▼
+INGESTION (rappel cours 18, module 6, leçon 6.1 : producteur,
+topic — les traces peuvent transiter par un flux d'événements
+plutôt qu'une écriture directe en base)
+                │
+                ▼
+NETTOYAGE ET NORMALISATION (module 3 de ce cours)
+                │
+                ▼
+DÉTECTION ET MASQUAGE DES PII (module 4 de ce cours)
+                │
+                ▼
+STOCKAGE (leçon 7.2)
+                │
+        ┌───────┴───────┐
+        ▼               ▼
+CONSULTATION          AGRÉGATION EN
+POUR DÉBOGAGE          MÉTRIQUES (module 6)
+(module 5)              │
+                        ▼
+                    ALERTING (leçon 7.4)</div>
+
+        <p>Cette architecture illustre que le traitement des logs suit lui-même un flux de type pipeline de données, similaire dans sa structure aux pipelines RAG (cours 9-13) ou de données temps réel (cours 18) déjà couverts dans cette série — une confirmation que les principes de ce cours ne sont pas isolés, mais s'inscrivent dans la même logique de traitement de données déjà pratiquée tout au long de cette formation.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Implémenter chaque étape du pipeline (nettoyage, masquage, stockage) comme un traitement synchrone et bloquant directement dans le chemin de réponse de l'agent — ce qui ajoute une latence inutile à chaque requête utilisateur, alors que la plupart de ce traitement peut s'effectuer de façon asynchrone, après l'envoi de la réponse à l'utilisateur.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Parmi les étapes du pipeline ci-dessus, lesquelles doivent impérativement s'exécuter avant que la réponse soit envoyée à l'utilisateur, et lesquelles peuvent s'exécuter de façon différée, en arrière-plan ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l2" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 7.2</span>Stockage : bases de logs, entrepôts, coûts et rétention</h2>
+
+        <p>Cette leçon compare les options de stockage courantes pour les traces d'agents, chacune avec des compromis différents en termes de coût, de vitesse de consultation et d'adéquation aux besoins des modules précédents.</p>
+
+        <table>
+          <thead><tr><th>Type de stockage</th><th>Usage typique</th><th>Compromis</th></tr></thead>
+          <tbody>
+            <tr><td>Base orientée recherche (ex : Elasticsearch)</td><td>Consultation et recherche rapide pour le débogage (module 5)</td><td>Excellent pour la recherche textuelle et le filtrage, coût de stockage plus élevé à long terme</td></tr>
+            <tr><td>Entrepôt de données (data warehouse)</td><td>Agrégation de métriques sur de longues périodes (module 6)</td><td>Optimisé pour l'analyse en masse, moins adapté à la consultation d'une trace individuelle en temps réel</td></tr>
+            <tr><td>Stockage objet froid (cold storage)</td><td>Archivage à long terme pour conformité (rappel module 4, leçon 4.4)</td><td>Coût très faible, mais latence d'accès élevée — inadapté à un débogage urgent</td></tr>
+            <tr><td>Plateforme d'observabilité spécialisée LLM/agents</td><td>Combine collecte, stockage et visualisation (rappel module 5, leçon 5.4)</td><td>Solution la plus intégrée, mais dépendance à un fournisseur tiers et coût par volume de traces</td></tr>
+          </tbody>
+        </table>
+
+        <p>Un choix fréquent en pratique consiste à combiner plusieurs de ces options selon l'âge de la donnée — une approche qui rejoint directement le principe de rétention à durée limitée déjà établi au module 3, leçon 3.4, et au module 4, leçon 4.4 : les traces récentes dans un stockage rapide et consultable (recherche), les traces plus anciennes archivées à moindre coût, avec suppression définitive après la durée de rétention réglementaire déterminée.</p>
+
+        <div class="ascii">Exemple de politique de stockage par âge, combinant les options
+du tableau ci-dessus :
+
+Traces des 7 derniers jours    →  Base orientée recherche
+                                  (débogage actif, module 5)
+
+Traces de 7 jours à 3 mois     →  Entrepôt de données
+                                  (analyse de tendances, module 6)
+
+Traces de plus de 3 mois       →  Stockage froid ou suppression,
+                                  selon la politique de rétention
+                                  (rappel module 4, leçon 4.4)</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Choisir un unique type de stockage pour l'ensemble du cycle de vie des logs (par exemple, tout conserver indéfiniment dans une base orientée recherche coûteuse), plutôt que d'adapter le type de stockage à l'âge et à l'usage réel de la donnée — un choix qui fait grimper les coûts sans bénéfice proportionné pour des traces anciennes rarement consultées individuellement.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour l'agent de support des cours précédents, proposez une politique de stockage par âge similaire à l'exemple ci-dessus, en justifiant les durées choisies.
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l3" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 7.3</span>Traitement en continu vs en batch</h2>
+
+        <p>Rappel direct du cours 18 (module 6) : le nettoyage, le masquage et l'agrégation des logs peuvent s'exécuter selon deux modes différents, avec les mêmes compromis déjà établis pour les pipelines de données temps réel.</p>
+
+        <div class="ascii">Traitement EN CONTINU (streaming)              Traitement EN BATCH
+(rappel cours 18, module 6)                    (traitement périodique)
+────────────────────────────────                ────────────────────────────
+Chaque trace est nettoyée, masquée              Les traces s'accumulent, puis
+et indexée au fil de l'eau, dès                 sont traitées ensemble à
+sa réception                                    intervalle régulier (toutes
+                                                les heures, chaque nuit)
+Métriques quasi temps réel —
+utile pour l'ALERTING (leçon 7.4)               Traitement souvent plus
+                                                efficace en volume (moins
+Infrastructure plus complexe                     de surcharge par trace
+(similaire aux pipelines de                     traitée individuellement)
+streaming du cours 18)
+                                                Délai avant que les métriques
+                                                (module 6) soient à jour</div>
+
+        <p>Le choix entre ces deux modes suit le même principe déjà établi à plusieurs reprises dans cette série : le traitement en continu se justifie quand une réaction rapide est nécessaire (détecter un pic de taux d'erreur pour déclencher une alerte, leçon 7.4), tandis que le traitement en batch suffit largement pour des analyses moins urgentes (rapports hebdomadaires de tendances, module 6).</p>
+
+        <pre><code class="language-python"># Traitement en continu : chaque trace déclenche immédiatement
+# nettoyage + masquage + mise à jour des métriques courantes
+def sur_reception_trace(trace_brute: dict) -> None:
+    trace_normalisee = normaliser_log(trace_brute, source_composant="agent")
+    trace_masquee = masquer_pii(trace_normalisee, detecter_pii(trace_normalisee))
+    indexer_pour_recherche(trace_masquee)
+    mettre_a_jour_metriques_courantes(trace_masquee)
+
+# Traitement en batch : exécuté périodiquement (ex : chaque nuit)
+def traitement_batch_nocturne() -> None:
+    traces_du_jour = recuperer_traces_non_traitees()
+    rapport = calculer_metriques_periode(traces_du_jour)  # rappel module 6
+    archiver_vers_entrepot(traces_du_jour)
+</code></pre>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Choisir systématiquement le traitement en continu par souci de réactivité maximale, même pour des analyses qui ne nécessitent aucune urgence particulière — une infrastructure de traitement en continu est plus complexe à opérer et à maintenir que du traitement en batch, un coût qui ne se justifie que pour les usages réellement sensibles au délai (rappel de la même leçon du cours 18, module 6, leçon 6.2).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Parmi les usages de ce cours (débogage, module 5 ; métriques, module 6 ; alerting, leçon 7.4), lesquels justifient un traitement en continu, et lesquels se contentent d'un traitement en batch ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l4" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 7.4</span>Alerting basé sur les logs</h2>
+
+        <p>Cette leçon relie le pipeline de traitement à une action proactive : plutôt que d'attendre qu'une personne consulte manuellement les métriques (module 6), un système d'alerting notifie automatiquement une équipe dès qu'un seuil anormal est détecté.</p>
+
+        <pre><code class="language-python">def verifier_seuils_alerte(metriques_recentes: dict, metriques_seuils: dict) -> list[str]:
+    alertes = []
+    if metriques_recentes["taux_erreur"] > metriques_seuils["taux_erreur_max"]:
+        alertes.append(f"Taux d'erreur anormalement élevé : "
+                        f"{metriques_recentes['taux_erreur']:.1%}")
+    if metriques_recentes["latence_p95_ms"] > metriques_seuils["latence_p95_max_ms"]:
+        alertes.append(f"Latence p95 dégradée : {metriques_recentes['latence_p95_ms']}ms")
+    for nom_fonction, taux in metriques_recentes.get("taux_erreur_validation_par_fonction", {}).items():
+        if taux > metriques_seuils["taux_erreur_validation_max"]:
+            alertes.append(f"Fonction '{nom_fonction}' : taux d'erreur de validation "
+                            f"élevé ({taux:.1%}) — rappel cours 17, module 3")
+    return alertes
+</code></pre>
+
+        <div class="ascii">Principes pour un alerting efficace, évitant la "fatigue d'alerte" :
+
+SEUILS CALIBRÉS SUR UNE BASELINE RÉELLE
+  Un seuil arbitraire ("alerter si le taux d'erreur dépasse 5%")
+  sans référence à un comportement normal observé génère
+  souvent trop de faux positifs ou, à l'inverse, manque de
+  vraies anomalies
+
+ALERTES ACTIONNABLES
+  Chaque alerte devrait pointer vers une action possible
+  (rappel module 6, leçon 6.4) plutôt que se contenter de
+  signaler un chiffre sans contexte
+
+DIFFÉRENCIATION DE SÉVÉRITÉ
+  Toutes les anomalies ne méritent pas un réveil en pleine
+  nuit — une dégradation mineure de latence n'a pas la même
+  urgence qu'un système d'agent totalement défaillant</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Configurer des seuils d'alerte arbitraires, non calibrés sur le comportement normal réel du système, ce qui génère soit une fatigue d'alerte (trop de fausses alertes ignorées à force d'habitude), soit un silence dangereux face à de vraies anomalies (seuils trop larges pour être jamais déclenchés).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour l'alerte de taux d'erreur de validation par fonction (rappel cours 17, module 3), à quelle équipe ou personne cette alerte devrait-elle être adressée en priorité, et quelle action concrète attendriez-vous en réponse ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l5" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 7.5</span>Sécuriser l'accès aux logs</h2>
+
+        <p>Cette dernière leçon du module referme une boucle de sécurité déjà entamée au cours 17 (module 7, sur la sécurité du function calling) : les logs eux-mêmes, une fois collectés et stockés, deviennent une ressource sensible à protéger, en particulier ceux qui contiennent des données personnelles malgré le masquage du module 4.</p>
+
+        <div class="ascii">Pourquoi les logs constituent une surface de risque à part entière :
+
+Même APRÈS masquage des PII (module 4), les logs peuvent
+contenir des informations sensibles sur le fonctionnement
+interne du système : la structure exacte des prompts système,
+les schémas complets des fonctions internes (rappel cours 17),
+des détails d'architecture qui ne devraient pas être exposés
+à quiconque n'en a pas l'usage légitime</div>
+
+        <p>Rappel direct du principe de moindre privilège déjà établi au cours 17 (module 7, leçon 7.3) : l'accès aux logs devrait suivre la même discipline que l'accès aux outils d'un agent — accès en lecture accordé selon un besoin réel, pas ouvert par défaut à l'ensemble d'une équipe technique.</p>
+
+        <pre><code class="language-python">def verifier_acces_logs(utilisateur_technique, trace_demandee: dict) -> bool:
+    """Rappel cours 17, module 7, leçon 7.3 — même principe de
+    permission appliqué ici à la consultation des LOGS plutôt
+    qu'à l'exécution d'un OUTIL."""
+    if utilisateur_technique.role not in ("support_niveau_2", "ingenieur_ia"):
+        return False
+    if trace_demandee.get("contient_donnees_financieres") and \
+       utilisateur_technique.role != "ingenieur_ia":
+        return False  # accès restreint pour les traces les plus sensibles
+    return True
+</code></pre>
+
+        <p>Ce module clôt la partie "pipeline à grande échelle" du cours. Le dernier module assemble l'ensemble des concepts vus (fondamentaux, structure de trace, nettoyage, anonymisation, débogage, métriques, pipeline) dans une checklist de conception et une étude de cas complète.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer que le masquage des PII (module 4) suffit à rendre les logs sans risque, et donc accessibles sans restriction particulière à l'ensemble d'une équipe technique — les logs conservent une valeur sensible au-delà des seules données personnelles (architecture interne, schémas de fonctions, patterns d'usage), qui justifie un contrôle d'accès dédié.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : au-delà du rôle de la personne qui consulte les logs, quel autre critère (comme illustré par <code class="inline">contient_donnees_financieres</code> ci-dessus) pourrait justifier une restriction d'accès supplémentaire à certaines traces ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-8">
+      <span class="module-kicker">MODULE 08 / 08</span>
+      <h1>Implémentation complète et étude de cas</h1>
+      <p class="intro">Ce dernier module assemble l'ensemble des notions vues — anatomie de trace (module 2), nettoyage (module 3), anonymisation (module 4), débogage (module 5), métriques (module 6), pipeline à l'échelle (module 7) — dans une checklist de conception et une étude de cas complète, avant de clore le Bloc 5 de cette série.</p>
+
+      <section class="lesson" id="m8-l1" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 8.1</span>Checklist de conception d'un système de logging d'agent</h2>
+
+        <div class="ascii">Checklist de conception (à appliquer lors de la construction ou
+de la révision d'un système de logging d'agent IA) :
+
+□ 1. STRUCTURE DE TRACE définie (module 2) : trace_id, span_id,
+     parent_id propagés correctement à travers tous les composants
+
+□ 2. CONTENU CAPTURÉ suffisant pour le débogage (module 1, 5) :
+     prompts complets, décisions intermédiaires, alternatives
+     non choisies, pas seulement le résultat final
+
+□ 3. NORMALISATION en place (module 3) pour les formats
+     hétérogènes entre composants, horodatages unifiés
+
+□ 4. DÉTECTION ET MASQUAGE DES PII (module 4) calibrés pour
+     équilibrer protection et valeur diagnostique conservée
+
+□ 5. POLITIQUE DE RÉTENTION définie et conforme (module 4,
+     leçon 4.4 ; module 7, leçon 7.2) selon l'âge des données
+
+□ 6. MÉTRIQUES AGRÉGÉES calculées régulièrement (module 6) :
+     taux d'erreur par fonction, latences en percentiles,
+     patterns d'échec regroupés
+
+□ 7. ALERTING configuré (module 7, leçon 7.4) avec des seuils
+     calibrés sur une baseline réelle, pas arbitraires
+
+□ 8. CONTRÔLE D'ACCÈS aux logs (module 7, leçon 7.5) suivant
+     le principe de moindre privilège
+
+□ 9. BOUCLE DE FEEDBACK établie (module 6, leçon 6.5) : les
+     corrections déclenchées par les métriques sont vérifiées
+     a posteriori sur de nouvelles données</div>
+
+        <p>Comme pour la checklist du cours 18 (module 8, leçon 8.1), cette liste n'est pas un exercice ponctuel : plusieurs de ses points (rétention, seuils d'alerte, contrôle d'accès) méritent d'être révisés périodiquement à mesure que le système évolue et que le volume de traces collectées augmente.</p>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un agent que vous avez conçu ou étudié au fil de cette série de cours, appliquez cette checklist et identifiez les deux points qui nécessiteraient le plus de travail supplémentaire.
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l2" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 8.2</span>Pipeline complet : de la capture au stockage</h2>
+
+        <div class="ascii">Architecture de référence complète du cours :
+
+Agent en production
+(function calling — cours 17 ; gestion temps réel/statique —
+cours 18)
+        │
+        ▼ [CAPTURE — modules 1-2 : trace_id, spans, décisions,
+        │  prompts complets, alternatives non choisies]
+        │
+        ▼ [NETTOYAGE — module 3 : normalisation des formats,
+        │  horodatages unifiés, gestion du volume]
+        │
+        ▼ [PROTECTION — module 4 : détection et masquage des
+        │  PII, conformité et rétention]
+        │
+        ▼ [STOCKAGE — module 7 : base de recherche pour le
+        │  récent, entrepôt pour l'analyse, archivage froid
+        │  pour la conformité à long terme]
+        │
+   ┌────┴────┐
+   ▼         ▼
+DÉBOGAGE   MÉTRIQUES ET ALERTING
+(module 5)  (module 6, module 7 leçon 7.4)
+   │         │
+   └────┬────┘
+        ▼
+ACTION DE CORRECTION (schémas, descriptions, configuration
+— rappel cours 17, 18) puis VÉRIFICATION a posteriori
+(module 6, leçon 6.5)</div>
+
+        <p>Cette architecture referme la boucle amorcée dès le module 1 : le logging n'est pas une fonctionnalité isolée ajoutée à un agent déjà construit, mais un système à part entière qui traverse et instrumente l'ensemble des mécanismes déjà couverts dans ce bloc (function calling, gestion temps réel/statique), avec son propre cycle de collecte, protection, analyse et amélioration continue.</p>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour l'architecture ci-dessus, à quelle étape ajouteriez-vous un point de vérification manuel (revue humaine) plutôt que de tout automatiser, et pourquoi ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l3" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 8.3</span>Étude de cas : déboguer un agent à partir de ses logs</h2>
+
+        <h3>Contexte</h3>
+        <p>L'agent de support client développé au fil des cours 17 et 18 reçoit des plaintes utilisateur : certains clients rapportent que l'agent leur donne parfois une information de stock incorrecte pour certains produits. L'équipe dispose du système de logging complet décrit dans ce cours et doit diagnostiquer la cause.</p>
+
+        <div class="ascii">Démarche de diagnostic, mobilisant les modules de ce cours :
+
+1. RECHERCHER les traces concernant les produits mentionnés
+   dans les plaintes (module 5, leçon 5.4 — recherche et filtrage)
+
+2. EXAMINER le contenu détaillé de ces traces (module 1, leçon 1.3) :
+   → Le prompt reçu contenait-il bien le bon identifiant produit ?
+   → L'outil "obtenir_stock_produit" a-t-il été appelé, ou l'agent
+     a-t-il répondu depuis une source statique par erreur (rappel
+     cours 18, module 4, sur le routage) ?
+   → Si l'outil a été appelé, la réponse provenait-elle du cache
+     (rappel cours 18, module 5) ou d'un appel direct ? Quel était
+     l'âge de la donnée servie (rappel module 5, leçon 5.4) ?
+
+3. REGROUPER les traces similaires (module 6, leçon 6.3) pour
+   vérifier si le problème concerne UN produit spécifique ou
+   un pattern plus large (par exemple, tous les produits d'une
+   même catégorie, ou toutes les requêtes passées par le cache)
+
+4. Une fois la cause identifiée (hypothèse : un TTL de cache
+   trop long pour des produits à forte rotation de stock,
+   rappel cours 18, module 5, leçon 5.1), appliquer la
+   CORRECTION et VÉRIFIER via de nouvelles métriques (module 6,
+   leçon 6.5) que le taux de plaintes diminue effectivement</div>
+
+        <p>Cette étude de cas illustre concrètement pourquoi ce cours a insisté, à travers tous ses modules, sur la nécessité de capturer un contexte riche (prompt complet, source utilisée, fraîcheur de la donnée, cache ou appel direct) : sans ces informations, l'équipe n'aurait pu que constater le symptôme (une plainte utilisateur) sans jamais remonter à sa cause précise, une confusion entre péremption de cache et disponibilité réelle du stock déjà anticipée au cours 18 (module 5, leçon 5.5).</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Face à une plainte utilisateur vague ("l'agent m'a donné une mauvaise information"), tenter de reproduire manuellement le problème plutôt que de d'abord consulter les traces réelles de l'incident signalé — la reproduction manuelle risque de manquer les conditions exactes (timing, état du cache) qui ont mené à l'erreur initiale, alors que la trace originale les contient déjà.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour cette étude de cas, si l'investigation révélait que le problème ne vient PAS du cache mais d'un routage incorrect vers la documentation statique (rappel cours 18, module 4) plutôt que vers l'outil de stock temps réel, quelle serait la correction appropriée ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l4" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 8.4</span>Exercice final</h2>
+
+        <div class="callout exercise">
+          <strong>Exercice final — à traiter dans l'ordre</strong>
+          <p>1. <strong>Structure de trace (module 2)</strong> : pour l'étude de cas de la leçon 8.3, esquissez la structure de span qui aurait dû enregistrer l'appel à <code class="inline">obtenir_stock_produit</code>, incluant le champ indiquant si la réponse provenait du cache et son âge.</p>
+          <p>2. <strong>Anonymisation (module 4)</strong> : si le prompt utilisateur ayant déclenché cette trace contenait "je m'appelle Paul Martin, le produit ABC123 est-il disponible ?", montrez le résultat après masquage.</p>
+          <p>3. <strong>Métrique (module 6)</strong> : proposez une métrique précise qui aurait permis de détecter ce problème de cache avant même de recevoir les plaintes utilisateur.</p>
+          <p>4. <strong>Alerting (module 7, leçon 7.4)</strong> : formulez la règle d'alerte correspondant à cette métrique, avec un seuil que vous jugez raisonnable.</p>
+          <p>5. <strong>Boucle de feedback (module 6, leçon 6.5)</strong> : après avoir réduit le TTL du cache pour ce type de produit, quelle nouvelle mesure confirmerait que la correction a fonctionné ?</p>
+        </div>
+
+        <p>Comme pour les exercices finaux des cours 17 et 18, il n'existe pas de réponse unique — l'objectif est de démontrer une application cohérente de l'ensemble du cycle de logging (capture, protection, débogage, métrique, correction, vérification) à un incident concret.</p>
+      </section>
+
+      <section class="lesson" id="m8-l5" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 8.5</span>Synthèse et clôture du Bloc 5</h2>
+
+        <h3>Ce que ce cours a couvert</h3>
+        <div class="ascii">Récapitulatif des 8 modules :
+
+1. Fondamentaux — log, trace, span ; ce qu'il faut capturer ;
+   erreurs courantes de logging
+2. Anatomie d'une trace — arborescence de spans, corrélation,
+   standard OpenTelemetry
+3. Nettoyage — normalisation de formats hétérogènes, extraction
+   de champs, gestion du volume
+4. Anonymisation — détection et masquage des PII, conformité
+5. Structuration pour le débogage — logs débogables, décisions
+   intermédiaires, reconstitution de session, visualisation
+6. Métriques — agrégation, taux d'erreur, patterns d'échec,
+   boucle de feedback vers l'amélioration continue
+7. Pipeline à grande échelle — architecture, stockage, traitement
+   continu/batch, alerting, sécurité d'accès
+8. Implémentation complète — checklist, pipeline de référence,
+   étude de cas de débogage</div>
+
+        <h3>Clôture du Bloc 5 — Préparation de Données pour Agents IA</h3>
+        <p>Ce cours referme le Bloc 5 de cette série, entamé au cours 17. Les trois cours de ce bloc forment un ensemble cohérent : le cours 17 a établi comment un agent structure et valide ses interactions avec des outils (function calling, schémas JSON) ; le cours 18 a traité comment cet agent gère la fraîcheur des données qu'il exploite, qu'elles soient statiques ou temps réel ; ce cours 19 a montré comment observer, déboguer et améliorer en continu le comportement de cet agent une fois en production, refermant ainsi le cycle complet — de la conception d'un agent à son exploitation durable.</p>
+
+        <div class="ascii">Les trois cours du Bloc 5, et ce qu'ils ont construit ensemble :
+
+Cours 17 — Function calling            Cours 18 — Temps réel vs statique
+(comment l'agent AGIT)                 (comment l'agent S'INFORME)
+        │                                       │
+        └───────────────┬───────────────────┘
+                        ▼
+              Cours 19 — Logs et traces
+              (comment on OBSERVE et AMÉLIORE
+               ce que l'agent fait et sait)</div>
+
+        <p>Ce bloc s'appuyait lui-même sur les blocs précédents de la série : le Bloc 3 (préparation de données pour RAG, cours 9-13) et le Bloc 4 (données non structurées, cours 14-16) ont fourni les fondations de traitement de données que ce Bloc 5 mobilise concrètement pour construire des agents fonctionnels, fiables et observables.</p>
+
+        <h3>Pour aller plus loin</h3>
+        <ul>
+          <li>Les plateformes d'observabilité spécialisées pour les applications à base de LLM (rappel module 5, leçon 5.4), qui intègrent nativement plusieurs des pratiques couvertes dans ce cours.</li>
+          <li>Le standard OpenTelemetry (module 2, leçon 2.5) au-delà du strict nécessaire pour les agents IA, pour une intégration avec l'observabilité plus large d'un système applicatif.</li>
+          <li>Les techniques d'évaluation automatisée de la qualité des réponses d'un agent (LLM-as-judge), qui prolongent la boucle de feedback du module 6 au-delà des seules métriques techniques (erreurs, latence) vers une évaluation de la qualité perçue des réponses elles-mêmes.</li>
+        </ul>
+
+        <div class="callout exercise">
+          <strong>Pour conclure</strong>
+          En une phrase, formulez le principe de ce cours qui vous semble le plus déterminant pour transformer un système de logging d'un simple coût opérationnel en un véritable moteur d'amélioration continue d'un agent IA.
+        </div>
+      </section>
+    </div>
+
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+  hljs.highlightAll();
+
+  const storageKey = 'logs-traces-agents-course-progress';
+  const total = 40;
+  const menuToggle = document.getElementById('menuToggle');
+  const sidebar = document.getElementById('sidebar');
+  menuToggle.addEventListener('click', () => sidebar.classList.toggle('open'));
+
+  function getProgress() {
+    try { return JSON.parse(localStorage.getItem(storageKey)) || {}; }
+    catch (e) { return {}; }
+  }
+  function saveProgress(p) { localStorage.setItem(storageKey, JSON.stringify(p)); }
+
+  function updateProgressBar() {
+    const p = getProgress();
+    const done = Object.values(p).filter(Boolean).length;
+    document.getElementById('progressFill').style.width = (done / total * 100) + '%';
+  }
+
+  function markVisible() {
+    const progress = getProgress();
+    const links = document.querySelectorAll('[data-lesson]');
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const id = entry.target.id;
+          links.forEach(l => l.classList.remove('active'));
+          const link = document.querySelector('[data-lesson="' + id + '"]');
+          if (link) link.classList.add('active');
+          if (!progress[id]) {
+            progress[id] = true;
+            saveProgress(progress);
+            updateProgressBar();
+            const check = link ? link.querySelector('.lesson-check') : null;
+            if (check) check.classList.add('done');
+          }
+        }
+      });
+    }, { threshold: 0.4 });
+    document.querySelectorAll('section.lesson').forEach(s => observer.observe(s));
+  }
+
+  function restoreChecks() {
+    const progress = getProgress();
+    Object.keys(progress).forEach(id => {
+      if (progress[id]) {
+        const link = document.querySelector('[data-lesson="' + id + '"]');
+        if (link) {
+          const check = link.querySelector('.lesson-check');
+          if (check) check.classList.add('done');
+        }
+      }
+    });
+    updateProgressBar();
+  }
+
+  restoreChecks();
+  markVisible();
+
+  document.querySelectorAll('.sidebar a').forEach(a => {
+    a.addEventListener('click', () => { sidebar.classList.remove('open'); });
+  });
+</script>
+</body>
+</html>
