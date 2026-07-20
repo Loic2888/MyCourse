@@ -1,0 +1,2053 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Données Temps Réel vs Données Statiques — Gestion dans un Contexte Agentique</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<style>
+  :root {
+    --bg: #f4f6f8; --bg-alt: #e8edf1; --panel: #ffffff; --text: #1f2430; --text-muted: #5b6472;
+    --accent: #0891b2; --accent-dark: #0e7490; --pitfall: #f59e0b; --border: #dbe2e8;
+    --chunk-1: #7c5cff; --chunk-2: #17b8a6; --chunk-3: #ff6b6b; --chunk-4: #ffb020;
+    --font-display: "Space Grotesk", sans-serif; --font-body: "Inter", system-ui, sans-serif; --font-mono: "JetBrains Mono", monospace;
+    --sidebar-width: 300px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font-body); color: var(--text); background: var(--bg); line-height: 1.65; }
+  .layout { display: flex; min-height: 100vh; }
+  .sidebar { width: var(--sidebar-width); flex-shrink: 0; background: var(--panel); border-right: 1px solid var(--border); padding: 1.5rem 1rem 3rem; overflow-y: auto; position: sticky; top: 0; height: 100vh; }
+  .sidebar a.brand { display: block; font-family: var(--font-display); font-weight: 700; font-size: 1rem; margin-bottom: 1.5rem; color: var(--text); text-decoration: none; padding: 0.4rem 0.5rem; }
+  .sidebar a.brand span { color: var(--accent); }
+  .module-group { margin-bottom: 0.35rem; border-radius: 8px; }
+  .module-title { font-family: var(--font-display); font-weight: 600; font-size: 0.88rem; padding: 0.55rem 0.6rem; display: flex; gap: 0.5rem; align-items: baseline; color: var(--text); text-decoration: none; }
+  .module-title .n { font-family: var(--font-mono); font-size: 0.72rem; opacity: 0.7; }
+  .lesson-list { list-style: none; padding-left: 0.6rem; margin-bottom: 0.4rem; }
+  .lesson-list li a { display: flex; align-items: center; gap: 0.5rem; padding: 0.32rem 0.5rem; border-radius: 6px; color: var(--text-muted); text-decoration: none; font-size: 0.83rem; }
+  .lesson-list li a:hover { background: var(--bg-alt); color: var(--text); }
+  .lesson-list li a.active { color: var(--accent-dark); font-weight: 600; background: rgba(8,145,178,0.1); }
+  .lesson-check { width: 12px; height: 12px; flex-shrink: 0; border: 1.5px solid var(--text-muted); border-radius: 3px; }
+  .lesson-check.done { background: var(--chunk-2); border-color: var(--chunk-2); }
+  .progress-bar { height: 4px; background: var(--border); position: sticky; top: 0; z-index: 10; }
+  .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--chunk-1), var(--accent)); width: 0%; transition: width 0.2s ease; }
+  .content { flex: 1; max-width: 760px; margin: 0 auto; padding: 3rem 2rem 6rem; }
+  .module-kicker { font-family: var(--font-mono); font-size: 0.8rem; color: var(--accent-dark); background: rgba(8,145,178,0.08); border: 1px dashed var(--accent); display: inline-block; padding: 0.2rem 0.8rem; border-radius: 999px; margin-bottom: 1rem; }
+  section.lesson { border-top: 2px dashed var(--border); padding-top: 2rem; margin-top: 2rem; position: relative; padding-left: 1.1rem; border-left: 4px solid var(--lesson-color, var(--accent)); }
+  section.lesson h2 { font-family: var(--font-display); font-size: 1.5rem; margin-bottom: 1rem; }
+  section.lesson h2 .tag { font-family: var(--font-mono); font-size: 0.7rem; color: var(--lesson-color, var(--accent)); display: block; margin-bottom: 0.3rem; }
+  section.lesson h3 { font-family: var(--font-display); font-size: 1.1rem; margin: 1.4rem 0 0.6rem; }
+  section.lesson p, section.lesson ul, section.lesson ol { margin-bottom: 1rem; }
+  section.lesson li { margin-left: 1.3rem; margin-bottom: 0.35rem; }
+  pre { border-radius: 8px; padding: 1rem; overflow-x: auto; margin: 1rem 0; font-size: 0.85rem; }
+  code.inline { font-family: var(--font-mono); background: var(--bg-alt); padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.85em; }
+  .ascii { font-family: var(--font-mono); font-size: 0.78rem; background: #1e222b; color: #d7dce2; padding: 1rem 1.2rem; border-radius: 8px; overflow-x: auto; margin: 1rem 0; line-height: 1.5; white-space: pre; }
+  .callout { border-left: 4px solid var(--accent); background: var(--bg-alt); padding: 1rem 1.2rem; border-radius: 0 8px 8px 0; margin: 1.2rem 0; }
+  .callout strong { font-family: var(--font-display); display: block; margin-bottom: 0.3rem; font-size: 0.92rem; }
+  .callout.pitfall { border-left-color: var(--pitfall); }
+  .callout.exercise { border-left-color: var(--chunk-2); }
+  .menu-toggle { display: none; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.88rem; }
+  thead tr { text-align: left; border-bottom: 2px solid var(--border); }
+  th, td { padding: 0.5rem 0.6rem; }
+  tbody tr { border-bottom: 1px solid var(--border); }
+
+  .hero {
+    border-bottom: 2px dashed var(--border);
+    padding: 3rem 0 2.5rem;
+    text-align: center;
+    margin-bottom: 1rem;
+  }
+  .hero .tag {
+    display: inline-block; font-family: var(--font-mono); font-size: 0.8rem;
+    color: var(--accent-dark); background: rgba(8,145,178,0.1);
+    border: 1px dashed var(--accent); border-radius: 999px;
+    padding: 0.25rem 0.9rem; margin-bottom: 1.25rem;
+  }
+  .hero-title {
+    font-family: var(--font-display); font-size: clamp(1.8rem, 5vw, 2.6rem);
+    font-weight: 700; margin: 0 auto 1rem; letter-spacing: -0.01em;
+  }
+  .hero-title span {
+    background: linear-gradient(90deg, var(--chunk-1), var(--accent), var(--chunk-2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .hero-lead { max-width: 620px; margin: 0 auto; color: var(--text-muted); font-size: 1.02rem; }
+  .strip { display: flex; justify-content: center; gap: 0.4rem; margin: 2rem auto 0; max-width: 520px; }
+  .strip .seg { height: 8px; flex: 1; border-radius: 3px; }
+  .strip .seg:nth-child(1) { background: var(--chunk-1); }
+  .strip .seg:nth-child(2) { background: var(--chunk-2); }
+  .strip .seg:nth-child(3) { background: var(--chunk-3); }
+  .strip .seg:nth-child(4) { background: var(--chunk-4); }
+  .strip .seg:nth-child(5) { background: var(--chunk-1); }
+  .strip .seg:nth-child(6) { background: var(--chunk-2); }
+
+  .module-block { border-top: 3px solid var(--border); padding-top: 2.5rem; margin-top: 3rem; }
+  .module-block:first-of-type { border-top: none; margin-top: 0; }
+  .module-block > h1 { font-family: var(--font-display); font-size: 2rem; margin-bottom: 0.5rem; }
+  .module-block > p.intro { color: var(--text-muted); margin-bottom: 2rem; font-size: 1.02rem; }
+
+  .finale {
+    margin-top: 3rem; padding: 1.5rem; border-radius: 10px;
+    background: linear-gradient(135deg, rgba(124,92,255,0.08), rgba(23,184,166,0.08));
+    border: 1px dashed var(--accent);
+    text-align: center;
+  }
+  .finale p { color: var(--text-muted); margin-bottom: 0.8rem; }
+  .finale a {
+    display: inline-block; background: var(--accent); color: white;
+    text-decoration: none; padding: 0.6rem 1.4rem; border-radius: 6px;
+    font-family: var(--font-display); font-weight: 600; font-size: 0.9rem;
+  }
+
+  @media (max-width: 860px) {
+    .sidebar { position: fixed; left: -100%; z-index: 20; transition: left 0.2s ease; box-shadow: 4px 0 12px rgba(0,0,0,0.15); background: var(--panel); }
+    .sidebar.open { left: 0; }
+    .menu-toggle { display: block; position: fixed; top: 1rem; left: 1rem; z-index: 30; background: var(--accent); color: white; border: none; border-radius: 6px; padding: 0.5rem 0.75rem; cursor: pointer; font-size: 1rem; }
+    .content { padding: 4.5rem 1.25rem 3rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-bar-fill" id="progressFill"></div></div>
+<button class="menu-toggle" id="menuToggle">☰</button>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar">
+    <a class="brand" href="#top">Temps<span>Réel</span></a>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-1"><span class="n">01</span> Fondamentaux : statique vs temps réel</a>
+      <ul class="lesson-list">
+        <li><a href="#m1-l1" data-lesson="m1-l1"><span class="lesson-check"></span>Ce qui distingue donnée statique et donnée temps réel</a></li>
+        <li><a href="#m1-l2" data-lesson="m1-l2"><span class="lesson-check"></span>Pourquoi cette distinction compte pour un agent IA</a></li>
+        <li><a href="#m1-l3" data-lesson="m1-l3"><span class="lesson-check"></span>Latence, fraîcheur, cohérence : les critères clés</a></li>
+        <li><a href="#m1-l4" data-lesson="m1-l4"><span class="lesson-check"></span>Où ça s'insère dans une architecture d'agent</a></li>
+        <li><a href="#m1-l5" data-lesson="m1-l5"><span class="lesson-check"></span>Erreurs courantes de conception</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-2"><span class="n">02</span> Données statiques dans un contexte agentique</a>
+      <ul class="lesson-list">
+        <li><a href="#m2-l1" data-lesson="m2-l1"><span class="lesson-check"></span>Qu'est-ce qu'une donnée statique ici</a></li>
+        <li><a href="#m2-l2" data-lesson="m2-l2"><span class="lesson-check"></span>Cycle de vie : ingestion, version, mise à jour</a></li>
+        <li><a href="#m2-l3" data-lesson="m2-l3"><span class="lesson-check"></span>Le rôle du RAG pour exploiter le statique</a></li>
+        <li><a href="#m2-l4" data-lesson="m2-l4"><span class="lesson-check"></span>Le problème de la péremption (staleness)</a></li>
+        <li><a href="#m2-l5" data-lesson="m2-l5"><span class="lesson-check"></span>Stratégies de rafraîchissement périodique</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-3"><span class="n">03</span> Données temps réel dans un contexte agentique</a>
+      <ul class="lesson-list">
+        <li><a href="#m3-l1" data-lesson="m3-l1"><span class="lesson-check"></span>Qu'est-ce qu'une donnée temps réel ici</a></li>
+        <li><a href="#m3-l2" data-lesson="m3-l2"><span class="lesson-check"></span>Modes d'accès : polling, webhooks, streaming</a></li>
+        <li><a href="#m3-l3" data-lesson="m3-l3"><span class="lesson-check"></span>Le rôle du function calling pour le temps réel</a></li>
+        <li><a href="#m3-l4" data-lesson="m3-l4"><span class="lesson-check"></span>Latence et fraîcheur : les compromis techniques</a></li>
+        <li><a href="#m3-l5" data-lesson="m3-l5"><span class="lesson-check"></span>Erreurs courantes face au temps réel</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-4"><span class="n">04</span> Architectures hybrides</a>
+      <ul class="lesson-list">
+        <li><a href="#m4-l1" data-lesson="m4-l1"><span class="lesson-check"></span>Pourquoi la plupart des agents ont besoin des deux</a></li>
+        <li><a href="#m4-l2" data-lesson="m4-l2"><span class="lesson-check"></span>Router la requête vers la bonne source</a></li>
+        <li><a href="#m4-l3" data-lesson="m4-l3"><span class="lesson-check"></span>Fusionner des données de fraîcheur différente</a></li>
+        <li><a href="#m4-l4" data-lesson="m4-l4"><span class="lesson-check"></span>Étude de cas : FAQ statique + statut temps réel</a></li>
+        <li><a href="#m4-l5" data-lesson="m4-l5"><span class="lesson-check"></span>Gérer les incohérences entre sources</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-5"><span class="n">05</span> Caching et fraîcheur des données</a>
+      <ul class="lesson-list">
+        <li><a href="#m5-l1" data-lesson="m5-l1"><span class="lesson-check"></span>Pourquoi et quand mettre en cache du "temps réel"</a></li>
+        <li><a href="#m5-l2" data-lesson="m5-l2"><span class="lesson-check"></span>Stratégies de cache : TTL, invalidation</a></li>
+        <li><a href="#m5-l3" data-lesson="m5-l3"><span class="lesson-check"></span>Cache sémantique pour requêtes similaires</a></li>
+        <li><a href="#m5-l4" data-lesson="m5-l4"><span class="lesson-check"></span>Communiquer la fraîcheur explicitement au modèle</a></li>
+        <li><a href="#m5-l5" data-lesson="m5-l5"><span class="lesson-check"></span>Pièges du cache : servir du périmé comme frais</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-6"><span class="n">06</span> Pipelines de données temps réel</a>
+      <ul class="lesson-list">
+        <li><a href="#m6-l1" data-lesson="m6-l1"><span class="lesson-check"></span>Concepts de streaming : événement, topic, consommateur</a></li>
+        <li><a href="#m6-l2" data-lesson="m6-l2"><span class="lesson-check"></span>Outils courants : files de messages, webhooks</a></li>
+        <li><a href="#m6-l3" data-lesson="m6-l3"><span class="lesson-check"></span>Enrichir un flux en continu avant usage agentique</a></li>
+        <li><a href="#m6-l4" data-lesson="m6-l4"><span class="lesson-check"></span>Fenêtrage et agrégation temporelle</a></li>
+        <li><a href="#m6-l5" data-lesson="m6-l5"><span class="lesson-check"></span>Erreurs courantes dans les pipelines temps réel</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-7"><span class="n">07</span> Fiabilité et gestion des erreurs</a>
+      <ul class="lesson-list">
+        <li><a href="#m7-l1" data-lesson="m7-l1"><span class="lesson-check"></span>Que faire si une source temps réel tombe</a></li>
+        <li><a href="#m7-l2" data-lesson="m7-l2"><span class="lesson-check"></span>Cohérence éventuelle vs cohérence forte</a></li>
+        <li><a href="#m7-l3" data-lesson="m7-l3"><span class="lesson-check"></span>Idempotence et rejouabilité des événements</a></li>
+        <li><a href="#m7-l4" data-lesson="m7-l4"><span class="lesson-check"></span>Monitorer fraîcheur et disponibilité des sources</a></li>
+        <li><a href="#m7-l5" data-lesson="m7-l5"><span class="lesson-check"></span>Tester la résilience face à une source défaillante</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-8"><span class="n">08</span> Implémentation complète et étude de cas</a>
+      <ul class="lesson-list">
+        <li><a href="#m8-l1" data-lesson="m8-l1"><span class="lesson-check"></span>Checklist de conception statique/temps réel</a></li>
+        <li><a href="#m8-l2" data-lesson="m8-l2"><span class="lesson-check"></span>Pipeline complet : ingestion, connecteur, cache, fallback</a></li>
+        <li><a href="#m8-l3" data-lesson="m8-l3"><span class="lesson-check"></span>Étude de cas : agent de suivi logistique</a></li>
+        <li><a href="#m8-l4" data-lesson="m8-l4"><span class="lesson-check"></span>Exercice final</a></li>
+        <li><a href="#m8-l5" data-lesson="m8-l5"><span class="lesson-check"></span>Synthèse et liens avec le reste de la série</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main class="content">
+    <header class="hero" id="top">
+      <span class="tag">// data-for-ai · 5.prepa-data-for-agent-IA · Formation 18</span>
+      <h1 class="hero-title">Données Temps Réel vs <span>Données Statiques</span></h1>
+      <p class="hero-lead">Gestion dans un contexte agentique — comment choisir, combiner et fiabiliser les sources statiques (documents, bases de connaissances) et temps réel (API live, streaming) qu'un agent IA exploite. 8 modules, 40 leçons.</p>
+      <div class="strip" aria-hidden="true">
+        <div class="seg"></div><div class="seg"></div><div class="seg"></div>
+        <div class="seg"></div><div class="seg"></div><div class="seg"></div>
+      </div>
+    </header>
+
+    <div class="module-block" id="module-1">
+      <span class="module-kicker">MODULE 01 / 08</span>
+      <h1>Fondamentaux : statique vs temps réel</h1>
+      <p class="intro">Ce cours poursuit le bloc de la série consacré à la préparation de données pour les agents IA (rappel du cours 17 sur le function calling). Il s'attaque à une dimension souvent négligée dans la conception d'un agent : toutes les données ne se valent pas dans le temps, et confondre une donnée figée avec une donnée qui change à chaque instant est une source fréquente de bugs et de réponses incorrectes.</p>
+
+      <section class="lesson" id="m1-l1" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 1.1</span>Ce qui distingue une donnée statique d'une donnée temps réel</h2>
+
+        <p>Une <strong>donnée statique</strong> est une donnée dont la valeur reste valide sur une période relativement longue — une documentation produit, une politique de remboursement, un article de blog, une FAQ. Elle peut changer, mais rarement, et son ancienneté au moment de la consultation n'invalide généralement pas son usage. Une <strong>donnée temps réel</strong> (ou "live") est à l'inverse une donnée dont la valeur peut changer à tout moment et dont l'ancienneté détermine directement sa pertinence — le statut d'une commande, le solde d'un compte, la disponibilité d'un stock, la météo actuelle.</p>
+
+        <p>Cette distinction n'est pas binaire mais un <strong>spectre</strong> : entre une donnée qui ne change jamais (une constante physique) et une donnée qui change en continu (un cours de bourse), il existe une infinité de nuances — une donnée qui change une fois par jour (un catalogue produit), une fois par heure (un planning), une fois par seconde (une position GPS). La question centrale pour un agent IA n'est donc pas "statique ou temps réel ?" mais "à quelle fréquence cette donnée devient-elle invalide, et quel est le coût d'utiliser une version périmée ?"</p>
+
+        <div class="ascii">Spectre de fraîcheur des données (du plus statique au plus temps réel) :
+
+Constante        Document       Catalogue      Statut de      Cours de
+physique         de référence   produit        commande       bourse
+    │                 │              │              │              │
+    ▼                 ▼              ▼              ▼              ▼
+Jamais            Rarement       Quotidien      Minutes        Millisecondes
+invalide          (mois/an)      ou hebdo       à heures       à secondes
+
+← STATIQUE ──────────────────────────────────────────────── TEMPS RÉEL →
+
+Ce cours utilise "statique" et "temps réel" comme RACCOURCIS pour les
+deux extrémités les plus fréquentes dans un contexte agentique, mais
+la conception réelle (modules 4-5) doit tenir compte de ce spectre
+continu plutôt que d'un choix binaire</div>
+
+        <p>Rappel du cours RAG (cours 9 à 13) : les techniques de chunking, d'embedding et de recherche vectorielle sont bien adaptées à des données statiques — un document ne change pas entre son indexation et sa récupération. Ces mêmes techniques deviennent inadaptées, voire trompeuses, pour une donnée qui change plus vite que le cycle de réindexation, un point qui motive l'ensemble de ce cours.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Traiter toutes les données d'un système comme statiques par défaut (les indexer une fois via un pipeline RAG classique) sans se demander explicitement, pour chaque source, à quelle vitesse elle devient périmée — un statut de commande indexé une fois au petit matin est déjà faux dès la première mise à jour de la journée.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Listez trois types de données qu'un agent que vous connaissez (ou imaginez) pourrait avoir besoin d'exploiter. Placez chacune sur le spectre de fraîcheur ci-dessus, en estimant à quelle fréquence elle devient invalide.
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l2" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 1.2</span>Pourquoi cette distinction compte concrètement pour un agent IA</h2>
+
+        <p>Un agent qui confond fraîcheur statique et fraîcheur temps réel produit un type d'erreur particulièrement insidieux : une réponse <em>plausible et bien formulée</em>, mais fondée sur une donnée périmée — une erreur plus difficile à détecter qu'une hallucination classique, car elle ne "sonne" pas faux.</p>
+
+        <div class="ascii">Exemple concret : agent de support pour une boutique en ligne
+
+Scénario A — donnée traitée comme statique (à tort)
+──────────────────────────────────────────────────
+1. Le stock du produit X est indexé dans un système RAG le lundi
+2. Le stock s'épuise le mardi
+3. Mercredi, un client demande "le produit X est-il disponible ?"
+4. L'agent répond "oui" en s'appuyant sur la donnée indexée lundi
+   → RÉPONSE INCORRECTE, avec une confiance apparente totale
+
+Scénario B — donnée traitée comme temps réel (correctement)
+──────────────────────────────────────────────────
+1. Le même client pose la même question mercredi
+2. L'agent déclenche un APPEL DE FONCTION (rappel cours 17) vers
+   le système d'inventaire en direct
+3. L'agent répond en fonction du stock RÉEL au moment de la question
+   → RÉPONSE CORRECTE, reflétant l'état actuel</div>
+
+        <p>Cette distinction rejoint directement le principe déjà établi au cours 17 (module 1, leçon 1.1) : le function calling permet de déléguer la production d'un fait réel à un système externe fiable plutôt que de le générer depuis une mémoire potentiellement obsolète. Ce cours 18 approfondit spécifiquement <em>quand</em> et <em>comment</em> faire ce choix entre données pré-indexées (RAG, cours 9-13) et données récupérées en direct (function calling, cours 17).</p>
+
+        <h3>Le coût d'une mauvaise décision est asymétrique selon le domaine</h3>
+        <p>Pour un agent de recommandation de lecture, servir un catalogue vieux d'une semaine a un coût faible. Pour un agent qui confirme la disponibilité d'un stock, initie un paiement, ou informe un patient sur un rendez-vous médical, le même délai de fraîcheur peut avoir des conséquences bien plus sérieuses — la criticité du domaine doit directement influencer l'effort investi dans la fraîcheur des données (approfondi au module 5).</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Sous-estimer le coût d'une donnée périmée simplement parce que l'erreur ne provoque pas de plantage technique visible — une réponse incorrecte mais bien formulée peut passer inaperçue plus longtemps qu'un bug classique, et éroder la confiance des utilisateurs de façon plus insidieuse.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour l'un des trois types de données identifiés à la leçon précédente, décrivez concrètement ce qui se passerait si l'agent utilisait une version périmée de cette donnée pour répondre à un utilisateur.
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l3" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 1.3</span>Latence, fraîcheur, cohérence : les trois critères clés</h2>
+
+        <p>Concevoir la gestion d'une source de données pour un agent revient à arbitrer entre trois critères souvent en tension les uns avec les autres.</p>
+
+        <div class="ascii">Critère 1 : FRAÎCHEUR
+  À quel point la donnée reflète l'état RÉEL au moment de la
+  question. Une donnée récupérée en direct est plus fraîche
+  qu'une donnée indexée il y a une semaine.
+
+Critère 2 : LATENCE
+  Le temps nécessaire pour obtenir la donnée. Une donnée déjà
+  indexée (RAG) répond en millisecondes ; un appel API en direct
+  peut prendre plusieurs centaines de millisecondes à quelques
+  secondes.
+
+Critère 3 : COHÉRENCE
+  La garantie que la donnée obtenue est correcte et stable
+  pendant le traitement de la requête — pas de valeur
+  contradictoire entre deux appels successifs à la même source.</div>
+
+        <p>Ces trois critères s'opposent fréquemment : maximiser la fraîcheur (toujours interroger la source en direct) dégrade généralement la latence (chaque requête attend une réponse externe) ; maximiser la latence (tout mettre en cache agressivement) dégrade la fraîcheur. Aucune combinaison n'est universellement "la meilleure" — le bon compromis dépend du domaine, un thème qui structure les modules 4 et 5 de ce cours.</p>
+
+        <h3>Un exemple de tension concrète</h3>
+        <pre><code class="language-python"># Option A : toujours interroger en direct — fraîcheur maximale,
+# latence dégradée, risque de surcharger la source si trop sollicitée
+def obtenir_stock_v1(produit_id: str) -> int:
+    return appeler_api_inventaire(produit_id)  # 200-800ms à chaque appel
+
+# Option B : mise en cache avec une durée de vie courte — compromis
+# entre fraîcheur acceptable et latence réduite (approfondi module 5)
+def obtenir_stock_v2(produit_id: str, cache: dict) -> int:
+    if produit_id in cache and not cache[produit_id]["expire"]:
+        return cache[produit_id]["valeur"]  # quelques millisecondes
+    valeur = appeler_api_inventaire(produit_id)
+    cache[produit_id] = {"valeur": valeur, "expire": calculer_expiration()}
+    return valeur
+</code></pre>
+
+        <p>Le choix entre ces options — et la durée de vie du cache dans l'option B — dépend directement de la vitesse à laquelle le stock change réellement pour ce produit, et de la tolérance métier à une légère imprécision, deux questions qui n'ont pas de réponse générique et doivent être posées pour chaque source de données individuellement.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Optimiser un seul des trois critères (par exemple la latence, en mettant tout en cache très longtemps) sans mesurer explicitement l'impact sur les deux autres — un cache trop agressif peut techniquement "fonctionner" (réponses rapides) tout en dégradant silencieusement la qualité des réponses fournies aux utilisateurs.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour une source de données de votre choix, positionnez mentalement ce que serait un bon compromis entre fraîcheur et latence — quelle durée de "péremption acceptable" choisiriez-vous, et pourquoi ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l4" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 1.4</span>Où cette distinction s'insère dans une architecture d'agent</h2>
+
+        <p>Cette leçon situe la question statique/temps réel dans l'architecture complète d'un agent, en s'appuyant sur les deux blocs précédents de cette série : le RAG (cours 9-13) pour les données statiques, le function calling (cours 17) pour les données temps réel.</p>
+
+        <div class="ascii">Architecture d'un agent gérant les deux types de données :
+
+Question utilisateur
+        │
+        ▼
+┌───────────────────────────────────────────┐
+│  LLM : quelle SOURCE est pertinente ?       │
+│  (décision approfondie au module 4)          │
+└───────────────────────────────────────────┘
+        │                           │
+        ▼                           ▼
+DONNÉE STATIQUE                DONNÉE TEMPS RÉEL
+Recherche dans un                Appel de fonction
+système RAG déjà                 vers une API/service
+indexé (cours 9-13)              en direct (cours 17)
+        │                           │
+        ▼                           ▼
+Chunks pertinents               Résultat frais,
+récupérés en                    horodaté (module 5)
+millisecondes
+        │                           │
+        └─────────────┬─────────────┘
+                       ▼
+        LLM formule la réponse finale
+        en combinant, si nécessaire,
+        les deux sources (module 4)</div>
+
+        <p>Cette architecture met en évidence que ce cours n'introduit pas un troisième pilier indépendant du RAG et du function calling, mais une couche de <strong>décision</strong> qui détermine, pour chaque requête, quelle combinaison de ces deux mécanismes déjà connus mobiliser — et comment gérer les cas où les deux sont nécessaires simultanément (approfondi au module 4).</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Concevoir un agent avec uniquement un pipeline RAG (par habitude, en réutilisant l'architecture des cours 9-13) sans jamais évaluer si certaines des données nécessaires évoluent trop vite pour être correctement servies par de l'indexation périodique — un signe fréquent de ce problème est un pipeline RAG réindexé "à la demande" de plus en plus fréquemment, jusqu'à ce que le vrai besoin sous-jacent (function calling en direct) devienne évident.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un agent que vous concevez, esquissez le schéma de décision : quelles questions utilisateur devraient déclencher une recherche RAG (statique), lesquelles un appel de fonction (temps réel) ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l5" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 1.5</span>Erreurs courantes de conception</h2>
+
+        <p>Cette dernière leçon du module recense les erreurs de conception les plus fréquentes observées lorsqu'une équipe aborde pour la première fois la gestion combinée de données statiques et temps réel dans un agent.</p>
+
+        <h3>Erreur 1 : tout traiter comme statique par défaut</h3>
+        <p>Déjà évoquée à la leçon 1.2 — la tentation de tout faire passer par un pipeline RAG unique, par familiarité avec cette technique, sans évaluer la vitesse de péremption réelle de chaque source.</p>
+
+        <h3>Erreur 2 : tout traiter comme temps réel par excès de prudence</h3>
+        <p>Le symétrique inverse : appeler une API en direct pour chaque donnée, y compris celles qui changent rarement (une politique de remboursement, une description produit), ce qui dégrade inutilement la latence et sursollicite des systèmes externes sans bénéfice réel de fraîcheur.</p>
+
+        <h3>Erreur 3 : ignorer l'horodatage de la donnée servie au modèle</h3>
+        <p>Fournir une donnée au LLM sans indiquer explicitement à quel moment elle a été obtenue — le modèle ne peut alors ni communiquer une éventuelle incertitude à l'utilisateur, ni décider qu'une donnée est trop ancienne pour être fiable (approfondi au module 5, leçon 5.4).</p>
+
+        <h3>Erreur 4 : ne pas prévoir de comportement de repli</h3>
+        <p>Concevoir uniquement le chemin "heureux" (la source temps réel répond correctement et rapidement) sans anticiper ce qui doit se passer si cette source est lente, indisponible, ou renvoie une erreur — un thème central du module 7.</p>
+
+        <div class="ascii">Les quatre erreurs à éviter, résumées :
+
+1. Tout traiter en STATIQUE     →  Réponses périmées non détectées
+2. Tout traiter en TEMPS RÉEL   →  Latence et coût inutiles
+3. Ignorer l'HORODATAGE          →  Le modèle ne peut pas raisonner
+                                     sur la fraîcheur de ce qu'il reçoit
+4. Pas de REPLI prévu            →  Panne totale si une source tombe</div>
+
+        <p>Les modules suivants traitent chacune de ces erreurs en détail : le module 2 approfondit la gestion correcte des données statiques, le module 3 celle des données temps réel, le module 4 la combinaison des deux, le module 5 la question de l'horodatage et du cache, et le module 7 la gestion des pannes et du repli.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer ces quatre erreurs comme des cas isolés à corriger ponctuellement, plutôt que comme des symptômes d'un même manque : l'absence d'une décision explicite, documentée et testée, sur la stratégie de fraîcheur adoptée pour chaque source de données du système.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de synthèse</strong>
+          Pour clore ce module : parmi les quatre erreurs listées, laquelle vous semble la plus probable dans un projet que vous avez connu ou pourriez rencontrer — et pourquoi ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-2">
+      <span class="module-kicker">MODULE 02 / 08</span>
+      <h1>Données statiques dans un contexte agentique</h1>
+      <p class="intro">Ce module approfondit le pôle "statique" du spectre introduit au module 1 : comment identifier, gérer et rafraîchir correctement les données qui restent valides sur une période relativement longue, en s'appuyant directement sur les techniques RAG déjà couvertes aux cours 9 à 13.</p>
+
+      <section class="lesson" id="m2-l1" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 2.1</span>Qu'est-ce qu'une donnée statique dans ce contexte précis</h2>
+
+        <p>Une donnée statique, au sens de ce cours, n'est pas une donnée qui ne change <em>jamais</em>, mais une donnée dont la fréquence de changement est suffisamment faible pour qu'un cycle d'indexation périodique (heures, jours, semaines) suffise à la maintenir à jour sans dégrader la qualité des réponses de l'agent. Les exemples les plus courants dans un contexte agentique :</p>
+
+        <ul>
+          <li><strong>Documentation produit et technique</strong> — manuels, guides, spécifications (rappel cours 11 et 15 sur l'extraction de ce type de documents).</li>
+          <li><strong>Politiques et procédures</strong> — conditions générales, politique de remboursement, procédures internes.</li>
+          <li><strong>Bases de connaissances et FAQ</strong> — questions fréquentes, articles d'aide.</li>
+          <li><strong>Catalogues à faible rotation</strong> — descriptions de produits, caractéristiques techniques (à distinguer du stock, qui change bien plus vite — voir module 3).</li>
+          <li><strong>Contenus historiques ou archivés</strong> — rapports passés, décisions déjà actées.</li>
+        </ul>
+
+        <p>Le point commun de ces exemples : leur valeur informative reste correcte même si la donnée a été récupérée quelques heures ou jours plus tôt. C'est précisément cette propriété qui rend le pipeline RAG (chunking, embedding, recherche vectorielle — cours 9 à 13) adapté : ce pipeline accepte un délai entre l'indexation et la consultation, un compromis raisonnable pour ce type de données.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Classer une donnée comme "statique" simplement parce qu'elle est stockée dans un système de documents (un PDF, une page wiki) plutôt qu'en fonction de sa fréquence de changement réelle — un document peut très bien contenir des informations qui changent quotidiennement (un planning d'ouverture, par exemple) tout en étant physiquement stocké comme un fichier statique.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Listez trois sources de données statiques (au sens de cette leçon) que possède une organisation que vous connaissez. Pour chacune, estimez la fréquence réelle à laquelle leur contenu change.
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l2" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 2.2</span>Cycle de vie : ingestion, versionnement, mise à jour</h2>
+
+        <p>Une donnée statique n'est pas figée une fois pour toutes : elle suit un cycle de vie qui doit être géré explicitement pour éviter qu'elle ne devienne silencieusement périmée — le piège précis identifié à la leçon 1.2.</p>
+
+        <div class="ascii">Cycle de vie d'une donnée statique dans un pipeline agentique :
+
+1. INGESTION INITIALE
+   Extraction (rappel cours 11, 14, 15), nettoyage, chunking
+   et enrichissement de métadonnées (rappel cours 12), puis
+   indexation dans le système RAG (cours 9-13)
+                    │
+                    ▼
+2. VERSIONNEMENT
+   Chaque document indexé porte une VERSION et une date
+   d'ingestion — indispensable pour savoir quelles données
+   sont potentiellement obsolètes
+                    │
+                    ▼
+3. DÉTECTION DE CHANGEMENT
+   Un mécanisme (planifié ou déclenché par événement) détecte
+   qu'une source a changé depuis sa dernière ingestion
+                    │
+                    ▼
+4. RÉ-INGESTION CIBLÉE
+   Seuls les documents modifiés sont ré-indexés (pas tout le
+   corpus), pour limiter le coût et la latence de mise à jour
+                    │
+                    ▼
+5. INVALIDATION DE L'ANCIENNE VERSION
+   L'ancienne version du chunk est retirée ou marquée obsolète,
+   pour éviter qu'une recherche ne renvoie une donnée périmée
+   à côté de sa version à jour</div>
+
+        <pre><code class="language-python">from datetime import datetime
+
+def ingerer_document(document, version_actuelle: str) -> dict:
+    """Rappel du pipeline d'enrichissement de métadonnées
+    (cours métadonnées, module 2) — on y ajoute ici les
+    métadonnées de VERSIONNEMENT propres à la gestion de
+    fraîcheur des données statiques."""
+    chunks = decouper_en_chunks(document)  # rappel cours chunking, module 2-4
+    for chunk in chunks:
+        chunk.metadata.update({
+            "version_source": version_actuelle,
+            "date_ingestion": datetime.utcnow().isoformat(),
+            "hash_contenu": calculer_hash(chunk.texte),
+        })
+    return chunks
+</code></pre>
+
+        <p>Le champ <code class="inline">hash_contenu</code> permet une détection de changement efficace : plutôt que de comparer le texte intégral d'un document à chaque cycle, comparer son empreinte (hash) suffit à détecter qu'un document a changé et nécessite une ré-ingestion — une optimisation qui devient précieuse à mesure que le corpus grandit.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Ré-indexer l'intégralité d'un corpus documentaire à chaque cycle de mise à jour, même quand seule une infime partie a réellement changé — une pratique coûteuse en ressources qui devient rapidement intenable à mesure que le volume de documents augmente, et que la détection de changement ciblée (via hash ou date de modification) résout directement.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un corpus documentaire de votre choix, à quelle fréquence organiseriez-vous le cycle de détection de changement (leçon étape 3) — en continu, quotidien, hebdomadaire ? Justifiez selon la nature des documents.
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l3" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 2.3</span>Le rôle du RAG pour exploiter correctement le statique</h2>
+
+        <p>Cette leçon relie explicitement ce cours au bloc RAG déjà couvert (cours 9 à 13) : le pipeline RAG complet — chunking (cours 9), embeddings et recherche vectorielle (cours 10), nettoyage de texte (cours 11), enrichissement de métadonnées (cours 12), bases de données vectorielles (cours 13) — constitue la réponse technique standard pour exploiter des données statiques dans un agent.</p>
+
+        <div class="ascii">Le pipeline RAG appliqué spécifiquement aux données statiques :
+
+Documents statiques (politiques, FAQ, documentation)
+                │
+                ▼
+   Nettoyage et extraction (cours 11, 14, 15)
+                │
+                ▼
+   Chunking adapté à la structure (cours 9)
+                │
+                ▼
+   Enrichissement de métadonnées incluant le
+   VERSIONNEMENT (leçon 2.2 de ce cours)
+                │
+                ▼
+   Embeddings et indexation vectorielle (cours 10, 13)
+                │
+                ▼
+   Recherche au moment de la requête utilisateur —
+   retourne les chunks les plus pertinents, avec leur
+   date d'ingestion (métadonnée disponible pour le LLM)</div>
+
+        <p>La seule différence substantielle entre l'usage "classique" du RAG (cours 9-13) et son usage pour des données explicitement qualifiées de statiques dans ce cours réside dans la discipline de cycle de vie ajoutée à la leçon 2.2 : versionnement systématique, détection de changement, et — point nouveau ici — communication de la date de fraîcheur au modèle au moment de la génération de la réponse (approfondi au module 5, leçon 5.4).</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer que le pipeline RAG, une fois construit, ne nécessite plus d'attention particulière à la fraîcheur — un système RAG indexé une seule fois lors du lancement d'un projet, sans processus de ré-ingestion continue, dérive silencieusement à mesure que les documents sources évoluent.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Si vous avez déjà construit ou étudié un pipeline RAG (cours 9-13), identifiez si un mécanisme de détection de changement et de ré-ingestion y était prévu. Sinon, comment l'ajouteriez-vous ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l4" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 2.4</span>Le problème de la péremption silencieuse (staleness)</h2>
+
+        <p>Le terme <strong>staleness</strong> (péremption) désigne l'écart entre l'état réel d'une donnée et l'état reflété par sa version indexée. Ce module a jusqu'ici traité la façon de limiter cet écart (versionnement, détection de changement) ; cette leçon traite ce qui se passe quand cet écart existe malgré tout, ce qui est inévitable dans tout système avec un cycle d'ingestion non instantané.</p>
+
+        <h3>Pourquoi la péremption est particulièrement dangereuse pour un agent</h3>
+        <p>Rappel de la leçon 1.2 : une réponse fondée sur une donnée périmée est <em>bien formulée</em> et ne "sonne" pas comme une erreur. Sans mécanisme explicite pour signaler cette péremption, ni l'agent ni l'utilisateur ne peuvent la détecter — un risque d'autant plus élevé que le système RAG paraît fonctionner correctement (recherche rapide, résultats pertinents en apparence).</p>
+
+        <pre><code class="language-python">def rechercher_avec_alerte_peremption(requete: str, seuil_jours: int = 30) -> dict:
+    resultats = rechercher_chunks_pertinents(requete)  # rappel cours 10, 13
+    for resultat in resultats:
+        age_jours = (datetime.utcnow() - resultat.metadata["date_ingestion"]).days
+        resultat.metadata["potentiellement_perime"] = age_jours > seuil_jours
+    return resultats
+</code></pre>
+
+        <div class="ascii">Sans alerte de péremption               Avec alerte de péremption
+────────────────────────────            ────────────────────────────
+Le LLM reçoit un chunk sans              Le LLM reçoit le chunk AVEC
+information de fraîcheur                 une métadonnée explicite :
+                                         "potentiellement_perime: true"
+Le LLM formule une réponse
+avec une confiance identique             Le LLM peut alors formuler une
+qu'il s'agisse d'une donnée              réponse avec une nuance
+d'hier ou d'un an                        appropriée ("selon nos dernières
+                                         informations, qui datent de...")
+                                         ou déclencher une vérification
+                                         temps réel si disponible (module 4)</div>
+
+        <p>Le seuil de péremption (30 jours dans l'exemple) ne doit jamais être une valeur générique appliquée uniformément : rappel de la leçon 1.1, il dépend directement de la vitesse de changement réelle de chaque type de donnée — un seuil de péremption pour une politique de remboursement (qui change rarement) devrait être bien plus long que pour un planning d'ouverture (qui peut changer chaque semaine).</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Appliquer un seuil de péremption unique et arbitraire à l'ensemble d'un corpus documentaire hétérogène, plutôt que de le calibrer par type de document en fonction de sa fréquence de changement réelle (établie à la leçon 2.1) — un seuil universel sera nécessairement trop laxiste pour certains documents et trop strict pour d'autres.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour les trois sources de données statiques identifiées à la leçon 2.1, proposez un seuil de péremption différent pour chacune, en justifiant votre choix.
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l5" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 2.5</span>Stratégies de rafraîchissement périodique</h2>
+
+        <p>Cette dernière leçon du module compare les principales stratégies pour organiser le cycle de ré-ingestion (étape 3-4 du cycle de vie, leçon 2.2), chacune avec ses compromis propres.</p>
+
+        <table>
+          <thead><tr><th>Stratégie</th><th>Principe</th><th>Avantage</th><th>Limite</th></tr></thead>
+          <tbody>
+            <tr><td>Planifiée (cron)</td><td>Ré-ingestion à intervalle fixe (ex : chaque nuit)</td><td>Simple à mettre en œuvre et à monitorer</td><td>Peut ré-indexer inutilement si rien n'a changé, ou trop tard si un changement urgent survient entre deux cycles</td></tr>
+            <tr><td>Déclenchée par événement</td><td>La source notifie le système lors d'un changement (webhook)</td><td>Fraîcheur quasi immédiate, pas de gaspillage</td><td>Nécessite que la source supporte les notifications ; plus complexe à mettre en place</td></tr>
+            <tr><td>À la demande</td><td>Vérification de fraîcheur seulement quand une requête concerne ce document</td><td>Aucun travail inutile sur des documents jamais consultés</td><td>Ajoute de la latence à la première requête après un changement</td></tr>
+            <tr><td>Hybride</td><td>Planifiée en base, complétée par des déclenchements événementiels pour les sources critiques</td><td>Équilibre robustesse et réactivité</td><td>Complexité de mise en œuvre la plus élevée</td></tr>
+          </tbody>
+        </table>
+
+        <p>Le choix entre ces stratégies suit le même principe déjà établi à plusieurs reprises dans cette série : il n'existe pas de "meilleure" stratégie dans l'absolu, seulement un compromis adapté à la criticité et à la fréquence de changement de chaque source. Une documentation technique interne, peu critique et rarement modifiée, se contente généralement d'une stratégie planifiée simple ; une politique tarifaire affichée publiquement, en revanche, justifie souvent une stratégie événementielle ou hybride.</p>
+
+        <div class="ascii">Ce module clôt la partie "données statiques" du cours. Le module
+suivant traite le pôle opposé du spectre : les données temps réel,
+avec leurs propres modes d'accès (polling, webhooks, streaming) et
+leurs propres pièges — souvent symétriques à ceux vus ici.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Choisir une stratégie de rafraîchissement en fonction de la facilité d'implémentation plutôt que de la criticité réelle de la donnée — une stratégie planifiée simple, choisie par défaut pour une donnée en réalité critique et changeante, reproduit exactement le risque de péremption silencieuse déjà identifié à la leçon 2.4.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : parmi les quatre stratégies du tableau, laquelle choisiriez-vous pour chacune des trois sources de données statiques identifiées à la leçon 2.1 ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-3">
+      <span class="module-kicker">MODULE 03 / 08</span>
+      <h1>Données temps réel dans un contexte agentique</h1>
+      <p class="intro">Symétrique du module précédent, ce module traite le pôle "temps réel" du spectre : comment accéder à des données qui changent trop vite pour être servies par un pipeline RAG classique, en s'appuyant directement sur le function calling couvert au cours 17.</p>
+
+      <section class="lesson" id="m3-l1" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 3.1</span>Qu'est-ce qu'une donnée temps réel dans ce contexte précis</h2>
+
+        <p>Une donnée temps réel, au sens de ce cours, est une donnée dont la fréquence de changement dépasse ce qu'un cycle d'indexation périodique (module 2) peut raisonnablement suivre sans dégrader la fiabilité des réponses de l'agent. Les exemples les plus courants :</p>
+
+        <ul>
+          <li><strong>Statuts transactionnels</strong> — état d'une commande, d'un paiement, d'une livraison.</li>
+          <li><strong>Disponibilité et inventaire</strong> — stock d'un produit, créneaux disponibles pour un rendez-vous.</li>
+          <li><strong>Données de compte utilisateur</strong> — solde, historique récent, statut d'abonnement.</li>
+          <li><strong>Données externes volatiles</strong> — météo, cours de bourse, trafic routier.</li>
+          <li><strong>Événements système</strong> — alertes, notifications, changements d'état d'un processus en cours.</li>
+        </ul>
+
+        <p>Le point commun : pour ces données, une valeur récupérée il y a quelques minutes peut déjà être fausse. Contrairement aux données statiques (module 2), les indexer à l'avance dans un système RAG n'a que peu de sens — la seule approche fiable consiste à les récupérer <strong>au moment même</strong> où l'agent en a besoin, via un appel de fonction (rappel cours 17, module 1).</p>
+
+        <div class="ascii">Pourquoi l'indexation RAG classique échoue pour ces données :
+
+Donnée statique (module 2)              Donnée temps réel (ce module)
+────────────────────────────           ────────────────────────────
+Indexée une fois, consultée              Devrait être récupérée à
+plusieurs fois — le délai entre          CHAQUE consultation — l'indexer
+indexation et consultation est           reviendrait à figer une
+acceptable                               valeur qui n'est déjà plus
+                                        vraie quelques instants après
+
+→ Solution : chunking + embeddings       → Solution : function calling
+  + recherche vectorielle                  vers la source en direct
+  (cours 9-13)                             (cours 17)</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Tenter d'indexer périodiquement une donnée temps réel dans un système RAG "pour la faire rentrer dans le pipeline existant" plutôt que de reconnaître qu'elle nécessite un mécanisme fondamentalement différent — un stock produit ré-indexé toutes les heures reste faux la plupart du temps, quelle que soit la fréquence de ré-indexation choisie tant qu'elle reste inférieure à la fréquence réelle de changement.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Reprenez les trois sources de données identifiées à la leçon 1.1. Lesquelles relèvent en réalité de ce module (temps réel) plutôt que du module 2 (statique) ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l2" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 3.2</span>Modes d'accès : polling, webhooks, websockets, streaming</h2>
+
+        <p>Il existe plusieurs façons techniques d'accéder à une donnée temps réel, chacune avec des implications différentes sur la latence et la charge exercée sur la source.</p>
+
+        <div class="ascii">Mode d'accès          Principe                          Adapté quand
+──────────────────────────────────────────────────────────────────────
+Polling                Interroger la source à            La source ne notifie
+                       intervalle régulier ("Y a-t-il      pas nativement les
+                       du nouveau ?")                     changements
+
+Webhooks                La source notifie activement       La source supporte les
+                       le système lors d'un                notifications, et les
+                       changement                          changements sont peu
+                                                          fréquents
+
+WebSockets              Connexion bidirectionnelle          Besoin de mises à jour
+                       persistante, la source pousse       très fréquentes et
+                       les changements en continu          d'une réponse quasi
+                                                          instantanée
+
+Streaming               Flux continu d'événements           Volume élevé d'événements,
+(ex : Kafka)             traité en temps réel               besoin de traitement
+                                                          et d'agrégation
+                                                          (approfondi module 6)</div>
+
+        <p>Pour un agent conversationnel classique, le <strong>polling ponctuel</strong> — déclenché uniquement au moment où une requête utilisateur le nécessite, via un appel de fonction — est de loin le mode le plus courant : rappel du cours 17, c'est exactement le mécanisme du function calling. Les webhooks et le streaming deviennent pertinents pour des architectures plus complexes, où l'agent doit réagir à des événements sans attendre une question explicite de l'utilisateur (approfondi au module 6).</p>
+
+        <pre><code class="language-python"># Polling ponctuel via function calling (le cas le plus courant
+# pour un agent conversationnel — rappel cours 17)
+def obtenir_statut_commande(numero_commande: str) -> dict:
+    """Appelée par le LLM au moment où l'utilisateur pose
+    une question nécessitant cette donnée — pas avant."""
+    return appeler_api_commandes(numero_commande)
+</code></pre>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Choisir un mode d'accès plus sophistiqué (webhooks, streaming) que ce que le cas d'usage ne justifie réellement, par anticipation de besoins futurs hypothétiques — pour un agent conversationnel qui répond à des questions ponctuelles, le polling déclenché par function calling est souvent largement suffisant, et bien plus simple à opérer que les alternatives.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour l'agent de suivi de commande évoqué en exemple, le polling ponctuel suffit-il, ou un webhook serait-il justifié (par exemple, pour notifier proactivement l'utilisateur d'un changement de statut sans qu'il ait posé de question) ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l3" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 3.3</span>Le rôle du function calling pour les données temps réel</h2>
+
+        <p>Cette leçon établit explicitement le lien entre ce cours et le cours 17 : le function calling est le mécanisme technique par lequel un agent accède à une donnée temps réel au moment précis où il en a besoin — chaque principe de conception de schéma et de validation déjà couvert au cours 17 s'applique directement ici.</p>
+
+        <div class="ascii">Rappel du cours 17 appliqué aux données temps réel :
+
+Module 2-3 du cours 17 : concevoir le SCHÉMA de la fonction
+   → Le nom, la description et les paramètres doivent guider
+     le modèle à appeler cette fonction au bon moment (rappel
+     leçon 1.2 de ce cours : détecter qu'une question porte
+     sur une donnée temps réel, pas statique)
+
+Module 4 du cours 17 : VALIDER les arguments générés
+   → Un numéro de commande mal formé ne doit jamais être
+     transmis tel quel à l'API de suivi de commandes
+
+Module 7 du cours 17 : SÉCURISER l'appel
+   → Une fonction "obtenir_solde_compte" doit vérifier que
+     l'utilisateur courant a le droit d'accéder à CE compte
+     précis, pas seulement que l'appel est structurellement
+     valide</div>
+
+        <pre><code class="language-python">from pydantic import BaseModel, Field
+
+class ArgumentsStatutCommande(BaseModel):
+    """Rappel du cours 17, module 4 — la validation structurelle
+    s'applique de la même façon aux fonctions temps réel."""
+    numero_commande: str = Field(pattern=r"^CMD-\d{6}$")
+
+def obtenir_statut_commande_valide(arguments_bruts: dict, utilisateur_courant) -> dict:
+    args = ArgumentsStatutCommande(**arguments_bruts)  # lève une erreur si invalide
+    commande = appeler_api_commandes(args.numero_commande)
+    if commande["utilisateur_id"] != utilisateur_courant.id:
+        raise PermissionError("Cette commande n'appartient pas à l'utilisateur courant")
+    return commande
+</code></pre>
+
+        <p>Ce qui change spécifiquement pour les fonctions donnant accès à des données temps réel, par rapport à un appel de fonction générique : la fraîcheur du résultat devient elle-même une information à transmettre au modèle (approfondi au module 5), et la fréquence potentiellement élevée d'appels à ces fonctions justifie une attention particulière à la latence et au risque de sursollicitation (leçon suivante).</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Traiter les fonctions donnant accès à des données temps réel exactement comme n'importe quelle autre fonction du cours 17, sans tenir compte de leur fréquence d'appel potentiellement plus élevée ni de la nécessité de communiquer leur fraîcheur — deux préoccupations spécifiques à ce type de fonction, approfondies dans les modules suivants.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour la fonction <code class="inline">obtenir_statut_commande</code> ci-dessus, quelle validation contextuelle (rappel cours 17, module 7, leçon 7.2) ajouteriez-vous au-delà de la simple vérification de propriété de la commande ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l4" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 3.4</span>Latence et fraîcheur : les compromis techniques propres au temps réel</h2>
+
+        <p>Rappel de la leçon 1.3 : fraîcheur et latence sont en tension. Pour les données temps réel spécifiquement, cette tension se manifeste de façon plus aiguë que pour les données statiques, car l'utilisateur attend une réponse immédiate à une question qui nécessite un appel externe en direct.</p>
+
+        <h3>Le coût de latence d'un appel en direct</h3>
+        <div class="ascii">Décomposition typique du temps de réponse d'un agent
+faisant un appel de fonction temps réel :
+
+Réception de la question utilisateur         ~0ms
+        │
+        ▼
+Décision du LLM d'appeler une fonction        200-800ms (rappel cours 17)
+        │
+        ▼
+Exécution de l'appel vers l'API externe        100-2000ms (variable selon
+                                              la source, la charge réseau)
+        │
+        ▼
+Validation et traitement du résultat           ~10-50ms
+        │
+        ▼
+Formulation de la réponse finale par le LLM     500-1500ms
+
+→ TOTAL : potentiellement plusieurs secondes, dont une part
+  significative dépend d'une source EXTERNE non contrôlée</div>
+
+        <h3>Stratégies pour atténuer ce coût</h3>
+        <ul>
+          <li><strong>Paralléliser les appels indépendants</strong> — rappel cours 17, module 6, leçon 6.2, sur les appels en parallèle plutôt qu'en séquence.</li>
+          <li><strong>Fixer des délais d'expiration (timeouts) stricts</strong> — éviter qu'un appel lent ne bloque indéfiniment la réponse de l'agent.</li>
+          <li><strong>Informer l'utilisateur d'une attente</strong> — un indicateur de chargement plutôt qu'un silence, pour les appels dont la latence dépasse un seuil perceptible.</li>
+          <li><strong>Envisager un cache à très courte durée de vie</strong> — approfondi au module 5, un compromis pertinent quand plusieurs requêtes rapprochées portent sur la même donnée.</li>
+        </ul>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Ne fixer aucun délai d'expiration sur les appels vers des sources temps réel externes, en supposant qu'elles répondront toujours rapidement — une source externe lente ou en difficulté peut alors bloquer indéfiniment la réponse de l'agent, un risque traité plus en détail au module 7 (gestion des pannes).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour l'agent de suivi de commande, quel délai d'expiration raisonnable fixeriez-vous pour l'appel à l'API de statut, et que devrait faire l'agent si ce délai est dépassé ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l5" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 3.5</span>Erreurs courantes face aux données temps réel</h2>
+
+        <p>Cette dernière leçon du module recense les erreurs les plus fréquentes spécifiques à la gestion de données temps réel, en complément des erreurs génériques déjà vues à la leçon 1.5.</p>
+
+        <h3>Erreur 1 : sursolliciter une source temps réel</h3>
+        <p>Appeler une API externe à chaque frappe de l'utilisateur, ou en boucle sans nécessité (rappel cours 17, module 6, sur les boucles agentiques itératives), peut dégrader les performances de la source elle-même, voire déclencher une limitation de débit (rate limiting) qui bloque l'agent.</p>
+
+        <h3>Erreur 2 : ignorer complètement la possibilité de mise en cache</h3>
+        <p>À l'inverse, refuser tout cache "parce que c'est du temps réel" alors qu'un cache de quelques secondes à quelques minutes, bien calibré, réduirait significativement la charge sans compromettre la fraîcheur perçue par l'utilisateur (approfondi au module 5).</p>
+
+        <h3>Erreur 3 : ne pas distinguer "temps réel" et "critique"</h3>
+        <p>Une donnée peut être temps réel sans être critique (la météo actuelle) ou statique sans être anodine (une politique de sécurité). Confondre ces deux dimensions conduit à sur-investir dans la fraîcheur de données peu importantes, ou sous-investir dans la fiabilité de données statiques mais sensibles.</p>
+
+        <h3>Erreur 4 : ne pas prévoir le cas où la donnée temps réel change PENDANT le traitement</h3>
+        <p>Un cas particulièrement subtil : un stock consulté au début d'un appel de fonction complexe peut changer avant la fin de son traitement (un autre utilisateur achète le dernier exemplaire entre-temps) — un problème de cohérence approfondi au module 7, leçon 7.2.</p>
+
+        <div class="ascii">Ce module clôt la partie "données temps réel" du cours. Le module
+suivant aborde directement la question centrale de ce cours : comment
+COMBINER ces deux pôles (statique et temps réel) au sein d'un même
+agent, plutôt que de les traiter comme deux systèmes indépendants.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Traiter la gestion des données temps réel comme un problème uniquement technique (latence, mode d'accès) sans se poser la question de criticité métier (erreur 3 ci-dessus) — deux données également "temps réel" au sens technique peuvent justifier des niveaux d'investissement en fiabilité très différents selon leur impact réel sur l'utilisateur.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de synthèse</strong>
+          Pour clore ce module : parmi les quatre erreurs listées, laquelle avez-vous déjà rencontrée (dans ce domaine ou un autre), et comment a-t-elle été résolue ou aurait-elle dû l'être ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-4">
+      <span class="module-kicker">MODULE 04 / 08</span>
+      <h1>Architectures hybrides</h1>
+      <p class="intro">Les modules 2 et 3 ont traité séparément les deux pôles du spectre. Ce module aborde la question centrale de ce cours : comment concevoir un agent qui combine correctement les deux, ce qui est le cas de la grande majorité des agents réels.</p>
+
+      <section class="lesson" id="m4-l1" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 4.1</span>Pourquoi la plupart des agents ont besoin des deux</h2>
+
+        <p>Un agent purement statique (uniquement RAG, cours 9-13) ne peut répondre correctement à aucune question portant sur un état actuel — un statut, une disponibilité. Un agent purement temps réel (uniquement function calling, cours 17) devrait appeler une fonction pour la moindre information, y compris des connaissances générales stables, ce qui est à la fois inefficace et souvent impossible (toute information n'a pas nécessairement une API dédiée).</p>
+
+        <div class="ascii">Exemple : un agent de support pour une boutique en ligne doit
+répondre à des questions de nature très différente :
+
+"Quelle est votre politique de retour ?"
+   → STATIQUE — rappel module 2, RAG sur la documentation
+
+"Le produit X est-il en stock ?"
+   → TEMPS RÉEL — rappel module 3, function calling vers
+     l'inventaire en direct
+
+"Où en est ma commande CMD-123456 ?"
+   → TEMPS RÉEL — function calling vers le suivi de commande
+
+"Comment sont calculés les frais de port ?"
+   → STATIQUE — RAG sur la documentation tarifaire
+
+→ Un SEUL agent doit gérer ces quatre types de questions de
+  façon cohérente, ce qui nécessite une architecture combinant
+  les deux mécanismes plutôt qu'un choix exclusif</div>
+
+        <p>Cette réalité rejoint directement l'architecture esquissée au module 1, leçon 1.4 : ce cours ne présente pas un troisième mécanisme concurrent au RAG et au function calling, mais la couche de décision qui orchestre les deux, approfondie dans les leçons suivantes de ce module.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Concevoir l'architecture de données d'un agent en pensant "RAG ou function calling" comme un choix architectural global fait une fois pour toutes au démarrage du projet, plutôt que comme une décision à prendre au niveau de chaque TYPE de question — la plupart des agents réels nécessitent les deux mécanismes, coexistant dans la même architecture.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un agent que vous connaissez ou imaginez, listez quatre questions typiques que les utilisateurs pourraient poser, et classez chacune comme relevant du statique ou du temps réel.
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l2" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 4.2</span>Router la requête vers la bonne source</h2>
+
+        <p>La question centrale d'une architecture hybride : comment le système décide-t-il, pour une question utilisateur donnée, s'il faut interroger le système RAG, appeler une fonction temps réel, ou les deux ? Trois approches principales coexistent en pratique.</p>
+
+        <div class="ascii">Approche 1 : LAISSER LE LLM DÉCIDER (la plus courante)
+   Le modèle reçoit à la fois l'accès à la recherche RAG
+   (généralement exposée elle-même comme une fonction, rappel
+   cours 17) ET les fonctions temps réel — il choisit laquelle
+   appeler selon sa compréhension de la question, exactement
+   comme le décrit le cours 17, module 1, leçon 1.2
+
+Approche 2 : ROUTAGE EXPLICITE EN AMONT
+   Un classifieur (règles, ou un modèle plus léger dédié)
+   analyse la question AVANT de la transmettre au LLM principal,
+   et détermine quelles sources rendre disponibles pour cette
+   requête spécifique
+
+Approche 3 : HYBRIDE — LES DEUX TOUJOURS DISPONIBLES,
+             MAIS AVEC DES DESCRIPTIONS QUI GUIDENT LE CHOIX
+   Rappel cours 17, module 3 : une description de fonction bien
+   rédigée guide efficacement la décision du modèle — cette
+   approche mise sur la qualité de la conception du schéma
+   plutôt que sur un routage séparé</div>
+
+        <pre><code class="language-python"># Approche 1 : exposer le RAG lui-même comme une fonction,
+# au même titre que les fonctions temps réel (rappel cours 17)
+outils_disponibles = [
+    {
+        "name": "rechercher_documentation",
+        "description": "Recherche dans la documentation, les politiques et la "
+                         "FAQ. Utiliser pour des questions générales et stables "
+                         "(politiques, procédures, informations produit).",
+        "parameters": {"type": "object", "properties": {
+            "requete": {"type": "string"}}, "required": ["requete"]},
+    },
+    {
+        "name": "obtenir_statut_commande",
+        "description": "Récupère le statut ACTUEL d'une commande en temps réel. "
+                         "Utiliser uniquement pour une question sur une commande "
+                         "spécifique et son état présent.",
+        "parameters": {"type": "object", "properties": {
+            "numero_commande": {"type": "string"}}, "required": ["numero_commande"]},
+    },
+]
+</code></pre>
+
+        <p>La qualité des descriptions ici est déterminante : rappel du cours 17, module 3, leçon 3.1, une description qui précise explicitement "temps réel" ou "à jour" pour les fonctions volatiles, et "générale" ou "stable" pour la recherche documentaire, aide le modèle à choisir correctement — une application directe des principes de conception de schéma déjà couverts, appliquée spécifiquement au problème du routage statique/temps réel.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Donner des descriptions de fonctions trop proches ou ambiguës entre la recherche documentaire statique et les fonctions temps réel (par exemple, "rechercher des informations" pour les deux), ce qui laisse le modèle hésiter ou choisir arbitrairement la mauvaise source — rappel du piège déjà identifié au cours 17, module 1, leçon 1.2, appliqué ici spécifiquement au risque de confusion statique/temps réel.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour les deux fonctions de l'exemple ci-dessus, imaginez une question utilisateur ambiguë qui pourrait faire hésiter le modèle entre les deux. Comment reformuleriez-vous les descriptions pour réduire cette ambiguïté ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l3" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 4.3</span>Fusionner des données de fraîcheur différente dans un même contexte</h2>
+
+        <p>Un cas fréquent et plus délicat : une même réponse nécessite de combiner une donnée statique et une donnée temps réel — par exemple, la politique de retour applicable (statique) ET le statut actuel d'une commande spécifique (temps réel) pour déterminer si un retour est encore possible.</p>
+
+        <pre><code class="language-python">def repondre_question_retour(numero_commande: str, requete_utilisateur: str) -> dict:
+    # Récupération STATIQUE : la politique de retour (module 2, RAG)
+    politique = rechercher_chunks_pertinents("politique de retour")
+
+    # Récupération TEMPS RÉEL : le statut de LA commande précise (module 3)
+    commande = obtenir_statut_commande(numero_commande)
+
+    # Les deux sont transmises au LLM, chacune avec sa métadonnée
+    # de fraîcheur propre (rappel module 2, leçon 2.4 et module 5)
+    return {
+        "politique_retour": {"contenu": politique, "type": "statique",
+                              "date_ingestion": politique[0].metadata["date_ingestion"]},
+        "statut_commande": {"contenu": commande, "type": "temps_reel",
+                             "horodatage": datetime.utcnow().isoformat()},
+    }
+</code></pre>
+
+        <p>Le point critique ici : transmettre au LLM non seulement le contenu des deux sources, mais aussi leur <strong>nature</strong> (statique ou temps réel) et leur fraîcheur respective, pour qu'il puisse raisonner correctement — par exemple, signaler à l'utilisateur si la politique affichée pourrait avoir changé depuis sa dernière indexation, tout en étant catégorique sur le statut de commande qui vient d'être vérifié en direct.</p>
+
+        <div class="ascii">Contexte transmis au LLM pour une réponse combinée :
+
+┌─────────────────────────────────────────────┐
+│ [STATIQUE — indexé il y a 12 jours]           │
+│ "Les retours sont acceptés dans les 30 jours  │
+│  suivant la livraison..."                     │
+├─────────────────────────────────────────────┤
+│ [TEMPS RÉEL — vérifié à l'instant]            │
+│ "Commande CMD-123456 : livrée le 2026-06-25"  │
+└─────────────────────────────────────────────┘
+
+→ Le LLM peut alors calculer que la fenêtre de retour est
+  encore valide (ou non) en combinant une règle STABLE avec
+  un FAIT vérifié à l'instant — une synthèse impossible si
+  l'une des deux sources manque, ou si leur nature n'est pas
+  distinguée explicitement</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Fusionner le contenu de sources statiques et temps réel dans un unique bloc de contexte sans distinguer leur nature, ce qui empêche le modèle de raisonner correctement sur la fiabilité relative de chaque information — une politique potentiellement âgée de plusieurs semaines ne devrait pas être présentée au modèle avec le même niveau de certitude qu'un statut vérifié à l'instant.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour le cas de l'exemple (retour de commande), formulez la réponse finale que l'agent devrait donner à un utilisateur dont la commande a été livrée il y a 35 jours, en tenant compte des deux sources.
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l4" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 4.4</span>Étude de cas : agent combinant FAQ statique et statut temps réel</h2>
+
+        <p>Cette leçon détaille un scénario complet, illustrant l'ensemble des principes vus jusqu'ici dans ce module, pour un agent de support client typique.</p>
+
+        <div class="ascii">Architecture complète de l'agent de support :
+
+                    Question utilisateur
+                            │
+                            ▼
+          ┌─────────────────────────────────┐
+          │  LLM avec accès à 3 outils :        │
+          │  1. rechercher_documentation         │  (module 2, RAG statique)
+          │  2. obtenir_statut_commande          │  (module 3, temps réel)
+          │  3. obtenir_stock_produit            │  (module 3, temps réel)
+          └─────────────────────────────────┘
+                            │
+        ┌───────────────────┼───────────────────┐
+        ▼                   ▼                   ▼
+  "Comment          "Où en est ma       "Le produit Y
+   retourner un       commande            est-il
+   article ?"         CMD-789012 ?"       disponible ?"
+        │                   │                   │
+        ▼                   ▼                   ▼
+  Appel RAG            Appel function        Appel function
+  UNIQUEMENT            calling               calling
+  (documentation        UNIQUEMENT             UNIQUEMENT
+  suffit)               (donnée fraîche         (stock actuel
+                        nécessaire)              nécessaire)</div>
+
+        <p>Ce scénario illustre que, dans la majorité des cas concrets, une question donnée ne nécessite généralement qu'une seule des deux sources — la complexité de la leçon 4.3 (fusion de sources) reste l'exception plutôt que la norme, mais une exception suffisamment fréquente pour être conçue explicitement dès le départ plutôt qu'ajoutée en urgence après coup.</p>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour cette même architecture à trois outils, formulez une question utilisateur qui nécessiterait de combiner au moins deux des trois outils pour y répondre correctement.
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l5" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 4.5</span>Gérer les incohérences entre sources</h2>
+
+        <p>Cette dernière leçon du module traite un cas plus rare mais important : que faire quand une source statique et une source temps réel se contredisent apparemment — par exemple, la documentation affirme qu'un produit existe en trois coloris, mais l'inventaire en temps réel n'en liste que deux.</p>
+
+        <h3>Pourquoi ces incohérences se produisent</h3>
+        <p>Le plus souvent, il ne s'agit pas d'une erreur système mais d'un décalage temporel naturel : la donnée statique (péremption non détectée, rappel module 2, leçon 2.4) est simplement plus ancienne que la réalité reflétée par la source temps réel — la source temps réel a, par construction, généralement raison en cas de conflit sur une information qu'elle couvre.</p>
+
+        <div class="ascii">Principe de résolution des incohérences :
+
+Quand une source TEMPS RÉEL et une source STATIQUE se
+contredisent sur la MÊME information :
+
+1. Faire confiance à la source TEMPS RÉEL par défaut —
+   elle reflète l'état actuel, la source statique peut
+   être périmée (rappel module 2, leçon 2.4)
+
+2. Signaler l'incohérence pour investigation — un écart
+   répété entre les deux peut indiquer que le cycle de
+   rafraîchissement de la source statique (module 2,
+   leçon 2.5) est devenu trop lent pour ce type de contenu
+
+3. Ne JAMAIS présenter les deux informations contradictoires
+   à l'utilisateur sans arbitrage — cela nuit à la confiance
+   dans l'agent plus qu'une réponse simplement incomplète</div>
+
+        <pre><code class="language-python">def arbitrer_incoherence(info_statique: dict, info_temps_reel: dict) -> dict:
+    if info_statique["valeur"] != info_temps_reel["valeur"]:
+        journaliser_incoherence(info_statique, info_temps_reel)  # rappel cours 17, module 7.4
+        return {"valeur_retenue": info_temps_reel["valeur"], "source": "temps_reel",
+                "note": "Écart détecté avec la documentation, source temps réel retenue"}
+    return {"valeur_retenue": info_temps_reel["valeur"], "source": "coherente"}
+</code></pre>
+
+        <p>Ce mécanisme de journalisation des incohérences rejoint directement le principe d'audit déjà établi au cours 17 (module 7, leçon 7.4) : au-delà de la résolution immédiate pour l'utilisateur, ces écarts constituent un signal précieux pour identifier des sources statiques dont le cycle de rafraîchissement doit être révisé.</p>
+
+        <div class="ascii">Ce module clôt la partie "architecture" du cours. Le module suivant
+approfondit un mécanisme déjà évoqué à plusieurs reprises (leçons 3.4
+et 4.3) mais pas encore détaillé : le CACHE, qui permet souvent
+d'obtenir un compromis satisfaisant entre fraîcheur et latence, y
+compris pour des données a priori temps réel.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Présenter à l'utilisateur les deux valeurs contradictoires sans arbitrage explicite ("nos documents indiquent X, mais notre système indique Y") plutôt que de trancher clairement en faveur de la source temps réel — cette absence d'arbitrage transfère la charge de la décision vers l'utilisateur, qui n'a pourtant aucun moyen de savoir laquelle des deux sources faire confiance.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : imaginez un cas où faire systématiquement confiance à la source temps réel (règle par défaut ci-dessus) serait en réalité une mauvaise décision. Qu'est-ce qui rendrait ce cas exceptionnel ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-5">
+      <span class="module-kicker">MODULE 05 / 08</span>
+      <h1>Caching et fraîcheur des données</h1>
+      <p class="intro">Le cache a été mentionné à plusieurs reprises (leçons 1.3, 3.4, 4.3) comme un compromis possible entre fraîcheur et latence. Ce module le traite en profondeur : quand l'utiliser, comment le calibrer, et comment éviter qu'il ne devienne lui-même une source de données périmées non détectées.</p>
+
+      <section class="lesson" id="m5-l1" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 5.1</span>Pourquoi et quand mettre en cache une donnée "temps réel"</h2>
+
+        <p>À première vue, mettre en cache une donnée qualifiée de "temps réel" (module 3) semble contradictoire — mais rappel de la leçon 1.1 : la distinction statique/temps réel est un spectre, pas un absolu. La vraie question n'est pas "cette donnée est-elle temps réel ?" mais "à quelle vitesse change-t-elle réellement, et combien de temps une version légèrement ancienne reste-t-elle acceptable ?"</p>
+
+        <div class="ascii">Pourquoi mettre en cache même une donnée volatile :
+
+Sans cache                               Avec cache court (ex : 5 secondes)
+──────────────────────                   ──────────────────────────────
+10 utilisateurs consultent le             10 utilisateurs consultent le
+même produit en 3 secondes                même produit en 3 secondes
+        │                                         │
+        ▼                                         ▼
+10 appels à l'API d'inventaire            1 seul appel à l'API, les 9
+   → charge inutile, latence               suivants servis depuis le
+     cumulée, risque de rate               cache — encore largement
+     limiting (leçon 3.5)                  dans la fenêtre de fraîcheur
+                                          acceptable pour ce cas d'usage</div>
+
+        <p>Le critère décisif : la <strong>tolérance métier</strong> à une donnée légèrement obsolète, pas la nature technique de la source. Un stock avec quelques secondes de retard reste acceptable pour la quasi-totalité des cas d'usage ; un solde de compte bancaire consulté juste avant une transaction, en revanche, justifie généralement l'absence de tout cache, même très court.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Appliquer une règle binaire ("les données temps réel ne sont jamais mises en cache") plutôt que d'évaluer, cas par cas, la tolérance métier réelle à un léger délai — cette règle binaire conduit soit à sursolliciter des sources qui pourraient tolérer un cache court, soit, à l'inverse si mal appliquée, à mettre en cache des données réellement critiques qui ne le devraient pas.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour les données temps réel identifiées à la leçon 3.1 (statut de commande, stock, solde de compte...), lesquelles tolèrent un cache de quelques secondes, lesquelles ne le tolèrent pas ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l2" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 5.2</span>Stratégies de cache : TTL, invalidation, cache-aside</h2>
+
+        <p>Cette leçon détaille les mécanismes techniques de cache les plus courants, applicables aussi bien aux données temps réel (avec une durée de vie très courte) qu'aux données statiques (avec une durée de vie plus longue, en complément du versionnement du module 2).</p>
+
+        <h3>Le TTL (Time To Live) : la stratégie la plus simple</h3>
+        <pre><code class="language-python">import time
+
+cache = {}
+
+def obtenir_avec_cache(cle: str, fonction_source, ttl_secondes: int) -> any:
+    """Rappel leçon 1.3 : le TTL est le paramètre central du
+    compromis fraîcheur/latence — court pour du temps réel
+    (secondes), long pour du statique (heures, jours)."""
+    maintenant = time.time()
+    if cle in cache and (maintenant - cache[cle]["horodatage"]) < ttl_secondes:
+        return cache[cle]["valeur"]
+    valeur = fonction_source()
+    cache[cle] = {"valeur": valeur, "horodatage": maintenant}
+    return valeur
+</code></pre>
+
+        <h3>L'invalidation active : plus précise, plus complexe</h3>
+        <p>Plutôt que d'attendre l'expiration d'un TTL, un mécanisme d'invalidation active retire une entrée du cache dès que la source signale un changement (rappel des webhooks, module 3, leçon 3.2) — une approche plus précise mais qui suppose que la source notifie effectivement ses changements.</p>
+
+        <pre><code class="language-python">def sur_notification_changement(cle: str) -> None:
+    """Appelée par un webhook (rappel module 3, leçon 3.2) —
+    invalide immédiatement l'entrée concernée plutôt que
+    d'attendre l'expiration du TTL."""
+    cache.pop(cle, None)
+</code></pre>
+
+        <h3>Le pattern cache-aside : le plus courant en pratique</h3>
+        <div class="ascii">Pattern cache-aside (celui illustré par obtenir_avec_cache ci-dessus) :
+
+1. Vérifier si la donnée est dans le cache et encore valide (TTL)
+2. Si oui : la retourner directement (rapide)
+3. Si non : interroger la source réelle, stocker le résultat
+   dans le cache, puis le retourner
+4. La prochaine requête sur la même clé bénéficiera du cache
+   jusqu'à expiration
+
+→ Simple à implémenter, fonctionne bien pour la majorité des
+  cas de ce cours ; les alternatives (write-through, refresh-ahead)
+  sont plus complexes et rarement nécessaires pour un agent
+  conversationnel standard</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Choisir l'invalidation active pour toutes les sources par souci de précision maximale, alors qu'elle nécessite une infrastructure de notification (webhooks) que toutes les sources ne supportent pas — le TTL simple, bien calibré selon la tolérance métier (leçon 5.1), suffit dans la grande majorité des cas et évite une complexité d'infrastructure souvent injustifiée.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour la fonction <code class="inline">obtenir_statut_commande</code> des modules précédents, quel TTL choisiriez-vous, et l'invalidation active serait-elle justifiée si l'API de commandes supportait les webhooks ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l3" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 5.3</span>Cache sémantique pour les requêtes similaires</h2>
+
+        <p>Une forme de cache plus avancée, particulièrement pertinente dans un contexte agentique : plutôt que de mettre en cache par clé exacte (un numéro de commande précis), mettre en cache par <strong>similarité sémantique</strong> de la requête — rappel du mécanisme d'embeddings déjà couvert au cours 10.</p>
+
+        <div class="ascii">Cache classique (par clé exacte)          Cache sémantique (par similarité)
+────────────────────────────────          ────────────────────────────────
+"stock du produit ABC123"                  "le produit ABC123 est-il
+   → clé exacte "ABC123"                     disponible ?"
+                                            "vous reste-t-il des ABC123
+"disponibilité de ABC123"                    en stock ?"
+   → clé DIFFÉRENTE, cache MANQUÉ              → EMBEDDINGS proches
+     malgré une intention identique              (rappel cours 10)
+                                                  → même entrée de cache
+                                                    réutilisée</div>
+
+        <pre><code class="language-python">def obtenir_avec_cache_semantique(requete: str, seuil_similarite: float = 0.92) -> any:
+    """Rappel cours 10 (embeddings) et cours 13 (recherche
+    vectorielle) — appliqués ici au cache plutôt qu'à la
+    recherche documentaire."""
+    embedding_requete = calculer_embedding(requete)
+    for entree in cache_semantique.values():
+        similarite = similarite_cosinus(embedding_requete, entree["embedding"])
+        if similarite >= seuil_similarite and not entree_expiree(entree):
+            return entree["valeur"]
+    valeur = executer_requete_reelle(requete)
+    cache_semantique[requete] = {"embedding": embedding_requete, "valeur": valeur,
+                                   "horodatage": time.time()}
+    return valeur
+</code></pre>
+
+        <p>Ce mécanisme est surtout pertinent pour des requêtes formulées en langage naturel avec de nombreuses variations possibles (questions à un agent conversationnel) plutôt que pour des appels de fonction à arguments structurés (où la clé exacte, comme un numéro de commande, est déjà un identifiant fiable et sans ambiguïté).</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Appliquer un cache sémantique à des données dont la fraîcheur est critique, sans considérer que le seuil de similarité peut regrouper par erreur des requêtes proches en formulation mais différentes en substance (par exemple, "stock du produit A" et "stock du produit B" si leurs descriptions textuelles se ressemblent) — une confusion qui pourrait renvoyer une donnée périmée ou incorrecte présentée comme fraîche.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un agent de FAQ (données statiques, module 2), le cache sémantique serait-il pertinent ? Justifiez en fonction de la fréquence de reformulation typique des questions dans ce contexte.
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l4" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 5.4</span>Communiquer la fraîcheur explicitement au modèle</h2>
+
+        <p>Cette leçon revient sur un principe déjà évoqué à plusieurs reprises (leçons 1.4, 2.4, 4.3) sans être encore détaillé techniquement : comment transmettre au LLM, de façon exploitable, l'information de fraîcheur d'une donnée — qu'elle provienne du cache ou d'un appel direct.</p>
+
+        <pre><code class="language-python">def formater_reponse_avec_fraicheur(donnee: any, horodatage: float, servie_par_cache: bool) -> dict:
+    age_secondes = time.time() - horodatage
+    return {
+        "valeur": donnee,
+        "horodatage_iso": datetime.fromtimestamp(horodatage).isoformat(),
+        "age_secondes": round(age_secondes),
+        "servie_par_cache": servie_par_cache,
+    }
+
+# Exemple de contexte transmis au LLM :
+# {"valeur": {"stock": 12}, "horodatage_iso": "2026-07-20T14:32:01",
+#  "age_secondes": 4, "servie_par_cache": true}
+</code></pre>
+
+        <p>Cette structure permet au modèle de formuler des réponses nuancées et honnêtes : "il reste 12 exemplaires en stock, information vérifiée il y a quelques secondes" plutôt qu'une affirmation catégorique masquant le fait que la donnée provient d'un cache potentiellement âgé de plusieurs minutes. Rappel du cours 17 (module 3, sur la conception de schémas) : cette même rigueur de transmission d'information s'applique ici à la fraîcheur plutôt qu'aux seuls arguments de fonction.</p>
+
+        <div class="ascii">Pourquoi l'horodatage explicite change le comportement du modèle :
+
+Sans horodatage transmis                  Avec horodatage transmis
+────────────────────────────             ────────────────────────────
+"Il reste 12 exemplaires en               "Il reste 12 exemplaires en
+stock." (affirmation catégorique,         stock, selon notre dernière
+identique que la donnée ait               vérification il y a quelques
+1 seconde ou 10 minutes)                  secondes." (nuance honnête,
+                                          proportionnée à l'âge réel)
+
+                                          Pour une donnée plus âgée :
+                                          "Selon nos informations d'il y
+                                          a 8 minutes, il restait 12
+                                          exemplaires — je vous invite à
+                                          vérifier au moment du paiement."</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Calculer et stocker l'horodatage d'une donnée en interne (pour la logique de cache, par exemple) sans jamais le transmettre au modèle dans le contexte de sa réponse — l'information de fraîcheur existe alors dans le système mais reste inexploitée là où elle aurait le plus de valeur : dans la formulation de la réponse à l'utilisateur.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Reformulez une réponse d'agent que vous jugez trop catégorique sur une donnée temps réel, en y intégrant une mention explicite de fraîcheur comme dans l'exemple ci-dessus.
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l5" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 5.5</span>Pièges du cache : servir du périmé comme frais</h2>
+
+        <p>Cette dernière leçon du module traite le risque inverse de celui qui a motivé ce module : un cache mal conçu peut lui-même devenir la source de la péremption silencieuse identifiée à la leçon 2.4 — appliquée cette fois à une donnée que le système croit à tort être fraîche.</p>
+
+        <h3>Piège 1 : un TTL trop long pour la volatilité réelle de la donnée</h3>
+        <p>Un cache de 10 minutes sur un stock qui peut s'épuiser en quelques secondes lors d'une forte demande (une vente flash, par exemple) recrée exactement le problème que ce cours cherche à résoudre.</p>
+
+        <h3>Piège 2 : ne jamais purger un cache après une opération qui invalide la donnée</h3>
+        <pre><code class="language-python"># PROBLÉMATIQUE : le cache n'est jamais invalidé après une action
+# qui modifie directement la donnée mise en cache
+def confirmer_achat(produit_id: str) -> None:
+    decrementer_stock_reel(produit_id)
+    # BUG : le cache de stock pour produit_id garde l'ANCIENNE valeur
+    # jusqu'à expiration du TTL — un autre utilisateur pourrait voir
+    # un stock disponible qui ne l'est déjà plus
+
+# CORRECT : invalider explicitement le cache concerné
+def confirmer_achat_corrige(produit_id: str) -> None:
+    decrementer_stock_reel(produit_id)
+    cache.pop(f"stock_{produit_id}", None)  # invalidation immédiate
+</code></pre>
+
+        <h3>Piège 3 : ne pas propager le statut "servi par cache" jusqu'au modèle</h3>
+        <p>Rappel de la leçon 5.4 : si le champ <code class="inline">servie_par_cache</code> et l'horodatage ne sont pas transmis, le modèle ne peut jamais nuancer sa réponse, indépendamment de la qualité du mécanisme de cache lui-même.</p>
+
+        <div class="ascii">Ce module clôt la partie "caching" du cours. Le module suivant
+change d'échelle : plutôt que le cache d'appels ponctuels, il traite
+les PIPELINES de données en flux continu (streaming), pertinents
+quand le volume d'événements temps réel devient trop important pour
+un simple appel de fonction à la demande.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer la mise en place d'un cache comme une optimisation purement bénéfique et sans risque, sans investir le même soin dans sa stratégie d'invalidation que dans sa stratégie de remplissage — un cache mal invalidé peut être pire qu'aucun cache, car il donne une fausse impression de fiabilité tout en servant des données incorrectes.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de synthèse</strong>
+          Pour clore ce module : reprenez l'exemple <code class="inline">confirmer_achat_corrige</code>. Quelles autres opérations, dans un système de commerce en ligne, devraient déclencher une invalidation de cache similaire ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-6">
+      <span class="module-kicker">MODULE 06 / 08</span>
+      <h1>Pipelines de données temps réel</h1>
+      <p class="intro">Les modules précédents traitaient l'accès à une donnée temps réel de façon ponctuelle, à la demande (polling via function calling). Ce module aborde un cas différent : quand le volume d'événements temps réel devient trop important pour être interrogé à la demande, et nécessite un traitement en flux continu.</p>
+
+      <section class="lesson" id="m6-l1" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 6.1</span>Concepts de streaming : événement, topic, producteur, consommateur</h2>
+
+        <p>Le <strong>streaming</strong> de données repose sur un vocabulaire spécifique, à connaître avant d'aborder les outils concrets (leçon 6.2).</p>
+
+        <div class="ascii">Vocabulaire de base du streaming :
+
+ÉVÉNEMENT (event)
+  Un fait précis survenu à un instant donné — "commande CMD-123456
+  passée au statut EXPÉDIÉE à 14h32:07"
+
+PRODUCTEUR (producer)
+  Le système qui émet des événements — le système de gestion
+  des commandes, par exemple
+
+TOPIC (ou stream, ou canal)
+  Un flux nommé regroupant des événements de même nature —
+  un topic "changements_statut_commande" regroupe tous les
+  événements de ce type
+
+CONSOMMATEUR (consumer)
+  Un système qui lit les événements d'un topic, potentiellement
+  bien après leur émission (les topics conservent généralement
+  un historique) — un agent IA peut être un consommateur
+
+OFFSET
+  La position d'un consommateur dans un topic — permet de
+  reprendre la lecture exactement là où on l'avait arrêtée,
+  même après un redémarrage</div>
+
+        <p>Ce modèle diffère fondamentalement du function calling ponctuel (module 3) : plutôt qu'une question-réponse déclenchée par une requête utilisateur, le streaming inverse la logique — les événements arrivent en continu, indépendamment de toute question, et un système doit les traiter au fil de l'eau pour maintenir un état à jour, consultable ensuite rapidement.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Confondre "topic" (un flux nommé et persistant, consultable par plusieurs consommateurs indépendants) avec une simple file d'attente à usage unique — un topic de streaming conserve généralement un historique et permet à plusieurs consommateurs différents (un agent IA, un système d'analytics, une alerte) de le lire indépendamment, chacun à son propre rythme.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un système de suivi logistique, identifiez quels types d'événements pourraient constituer un topic pertinent, et quels systèmes pourraient en être consommateurs.
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l2" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 6.2</span>Outils courants pour le streaming de données</h2>
+
+        <p>Cette leçon donne un aperçu des outils les plus répandus pour implémenter les concepts de la leçon 6.1 — une vue d'ensemble suffisante pour comprendre leur rôle dans une architecture agentique, sans viser l'exhaustivité d'un cours dédié à chaque outil.</p>
+
+        <table>
+          <thead><tr><th>Outil / catégorie</th><th>Usage typique</th><th>Pertinence pour un agent IA</th></tr></thead>
+          <tbody>
+            <tr><td>Apache Kafka</td><td>Plateforme de streaming distribuée à haut volume, avec conservation longue durée des événements</td><td>Alimente un système qui maintient un état à jour, interrogeable ensuite par l'agent (leçon 6.3)</td></tr>
+            <tr><td>Files de messages (RabbitMQ, SQS)</td><td>Traitement asynchrone de tâches, souvent avec consommation unique par message</td><td>Utile pour déclencher des actions d'agent en arrière-plan plutôt que pour maintenir un état consultable</td></tr>
+            <tr><td>Webhooks (rappel module 3)</td><td>Notification HTTP ponctuelle lors d'un événement</td><td>Le mécanisme le plus simple pour déclencher une mise à jour de cache (module 5) ou une action d'agent</td></tr>
+            <tr><td>Bases de données avec CDC (Change Data Capture)</td><td>Capture automatique des modifications d'une base de données comme flux d'événements</td><td>Permet de transformer une base statique en source quasi temps réel sans modifier l'application source</td></tr>
+          </tbody>
+        </table>
+
+        <p>Pour la grande majorité des agents conversationnels traités dans ce cours, les webhooks (déjà couverts au module 3) et un cache bien calibré (module 5) suffisent largement — les plateformes de streaming à haut volume comme Kafka deviennent pertinentes principalement pour des architectures où l'agent doit réagir à un flux continu et important d'événements, plutôt que répondre ponctuellement à des questions utilisateur.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Introduire une infrastructure de streaming lourde (Kafka ou équivalent) pour un besoin qui se résume en réalité à quelques webhooks ponctuels — une décision d'architecture qui ajoute une complexité opérationnelle significative sans bénéfice proportionné pour un agent qui répond simplement à des questions utilisateur à la demande.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour l'agent de support client des modules précédents, un outil de streaming à haut volume serait-il justifié, ou les webhooks ponctuels suffiraient-ils ? Justifiez selon le volume d'événements attendu.
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l3" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 6.3</span>Enrichir un flux en continu avant usage par un agent</h2>
+
+        <p>Quand un flux d'événements est utilisé en amont d'un agent, il est rarement consommé brut : un traitement d'enrichissement, semblable dans son principe à celui déjà couvert pour les données statiques (rappel cours métadonnées, module 2), le transforme généralement en un état consultable rapidement.</p>
+
+        <pre><code class="language-python">def consommer_evenement_statut_commande(evenement: dict, etat_courant: dict) -> None:
+    """Traite un événement du topic 'changements_statut_commande'
+    et met à jour un ÉTAT consultable rapidement — plutôt que de
+    forcer l'agent à parcourir tout l'historique d'événements à
+    chaque question (rappel offset, leçon 6.1)."""
+    numero_commande = evenement["numero_commande"]
+    etat_courant[numero_commande] = {
+        "statut": evenement["nouveau_statut"],
+        "horodatage_maj": evenement["horodatage"],
+        "historique": etat_courant.get(numero_commande, {}).get("historique", []) + [evenement],
+    }
+</code></pre>
+
+        <div class="ascii">Rôle du traitement en continu dans l'architecture agentique :
+
+Flux d'événements bruts (topic)
+        │
+        ▼
+Traitement en continu (enrichissement, agrégation — cette
+leçon et la suivante)
+        │
+        ▼
+ÉTAT MAINTENU À JOUR (une table, un cache, une base
+rapide à consulter)
+        │
+        ▼
+L'agent, au moment d'une question utilisateur, consulte
+CET ÉTAT plutôt que de traiter le flux brut — retrouvant
+ainsi une latence de consultation comparable à celle
+d'un appel de fonction classique (module 3), mais avec
+une fraîcheur alimentée en continu plutôt qu'à la demande</div>
+
+        <p>Cette architecture combine en réalité les deux approches déjà vues : le flux en continu maintient un état à jour en arrière-plan, mais l'agent y accède toujours via un mécanisme d'interrogation ponctuelle (une fonction, rappel cours 17) au moment de répondre à une question — le streaming remplace ici la source interrogée par la fonction, pas le mécanisme d'interrogation lui-même.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Faire consommer directement le flux d'événements brut par le LLM à chaque requête plutôt que de maintenir un état intermédiaire déjà agrégé — cette approche oblige à retraiter potentiellement un grand historique d'événements à chaque question, alors qu'un état pré-calculé et régulièrement mis à jour suffit à répondre en quelques millisecondes.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour le flux d'événements de statut de commande de l'exemple, quelles autres informations agrégées (au-delà du simple statut courant) pourraient être utiles à précalculer dans l'état maintenu ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l4" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 6.4</span>Fenêtrage et agrégation temporelle</h2>
+
+        <p>Certaines questions qu'un agent pourrait recevoir portent non pas sur un événement isolé, mais sur une <strong>agrégation</strong> d'événements sur une période donnée — "combien de commandes ont été expédiées aujourd'hui ?", "quel est le délai moyen de livraison cette semaine ?". Répondre à ce type de question nécessite un traitement par fenêtrage temporel.</p>
+
+        <div class="ascii">Principe du fenêtrage temporel appliqué à un flux d'événements :
+
+Flux continu d'événements ─────────────────────────────►
+   │e1  │e2    │e3  │e4      │e5  │e6    │e7  │e8
+   └────┴──────┴────┴────────┴────┴──────┴────┴──────►  temps
+   [── Fenêtre 1 (1h) ──][── Fenêtre 2 (1h) ──]
+
+Pour chaque fenêtre fermée, une agrégation est calculée
+(compte, moyenne, somme) et stockée — une question portant
+sur "aujourd'hui" ou "cette semaine" consulte ces agrégations
+précalculées plutôt que de reparcourir tous les événements bruts</div>
+
+        <pre><code class="language-python">def agreger_fenetre_horaire(evenements_de_la_fenetre: list[dict]) -> dict:
+    return {
+        "nombre_expeditions": len(evenements_de_la_fenetre),
+        "delai_moyen_heures": sum(e["delai_heures"] for e in evenements_de_la_fenetre)
+                               / max(len(evenements_de_la_fenetre), 1),
+        "fenetre_fin": datetime.utcnow().isoformat(),
+    }
+</code></pre>
+
+        <p>Cette agrégation rejoint le même principe que le cache sémantique (leçon 5.3) : précalculer ce qui sera probablement demandé plutôt que de tout calculer à la demande — un compromis pertinent quand le volume de données sous-jacentes rend un calcul en direct trop lent pour une réponse d'agent en temps utile.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Choisir une granularité de fenêtre trop grossière (des fenêtres quotidiennes, par exemple) pour des questions qui nécessiteraient en réalité une précision plus fine (une agrégation par heure) — l'agent se retrouve alors incapable de répondre précisément à des questions portant sur une sous-période, faute d'agrégation à ce niveau de détail.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un agent de support logistique, quelles granularités de fenêtrage (horaire, quotidien, hebdomadaire) seraient utiles à précalculer, selon les questions probables des utilisateurs ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l5" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 6.5</span>Erreurs courantes dans les pipelines temps réel</h2>
+
+        <p>Cette dernière leçon du module recense les erreurs les plus fréquentes lors de la mise en place d'un pipeline de streaming pour alimenter un agent IA.</p>
+
+        <h3>Erreur 1 : ne pas gérer les événements dupliqués</h3>
+        <p>De nombreux systèmes de streaming garantissent une livraison "au moins une fois" plutôt qu'"exactement une fois" — un même événement peut donc être traité deux fois. Sans traitement idempotent (approfondi au module 7, leçon 7.3), cela peut fausser les agrégations (leçon 6.4) ou dupliquer des mises à jour d'état.</p>
+
+        <h3>Erreur 2 : ne pas gérer l'ordre des événements</h3>
+        <p>Certains systèmes de streaming ne garantissent pas un ordre strict entre événements de topics ou partitions différentes — un événement "livrée" pourrait théoriquement être traité avant l'événement "expédiée" qui le précède logiquement, si l'architecture ne préserve pas l'ordre causal.</p>
+
+        <h3>Erreur 3 : laisser le consommateur prendre du retard sans le détecter</h3>
+        <p>Si le traitement des événements (consommateur) est plus lent que leur production, un retard s'accumule silencieusement — l'état consulté par l'agent devient alors de plus en plus périmé sans que rien ne le signale, reproduisant exactement le risque de péremption silencieuse (leçon 2.4) dans un contexte différent.</p>
+
+        <div class="ascii">Ce module clôt la partie "pipelines temps réel" du cours. Le module
+suivant traite un sujet transverse à l'ensemble des mécanismes vus
+jusqu'ici (function calling ponctuel, cache, streaming) : comment
+garantir la fiabilité du système face aux pannes et incohérences
+inévitables en production.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Mettre en place un pipeline de streaming sans monitoring du retard de consommation (lag), ce qui empêche de détecter qu'un consommateur a pris du retard avant que l'impact ne soit visible dans les réponses de l'agent — un signal de monitoring simple (l'écart entre l'offset le plus récent du topic et l'offset du consommateur) suffit souvent à prévenir ce problème.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de synthèse</strong>
+          Pour clore ce module : parmi les trois erreurs listées, laquelle vous semble la plus facile à détecter en production, et laquelle la plus difficile à diagnostiquer si elle survient silencieusement ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-7">
+      <span class="module-kicker">MODULE 07 / 08</span>
+      <h1>Fiabilité et gestion des erreurs</h1>
+      <p class="intro">Ce module traite un sujet transverse aux mécanismes vus jusqu'ici (function calling ponctuel, cache, streaming) : que se passe-t-il quand une source de données temps réel ne répond pas comme prévu, et comment concevoir un système qui reste fiable malgré ces défaillances inévitables.</p>
+
+      <section class="lesson" id="m7-l1" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 7.1</span>Que faire quand une source temps réel est indisponible</h2>
+
+        <p>Rappel de la leçon 3.4 : un appel à une source temps réel externe peut échouer (timeout, erreur serveur, panne réseau). Sans stratégie de repli explicite, cette défaillance se propage directement à l'utilisateur sous forme d'une réponse d'erreur brute ou d'un silence de l'agent — une expérience dégradée qui peut souvent être évitée.</p>
+
+        <div class="ascii">Stratégies de repli, de la plus au moins souhaitable
+selon le contexte :
+
+1. REPLI VERS UNE VALEUR EN CACHE (même expirée)
+   Servir la dernière valeur connue, EN SIGNALANT
+   explicitement qu'elle peut être périmée (rappel
+   module 5, leçon 5.4, sur la transmission de fraîcheur)
+
+2. REPLI VERS UNE SOURCE STATIQUE APPROXIMATIVE
+   Si aucune valeur en cache n'existe, une information
+   statique générale peut parfois suffire ("les délais de
+   livraison sont habituellement de 3 à 5 jours", à défaut
+   du statut précis de cette commande)
+
+3. RÉPONSE HONNÊTE SUR L'INDISPONIBILITÉ
+   Informer clairement l'utilisateur que l'information n'est
+   temporairement pas accessible, plutôt que de risquer une
+   réponse incorrecte ou un silence incompréhensible</div>
+
+        <pre><code class="language-python">def obtenir_statut_avec_repli(numero_commande: str) -> dict:
+    try:
+        return {"statut": appeler_api_commandes(numero_commande), "frais": True}
+    except (TimeoutError, ConnectionError):
+        valeur_cache = cache.get(f"commande_{numero_commande}")
+        if valeur_cache:
+            return {"statut": valeur_cache["valeur"], "frais": False,
+                    "avertissement": "Information non vérifiée en direct, "
+                                      f"dernière mise à jour il y a {age_cache(valeur_cache)}"}
+        return {"statut": None, "erreur": "Information temporairement indisponible, "
+                                             "veuillez réessayer dans quelques instants"}
+</code></pre>
+
+        <p>Le choix entre ces stratégies dépend directement de la criticité de la donnée (rappel module 3, leçon 3.5, sur la distinction entre "temps réel" et "critique") : pour une donnée peu critique, un repli vers le cache expiré, correctement signalé, est souvent préférable à une erreur brute ; pour une donnée hautement critique (un solde de compte avant une transaction), la troisième option — l'honnêteté sur l'indisponibilité — reste la plus sûre.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Servir une valeur en cache expirée en cas de panne SANS le signaler explicitement à l'utilisateur ni au modèle (rappel module 5, leçon 5.4) — ce qui transforme une panne technique visible et compréhensible en une erreur silencieuse bien plus difficile à détecter, exactement le risque que ce cours cherche à éviter depuis le module 1.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour trois types de données de ce cours (stock produit, solde de compte, météo), quelle stratégie de repli choisiriez-vous en cas de panne de la source, et pourquoi ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l2" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 7.2</span>Cohérence éventuelle vs cohérence forte</h2>
+
+        <p>Cette leçon revient sur un problème déjà évoqué au module 3 (leçon 3.5, erreur 4) : une donnée peut changer <em>pendant</em> son traitement. Cette leçon formalise deux modèles de cohérence possibles et leurs implications pour un agent.</p>
+
+        <div class="ascii">Cohérence FORTE                          Cohérence ÉVENTUELLE
+(strong consistency)                     (eventual consistency)
+────────────────────────                 ────────────────────────
+Toute lecture reflète la                  Une lecture peut refléter
+DERNIÈRE écriture, garantie               un état légèrement en retard,
+                                          mais qui CONVERGERA vers
+Nécessite généralement une                l'état correct après un
+synchronisation stricte                   court délai
+(verrous, transactions)
+                                          Généralement plus performant
+Plus lent, plus coûteux à                 et plus résilient aux pannes
+grande échelle, mais élimine              partielles, au prix d'un
+tout risque d'incohérence                 risque limité de lecture
+momentanée                                légèrement obsolète</div>
+
+        <p>Pour un agent conversationnel, la cohérence éventuelle est acceptable dans la grande majorité des cas — le délai de convergence (généralement de l'ordre de la seconde ou moins dans les systèmes bien conçus) est largement inférieur au temps de formulation d'une réponse par le LLM. La cohérence forte devient nécessaire uniquement pour des opérations où la moindre incohérence a un coût réel : confirmer une transaction financière, valider qu'un stock est réellement disponible juste avant de finaliser un achat.</p>
+
+        <pre><code class="language-python">def valider_disponibilite_avant_achat(produit_id: str) -> bool:
+    """Contrairement à un simple AFFICHAGE de stock (qui tolère
+    la cohérence éventuelle, via cache — module 5), une VALIDATION
+    juste avant achat nécessite une lecture fraîche et cohérente,
+    sans passer par le cache."""
+    stock_reel = verifier_stock_avec_verrou(produit_id)  # lecture non mise en cache
+    return stock_reel > 0
+</code></pre>
+
+        <p>Cette distinction rejoint directement le principe déjà établi à la leçon 5.1 : ce n'est pas la nature de la donnée qui détermine le besoin de cohérence forte, mais l'opération métier spécifique qui l'utilise — le même stock produit peut tolérer une cohérence éventuelle pour un simple affichage, et exiger une cohérence forte au moment précis de la confirmation d'achat.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Appliquer une cohérence forte partout par excès de prudence, ce qui dégrade inutilement les performances de l'ensemble du système pour des opérations qui toléreraient très bien une cohérence éventuelle — la cohérence forte devrait être réservée aux opérations spécifiques où une incohérence momentanée aurait un coût réel, pas appliquée comme politique générale.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour l'agent de suivi de commande, identifiez une opération qui nécessiterait une cohérence forte, et une autre qui tolérerait très bien une cohérence éventuelle.
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l3" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 7.3</span>Idempotence et rejouabilité des événements</h2>
+
+        <p>Rappel du module 6, leçon 6.5, erreur 1 : les systèmes de streaming livrent souvent les événements "au moins une fois", ce qui signifie qu'un même événement peut être traité plusieurs fois. Cette leçon détaille la solution standard à ce problème : l'<strong>idempotence</strong>.</p>
+
+        <p>Une opération est dite idempotente si l'exécuter plusieurs fois produit le même résultat que l'exécuter une seule fois — une propriété essentielle pour tout traitement d'événements qui pourraient être dupliqués.</p>
+
+        <pre><code class="language-python"># NON idempotent : traiter deux fois le même événement double l'effet
+def traiter_evenement_non_idempotent(evenement: dict, etat: dict) -> None:
+    etat["nombre_commandes_expediees"] += 1  # DANGER : un doublon fausse le compte
+
+# Idempotent : traiter deux fois le même événement n'a aucun effet
+# supplémentaire, grâce à un identifiant unique déjà traité
+def traiter_evenement_idempotent(evenement: dict, etat: dict, evenements_traites: set) -> None:
+    if evenement["id"] in evenements_traites:
+        return  # déjà traité, ignorer silencieusement le doublon
+    etat["nombre_commandes_expediees"] += 1
+    evenements_traites.add(evenement["id"])
+</code></pre>
+
+        <div class="ascii">Pourquoi l'idempotence est indispensable dans ce contexte :
+
+Sans idempotence                          Avec idempotence
+────────────────────────                  ────────────────────────
+Un événement dupliqué (livraison           Le même événement dupliqué
+"au moins une fois", rappel                est détecté via son
+module 6) fausse silencieusement            identifiant unique et
+les compteurs et agrégations                ignoré — l'état final
+(module 6, leçon 6.4)                       reste correct quel que
+                                           soit le nombre de fois où
+Les erreurs de comptage sont                l'événement a été livré
+difficiles à détecter, car
+chaque événement pris                     Propriété qui rend le
+individuellement semble valide             système RÉSILIENT face aux
+                                           particularités de livraison
+                                           des systèmes de streaming</div>
+
+        <p>La <strong>rejouabilité</strong> (replay) est la propriété complémentaire : un système de streaming qui conserve l'historique des événements (rappel topic, module 6, leçon 6.1) permet de retraiter un flux depuis un point donné — précieux pour corriger un bug de traitement après coup, en rejouant les événements affectés sans perdre de données, à condition que le traitement soit idempotent pour ne pas dupliquer les effets déjà appliqués avant la correction.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Supposer qu'un système de streaming garantit nativement l'absence de doublons ("exactement une fois") sans vérifier explicitement cette garantie dans la documentation de l'outil utilisé — la plupart des systèmes de streaming à grande échelle privilégient "au moins une fois" pour des raisons de performance et de résilience, ce qui rend l'idempotence du traitement une responsabilité du consommateur, pas de la plateforme.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour l'état maintenu à jour de la leçon 6.3 (statuts de commande), l'écriture <code class="inline">etat_courant[numero_commande] = {...}</code> est-elle déjà idempotente ? Justifiez.
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l4" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 7.4</span>Monitorer la fraîcheur et la disponibilité des sources</h2>
+
+        <p>Rappel du principe de journalisation déjà établi au cours 17 (module 7, leçon 7.4) : un système en production doit être observable. Cette leçon l'applique spécifiquement au problème de ce cours — surveiller que les sources statiques et temps réel restent effectivement fraîches et disponibles.</p>
+
+        <pre><code class="language-python">def enregistrer_metriques_source(nom_source: str, succes: bool, latence_ms: float,
+                                    age_donnee_secondes: float = None) -> None:
+    metriques = {
+        "source": nom_source,
+        "horodatage": datetime.utcnow().isoformat(),
+        "succes": succes,
+        "latence_ms": latence_ms,
+        "age_donnee_secondes": age_donnee_secondes,  # pertinent pour le cache (module 5)
+    }
+    logger_metriques.info(json.dumps(metriques))
+</code></pre>
+
+        <h3>Indicateurs clés à surveiller pour ce type de système</h3>
+        <ul>
+          <li><strong>Taux d'échec par source</strong> — une source temps réel qui échoue de plus en plus souvent signale un problème à investiguer avant qu'il n'affecte massivement les utilisateurs.</li>
+          <li><strong>Latence par source</strong> — une dégradation progressive de la latence peut précéder une panne complète, un signal d'alerte précoce précieux.</li>
+          <li><strong>Fréquence de recours au repli</strong> (leçon 7.1) — un indicateur direct de la fiabilité perçue par les utilisateurs, au-delà des simples erreurs techniques.</li>
+          <li><strong>Retard de consommation (lag) pour les pipelines de streaming</strong> — rappel module 6, leçon 6.5, erreur 3.</li>
+          <li><strong>Âge moyen des données servies depuis le cache</strong> — un indicateur de la fraîcheur réelle perçue, au-delà du TTL théorique configuré (module 5).</li>
+        </ul>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Monitorer uniquement les erreurs techniques explicites (exceptions, codes d'erreur HTTP) sans surveiller les indicateurs de dégradation progressive (latence croissante, recours croissant au repli) qui précèdent souvent une panne complète — un monitoring purement binaire (ça marche / ça ne marche pas) manque les signaux d'alerte précoce les plus utiles.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour l'architecture de l'agent de support des modules précédents, quel indicateur parmi la liste ci-dessus vous semble le plus critique à surveiller en priorité ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l5" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 7.5</span>Tester la résilience face à une source défaillante</h2>
+
+        <p>Cette dernière leçon du module applique un principe déjà établi au cours 17 (module 7, leçon 7.5, sur les tests adversariaux) à un nouveau type de scénario : tester délibérément la résilience du système face à des pannes simulées, plutôt que de découvrir son comportement réel lors d'un incident en production.</p>
+
+        <pre><code class="language-python">def tester_resilience_panne_source(agent, scenarios_panne: list[dict]) -> dict:
+    resultats = {}
+    for scenario in scenarios_panne:
+        with simuler_panne(scenario["source"], type_panne=scenario["type"]):
+            reponse = agent.traiter(scenario["message"])
+            resultats[scenario["nom"]] = {
+                "reponse_honnete": verifier_pas_affirmation_categorique_fausse(reponse),
+                "repli_utilise": scenario["source"] in reponse.get("sources_en_repli", []),
+            }
+    return resultats
+
+scenarios = [
+    {"nom": "timeout_api_commandes", "source": "api_commandes", "type": "timeout",
+     "message": "Où en est ma commande CMD-123456 ?"},
+    {"nom": "erreur_500_inventaire", "source": "api_inventaire", "type": "erreur_serveur",
+     "message": "Le produit ABC123 est-il en stock ?"},
+]
+</code></pre>
+
+        <div class="ascii">Ce que ces tests doivent vérifier explicitement :
+
+1. L'agent ne formule PAS une affirmation catégorique fondée
+   sur une donnée qu'il n'a en réalité pas pu obtenir
+2. La stratégie de repli choisie (leçon 7.1) s'active
+   correctement pour chaque type de panne simulée
+3. Le monitoring (leçon 7.4) enregistre effectivement
+   l'incident, pour permettre une investigation ultérieure
+4. L'expérience utilisateur reste acceptable (message clair,
+   pas de silence ni d'erreur technique brute exposée
+   directement à l'utilisateur final)</div>
+
+        <p>Ce module clôt la partie "fiabilité" du cours. Le dernier module assemble l'ensemble des concepts vus (fondamentaux, statique, temps réel, architecture hybride, cache, streaming, fiabilité) dans un pipeline complet et une étude de cas de synthèse.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Tester uniquement le cas où une source est totalement indisponible (panne franche), en négligeant les pannes partielles plus subtiles — une source qui répond, mais lentement, ou qui répond avec des données incohérentes plutôt qu'une erreur explicite, échappe souvent à des tests de résilience qui ne couvrent que le scénario de panne la plus évidente.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : au-delà des deux scénarios de panne franche de l'exemple, proposez un scénario de panne partielle (lenteur, données incohérentes) qui mériterait également d'être testé.
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-8">
+      <span class="module-kicker">MODULE 08 / 08</span>
+      <h1>Implémentation complète et étude de cas</h1>
+      <p class="intro">Ce dernier module assemble l'ensemble des notions vues — spectre statique/temps réel (module 1), gestion du statique (module 2), gestion du temps réel (module 3), architecture hybride (module 4), cache (module 5), streaming (module 6), fiabilité (module 7) — dans une checklist de conception puis une étude de cas complète.</p>
+
+      <section class="lesson" id="m8-l1" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 8.1</span>Checklist de conception statique/temps réel</h2>
+
+        <p>Cette leçon condense l'ensemble du cours en une checklist pratique, à parcourir pour chaque source de données qu'un agent doit exploiter.</p>
+
+        <div class="ascii">Checklist de conception (à appliquer à CHAQUE source de données) :
+
+□ 1. FRÉQUENCE DE CHANGEMENT réelle de cette donnée (module 1) ?
+     → Positionner sur le spectre statique/temps réel
+
+□ 2. TOLÉRANCE MÉTIER à une donnée légèrement obsolète (module 5,
+     leçon 5.1) ? Quel est le coût d'une réponse périmée ?
+
+□ 3. MÉCANISME D'ACCÈS approprié : RAG (module 2) pour le
+     statique, function calling (module 3) pour le temps réel,
+     streaming (module 6) si le volume d'événements le justifie
+
+□ 4. CACHE pertinent (module 5) ? Si oui, quel TTL et quelle
+     stratégie d'invalidation ?
+
+□ 5. FRAÎCHEUR communiquée explicitement au modèle (module 5,
+     leçon 5.4) ? Horodatage transmis dans le contexte ?
+
+□ 6. STRATÉGIE DE REPLI en cas de panne de cette source
+     (module 7, leçon 7.1) ?
+
+□ 7. NIVEAU DE COHÉRENCE requis (module 7, leçon 7.2) : cette
+     source tolère-t-elle une cohérence éventuelle, ou certaines
+     opérations exigent-elles une cohérence forte ?
+
+□ 8. MONITORING en place (module 7, leçon 7.4) pour détecter
+     une dégradation de cette source avant qu'elle n'affecte
+     les utilisateurs ?</div>
+
+        <p>Cette checklist n'est pas un exercice ponctuel réalisé une fois au démarrage d'un projet : rappel du module 2, leçon 2.2, chaque source de données a un cycle de vie, et les réponses à ces huit questions peuvent évoluer avec le temps (une donnée initialement statique peut devenir plus volatile à mesure que l'usage du système évolue) — un motif suffisant pour revisiter périodiquement cette checklist pour les sources existantes.</p>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Appliquez cette checklist à une source de données réelle ou imaginée de votre choix, en répondant brièvement aux huit questions.
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l2" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 8.2</span>Pipeline complet : ingestion, connecteur, cache, fallback</h2>
+
+        <p>Cette leçon assemble les composants individuels vus tout au long du cours en une architecture de référence complète, applicable à la majorité des agents combinant données statiques et temps réel.</p>
+
+        <div class="ascii">Architecture de référence complète :
+
+                    ┌─────────────────────────┐
+                    │   Question utilisateur       │
+                    └─────────────────────────┘
+                                 │
+                                 ▼
+                    ┌─────────────────────────┐
+                    │   LLM + schéma des outils     │  (routage — module 4.2)
+                    │   (RAG + fonctions temps réel) │
+                    └─────────────────────────┘
+                    │                           │
+                    ▼                           ▼
+      ┌───────────────────────┐   ┌───────────────────────┐
+      │  PIPELINE STATIQUE          │   │  PIPELINE TEMPS RÉEL        │
+      │  Ingestion périodique         │   │  Connecteur (function       │
+      │  + versionnement (module 2)   │   │  calling, module 3)          │
+      │  → Index vectoriel (cours 13) │   │  → Cache TTL court (module 5)│
+      └───────────────────────┘   │  → Repli si panne (module 7) │
+                    │                └───────────────────────┘
+                    │                           │
+                    └─────────────┬─────────────┘
+                                 ▼
+                    ┌─────────────────────────┐
+                    │   Fusion avec métadonnées     │
+                    │   de fraîcheur (module 4.3,     │
+                    │   module 5.4)                    │
+                    └─────────────────────────┘
+                                 │
+                                 ▼
+                    ┌─────────────────────────┐
+                    │   Réponse finale du LLM,      │
+                    │   nuancée selon la fraîcheur    │
+                    │   de chaque source utilisée      │
+                    └─────────────────────────┘
+                                 │
+                                 ▼
+                    ┌─────────────────────────┐
+                    │   Journalisation et monitoring │
+                    │   (module 7, leçon 7.4)          │
+                    └─────────────────────────┘</div>
+
+        <p>Cette architecture n'impose pas d'implémenter tous les composants dès le premier jour : rappel du principe déjà établi tout au long de ce cours, chaque composant (cache, streaming, monitoring avancé) se justifie en fonction du besoin réel, pas par anticipation systématique — un agent avec un faible volume d'utilisateurs peut très bien fonctionner sans cache sophistiqué ni pipeline de streaming, tant que la checklist de la leçon 8.1 a été appliquée consciemment.</p>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un agent que vous concevez, quels composants de cette architecture de référence sont indispensables dès le départ, et lesquels pourraient être ajoutés plus tard si le besoin se confirme ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l3" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 8.3</span>Étude de cas : agent de suivi logistique</h2>
+
+        <h3>Contexte</h3>
+        <p>Une entreprise de logistique souhaite un agent capable de répondre à des questions sur : (1) les procédures générales d'expédition (statique, documentation), (2) le statut précis d'un colis donné (temps réel, API de suivi), (3) des statistiques agrégées sur les livraisons du jour (nécessitant un pipeline de streaming, module 6).</p>
+
+        <div class="ascii">Application de la checklist (leçon 8.1) aux trois besoins :
+
+1. Procédures d'expédition
+   Fréquence : rare (mois)          → STATIQUE (module 2)
+   Mécanisme : RAG (cours 9-13)
+   Cache : long TTL ou versionnement suffit
+   Repli : aucun besoin particulier, source stable
+
+2. Statut d'un colis précis
+   Fréquence : élevée (peut changer plusieurs fois/jour)
+   → TEMPS RÉEL (module 3), function calling
+   Cache : TTL court (quelques secondes à minutes)
+   Repli : cache expiré signalé, ou réponse honnête
+           sur l'indisponibilité (module 7, leçon 7.1)
+   Cohérence : éventuelle suffit pour un simple affichage
+
+3. Statistiques agrégées du jour
+   Fréquence : continue, volume élevé d'événements
+   → STREAMING avec fenêtrage horaire (module 6, leçon 6.4)
+   Cache : agrégations précalculées, rafraîchies en continu
+   Monitoring : lag de consommation (module 6, leçon 6.5)</div>
+
+        <p>Cette étude de cas illustre concrètement pourquoi ce cours a structuré la matière en trois mécanismes distincts (RAG statique, function calling ponctuel, streaming agrégé) plutôt qu'une solution unique : les trois besoins de ce seul agent, pourtant d'apparence proche (tous liés à la logistique), nécessitent chacun un mécanisme différent, déterminé par leur fréquence de changement et leur volume respectifs.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Face à ces trois besoins de nature différente, choisir un mécanisme unique par souci de simplicité architecturale (par exemple, tout faire passer par du function calling ponctuel, y compris les statistiques agrégées) — une simplification qui semble réduire la complexité de conception initiale, mais qui dégrade la performance et la fiabilité pour les besoins mal adaptés à ce mécanisme unique, ici les statistiques à haut volume.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour cette même entreprise de logistique, un quatrième besoin apparaît : "alerter proactivement un client si son colis est retardé de plus de 24 heures". Quel mécanisme (parmi RAG, function calling ponctuel, streaming) serait le plus adapté, et pourquoi ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l4" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 8.4</span>Exercice final</h2>
+
+        <p>Cet exercice de synthèse reprend l'étude de cas de la leçon précédente et vous demande de la développer techniquement, en mobilisant l'ensemble des modules de ce cours.</p>
+
+        <div class="callout exercise">
+          <strong>Exercice final — à traiter dans l'ordre</strong>
+          <p>1. <strong>Conception des outils (module 4, rappel cours 17)</strong> : rédigez les schémas JSON des deux fonctions nécessaires pour le besoin 2 de l'étude de cas (obtenir le statut d'un colis) et pour le nouveau besoin 4 (alerte de retard), avec des descriptions qui aident le LLM à choisir la bonne fonction.</p>
+          <p>2. <strong>Cache (module 5)</strong> : pour la fonction de statut de colis, écrivez le code d'une fonction <code class="inline">obtenir_statut_colis_avec_cache</code> appliquant un TTL de 30 secondes, avec le pattern cache-aside de la leçon 5.2.</p>
+          <p>3. <strong>Repli (module 7, leçon 7.1)</strong> : étendez cette fonction pour qu'elle gère un timeout de l'API de suivi, avec repli vers le cache expiré et signalement explicite de la fraîcheur dégradée.</p>
+          <p>4. <strong>Fenêtrage (module 6, leçon 6.4)</strong> : pour le besoin 3 (statistiques du jour), esquissez la structure de données d'une agrégation horaire incluant au minimum le nombre de colis livrés et le délai moyen de livraison.</p>
+          <p>5. <strong>Monitoring (module 7, leçon 7.4)</strong> : listez les trois indicateurs que vous jugeriez prioritaires à surveiller pour l'ensemble de ce système.</p>
+        </div>
+
+        <p>Comme pour l'exercice final du cours 17, il n'existe pas de réponse unique — l'objectif est de démontrer une application cohérente des principes de fraîcheur, de latence et de fiabilité couverts par ce cours à un cas concret comportant plusieurs sources de données de nature différente.</p>
+      </section>
+
+      <section class="lesson" id="m8-l5" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 8.5</span>Synthèse et liens avec le reste de la série</h2>
+
+        <h3>Ce que ce cours a couvert</h3>
+        <div class="ascii">Récapitulatif des 8 modules :
+
+1. Fondamentaux — le spectre statique/temps réel, les trois
+   critères clés (fraîcheur, latence, cohérence)
+2. Données statiques — cycle de vie, versionnement, rôle du RAG,
+   péremption silencieuse, stratégies de rafraîchissement
+3. Données temps réel — modes d'accès, rôle du function calling,
+   compromis latence/fraîcheur, erreurs courantes
+4. Architectures hybrides — routage, fusion de sources, gestion
+   des incohérences
+5. Caching — TTL, invalidation, cache sémantique, communication
+   de la fraîcheur au modèle
+6. Pipelines temps réel — concepts de streaming, enrichissement
+   en continu, fenêtrage et agrégation
+7. Fiabilité — stratégies de repli, cohérence éventuelle vs
+   forte, idempotence, monitoring, tests de résilience
+8. Implémentation complète — checklist de conception, pipeline
+   de référence, étude de cas logistique</div>
+
+        <h3>Liens avec le reste de la série</h3>
+        <p>Ce cours s'appuie directement sur le bloc RAG (cours 9-13, pour la gestion des données statiques du module 2) et sur le cours 17 (function calling, mobilisé tout au long des modules 3, 4 et 7 pour l'accès aux données temps réel). Il prépare à son tour le cours suivant du bloc 5, consacré aux logs et traces d'agents IA — un sujet qui s'appuiera directement sur les principes de monitoring et de journalisation établis au module 7 de ce cours, appliqués cette fois à l'observabilité du comportement de l'agent lui-même plutôt qu'à celle des sources de données qu'il consulte.</p>
+
+        <h3>Pour aller plus loin</h3>
+        <ul>
+          <li>La documentation des plateformes de streaming évoquées au module 6 (Kafka, ou les services managés équivalents des fournisseurs cloud) pour les cas où le volume d'événements justifie une infrastructure dédiée.</li>
+          <li>Les patterns de cache distribué (Redis et équivalents) pour des architectures d'agents à grande échelle, où un cache en mémoire locale (comme illustré dans ce cours) ne suffit plus.</li>
+          <li>Les concepts de théorème CAP et de cohérence distribuée, pour approfondir les arbitrages évoqués au module 7, leçon 7.2, au-delà du niveau nécessaire pour un agent conversationnel standard.</li>
+        </ul>
+
+        <div class="callout exercise">
+          <strong>Pour conclure</strong>
+          En une phrase, formulez le principe de ce cours qui vous semble le plus déterminant pour éviter qu'un agent IA ne fournisse, avec assurance, une réponse fondée sur une donnée périmée — et pourquoi.
+        </div>
+      </section>
+    </div>
+
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+  hljs.highlightAll();
+
+  const storageKey = 'temps-reel-vs-statique-course-progress';
+  const total = 40;
+  const menuToggle = document.getElementById('menuToggle');
+  const sidebar = document.getElementById('sidebar');
+  menuToggle.addEventListener('click', () => sidebar.classList.toggle('open'));
+
+  function getProgress() {
+    try { return JSON.parse(localStorage.getItem(storageKey)) || {}; }
+    catch (e) { return {}; }
+  }
+  function saveProgress(p) { localStorage.setItem(storageKey, JSON.stringify(p)); }
+
+  function updateProgressBar() {
+    const p = getProgress();
+    const done = Object.values(p).filter(Boolean).length;
+    document.getElementById('progressFill').style.width = (done / total * 100) + '%';
+  }
+
+  function markVisible() {
+    const progress = getProgress();
+    const links = document.querySelectorAll('[data-lesson]');
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const id = entry.target.id;
+          links.forEach(l => l.classList.remove('active'));
+          const link = document.querySelector('[data-lesson="' + id + '"]');
+          if (link) link.classList.add('active');
+          if (!progress[id]) {
+            progress[id] = true;
+            saveProgress(progress);
+            updateProgressBar();
+            const check = link ? link.querySelector('.lesson-check') : null;
+            if (check) check.classList.add('done');
+          }
+        }
+      });
+    }, { threshold: 0.4 });
+    document.querySelectorAll('section.lesson').forEach(s => observer.observe(s));
+  }
+
+  function restoreChecks() {
+    const progress = getProgress();
+    Object.keys(progress).forEach(id => {
+      if (progress[id]) {
+        const link = document.querySelector('[data-lesson="' + id + '"]');
+        if (link) {
+          const check = link.querySelector('.lesson-check');
+          if (check) check.classList.add('done');
+        }
+      }
+    });
+    updateProgressBar();
+  }
+
+  restoreChecks();
+  markVisible();
+
+  document.querySelectorAll('.sidebar a').forEach(a => {
+    a.addEventListener('click', () => { sidebar.classList.remove('open'); });
+  });
+</script>
+</body>
+</html>
