@@ -1,0 +1,1955 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pipelines de Transformation de Données Reproductibles — Versionnage et Tests</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<style>
+  :root {
+    --bg: #f4f6f8; --bg-alt: #e8edf1; --panel: #ffffff; --text: #1f2430; --text-muted: #5b6472;
+    --accent: #0891b2; --accent-dark: #0e7490; --pitfall: #f59e0b; --border: #dbe2e8;
+    --chunk-1: #7c5cff; --chunk-2: #17b8a6; --chunk-3: #ff6b6b; --chunk-4: #ffb020;
+    --font-display: "Space Grotesk", sans-serif; --font-body: "Inter", system-ui, sans-serif; --font-mono: "JetBrains Mono", monospace;
+    --sidebar-width: 300px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font-body); color: var(--text); background: var(--bg); line-height: 1.65; }
+  .layout { display: flex; min-height: 100vh; }
+  .sidebar { width: var(--sidebar-width); flex-shrink: 0; background: var(--panel); border-right: 1px solid var(--border); padding: 1.5rem 1rem 3rem; overflow-y: auto; position: sticky; top: 0; height: 100vh; }
+  .sidebar a.brand { display: block; font-family: var(--font-display); font-weight: 700; font-size: 1rem; margin-bottom: 1.5rem; color: var(--text); text-decoration: none; padding: 0.4rem 0.5rem; }
+  .sidebar a.brand span { color: var(--accent); }
+  .module-group { margin-bottom: 0.35rem; border-radius: 8px; }
+  .module-title { font-family: var(--font-display); font-weight: 600; font-size: 0.88rem; padding: 0.55rem 0.6rem; display: flex; gap: 0.5rem; align-items: baseline; color: var(--text); text-decoration: none; }
+  .module-title .n { font-family: var(--font-mono); font-size: 0.72rem; opacity: 0.7; }
+  .lesson-list { list-style: none; padding-left: 0.6rem; margin-bottom: 0.4rem; }
+  .lesson-list li a { display: flex; align-items: center; gap: 0.5rem; padding: 0.32rem 0.5rem; border-radius: 6px; color: var(--text-muted); text-decoration: none; font-size: 0.83rem; }
+  .lesson-list li a:hover { background: var(--bg-alt); color: var(--text); }
+  .lesson-list li a.active { color: var(--accent-dark); font-weight: 600; background: rgba(8,145,178,0.1); }
+  .lesson-check { width: 12px; height: 12px; flex-shrink: 0; border: 1.5px solid var(--text-muted); border-radius: 3px; }
+  .lesson-check.done { background: var(--chunk-2); border-color: var(--chunk-2); }
+  .progress-bar { height: 4px; background: var(--border); position: sticky; top: 0; z-index: 10; }
+  .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--chunk-1), var(--accent)); width: 0%; transition: width 0.2s ease; }
+  .content { flex: 1; max-width: 760px; margin: 0 auto; padding: 3rem 2rem 6rem; }
+  .module-kicker { font-family: var(--font-mono); font-size: 0.8rem; color: var(--accent-dark); background: rgba(8,145,178,0.08); border: 1px dashed var(--accent); display: inline-block; padding: 0.2rem 0.8rem; border-radius: 999px; margin-bottom: 1rem; }
+  section.lesson { border-top: 2px dashed var(--border); padding-top: 2rem; margin-top: 2rem; position: relative; padding-left: 1.1rem; border-left: 4px solid var(--lesson-color, var(--accent)); }
+  section.lesson h2 { font-family: var(--font-display); font-size: 1.5rem; margin-bottom: 1rem; }
+  section.lesson h2 .tag { font-family: var(--font-mono); font-size: 0.7rem; color: var(--lesson-color, var(--accent)); display: block; margin-bottom: 0.3rem; }
+  section.lesson h3 { font-family: var(--font-display); font-size: 1.1rem; margin: 1.4rem 0 0.6rem; }
+  section.lesson p, section.lesson ul, section.lesson ol { margin-bottom: 1rem; }
+  section.lesson li { margin-left: 1.3rem; margin-bottom: 0.35rem; }
+  pre { border-radius: 8px; padding: 1rem; overflow-x: auto; margin: 1rem 0; font-size: 0.85rem; }
+  code.inline { font-family: var(--font-mono); background: var(--bg-alt); padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.85em; }
+  .ascii { font-family: var(--font-mono); font-size: 0.78rem; background: #1e222b; color: #d7dce2; padding: 1rem 1.2rem; border-radius: 8px; overflow-x: auto; margin: 1rem 0; line-height: 1.5; white-space: pre; }
+  .callout { border-left: 4px solid var(--accent); background: var(--bg-alt); padding: 1rem 1.2rem; border-radius: 0 8px 8px 0; margin: 1.2rem 0; }
+  .callout strong { font-family: var(--font-display); display: block; margin-bottom: 0.3rem; font-size: 0.92rem; }
+  .callout.pitfall { border-left-color: var(--pitfall); }
+  .callout.exercise { border-left-color: var(--chunk-2); }
+  .menu-toggle { display: none; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.88rem; }
+  thead tr { text-align: left; border-bottom: 2px solid var(--border); }
+  th, td { padding: 0.5rem 0.6rem; }
+  tbody tr { border-bottom: 1px solid var(--border); }
+
+  .hero {
+    border-bottom: 2px dashed var(--border);
+    padding: 3rem 0 2.5rem;
+    text-align: center;
+    margin-bottom: 1rem;
+  }
+  .hero .tag {
+    display: inline-block; font-family: var(--font-mono); font-size: 0.8rem;
+    color: var(--accent-dark); background: rgba(8,145,178,0.1);
+    border: 1px dashed var(--accent); border-radius: 999px;
+    padding: 0.25rem 0.9rem; margin-bottom: 1.25rem;
+  }
+  .hero-title {
+    font-family: var(--font-display); font-size: clamp(1.8rem, 5vw, 2.6rem);
+    font-weight: 700; margin: 0 auto 1rem; letter-spacing: -0.01em;
+  }
+  .hero-title span {
+    background: linear-gradient(90deg, var(--chunk-1), var(--accent), var(--chunk-2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .hero-lead { max-width: 620px; margin: 0 auto; color: var(--text-muted); font-size: 1.02rem; }
+  .strip { display: flex; justify-content: center; gap: 0.4rem; margin: 2rem auto 0; max-width: 520px; }
+  .strip .seg { height: 8px; flex: 1; border-radius: 3px; }
+  .strip .seg:nth-child(1) { background: var(--chunk-1); }
+  .strip .seg:nth-child(2) { background: var(--chunk-2); }
+  .strip .seg:nth-child(3) { background: var(--chunk-3); }
+  .strip .seg:nth-child(4) { background: var(--chunk-4); }
+  .strip .seg:nth-child(5) { background: var(--chunk-1); }
+  .strip .seg:nth-child(6) { background: var(--chunk-2); }
+
+  .module-block { border-top: 3px solid var(--border); padding-top: 2.5rem; margin-top: 3rem; }
+  .module-block:first-of-type { border-top: none; margin-top: 0; }
+  .module-block > h1 { font-family: var(--font-display); font-size: 2rem; margin-bottom: 0.5rem; }
+  .module-block > p.intro { color: var(--text-muted); margin-bottom: 2rem; font-size: 1.02rem; }
+
+  .finale {
+    margin-top: 3rem; padding: 1.5rem; border-radius: 10px;
+    background: linear-gradient(135deg, rgba(124,92,255,0.08), rgba(23,184,166,0.08));
+    border: 1px dashed var(--accent);
+    text-align: center;
+  }
+  .finale p { color: var(--text-muted); margin-bottom: 0.8rem; }
+  .finale a {
+    display: inline-block; background: var(--accent); color: white;
+    text-decoration: none; padding: 0.6rem 1.4rem; border-radius: 6px;
+    font-family: var(--font-display); font-weight: 600; font-size: 0.9rem;
+  }
+
+  @media (max-width: 860px) {
+    .sidebar { position: fixed; left: -100%; z-index: 20; transition: left 0.2s ease; box-shadow: 4px 0 12px rgba(0,0,0,0.15); background: var(--panel); }
+    .sidebar.open { left: 0; }
+    .menu-toggle { display: block; position: fixed; top: 1rem; left: 1rem; z-index: 30; background: var(--accent); color: white; border: none; border-radius: 6px; padding: 0.5rem 0.75rem; cursor: pointer; font-size: 1rem; }
+    .content { padding: 4.5rem 1.25rem 3rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-bar-fill" id="progressFill"></div></div>
+<button class="menu-toggle" id="menuToggle">☰</button>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar">
+    <a class="brand" href="#top">Pipeline<span>Repro</span></a>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-1"><span class="n">01</span> Fondamentaux de la reproductibilité</a>
+      <ul class="lesson-list">
+        <li><a href="#m1-l1" data-lesson="m1-l1"><span class="lesson-check"></span>Qu'est-ce qu'un pipeline reproductible</a></li>
+        <li><a href="#m1-l2" data-lesson="m1-l2"><span class="lesson-check"></span>Les sources de non-reproductibilité</a></li>
+        <li><a href="#m1-l3" data-lesson="m1-l3"><span class="lesson-check"></span>Où se situe ce cours dans le Bloc 7</a></li>
+        <li><a href="#m1-l4" data-lesson="m1-l4"><span class="lesson-check"></span>Panorama de l'outillage</a></li>
+        <li><a href="#m1-l5" data-lesson="m1-l5"><span class="lesson-check"></span>Erreurs courantes de conception</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-2"><span class="n">02</span> Versionner le code de transformation</a>
+      <ul class="lesson-list">
+        <li><a href="#m2-l1" data-lesson="m2-l1"><span class="lesson-check"></span>Rappel des bases : Git pour le code de pipeline</a></li>
+        <li><a href="#m2-l2" data-lesson="m2-l2"><span class="lesson-check"></span>Structurer un pipeline versionnable et modulaire</a></li>
+        <li><a href="#m2-l3" data-lesson="m2-l3"><span class="lesson-check"></span>Gérer dépendances et environnements</a></li>
+        <li><a href="#m2-l4" data-lesson="m2-l4"><span class="lesson-check"></span>Paramétrer un pipeline plutôt que coder en dur</a></li>
+        <li><a href="#m2-l5" data-lesson="m2-l5"><span class="lesson-check"></span>Pièges courants de versionnage de code</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-3"><span class="n">03</span> Versionner les données elles-mêmes</a>
+      <ul class="lesson-list">
+        <li><a href="#m3-l1" data-lesson="m3-l1"><span class="lesson-check"></span>Pourquoi versionner les données, pas que le code</a></li>
+        <li><a href="#m3-l2" data-lesson="m3-l2"><span class="lesson-check"></span>Outils de data versioning (DVC et équivalents)</a></li>
+        <li><a href="#m3-l3" data-lesson="m3-l3"><span class="lesson-check"></span>Lier une version de données à une version de code</a></li>
+        <li><a href="#m3-l4" data-lesson="m3-l4"><span class="lesson-check"></span>Gérer le volume : stockage, delta, versions complètes</a></li>
+        <li><a href="#m3-l5" data-lesson="m3-l5"><span class="lesson-check"></span>Pièges du versionnage de données</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-4"><span class="n">04</span> Rendre un pipeline déterministe</a>
+      <ul class="lesson-list">
+        <li><a href="#m4-l1" data-lesson="m4-l1"><span class="lesson-check"></span>Sources de non-déterminisme</a></li>
+        <li><a href="#m4-l2" data-lesson="m4-l2"><span class="lesson-check"></span>Gérer les seeds aléatoires</a></li>
+        <li><a href="#m4-l3" data-lesson="m4-l3"><span class="lesson-check"></span>Neutraliser dépendances au temps et à l'environnement</a></li>
+        <li><a href="#m4-l4" data-lesson="m4-l4"><span class="lesson-check"></span>Isoler les appels à des services externes</a></li>
+        <li><a href="#m4-l5" data-lesson="m4-l5"><span class="lesson-check"></span>Vérifier le déterminisme en rejouant le pipeline</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-5"><span class="n">05</span> Tester un pipeline de transformation</a>
+      <ul class="lesson-list">
+        <li><a href="#m5-l1" data-lesson="m5-l1"><span class="lesson-check"></span>Pourquoi tester un pipeline comme du code</a></li>
+        <li><a href="#m5-l2" data-lesson="m5-l2"><span class="lesson-check"></span>Tests unitaires sur des transformations individuelles</a></li>
+        <li><a href="#m5-l3" data-lesson="m5-l3"><span class="lesson-check"></span>Tests d'intégration sur le pipeline complet</a></li>
+        <li><a href="#m5-l4" data-lesson="m5-l4"><span class="lesson-check"></span>Jeux de données de test : fixtures et synthétiques</a></li>
+        <li><a href="#m5-l5" data-lesson="m5-l5"><span class="lesson-check"></span>Pièges des tests de pipeline</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-6"><span class="n">06</span> Tests de non-régression et de bout en bout</a>
+      <ul class="lesson-list">
+        <li><a href="#m6-l1" data-lesson="m6-l1"><span class="lesson-check"></span>Détecter un changement de résultat non voulu</a></li>
+        <li><a href="#m6-l2" data-lesson="m6-l2"><span class="lesson-check"></span>Snapshot testing : comparer à une référence</a></li>
+        <li><a href="#m6-l3" data-lesson="m6-l3"><span class="lesson-check"></span>Tests de bout en bout sur un pipeline complet</a></li>
+        <li><a href="#m6-l4" data-lesson="m6-l4"><span class="lesson-check"></span>Gérer les tests coûteux ou lents</a></li>
+        <li><a href="#m6-l5" data-lesson="m6-l5"><span class="lesson-check"></span>Pièges de la non-régression</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-7"><span class="n">07</span> Intégration continue et automatisation</a>
+      <ul class="lesson-list">
+        <li><a href="#m7-l1" data-lesson="m7-l1"><span class="lesson-check"></span>Exécuter les tests automatiquement (CI)</a></li>
+        <li><a href="#m7-l2" data-lesson="m7-l2"><span class="lesson-check"></span>Valider un pipeline avant de le déployer</a></li>
+        <li><a href="#m7-l3" data-lesson="m7-l3"><span class="lesson-check"></span>Gérer les environnements test, staging, production</a></li>
+        <li><a href="#m7-l4" data-lesson="m7-l4"><span class="lesson-check"></span>Rollback et récupération en cas de régression</a></li>
+        <li><a href="#m7-l5" data-lesson="m7-l5"><span class="lesson-check"></span>Documentation et traçabilité d'une exécution</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-8"><span class="n">08</span> Implémentation complète et étude de cas</a>
+      <ul class="lesson-list">
+        <li><a href="#m8-l1" data-lesson="m8-l1"><span class="lesson-check"></span>Checklist de reproductibilité et de test</a></li>
+        <li><a href="#m8-l2" data-lesson="m8-l2"><span class="lesson-check"></span>Pipeline complet : code à CI</a></li>
+        <li><a href="#m8-l3" data-lesson="m8-l3"><span class="lesson-check"></span>Étude de cas : rendre reproductible un pipeline RAG</a></li>
+        <li><a href="#m8-l4" data-lesson="m8-l4"><span class="lesson-check"></span>Exercice final</a></li>
+        <li><a href="#m8-l5" data-lesson="m8-l5"><span class="lesson-check"></span>Synthèse et transition vers le cours 25</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main class="content">
+    <header class="hero" id="top">
+      <span class="tag">// data-for-ai · 7.outillage-industrialisation · Formation 24</span>
+      <h1 class="hero-title">Pipelines de Transformation <span>Reproductibles</span></h1>
+      <p class="hero-lead">Versionnage et tests — comment garantir qu'un pipeline de données produit toujours le même résultat à partir des mêmes entrées, et détecter automatiquement toute régression avant qu'elle n'atteigne la production. 8 modules, 40 leçons.</p>
+      <div class="strip" aria-hidden="true">
+        <div class="seg"></div><div class="seg"></div><div class="seg"></div>
+        <div class="seg"></div><div class="seg"></div><div class="seg"></div>
+      </div>
+    </header>
+
+    <div class="module-block" id="module-1">
+      <span class="module-kicker">MODULE 01 / 08</span>
+      <h1>Fondamentaux de la reproductibilité</h1>
+      <p class="intro">Ce cours poursuit le Bloc 7 de la série, entamé au cours 23 sur la validation automatisée. Il traite un problème complémentaire : même un pipeline dont les données sont valides à chaque étape (cours 23) peut échouer à produire le même résultat d'une exécution à l'autre — un problème de reproductibilité, distinct de celui de la validité.</p>
+
+      <section class="lesson" id="m1-l1" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 1.1</span>Qu'est-ce qu'un pipeline reproductible et pourquoi ça compte</h2>
+
+        <p>Un pipeline de transformation de données est <strong>reproductible</strong> s'il produit exactement le même résultat lorsqu'il est exécuté à nouveau avec les mêmes données d'entrée et la même version du code — une propriété qui semble évidente en théorie, mais qui échoue fréquemment en pratique pour des raisons subtiles, approfondies au module 4.</p>
+
+        <div class="ascii">Ce que la reproductibilité permet concrètement :
+
+DIAGNOSTIC D'UN PROBLÈME PASSÉ
+  Rejouer exactement le pipeline tel qu'il s'exécutait à un
+  moment donné, pour comprendre pourquoi un résultat
+  particulier a été produit — rappel du même besoin déjà
+  établi au cours 19 (logs et traces) mais appliqué ici au
+  pipeline de transformation lui-même, pas seulement à un agent
+
+VALIDATION D'UNE MODIFICATION
+  Vérifier qu'un changement de code produit bien le résultat
+  attendu, en comparant à une exécution de référence connue
+  (approfondi au module 6, sur les tests de non-régression)
+
+COLLABORATION FIABLE ENTRE PERSONNES
+  Une collègue qui exécute le même pipeline sur sa propre
+  machine devrait obtenir EXACTEMENT le même résultat qu'une
+  autre personne l'ayant exécuté ailleurs — sans cette garantie,
+  toute divergence de résultat devient une source de confusion
+  et de perte de temps à diagnostiquer</div>
+
+        <p>Ce sujet complète directement celui du cours 23 : la validation (cours 23) vérifie que les données respectent des contraintes à un instant donné, tandis que la reproductibilité (ce cours) vérifie que le même processus de transformation, appliqué aux mêmes données, produit toujours le même résultat — deux propriétés indépendantes, un pipeline pouvant satisfaire l'une sans l'autre.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Supposer qu'un pipeline dont chaque étape produit des données valides (rappel cours 23) est nécessairement reproductible — la validité des données à un instant donné ne garantit en rien qu'une exécution ultérieure du même pipeline, avec les mêmes entrées, produira exactement le même résultat.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Décrivez une situation où un pipeline de données que vous avez utilisé ou observé a produit un résultat différent lors de deux exécutions successives, alors que rien n'avait, en apparence, changé entre les deux.
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l2" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 1.2</span>Les sources de non-reproductibilité</h2>
+
+        <p>Cette leçon recense les catégories principales de causes qui rendent un pipeline non reproductible, en s'appuyant sur des exemples déjà rencontrés dans les blocs précédents de cette série — chacune approfondie individuellement au module 4.</p>
+
+        <div class="ascii">Catégories de non-reproductibilité, avec des exemples déjà
+rencontrés dans cette série :
+
+CODE NON VERSIONNÉ OU MAL VERSIONNÉ (approfondi module 2)
+  Une modification du code de transformation appliquée sans
+  trace, rendant impossible de savoir quelle version exacte
+  a produit un résultat donné
+
+DONNÉES SOURCES QUI CHANGENT SANS VERSIONNEMENT (approfondi
+module 3) — rappel cours 18, sur la fraîcheur des données :
+  une source qui évolue entre deux exécutions du même
+  pipeline change nécessairement le résultat, sans que le
+  CODE lui-même n'ait changé
+
+ALÉATOIRE NON CONTRÔLÉ (approfondi module 4, leçon 4.2) —
+  rappel cours 20, module 7, sur le split train/test :
+  un tirage aléatoire non figé produit un résultat différent
+  à chaque exécution
+
+DÉPENDANCE AU TEMPS OU À L'ENVIRONNEMENT D'EXÉCUTION
+(approfondi module 4, leçon 4.3) — un pipeline qui utilise
+la date du jour, ou qui se comporte différemment selon la
+machine sur laquelle il s'exécute</div>
+
+        <p>Cette taxonomie prépare directement la structure du reste de ce cours : le module 2 traite le versionnement de code, le module 3 le versionnement de données, et le module 4 les sources de non-déterminisme au sens strict (aléatoire, temps, environnement) — trois dimensions distinctes qui, ensemble, couvrent la quasi-totalité des causes de non-reproductibilité rencontrées en pratique.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Attribuer systématiquement un résultat différent entre deux exécutions à un "bug" du code de transformation, sans envisager que la cause pourrait résider ailleurs — dans les données sources elles-mêmes (module 3) ou dans une source d'aléatoire non maîtrisée (module 4) plutôt que dans une erreur de logique de traitement.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour la situation décrite à l'exercice de la leçon 1.1, laquelle des quatre catégories de cette leçon vous semble la plus plausible comme explication ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l3" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 1.3</span>Où se situe ce cours dans le Bloc 7</h2>
+
+        <p>Rappel direct du cours 23 (module 8, leçon 8.5, sur l'ouverture du Bloc 7) : ce cours 24 prolonge directement un fil déjà entamé au cours 23, module 7, leçon 7.3, où tester un schéma de validation lui-même avait été introduit — ce cours étend ce principe de test à l'ensemble d'un pipeline de transformation, pas seulement à son schéma de validation.</p>
+
+        <div class="ascii">Progression du Bloc 7, situant précisément ce cours :
+
+Cours 23 — Validation de données
+  QUOI vérifier : des contraintes explicites sur les données
+  à un instant T (rappel cours 23, modules 2-5)
+                    │
+                    ▼
+Cours 24 (ce cours) — Pipelines reproductibles
+  COMMENT garantir qu'un pipeline complet, incluant son code
+  ET ses données, produit un résultat stable et reproductible
+  dans le temps, avec des tests qui le vérifient
+                    │
+                    ▼
+Cours 25 — Monitoring de qualité
+  SURVEILLER dans la durée la dégradation d'une source de
+  données, en s'appuyant sur les fondations de ce cours 24</div>
+
+        <p>Ce positionnement clarifie une distinction importante : la validation (cours 23) porte sur le CONTENU des données, tandis que ce cours porte sur le PROCESSUS de transformation lui-même — sa capacité à être rejoué de façon identique, versionné, et testé comme n'importe quel autre logiciel critique.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer que la validation de données du cours 23 suffit à garantir la fiabilité complète d'un pipeline, en négligeant que la reproductibilité du PROCESSUS lui-même (ce cours) constitue une dimension de fiabilité tout aussi nécessaire mais distincte.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un pipeline qui valide correctement chaque étape (rappel cours 23) mais qui n'est pas reproductible (ce cours), décrivez un scénario concret où cette absence de reproductibilité causerait un problème réel malgré une validation par ailleurs irréprochable.
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l4" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 1.4</span>Panorama de l'outillage : versionnage de données, orchestration, tests</h2>
+
+        <p>Cette leçon donne un aperçu des catégories d'outils mobilisées tout au long de ce cours, chacune approfondie dans les modules suivants.</p>
+
+        <table>
+          <thead><tr><th>Catégorie</th><th>Rôle</th><th>Approfondi au module</th></tr></thead>
+          <tbody>
+            <tr><td>Contrôle de version de code (Git)</td><td>Tracer les modifications du code de transformation lui-même</td><td>Module 2</td></tr>
+            <tr><td>Versionnage de données (DVC et équivalents)</td><td>Tracer les versions des données elles-mêmes, en complément du code</td><td>Module 3</td></tr>
+            <tr><td>Frameworks de test (pytest et équivalents)</td><td>Vérifier automatiquement le comportement attendu d'un pipeline</td><td>Modules 5-6</td></tr>
+            <tr><td>Systèmes d'intégration continue (CI)</td><td>Exécuter automatiquement les tests à chaque modification du pipeline</td><td>Module 7</td></tr>
+          </tbody>
+        </table>
+
+        <p>Cette combinaison d'outils n'est pas propre à l'écosystème des données : elle reprend largement les pratiques déjà établies dans le développement logiciel classique, appliquées ici spécifiquement au contexte des pipelines de transformation de données — une passerelle entre les pratiques d'ingénierie logicielle traditionnelles et les besoins spécifiques de cette série centrée sur la donnée.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer que les pratiques d'ingénierie logicielle classiques (versionnement, tests, intégration continue) ne s'appliquent pas aux pipelines de données, qui seraient d'une nature fondamentalement différente du code applicatif — ces pratiques s'appliquent directement, avec quelques adaptations spécifiques (versionnage des données elles-mêmes, en particulier) traitées dans ce cours.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Parmi les quatre catégories d'outils de cette leçon, laquelle vous semble la moins familière si vous venez d'un contexte de développement logiciel classique plutôt que de données ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l5" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 1.5</span>Erreurs courantes de conception</h2>
+
+        <p>Cette dernière leçon du module recense les erreurs les plus fréquentes lors de la conception d'un pipeline visant la reproductibilité, approfondies individuellement dans les modules suivants.</p>
+
+        <h3>Erreur 1 : versionner le code sans versionner les données</h3>
+        <p>Suivre rigoureusement les modifications du code de transformation (rappel module 2) tout en laissant les données sources totalement non versionnées — une reproductibilité partielle qui échoue dès que la source de données change, approfondi au module 3.</p>
+
+        <h3>Erreur 2 : ignorer les sources d'aléatoire dans le pipeline</h3>
+        <p>Ne pas fixer les graines aléatoires (seeds) utilisées à différentes étapes du pipeline, produisant un résultat légèrement différent à chaque exécution malgré des entrées identiques — approfondi au module 4, leçon 4.2.</p>
+
+        <h3>Erreur 3 : ne tester le pipeline qu'une seule fois manuellement</h3>
+        <p>Vérifier une seule fois que le pipeline fonctionne correctement, sans mettre en place de tests automatisés qui détecteraient une régression future — approfondi aux modules 5-7.</p>
+
+        <h3>Erreur 4 : ne jamais rejouer un pipeline pour vérifier sa reproductibilité réelle</h3>
+        <p>Supposer qu'un pipeline est reproductible sans jamais le vérifier empiriquement en le rejouant et en comparant les résultats — approfondi au module 4, leçon 4.5.</p>
+
+        <div class="ascii">Les quatre erreurs à éviter, résumées :
+
+1. CODE VERSIONNÉ, DONNÉES NON VERSIONNÉES  →  Reproductibilité partielle
+2. ALÉATOIRE NON CONTRÔLÉ                    →  Résultat variable à chaque
+                                                exécution
+3. TESTS MANUELS UNIQUEMENT                   →  Régressions futures non
+                                                détectées
+4. REPRODUCTIBILITÉ JAMAIS VÉRIFIÉE            →  Confiance non fondée</div>
+
+        <p>Les modules suivants traitent chacune de ces erreurs : les modules 2-3 détaillent le versionnement de code et de données, le module 4 la gestion du déterminisme, et les modules 5-7 la mise en place de tests automatisés et de leur intégration continue.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer la reproductibilité comme une propriété binaire acquise une fois pour toutes après un effort initial, plutôt que comme une discipline continue à maintenir à mesure que le pipeline évolue — un pipeline reproductible aujourd'hui peut cesser de l'être après une modification anodine en apparence, sans les garde-fous appropriés (modules 5-7).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de synthèse</strong>
+          Pour clore ce module : parmi les quatre erreurs listées, laquelle vous semble la plus probable dans un projet que vous avez connu ou pourriez rencontrer — et pourquoi ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-2">
+      <span class="module-kicker">MODULE 02 / 08</span>
+      <h1>Versionner le code de transformation</h1>
+      <p class="intro">Ce module traite la première des trois grandes catégories de non-reproductibilité identifiées au module 1 : un code de transformation mal versionné ou mal structuré. Ces principes reprennent des pratiques d'ingénierie logicielle classiques, appliquées spécifiquement au contexte des pipelines de données.</p>
+
+      <section class="lesson" id="m2-l1" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 2.1</span>Rappel des bases : Git pour le code de pipeline</h2>
+
+        <p>Le contrôle de version (Git) constitue le socle minimal de toute reproductibilité de code : chaque modification du pipeline de transformation devrait être tracée, avec la possibilité de revenir à n'importe quelle version antérieure et de savoir exactement quel changement a produit quel résultat.</p>
+
+        <div class="ascii">Ce que le versionnement de code apporte spécifiquement à un
+pipeline de transformation de données :
+
+TRAÇABILITÉ DES MODIFICATIONS
+  Chaque changement de logique de transformation (rappel
+  cours 11, sur le nettoyage de texte ; cours 9, sur le
+  chunking) est associé à un commit identifiable, avec un
+  message expliquant le POURQUOI du changement
+
+CAPACITÉ À REVENIR EN ARRIÈRE
+  Si une modification récente du pipeline produit un résultat
+  inattendu, revenir à la version précédente devient une
+  opération immédiate plutôt qu'une reconstruction manuelle
+
+CORRÉLATION AVEC LES RÉSULTATS PRODUITS
+  Rappel du principe déjà établi au cours 20 (module 7,
+  leçon 7.5) pour les datasets — associer un résultat produit
+  à la version EXACTE du code qui l'a généré, pas seulement
+  à une date approximative</div>
+
+        <p>Ce principe, bien que basique, est souvent négligé spécifiquement pour le code de transformation de données — en particulier dans des environnements de notebooks exploratoires (rappel des pratiques du Bloc 1 de cette série) où le versionnement rigoureux est moins naturel que dans un projet logiciel structuré dès le départ.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Développer un pipeline de transformation de données dans des notebooks non versionnés ou versionnés de façon incohérente (cellules exécutées dans un ordre non reproductible), une pratique courante lors de l'exploration initiale mais qui devient un risque significatif dès que ce même code alimente un pipeline en production.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un pipeline que vous avez développé ou observé, le code de transformation était-il versionné avec la même rigueur que le reste du projet logiciel, ou traité comme un artefact secondaire moins surveillé ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l2" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 2.2</span>Structurer un pipeline versionnable et modulaire</h2>
+
+        <p>Au-delà du simple fait de versionner le code, sa <strong>structure</strong> influence directement sa reproductibilité et sa testabilité (approfondie au module 5) : un pipeline découpé en fonctions modulaires et bien nommées se prête bien mieux au versionnement granulaire et aux tests qu'un script monolithique.</p>
+
+        <pre><code class="language-python"># MOINS REPRODUCTIBLE : un script monolithique qui mélange
+# extraction, nettoyage et chunking en une seule fonction
+def traiter_documents_v1(chemin_dossier):
+    # 200 lignes mélangeant extraction, nettoyage, chunking...
+    pass
+
+# PLUS REPRODUCTIBLE : des fonctions modulaires, chacune
+# responsable d'une seule étape, testable indépendamment
+# (rappel module 5, sur les tests unitaires)
+def extraire_documents(chemin_dossier) -> list[str]:
+    ...
+
+def nettoyer_texte(documents: list[str]) -> list[str]:
+    ...
+
+def decouper_en_chunks(documents_nettoyes: list[str]) -> list[dict]:
+    ...
+
+def pipeline_complet(chemin_dossier) -> list[dict]:
+    documents = extraire_documents(chemin_dossier)
+    documents_nettoyes = nettoyer_texte(documents)
+    return decouper_en_chunks(documents_nettoyes)
+</code></pre>
+
+        <div class="ascii">Pourquoi la modularité sert directement la reproductibilité :
+
+Un CHANGEMENT dans la logique de nettoyage (rappel cours 11)
+peut être versionné et RETRACÉ indépendamment du reste du
+pipeline — un commit qui modifie UNIQUEMENT "nettoyer_texte"
+indique clairement la portée exacte du changement
+
+Chaque fonction peut être TESTÉE et REJOUÉE isolément
+(approfondi module 5, leçon 5.2), plutôt que de nécessiter
+l'exécution complète du pipeline pour vérifier un seul aspect</div>
+
+        <p>Cette structuration modulaire rejoint directement le principe déjà établi dans plusieurs cours de cette série (par exemple, cours 17, module 3, leçon 3.4, sur la simplicité vs expressivité des fonctions) : diviser une logique complexe en composants spécifiques et bien délimités facilite non seulement la compréhension, mais aussi la traçabilité et la vérification indépendante de chaque partie.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Écrire un pipeline de transformation comme un script long et monolithique, où chaque modification touche potentiellement l'ensemble du fichier — cette structure rend le versionnement moins granulaire (un commit modifie souvent bien plus que ce qui était réellement visé) et complique fortement les tests isolés de chaque étape.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour le pipeline RAG déjà construit aux cours 9-13, identifiez trois fonctions modulaires distinctes qui pourraient structurer ce pipeline selon le principe de cette leçon.
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l3" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 2.3</span>Gérer les dépendances et les environnements</h2>
+
+        <p>Une source fréquente et souvent négligée de non-reproductibilité : deux exécutions du même code, sur deux machines différentes, utilisant des versions différentes des bibliothèques Python sous-jacentes (pandas, un tokenizer, un modèle d'embeddings) peuvent produire des résultats légèrement différents, malgré un code source identique.</p>
+
+        <pre><code class="language-text"># requirements.txt SANS versions figées — DANGEREUX pour
+# la reproductibilité, chaque installation peut récupérer
+# une version différente des bibliothèques
+pandas
+transformers
+
+# requirements.txt AVEC versions figées (lockfile) — chaque
+# installation récupère EXACTEMENT les mêmes versions
+pandas==2.1.4
+transformers==4.36.2
+</code></pre>
+
+        <div class="ascii">Pourquoi les versions de bibliothèques affectent la
+reproductibilité, avec un exemple direct de cette série :
+
+Rappel cours 10 (embeddings) : deux versions différentes
+d'une bibliothèque de calcul d'embeddings peuvent produire
+des vecteurs LÉGÈREMENT DIFFÉRENTS pour un même texte —
+un changement invisible au niveau du CODE, mais qui modifie
+le résultat final du pipeline RAG (recherche vectorielle,
+cours 13) de façon subtile
+
+→ Un "lockfile" (versions exactement figées) élimine cette
+  source de variation entre deux installations distinctes
+  du même projet, sur des machines différentes ou à des
+  moments différents</div>
+
+        <p>Ce problème rejoint directement un principe déjà esquissé implicitement au cours 20 (module 7, leçon 7.5, sur la documentation de dataset) : documenter et figer non seulement le code et les données, mais aussi l'environnement d'exécution complet — une dimension de reproductibilité souvent oubliée car invisible tant qu'aucun problème ne se manifeste.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Spécifier les dépendances d'un projet sans figer leurs versions exactes (un simple "pandas" plutôt que "pandas==2.1.4"), en supposant que cela n'affecte pas les résultats produits — certaines mises à jour de bibliothèques, en particulier pour des modèles d'embeddings ou de NLP, peuvent modifier subtilement le comportement numérique sans que le code appelant n'ait changé.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un pipeline utilisant une bibliothèque de calcul d'embeddings (rappel cours 10), pourquoi une mise à jour mineure de cette bibliothèque pourrait-elle produire des résultats de recherche vectorielle (cours 13) légèrement différents, malgré un code de pipeline inchangé ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l4" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 2.4</span>Paramétrer un pipeline plutôt que coder en dur</h2>
+
+        <p>Cette leçon traite une pratique complémentaire à la modularité (leçon 2.2) : extraire les valeurs qui pourraient varier (chemins de fichiers, seuils, tailles de chunks) en paramètres explicites, plutôt que de les coder en dur au sein de la logique de transformation.</p>
+
+        <pre><code class="language-python"># MOINS REPRODUCTIBLE : valeurs codées en dur, dispersées
+# dans le code, difficiles à retracer d'une exécution à l'autre
+def decouper_en_chunks(documents):
+    return [d[i:i+500] for d in documents for i in range(0, len(d), 500)]
+
+# PLUS REPRODUCTIBLE : paramètres explicites, documentés et
+# enregistrés à CHAQUE exécution (rappel module 7, leçon 7.5,
+# sur la traçabilité d'une exécution)
+def decouper_en_chunks(documents, taille_chunk: int = 500, chevauchement: int = 50):
+    """Rappel cours 9 (chunking) — les paramètres de découpage
+    (taille, chevauchement) sont exposés explicitement plutôt
+    que codés en dur, permettant de les enregistrer et de les
+    reproduire exactement d'une exécution à l'autre."""
+    ...
+</code></pre>
+
+        <div class="ascii">Pourquoi la paramétrisation explicite sert la reproductibilité :
+
+Une valeur codée en dur, si elle est modifiée, laisse une
+trace UNIQUEMENT dans l'historique Git du fichier concerné
+— difficile à associer clairement à une EXÉCUTION spécifique
+du pipeline
+
+Un paramètre EXPLICITE peut être enregistré à chaque
+exécution (rappel module 7, leçon 7.5, sur la traçabilité)
+— on sait précisément avec quelle configuration un résultat
+donné a été produit, sans devoir consulter l'historique du
+code source</div>
+
+        <p>Cette pratique rejoint directement un principe déjà établi au cours 17 (module 3, leçon 3.1, sur la conception de schémas) : rendre explicite ce qui pourrait rester implicite facilite la compréhension et la traçabilité — un principe qui s'applique aussi bien à la conception de schémas de fonction qu'à la configuration d'un pipeline de transformation de données.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Coder en dur des valeurs de configuration (tailles de chunks, seuils, chemins de fichiers) directement dans la logique de transformation, plutôt que de les exposer comme des paramètres explicites — cette pratique complique la traçabilité de quelle configuration exacte a produit un résultat donné, et rend plus difficile de faire varier ces valeurs pour des tests (module 5).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour le pipeline RAG des cours 9-13, listez trois valeurs de configuration qui devraient être paramétrées explicitement plutôt que codées en dur.
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l5" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 2.5</span>Pièges courants de versionnage de code</h2>
+
+        <p>Cette dernière leçon du module recense des pièges spécifiques au versionnement de code de pipeline, en complément des principes déjà établis.</p>
+
+        <h3>Piège 1 : commits trop larges et peu descriptifs</h3>
+        <p>Regrouper plusieurs changements sans rapport dans un même commit avec un message vague ("mise à jour du pipeline") rend difficile de comprendre après coup quel changement précis a affecté quel comportement du pipeline.</p>
+
+        <h3>Piège 2 : ne pas versionner les fichiers de configuration</h3>
+        <p>Rappel de la leçon 2.4 : versionner rigoureusement le code tout en laissant les fichiers de configuration ou de paramètres hors du contrôle de version, recréant une source de non-traçabilité que la paramétrisation explicite était censée éliminer.</p>
+
+        <h3>Piège 3 : environnements de développement non reproductibles entre membres d'une équipe</h3>
+        <p>Rappel de la leçon 2.3 : chaque membre d'une équipe installant les dépendances à des moments différents, sans lockfile partagé, peut se retrouver avec des versions divergentes qui produisent des résultats subtilement différents d'une machine à l'autre.</p>
+
+        <div class="ascii">Ce module clôt la partie "versionnement du code" du cours. Le
+module suivant traite la seconde catégorie de non-reproductibilité
+déjà identifiée au module 1 : les données elles-mêmes, qui
+nécessitent une discipline de versionnement distincte du code.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer que le versionnement du code seul (Git) suffit à garantir la reproductibilité complète d'un pipeline, en négligeant que les données sources, l'environnement d'exécution, et la configuration doivent être versionnés avec la même rigueur pour obtenir une reproductibilité réellement complète.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de synthèse</strong>
+          Pour clore ce module : parmi les trois pièges listés, lequel vous semble le plus fréquent dans une équipe qui découvre pour la première fois l'importance de la reproductibilité de pipeline ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-3">
+      <span class="module-kicker">MODULE 03 / 08</span>
+      <h1>Versionner les données elles-mêmes</h1>
+      <p class="intro">Ce module traite la seconde catégorie de non-reproductibilité identifiée au module 1 : même avec un code parfaitement versionné (module 2), un pipeline reste non reproductible si les données sources changent sans traçabilité — un problème qui nécessite des outils et pratiques spécifiques, distincts de Git.</p>
+
+      <section class="lesson" id="m3-l1" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 3.1</span>Pourquoi versionner les données, pas seulement le code</h2>
+
+        <p>Rappel direct du cours 20 (module 7, leçon 7.5) et du cours 21 (module 7, leçon 7.5) : le versionnement de datasets a déjà été établi comme une pratique nécessaire dans le contexte du fine-tuning. Ce module généralise ce même principe à toute donnée utilisée par un pipeline de transformation, pas seulement aux datasets d'entraînement.</p>
+
+        <div class="ascii">Pourquoi Git seul ne suffit pas pour versionner des données :
+
+Git est conçu pour du TEXTE relativement compact (code
+source) — il gère mal des fichiers volumineux ou binaires
+(rappel cours 13, sur les bases de données vectorielles ;
+cours 14, sur des documents scannés), avec un historique qui
+grossit rapidement et devient inefficace
+
+Les données évoluent souvent selon un rythme et une logique
+différents du code — une source externe peut se mettre à
+jour indépendamment de toute modification du pipeline
+(rappel cours 18, sur le cycle de vie des données statiques)
+
+→ Un système DÉDIÉ au versionnement de données (approfondi
+  à la leçon 3.2) gère ces contraintes spécifiques mieux
+  qu'un usage détourné de Git conçu à l'origine pour du code</div>
+
+        <p>Cette distinction rejoint directement le même principe déjà établi au cours 18 (module 2, sur le cycle de vie des données statiques) : les données, tout comme le code, ont un cycle de vie propre — version, mise à jour, obsolescence — qui mérite d'être tracé explicitement, avec des outils adaptés à leur volume et à leur nature, plutôt que traité comme un simple sous-produit du versionnement de code.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer que verser des données dans un dépôt Git au même titre que du code suffit à les versionner correctement — cette pratique fonctionne pour de petits fichiers mais devient rapidement problématique pour des données volumineuses (rappel cours 13-14), avec un historique Git qui grossit de façon disproportionnée et des performances qui se dégradent.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour le pipeline RAG des cours 9-13, quelles données précises (au-delà du code de transformation) mériteraient d'être versionnées explicitement pour garantir une reproductibilité complète ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l2" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 3.2</span>Outils de data versioning (DVC et équivalents)</h2>
+
+        <p>Cette leçon présente la catégorie d'outils dédiés spécifiquement au versionnement de données volumineuses, dont DVC (Data Version Control) constitue un représentant largement adopté — un principe similaire à Git dans son usage, mais conçu pour gérer efficacement de gros volumes de données.</p>
+
+        <pre><code class="language-bash"># Principe d'usage de DVC, similaire à Git dans sa syntaxe
+# mais adapté aux données volumineuses
+dvc add donnees/documents_bruts/
+git add donnees/documents_bruts.dvc .gitignore
+git commit -m "Ajout du corpus de documents v1"
+
+# Les données elles-mêmes sont stockées dans un espace de
+# stockage dédié (cloud, serveur), tandis que Git ne suit
+# qu'un petit fichier de RÉFÉRENCE (.dvc) pointant vers elles
+</code></pre>
+
+        <div class="ascii">Principe de fonctionnement, distinct de Git pour le code :
+
+GIT (pour le code, module 2)              DVC (pour les données, cette leçon)
+────────────────────────────────           ────────────────────────────────
+Stocke le contenu COMPLET de               Stocke un simple FICHIER DE
+chaque fichier dans son                    RÉFÉRENCE léger dans Git, qui
+historique                                 pointe vers les données réelles
+                                          hébergées dans un stockage séparé
+Efficace pour du texte
+relativement compact                       Efficace pour des VOLUMES
+                                          importants (rappel cours 13-14),
+                                          sans alourdir l'historique Git
+                                          du projet</div>
+
+        <p>Ce mécanisme de fichier de référence permet de conserver les avantages du versionnement (traçabilité, retour en arrière) sans les inconvénients de stocker directement des données volumineuses dans un système conçu pour du code — une séparation claire des responsabilités entre les deux systèmes de versionnement.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Ignorer complètement les outils de versionnement de données dédiés en supposant que Git seul (module 2) ou une simple convention de nommage de dossiers ("v1", "v2") suffit à assurer une traçabilité rigoureuse — ces approches manuelles sont sujettes à l'erreur humaine et manquent la garantie d'intégrité qu'apporte un outil dédié.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un corpus documentaire de plusieurs gigaoctets utilisé par un pipeline RAG, pourquoi une convention de nommage manuelle de dossiers ("corpus_v1", "corpus_v2") serait-elle insuffisante par rapport à un outil de versionnement dédié ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l3" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 3.3</span>Lier une version de données à une version de code</h2>
+
+        <p>Cette leçon traite l'étape qui referme la boucle des modules 2-3 : une reproductibilité complète nécessite de savoir, pour un résultat donné, EXACTEMENT quelle version du code (module 2) ET quelle version des données (leçon 3.2) l'ont produit ensemble — les deux informations, prises isolément, restent insuffisantes.</p>
+
+        <div class="ascii">Pourquoi les deux versions doivent être liées ENSEMBLE :
+
+Version de CODE seule                      Version de DONNÉES seule
+────────────────────────                   ────────────────────────
+Ne dit rien sur QUELLES                     Ne dit rien sur QUEL CODE
+données ont été utilisées                   a traité ces données
+
+→ Un résultat REPRODUCTIBLE nécessite de connaître LA PAIRE
+  EXACTE (version de code X, version de données Y) — l'une
+  sans l'autre laisse une ambiguïté qui empêche toute
+  reproduction fidèle du résultat</div>
+
+        <pre><code class="language-python">def enregistrer_metadonnees_execution(version_code: str, version_donnees: str,
+                                         resultat_pipeline) -> dict:
+    """Rappel module 2 (versionnement de code) et leçon 3.2
+    (versionnement de données) — les DEUX informations sont
+    enregistrées ENSEMBLE à chaque exécution, formant la paire
+    nécessaire à une reproductibilité complète."""
+    return {
+        "version_code_git": version_code,      # ex : hash de commit Git
+        "version_donnees_dvc": version_donnees, # ex : hash DVC
+        "horodatage_execution": datetime.utcnow().isoformat(),
+        "resume_resultat": resumer(resultat_pipeline),
+    }
+</code></pre>
+
+        <p>Cette pratique d'enregistrement conjoint prépare directement le module 7 (leçon 7.5, sur la traçabilité d'une exécution) : chaque exécution du pipeline devrait produire, en plus du résultat lui-même, un enregistrement de cette paire exacte de versions, permettant de reproduire fidèlement n'importe quelle exécution passée sur demande.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Versionner le code et les données séparément sans jamais les lier explicitement lors d'une exécution — cette pratique rend impossible de savoir, après coup, quelle version précise des données a été traitée par quelle version précise du code pour produire un résultat donné, même si les deux étaient individuellement bien versionnées.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un pipeline RAG où le code de chunking a changé la semaine dernière et le corpus documentaire a été mis à jour hier, comment garantiriez-vous de pouvoir reproduire exactement le résultat obtenu il y a deux semaines ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l4" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 3.4</span>Gérer le volume : stockage, delta, et versions complètes</h2>
+
+        <p>Rappel direct du cours 23 (module 7, leçon 7.2, sur le stockage et son coût) : versionner des données volumineuses, en particulier à travers de nombreuses versions successives, soulève une question de coût de stockage qui mérite une stratégie explicite.</p>
+
+        <div class="ascii">Stratégies de stockage pour des données versionnées à volume
+important :
+
+STOCKAGE EN VERSIONS COMPLÈTES
+  Chaque version conserve une copie ENTIÈRE des données —
+  simple à comprendre et à restaurer, mais coûteux en
+  stockage si les versions se succèdent fréquemment avec
+  peu de changement entre elles
+
+STOCKAGE EN DELTA (différentiel)
+  Seules les DIFFÉRENCES entre versions successives sont
+  stockées — économe en espace, mais plus complexe à
+  restaurer (nécessite de recombiner plusieurs deltas)
+
+STRATÉGIE HYBRIDE (rappel cours 23, module 7, leçon 7.2,
+sur la politique de stockage par âge)
+  Versions récentes en stockage complet pour un accès rapide,
+  versions anciennes compressées en delta ou archivées</div>
+
+        <p>Ce choix rejoint directement le même arbitrage déjà établi au cours 23 (module 7, leçon 7.2) pour le stockage des logs de validation : adapter la stratégie de stockage à l'âge et à la fréquence de consultation réelle des différentes versions, plutôt que d'appliquer une politique uniforme à l'ensemble de l'historique.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Conserver systématiquement des versions complètes de données volumineuses à chaque mise à jour, sans envisager de stratégie de stockage différentiel ou d'archivage pour les versions plus anciennes — un coût de stockage qui peut croître de façon disproportionnée à mesure que les versions s'accumulent, sans bénéfice proportionné pour des versions rarement consultées.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un corpus documentaire mis à jour quotidiennement, proposez une politique de rétention des versions (similaire à celle déjà établie au cours 23, module 7, leçon 7.2) qui équilibre coût de stockage et capacité de reproduction historique.
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l5" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 3.5</span>Pièges du versionnage de données</h2>
+
+        <p>Cette dernière leçon du module recense des pièges spécifiques au versionnement de données, en complément des principes déjà établis.</p>
+
+        <h3>Piège 1 : versionner les données sans versionner leur schéma</h3>
+        <p>Rappel direct du cours 23 (module 7, leçon 7.1) : versionner le contenu des données sans versionner également le schéma de validation qui leur est associé peut créer une incohérence — une version de données ancienne validée par un schéma devenu obsolète, sans lien explicite entre les deux.</p>
+
+        <h3>Piège 2 : ne jamais nettoyer les versions obsolètes</h3>
+        <p>Rappel de la leçon 3.4 : accumuler indéfiniment des versions sans jamais définir de politique de rétention ou d'archivage, faisant croître le coût de stockage sans limite ni justification claire.</p>
+
+        <h3>Piège 3 : versionner des données contenant des informations sensibles sans protection</h3>
+        <p>Rappel direct du cours 19 (module 4, sur l'anonymisation) : un système de versionnement de données conserve un historique complet, ce qui signifie qu'une donnée personnelle mal protégée reste accessible dans TOUTES les versions passées, pas seulement la plus récente — un risque de conformité amplifié par la nature même du versionnement.</p>
+
+        <div class="ascii">Ce module clôt la partie "versionnement des données" du cours.
+Le module suivant traite la troisième catégorie de non-
+reproductibilité du module 1 : les sources de non-déterminisme au
+sens strict (aléatoire, temps, environnement), au-delà du simple
+versionnement de code et de données déjà couvert.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Versionner des données contenant des informations personnelles sans appliquer la même discipline d'anonymisation déjà établie au cours 19, en oubliant qu'un système de versionnement conserve un historique complet — une donnée personnelle mal protégée reste exposée dans TOUTES les versions passées, pas seulement corrigée dans la plus récente.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de synthèse</strong>
+          Pour clore ce module : parmi les trois pièges listés, lequel vous semble le plus critique pour un projet manipulant des données personnelles au fil de nombreuses versions successives ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-4">
+      <span class="module-kicker">MODULE 04 / 08</span>
+      <h1>Rendre un pipeline déterministe</h1>
+      <p class="intro">Ce module traite la troisième catégorie de non-reproductibilité identifiée au module 1 : même avec un code (module 2) et des données (module 3) parfaitement versionnés, un pipeline peut rester non-déterministe à cause de sources internes de variation — l'aléatoire, le temps, ou l'environnement d'exécution.</p>
+
+      <section class="lesson" id="m4-l1" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 4.1</span>Sources de non-déterminisme</h2>
+
+        <p>Cette leçon détaille les catégories de non-déterminisme les plus fréquentes dans un pipeline de transformation de données, en s'appuyant sur des exemples concrets déjà rencontrés dans cette série.</p>
+
+        <div class="ascii">Les quatre catégories principales de non-déterminisme :
+
+ALÉATOIRE NON CONTRÔLÉ (approfondi leçon 4.2)
+  Rappel cours 20, module 7, leçon 7.1 — un split
+  train/validation/test qui mélange aléatoirement les
+  exemples sans graine fixée produira une répartition
+  DIFFÉRENTE à chaque exécution
+
+DÉPENDANCE AU TEMPS D'EXÉCUTION (approfondi leçon 4.3)
+  Un pipeline qui utilise la date ou l'heure courante
+  (par exemple, pour calculer un âge de document ou une
+  péremption, rappel cours 18, module 2) produit
+  nécessairement un résultat différent selon le MOMENT
+  où il s'exécute
+
+ORDRE DE TRAITEMENT NON GARANTI
+  Un traitement PARALLÈLE de plusieurs éléments (rappel
+  cours 17, module 6, leçon 6.2, sur les appels en parallèle)
+  peut, selon l'implémentation, produire un résultat dans un
+  ORDRE différent d'une exécution à l'autre
+
+DÉPENDANCES EXTERNES VOLATILES (approfondi leçon 4.4)
+  Rappel cours 18 — un appel à une API externe ou à un
+  service temps réel peut renvoyer une valeur différente
+  d'un instant à l'autre, indépendamment du pipeline lui-même</div>
+
+        <p>Cette taxonomie prépare directement les leçons suivantes de ce module, chacune approfondissant une catégorie spécifique et proposant des techniques concrètes pour la neutraliser — un déterminisme complet nécessitant de traiter chacune de ces sources individuellement, aucune ne pouvant être ignorée sans compromettre la reproductibilité globale.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer le déterminisme d'un pipeline comme acquis simplement parce que le code ne contient pas de générateur aléatoire explicite — des sources de non-déterminisme plus subtiles (ordre de traitement parallèle, dépendances externes, horodatage) peuvent introduire une variation même en l'absence de tout appel explicite à une fonction aléatoire.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour le pipeline RAG des cours 9-13, identifiez une étape qui pourrait introduire du non-déterminisme sans qu'aucune fonction aléatoire ne soit explicitement appelée.
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l2" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 4.2</span>Gérer les seeds aléatoires</h2>
+
+        <p>Rappel direct du cours 20 (module 7, leçon 7.1, sur le split train/validation/test) : toute opération aléatoire dans un pipeline — mélange, tirage d'échantillon, initialisation d'un modèle — devrait utiliser une graine (seed) fixée explicitement, garantissant que le même "aléatoire" se reproduit identiquement à chaque exécution.</p>
+
+        <pre><code class="language-python">import random
+import numpy as np
+
+def fixer_toutes_les_graines(graine: int = 42) -> None:
+    """Rappel cours 20, module 7, leçon 7.1 — le même principe
+    de fixation de graine déjà appliqué au split train/test,
+    généralisé ici à TOUTES les sources d'aléatoire d'un
+    pipeline, pas seulement à la division finale du dataset."""
+    random.seed(graine)
+    np.random.seed(graine)
+    # Toute autre bibliothèque utilisant l'aléatoire (un
+    # framework de machine learning, par exemple) nécessite
+    # sa PROPRE fixation de graine, spécifique à son API
+</code></pre>
+
+        <div class="ascii">Piège fréquent : fixer UNE seule graine, en oubliant que
+plusieurs bibliothèques maintiennent chacune leur PROPRE
+générateur aléatoire indépendant :
+
+random.seed(42)      →  fixe le module random natif de Python
+np.random.seed(42)     →  fixe NumPy, un générateur DISTINCT
+torch.manual_seed(42)  →  fixerait PyTorch, un troisième
+                         générateur, si utilisé
+
+→ Oublier UNE SEULE de ces fixations, si la bibliothèque
+  correspondante est utilisée quelque part dans le pipeline,
+  suffit à réintroduire du non-déterminisme malgré les
+  autres graines correctement fixées</div>
+
+        <p>Ce piège de fixation partielle est particulièrement insidieux : un pipeline peut sembler déterministe lors d'un test superficiel (si le générateur non fixé n'est utilisé que dans une étape secondaire rarement examinée), tout en produisant occasionnellement des résultats différents dès que cette étape entre en jeu de façon plus visible.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Fixer la graine d'une seule bibliothèque (par exemple, le module random natif de Python) en supposant que cela suffit à garantir un déterminisme complet, alors que d'autres bibliothèques utilisées dans le même pipeline (NumPy, un framework de machine learning) maintiennent chacune leur propre générateur indépendant, nécessitant sa propre fixation explicite.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un pipeline utilisant à la fois pandas (pour l'échantillonnage) et une bibliothèque de calcul d'embeddings (rappel cours 10), quelles graines devriez-vous vérifier de fixer explicitement ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l3" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 4.3</span>Neutraliser les dépendances au temps et à l'environnement</h2>
+
+        <p>Rappel direct du cours 18 (module 2, sur le cycle de vie des données statiques) : un pipeline qui calcule une valeur relative au temps courant (âge d'un document, péremption d'une donnée) produit nécessairement un résultat différent selon le moment exact de son exécution — un problème distinct de l'aléatoire (leçon 4.2) mais tout aussi problématique pour la reproductibilité.</p>
+
+        <pre><code class="language-python"># NON REPRODUCTIBLE : dépend du moment EXACT de l'exécution
+def calculer_anciennete_document(date_creation, maintenant=None):
+    maintenant = maintenant or datetime.utcnow()  # varie à chaque appel !
+    return (maintenant - date_creation).days
+
+# REPRODUCTIBLE : le "moment de référence" est un PARAMÈTRE
+# explicite (rappel module 2, leçon 2.4, sur la paramétrisation),
+# pas une valeur implicite du système au moment de l'exécution
+def calculer_anciennete_document(date_creation, date_reference: datetime) -> int:
+    """Rappel module 2, leçon 2.4 — la date de référence devient
+    un paramètre EXPLICITE, enregistré à chaque exécution
+    (rappel leçon 3.3, sur les métadonnées d'exécution) plutôt
+    qu'implicitement dérivé du moment d'exécution."""
+    return (date_reference - date_creation).days
+</code></pre>
+
+        <div class="ascii">Principe général : transformer une dépendance IMPLICITE au
+temps d'exécution en un PARAMÈTRE explicite
+
+AVANT (implicite)                         APRÈS (explicite, reproductible)
+────────────────────────                   ────────────────────────
+datetime.utcnow() appelé                    Une date de référence,
+DIRECTEMENT dans la logique                 déterminée UNE FOIS au
+de transformation                          début du pipeline, passée
+                                           EXPLICITEMENT à chaque
+Chaque appel peut retourner                  fonction qui en a besoin
+une valeur LÉGÈREMENT
+différente selon le moment                 Rejouer le pipeline avec la
+exact d'exécution                          MÊME date de référence
+                                           produit exactement le
+                                           MÊME résultat</div>
+
+        <p>Ce même principe s'étend au-delà du temps : toute valeur dépendant de l'environnement d'exécution (le nom de la machine, une variable d'environnement, la locale du système) devrait suivre la même logique — capturée explicitement en paramètre plutôt que lue implicitement depuis l'environnement au moment de l'exécution.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Appeler directement une fonction de date/heure système (comme <code class="inline">datetime.utcnow()</code>) au cœur de la logique de transformation, plutôt que de capturer une date de référence explicite au démarrage du pipeline et de la propager comme paramètre — cette pratique rend le résultat du pipeline dépendant du moment exact de son exécution, empêchant toute reproduction fidèle ultérieure.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour le calcul de péremption d'une donnée déjà évoqué au cours 18 (module 2, leçon 2.4), comment reformuleriez-vous ce calcul pour le rendre reproductible selon le principe de cette leçon ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l4" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 4.4</span>Isoler les appels à des services externes</h2>
+
+        <p>Rappel direct du cours 17 (function calling) et du cours 18 (données temps réel) : un pipeline qui appelle une API externe pour enrichir des données (une recherche météo, un statut de commande) introduit une dépendance à une source volatile, potentiellement différente d'un instant à l'autre — un défi spécifique pour la reproductibilité, distinct des sources précédentes.</p>
+
+        <div class="ascii">Stratégies pour isoler cette dépendance externe :
+
+CAPTURER LA RÉPONSE ET LA VERSIONNER (rappel module 3)
+  Enregistrer la réponse exacte reçue d'un service externe
+  au moment de l'exécution, versionnée comme n'importe quelle
+  autre donnée d'entrée — permet de REJOUER le pipeline avec
+  cette même réponse capturée, sans dépendre d'un nouvel appel
+
+MOCKER LE SERVICE EXTERNE POUR LES TESTS (approfondi module 5)
+  Remplacer l'appel réel par une réponse simulée et contrôlée
+  lors des tests (module 5), pour isoler la logique de
+  traitement de la volatilité du service externe lui-même
+
+DISTINGUER PIPELINE DE PRODUCTION ET PIPELINE REJOUABLE
+  Le pipeline de PRODUCTION peut légitimement appeler le
+  service en direct (rappel cours 18) ; un pipeline REJOUÉ
+  à des fins de diagnostic ou de test devrait utiliser la
+  réponse CAPTURÉE plutôt qu'un nouvel appel en direct</div>
+
+        <p>Cette distinction entre pipeline de production (qui peut légitimement dépendre de données fraîches, rappel cours 18) et pipeline rejoué à des fins de diagnostic ou de test est essentielle : la reproductibilité, au sens de ce cours, ne cherche pas à éliminer toute dépendance externe en production, mais à garantir qu'une exécution PASSÉE puisse être fidèlement reconstituée pour investigation.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Chercher à éliminer complètement toute dépendance à des services externes volatiles dans un pipeline de production, alors que l'objectif réel de la reproductibilité est de pouvoir REJOUER une exécution passée de façon fidèle — la solution réside dans la capture et le versionnement des réponses obtenues, pas dans le refus d'utiliser des données temps réel en production.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un pipeline qui enrichit des données avec un appel à une API météo externe (rappel cours 18), comment capturer cette dépendance pour permettre de rejouer fidèlement une exécution passée sans dépendre d'un nouvel appel à cette même API ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l5" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 4.5</span>Vérifier le déterminisme : rejouer un pipeline et comparer les résultats</h2>
+
+        <p>Cette dernière leçon du module traite un principe déjà esquissé à la leçon 1.5 (erreur 4) : la reproductibilité ne devrait jamais être supposée, mais vérifiée empiriquement — en rejouant effectivement le pipeline avec les mêmes entrées et en comparant le résultat obtenu à une exécution de référence.</p>
+
+        <pre><code class="language-python">def verifier_determinisme(fonction_pipeline, entrees_test, nombre_executions: int = 3) -> bool:
+    """Rejoue le MÊME pipeline plusieurs fois avec les MÊMES
+    entrées, et vérifie que le résultat est IDENTIQUE à chaque
+    fois — la seule vérification empirique fiable du
+    déterminisme, plutôt qu'une simple inspection du code."""
+    resultats = [fonction_pipeline(entrees_test) for _ in range(nombre_executions)]
+    premier_resultat = resultats[0]
+    return all(resultat == premier_resultat for resultat in resultats)
+</code></pre>
+
+        <div class="ascii">Pourquoi cette vérification empirique reste nécessaire, même
+après avoir appliqué les principes des leçons 4.2-4.4 :
+
+Une inspection MANUELLE du code peut manquer une source de
+non-déterminisme subtile (rappel leçon 4.1, sur l'ordre de
+traitement parallèle) — REJOUER effectivement le pipeline et
+COMPARER les résultats reste la seule preuve empirique fiable
+
+Cette vérification devrait elle-même devenir un TEST
+AUTOMATISÉ (approfondi au module 5), exécuté régulièrement
+plutôt qu'une vérification ponctuelle effectuée une seule fois</div>
+
+        <p>Ce module clôt la partie "déterminisme" du cours. Les trois catégories de non-reproductibilité identifiées au module 1 — code (module 2), données (module 3), et déterminisme interne (ce module) — sont maintenant couvertes ; les modules suivants traitent comment vérifier systématiquement, via des tests automatisés, que ces trois dimensions restent maîtrisées dans la durée.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Appliquer les principes de déterminisme des leçons 4.2-4.4 puis supposer que le pipeline est désormais reproductible sans jamais le vérifier empiriquement en le rejouant réellement — une source de non-déterminisme subtile et non anticipée peut subsister malgré une application apparemment rigoureuse des bonnes pratiques.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de synthèse</strong>
+          Pour clore ce module : pour le pipeline RAG des cours 9-13, comment structureriez-vous un test qui vérifierait empiriquement, comme illustré ci-dessus, que ce pipeline reste déterministe après une modification récente ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-5">
+      <span class="module-kicker">MODULE 05 / 08</span>
+      <h1>Tester un pipeline de transformation de données</h1>
+      <p class="intro">Les modules 2-4 ont traité comment rendre un pipeline reproductible en théorie. Ce module traite comment le vérifier systématiquement via des tests automatisés — rappel direct du cours 23 (module 7, leçon 7.3), qui avait introduit le test d'un schéma de validation ; ce module étend ce même principe à l'ensemble du pipeline de transformation.</p>
+
+      <section class="lesson" id="m5-l1" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 5.1</span>Pourquoi tester un pipeline de données comme on teste du code</h2>
+
+        <p>Rappel direct du cours 23 (module 7, leçon 7.3) : un schéma de validation, en tant que code, mérite ses propres tests. Ce principe s'étend naturellement à l'ensemble d'un pipeline de transformation — chaque fonction de traitement (rappel module 2, leçon 2.2, sur la modularité) constitue un candidat pour un test automatisé, au même titre que n'importe quelle fonction logicielle.</p>
+
+        <div class="ascii">Pourquoi un pipeline de données mérite les mêmes standards
+de test qu'un logiciel classique :
+
+Une fonction de NETTOYAGE (rappel cours 11) peut avoir un
+bug qui ne se manifeste que sur certains cas particuliers
+(caractères spéciaux, encodages inhabituels) — un test
+automatisé détecte cette régression avant qu'elle n'affecte
+la production
+
+Une fonction de CHUNKING (rappel cours 9) modifiée pour
+corriger un cas peut, sans le vouloir, casser un autre cas
+déjà correctement géré auparavant — un test empêche cette
+régression silencieuse
+
+→ Sans tests automatisés, chaque modification du pipeline
+  repose sur la seule VIGILANCE humaine pour détecter une
+  régression — une garantie bien plus fragile qu'une suite
+  de tests exécutée systématiquement</div>
+
+        <p>Ce principe rejoint directement celui déjà établi à la leçon 1.5 (erreur 3) : une vérification manuelle ponctuelle, aussi rigoureuse soit-elle au moment où elle est effectuée, ne protège en rien contre une régression future introduite par une modification ultérieure du pipeline — seuls des tests automatisés, exécutés systématiquement, offrent cette garantie continue.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer qu'un pipeline de données, parce qu'il "fonctionne" au moment de sa mise en place, n'a pas besoin de la même rigueur de test qu'un logiciel applicatif classique — cette distinction est artificielle : un bug dans une fonction de transformation de données a des conséquences tout aussi réelles qu'un bug dans n'importe quel autre code, souvent plus difficiles à détecter car silencieuses (rappel cours 23, module 1, leçon 1.1).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour une fonction de nettoyage de texte (rappel cours 11) que vous avez étudiée dans cette série, décrivez un cas limite qu'un test automatisé pourrait détecter, mais qu'une simple vérification visuelle risquerait de manquer.
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l2" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 5.2</span>Tests unitaires sur des fonctions de transformation individuelles</h2>
+
+        <p>Rappel direct du module 2 (leçon 2.2, sur la modularité) : un pipeline structuré en fonctions modulaires se prête naturellement à des <strong>tests unitaires</strong> — chaque fonction testée isolément, avec des entrées contrôlées et des résultats attendus connus à l'avance.</p>
+
+        <pre><code class="language-python">import pytest
+
+def test_nettoyer_texte_supprime_espaces_multiples():
+    """Rappel cours 11 (nettoyage de texte) — un test unitaire
+    isole UNE SEULE fonction, avec une entrée précise et un
+    résultat attendu explicite, plutôt que de tester l'ensemble
+    du pipeline d'un coup (approfondi leçon 5.3)."""
+    entree = "Un   texte    avec des espaces   multiples"
+    resultat = nettoyer_texte(entree)
+    assert resultat == "Un texte avec des espaces multiples"
+
+def test_decouper_en_chunks_respecte_la_taille_maximale():
+    """Rappel cours 9 (chunking) — vérifie une propriété
+    STRUCTURELLE du résultat (aucun chunk ne dépasse la taille
+    maximale), plutôt qu'une valeur exacte attendue."""
+    texte_long = "mot " * 1000
+    chunks = decouper_en_chunks(texte_long, taille_chunk=500)
+    assert all(len(chunk) <= 500 for chunk in chunks)
+</code></pre>
+
+        <div class="ascii">Deux styles de test unitaire, tous deux utiles :
+
+TEST DE VALEUR EXACTE                       TEST DE PROPRIÉTÉ STRUCTURELLE
+(premier exemple ci-dessus)                  (second exemple ci-dessus)
+────────────────────────────────            ────────────────────────────────
+Vérifie qu'une entrée PRÉCISE                Vérifie qu'une CONTRAINTE
+produit EXACTEMENT le résultat                générale (rappel cours 23,
+attendu                                      module 2, sur les schémas)
+                                            reste respectée, sans imposer
+Utile pour des cas simples et                une valeur de sortie exacte
+bien définis                                unique
+
+                                            Utile quand plusieurs sorties
+                                            valides sont possibles, mais
+                                            doivent toutes respecter une
+                                            règle structurelle</div>
+
+        <p>Cette distinction rejoint directement les catégories de contraintes déjà établies au cours 23 (module 2) : un test de propriété structurelle vérifie essentiellement qu'une expectation (rappel cours 23, module 2, leçon 2.1) reste satisfaite par le résultat produit, appliquant ainsi les mêmes principes de validation à la sortie d'une fonction de transformation testée.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Écrire uniquement des tests de valeur exacte, même pour des fonctions dont le résultat exact peut légitimement varier tant qu'une propriété structurelle est respectée — cette rigidité rend les tests fragiles face à des modifications mineures et légitimes de l'implémentation, alors qu'un test de propriété resterait valide.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour la fonction de détection de PII du cours 19 (module 4, leçon 4.2), écrivez un test unitaire vérifiant qu'elle détecte correctement un numéro de téléphone dans un texte donné.
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l3" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 5.3</span>Tests d'intégration sur le pipeline complet</h2>
+
+        <p>Au-delà des tests unitaires (leçon 5.2), qui vérifient chaque fonction isolément, les <strong>tests d'intégration</strong> vérifient que l'ensemble des fonctions, assemblées dans le pipeline complet, produisent un résultat cohérent de bout en bout — un niveau de test complémentaire, pas substituable au précédent.</p>
+
+        <pre><code class="language-python">def test_pipeline_complet_sur_document_simple():
+    """Rappel module 2, leçon 2.2 (pipeline_complet) — teste
+    l'ENCHAÎNEMENT des fonctions modulaires ensemble, pas
+    chacune isolément, pour vérifier qu'elles s'assemblent
+    correctement (pas seulement qu'elles fonctionnent chacune
+    individuellement, déjà vérifié par les tests unitaires)."""
+    resultat = pipeline_complet("chemin/vers/document_test.txt")
+    assert len(resultat) > 0
+    assert all("texte" in chunk and "metadata" in chunk for chunk in resultat)
+</code></pre>
+
+        <div class="ascii">Pourquoi les tests unitaires seuls ne suffisent pas :
+
+Chaque fonction individuelle peut PASSER ses propres tests
+unitaires (leçon 5.2), tout en étant mal INTÉGRÉE avec les
+autres — par exemple, si "nettoyer_texte" retourne un format
+que "decouper_en_chunks" n'attend pas correctement
+
+→ Les tests d'INTÉGRATION vérifient spécifiquement cette
+  COMPATIBILITÉ entre les étapes du pipeline, un problème
+  invisible si l'on ne teste que chaque fonction isolément</div>
+
+        <p>Cette distinction entre tests unitaires et tests d'intégration rejoint un principe déjà établi implicitement au cours 20 (module 8, leçon 8.2, sur le pipeline complet) : vérifier chaque composant individuellement ne garantit pas que l'assemblage complet fonctionne correctement — les deux niveaux de test sont nécessaires et complémentaires, ni l'un ni l'autre suffisant seul.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Se contenter de tests unitaires exhaustifs sur chaque fonction individuelle, en supposant que leur bon fonctionnement isolé garantit automatiquement un pipeline complet fonctionnel — l'intégration entre plusieurs fonctions correctes individuellement peut malgré tout révéler des incompatibilités invisibles au niveau unitaire.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour le pipeline RAG des cours 9-13, décrivez un scénario où chaque fonction (extraction, nettoyage, chunking) passerait ses tests unitaires individuellement, tout en produisant un résultat incorrect une fois assemblées ensemble.
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l4" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 5.4</span>Jeux de données de test : fixtures et données synthétiques</h2>
+
+        <p>Rappel direct du cours 20 (module 4, leçon 4.3, sur la génération synthétique) : les tests des leçons précédentes nécessitent des données d'entrée contrôlées — des <strong>fixtures</strong>, préparées spécifiquement pour couvrir les cas qu'un test doit vérifier, plutôt que des données réelles imprévisibles.</p>
+
+        <pre><code class="language-python">import pytest
+
+@pytest.fixture
+def document_avec_cas_limites():
+    """Rappel cours 20, module 4, leçon 4.3 — une fixture
+    CONSTRUITE délibérément pour couvrir des cas limites
+    connus (caractères spéciaux, texte vide, encodage
+    particulier), plutôt qu'un document réel dont le contenu
+    exact serait imprévisible et pourrait changer avec le temps."""
+    return {
+        "texte": "Un texte avec des caractères spéciaux : é, ñ, 中文, 🎉",
+        "texte_vide": "",
+        "texte_tres_long": "mot " * 10000,
+    }
+
+def test_nettoyage_gere_caracteres_speciaux(document_avec_cas_limites):
+    resultat = nettoyer_texte(document_avec_cas_limites["texte"])
+    assert "é" in resultat  # les caractères accentués ne doivent pas disparaître
+</code></pre>
+
+        <div class="ascii">Pourquoi des fixtures construites plutôt que des données
+réelles pour les tests :
+
+DONNÉES RÉELLES                           FIXTURES CONSTRUITES
+────────────────────────                   ────────────────────────
+Peuvent CHANGER dans le temps               STABLES et CONNUES à l'avance
+(rappel cours 18, sur la fraîcheur),         — un test reste valide
+rendant un test instable                   indéfiniment, indépendamment
+                                           de l'évolution des données réelles
+Ne couvrent pas nécessairement
+tous les CAS LIMITES pertinents              Peuvent être conçues
+                                           SPÉCIFIQUEMENT pour couvrir
+                                           les cas limites qu'on souhaite
+                                           vérifier (rappel module 4,
+                                           leçon 4.1, sur les sources de
+                                           non-déterminisme)</div>
+
+        <p>Cette pratique rejoint directement le principe déjà établi au cours 20 (module 4, leçon 4.3) sur la génération synthétique : construire délibérément des cas de test, plutôt que de se reposer uniquement sur des données réelles, permet de couvrir des scénarios rares mais importants (caractères spéciaux, valeurs limites) qui pourraient ne jamais apparaître naturellement dans un échantillon de données réelles limité.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Tester un pipeline exclusivement sur des extraits de données réelles, sans jamais construire de fixtures dédiées aux cas limites — les données réelles disponibles au moment d'écrire les tests ne couvrent pas nécessairement tous les cas rares mais importants (encodages inhabituels, valeurs extrêmes) qu'un pipeline pourrait rencontrer en production.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour le pipeline d'anonymisation du cours 19 (module 4), quelle fixture construiriez-vous pour tester spécifiquement la détection de PII dans un texte contenant plusieurs types de données personnelles à la fois ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l5" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 5.5</span>Pièges des tests de pipeline</h2>
+
+        <p>Cette dernière leçon du module recense des pièges spécifiques aux tests de pipelines de données, en complément des principes déjà établis.</p>
+
+        <h3>Piège 1 : tests qui ne couvrent que le chemin heureux</h3>
+        <p>Rappel implicite du cours 17 (module 4, sur la validation stricte) : tester uniquement des cas où tout se passe bien, sans jamais vérifier le comportement du pipeline face à des entrées invalides ou des cas limites (rappel leçon 5.4).</p>
+
+        <h3>Piège 2 : tests trop couplés à l'implémentation</h3>
+        <p>Écrire des tests qui vérifient des détails d'implémentation interne plutôt que le comportement observable d'une fonction — une pratique qui rend les tests fragiles, échouant dès qu'un détail interne change même si le comportement global reste correct.</p>
+
+        <h3>Piège 3 : négliger les tests de non-déterminisme (rappel module 4)</h3>
+        <p>Se concentrer uniquement sur la correction fonctionnelle des tests unitaires et d'intégration, sans jamais tester explicitement le déterminisme du pipeline (rappel module 4, leçon 4.5) — deux préoccupations distinctes, toutes deux nécessaires.</p>
+
+        <div class="ascii">Ce module clôt la partie "tests de base" du cours. Le module
+suivant approfondit une catégorie de test plus spécifique : la
+détection de régressions non intentionnelles, au-delà de la simple
+vérification de correction fonctionnelle déjà couverte ici.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer qu'une suite de tests unitaires et d'intégration, aussi complète soit-elle sur la correction fonctionnelle, couvre automatiquement la question du déterminisme (module 4) — ces deux dimensions de test sont complémentaires et nécessitent des vérifications spécifiquement distinctes.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de synthèse</strong>
+          Pour clore ce module : parmi les trois pièges listés, lequel vous semble le plus fréquent dans une suite de tests écrite rapidement, sans recul suffisant sur sa couverture réelle ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-6">
+      <span class="module-kicker">MODULE 06 / 08</span>
+      <h1>Tests de non-régression et de bout en bout</h1>
+      <p class="intro">Ce module approfondit une catégorie de test spécifique, complémentaire aux tests unitaires et d'intégration du module 5 : détecter qu'une modification du pipeline a changé un résultat de façon non intentionnelle — un problème directement lié à la reproductibilité au cœur de ce cours.</p>
+
+      <section class="lesson" id="m6-l1" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 6.1</span>Détecter qu'une modification a changé le résultat sans le vouloir</h2>
+
+        <p>Une <strong>régression</strong> désigne un changement de comportement non intentionnel introduit par une modification du code — le pipeline continue de "fonctionner" au sens où il ne plante pas, mais produit un résultat différent de celui attendu, souvent sans que personne ne s'en aperçoive immédiatement.</p>
+
+        <div class="ascii">Pourquoi les tests unitaires (module 5) ne suffisent pas
+toujours à détecter une régression :
+
+Un test unitaire vérifie qu'une fonction respecte des
+propriétés CONNUES À L'AVANCE (rappel module 5, leçon 5.2)
+
+Une régression peut affecter un aspect du résultat qui
+n'était PAS explicitement couvert par un test existant — un
+changement subtil de FORMATAGE, un ordre différent des
+éléments, une légère variation numérique qui ne viole aucune
+règle testée mais diffère malgré tout du résultat attendu
+
+→ Détecter ce type de changement nécessite de COMPARER le
+  résultat complet à une RÉFÉRENCE connue, plutôt que de
+  vérifier seulement des propriétés partielles (approfondi
+  à la leçon 6.2, sur le snapshot testing)</div>
+
+        <p>Ce risque rejoint directement le principe déjà établi au cours 21 (module 6, leçon 6.5, sur la vérification après correction) : toute modification, même bien intentionnée, mérite une vérification explicite de son impact réel — une intuition qui "ça devrait marcher" ne remplace jamais une comparaison effective avec un résultat de référence.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Supposer qu'une modification du pipeline, ayant passé tous les tests unitaires existants (module 5), ne peut pas avoir introduit de régression — les tests unitaires ne couvrent que les propriétés explicitement vérifiées, laissant place à des changements de comportement subtils sur des aspects non couverts par la suite de tests existante.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Décrivez un changement de comportement d'un pipeline de chunking (rappel cours 9) qui pourrait passer inaperçu par des tests unitaires vérifiant uniquement la taille maximale des chunks, sans détecter un changement de contenu réel.
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l2" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 6.2</span>Snapshot testing : comparer une sortie à une référence connue</h2>
+
+        <p>Le <strong>snapshot testing</strong> (test par capture d'instantané) répond directement à la limite identifiée à la leçon 6.1 : capturer le résultat complet d'un pipeline à un instant T comme référence, puis comparer chaque exécution future à cette référence exacte, signalant toute divergence — même celles non anticipées par des tests unitaires explicites.</p>
+
+        <pre><code class="language-python">import json
+
+def test_snapshot_pipeline_chunking():
+    """Rappel cours 9 (chunking) — capture le résultat COMPLET
+    du pipeline pour une entrée de référence, et le compare
+    à un SNAPSHOT enregistré précédemment, détectant TOUT écart
+    plutôt que seulement les propriétés explicitement vérifiées
+    par des tests unitaires (rappel leçon 6.1)."""
+    resultat_actuel = pipeline_chunking(DOCUMENT_DE_REFERENCE)
+    with open("snapshots/chunking_reference.json") as f:
+        snapshot_attendu = json.load(f)
+    assert resultat_actuel == snapshot_attendu
+</code></pre>
+
+        <div class="ascii">Cycle de vie d'un snapshot test :
+
+1. PREMIÈRE EXÉCUTION : le résultat du pipeline est capturé
+   et enregistré comme snapshot de référence (après une revue
+   humaine confirmant qu'il est correct)
+                    │
+                    ▼
+2. EXÉCUTIONS SUIVANTES : le nouveau résultat est comparé
+   AUTOMATIQUEMENT au snapshot enregistré
+                    │
+        ┌───────────┴───────────┐
+        ▼                       ▼
+   IDENTIQUE                DIFFÉRENT
+   → test réussi             → ALERTE : soit une RÉGRESSION
+                             (à corriger), soit un changement
+                             VOULU (le snapshot doit alors être
+                             mis à jour intentionnellement,
+                             rappel leçon 6.5)</div>
+
+        <p>Ce mécanisme rejoint directement le concept déjà établi au module 4 (leçon 4.5, sur la vérification empirique du déterminisme) : plutôt que de faire confiance à une inspection manuelle du code, comparer effectivement un résultat à une référence connue constitue la seule preuve fiable qu'aucun changement non intentionnel ne s'est produit.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Mettre à jour un snapshot de référence automatiquement dès qu'un test échoue, sans jamais examiner si la différence détectée constitue une régression réelle ou un changement voulu — cette pratique transforme le snapshot testing en une vérification purement mécanique, perdant sa valeur de détection si les différences ne sont jamais réellement examinées avant validation.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour le pipeline RAG des cours 9-13, quel document de référence choisiriez-vous comme entrée pour un snapshot test du chunking, et pourquoi ce choix serait-il représentatif ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l3" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 6.3</span>Tests de bout en bout sur un pipeline complet</h2>
+
+        <p>Rappel direct du cours 23 (module 6, leçon 6.4, sur l'intégration avec des orchestrateurs) : au-delà des tests d'intégration du module 5 (qui vérifient l'assemblage des fonctions), les tests de bout en bout vérifient le pipeline complet tel qu'il s'exécute réellement en production, y compris son orchestration.</p>
+
+        <div class="ascii">Différence entre tests d'intégration (module 5) et tests de
+bout en bout (cette leçon) :
+
+TESTS D'INTÉGRATION (module 5, leçon 5.3)   TESTS DE BOUT EN BOUT (ici)
+────────────────────────────────            ────────────────────────────────
+Vérifient l'ASSEMBLAGE des                  Vérifient le pipeline TEL
+fonctions de transformation,                QU'IL S'EXÉCUTE RÉELLEMENT,
+souvent en appelant directement              via l'ORCHESTRATEUR (rappel
+le code Python                              cours 23, module 6, leçon 6.4),
+                                           avec la validation de données
+Ne couvrent généralement PAS                (cours 23) et la gestion
+l'orchestration ni la validation             d'erreurs incluses
+de données (cours 23)
+                                           Plus proche des conditions
+                                           RÉELLES de production, mais
+                                           aussi plus lent et plus
+                                           coûteux à exécuter (approfondi
+                                           leçon 6.4)</div>
+
+        <p>Ce niveau de test le plus complet referme la boucle entre ce cours 24 et le cours 23 : un test de bout en bout vérifie non seulement la transformation elle-même, mais aussi que la validation de données (cours 23) et la stratégie de réaction aux échecs (cours 23, module 6, leçon 6.2) fonctionnent correctement ensemble, dans les conditions les plus proches possible de la production réelle.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Se contenter de tests d'intégration qui appellent directement le code Python du pipeline, sans jamais tester son exécution complète via l'orchestrateur réel utilisé en production — cette omission peut laisser passer des problèmes spécifiques à l'orchestration elle-même (rappel cours 23, module 6), invisibles dans un test qui contourne cette couche.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour le DAG orchestré déjà illustré au cours 23 (module 6, leçon 6.4), quel aspect spécifique un test de bout en bout devrait-il vérifier, que des tests d'intégration plus simples ne couvriraient pas ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l4" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 6.4</span>Gérer les tests coûteux ou lents</h2>
+
+        <p>Rappel direct du cours 22 (module 5, leçon 5.3, sur la gestion du coût à grande échelle) : les tests de bout en bout (leçon 6.3), plus réalistes mais plus coûteux, posent une question similaire à celle déjà rencontrée pour le LLM-as-judge — comment équilibrer couverture et coût d'exécution.</p>
+
+        <div class="ascii">Stratégies pour gérer des tests coûteux, similaires à celles
+déjà établies au cours 22 pour le LLM-as-judge :
+
+PYRAMIDE DE TESTS (proportions typiques)
+  Beaucoup de tests UNITAIRES rapides (module 5, leçon 5.2),
+  moins de tests D'INTÉGRATION (module 5, leçon 5.3), encore
+  moins de tests DE BOUT EN BOUT (cette leçon) — chaque niveau
+  plus coûteux justifie un nombre plus restreint d'exécutions
+
+EXÉCUTION SÉLECTIVE SELON LA FRÉQUENCE
+  Rappel cours 23, module 7, leçon 7.3 — exécuter les tests
+  rapides à CHAQUE modification, et les tests coûteux de bout
+  en bout seulement avant un déploiement (approfondi module 7)
+
+ÉCHANTILLONNAGE DES DONNÉES DE TEST
+  Rappel cours 20, module 4, leçon 4.4 — utiliser un
+  échantillon représentatif plutôt que l'intégralité d'un
+  grand jeu de données pour les tests les plus coûteux</div>
+
+        <p>Cette pyramide de tests, un concept classique de l'ingénierie logicielle, s'applique directement au contexte des pipelines de données : la majorité de la couverture de test devrait provenir de tests rapides et peu coûteux (module 5), les tests de bout en bout les plus réalistes mais aussi les plus lents étant réservés à une vérification plus ciblée avant les changements les plus significatifs.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Privilégier exclusivement des tests de bout en bout coûteux par souci de réalisme maximal, en négligeant les tests unitaires et d'intégration plus rapides — cette approche ralentit considérablement le cycle de développement, alors qu'une pyramide équilibrée offre une couverture largement suffisante pour un coût bien moindre.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour le pipeline RAG des cours 9-13, à quelle fréquence exécuteriez-vous les tests unitaires (module 5) par rapport aux tests de bout en bout (cette leçon), et pourquoi cette différence de fréquence ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l5" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 6.5</span>Pièges de la non-régression</h2>
+
+        <p>Cette dernière leçon du module recense des pièges spécifiques aux tests de non-régression, en complément des principes déjà établis.</p>
+
+        <h3>Piège 1 : snapshots obsolètes jamais mis à jour intentionnellement</h3>
+        <p>Rappel de la leçon 6.2 : un changement légitime du comportement du pipeline (une amélioration voulue) nécessite de mettre à jour le snapshot de référence après une revue humaine confirmant que ce changement est intentionnel — négliger cette mise à jour transforme un test utile en un frein artificiel à toute évolution légitime.</p>
+
+        <h3>Piège 2 : snapshots trop volumineux ou peu lisibles</h3>
+        <p>Un snapshot capturant l'intégralité d'un résultat volumineux peut devenir difficile à examiner manuellement lors d'une différence détectée — une granularité de snapshot mal choisie complique le diagnostic plutôt que de le faciliter.</p>
+
+        <h3>Piège 3 : tests de bout en bout comme unique filet de sécurité</h3>
+        <p>Rappel de la leçon 6.4, sur la pyramide de tests : se reposer uniquement sur des tests de bout en bout coûteux, en négligeant les tests unitaires et d'intégration plus rapides qui détecteraient les mêmes problèmes bien plus tôt et à moindre coût.</p>
+
+        <div class="ascii">Ce module clôt la partie "tests de non-régression" du cours. Le
+module suivant traite comment automatiser l'exécution de
+l'ensemble de ces tests (modules 5-6) via l'intégration continue,
+pour qu'ils s'exécutent systématiquement sans intervention manuelle.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Ignorer ou contourner systématiquement un test de snapshot qui échoue, en le considérant comme un faux positif récurrent sans jamais investiguer la cause réelle — cette pratique érode progressivement la confiance dans la suite de tests, jusqu'à ce que les échecs authentiques soient eux aussi ignorés par habitude.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de synthèse</strong>
+          Pour clore ce module : parmi les trois pièges listés, lequel vous semble le plus susceptible d'éroder la confiance d'une équipe dans sa suite de tests au fil du temps ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-7">
+      <span class="module-kicker">MODULE 07 / 08</span>
+      <h1>Intégration continue et automatisation</h1>
+      <p class="intro">Ce module traite comment automatiser l'exécution des tests des modules 5-6, pour qu'ils s'exécutent systématiquement à chaque modification du pipeline plutôt que d'être lancés manuellement — rejoignant les principes d'automatisation déjà établis aux cours 21 (module 7) et 22 (module 7) pour d'autres contextes.</p>
+
+      <section class="lesson" id="m7-l1" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 7.1</span>Exécuter les tests automatiquement à chaque changement (CI)</h2>
+
+        <p>Un système d'<strong>intégration continue</strong> (CI) exécute automatiquement une suite de tests dès qu'une modification du code est proposée, sans intervention manuelle — rendant systématique une pratique qui, autrement, dépendrait de la discipline individuelle de chaque personne contribuant au pipeline.</p>
+
+        <div class="ascii">Cycle typique d'intégration continue pour un pipeline de
+données :
+
+MODIFICATION PROPOSÉE (nouveau commit, rappel module 2)
+                    │
+                    ▼
+DÉCLENCHEMENT AUTOMATIQUE de la suite de tests
+                    │
+                    ▼
+EXÉCUTION SELON LA PYRAMIDE (rappel module 6, leçon 6.4) :
+tests unitaires (module 5, leçon 5.2) → tests d'intégration
+(module 5, leçon 5.3) → tests de non-régression (module 6)
+                    │
+        ┌───────────┴───────────┐
+        ▼                       ▼
+   TOUS RÉUSSIS               UN OU PLUSIEURS ÉCHOUENT
+        │                       │
+        ▼                       ▼
+MODIFICATION ACCEPTÉE       MODIFICATION BLOQUÉE, retour
+pour intégration              à la personne contributrice
+                             avec le détail de l'échec</div>
+
+        <p>Ce mécanisme rejoint directement le principe déjà établi au cours 23 (module 6, leçon 6.2, sur la stratégie de blocage) : tout comme une validation de données peut bloquer un pipeline en cas de violation critique, un système de CI peut bloquer l'intégration d'une modification de code qui ferait échouer la suite de tests — une même logique de garde-fou automatisé, appliquée ici au cycle de développement plutôt qu'à l'exécution du pipeline en production.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Écrire une suite de tests complète (modules 5-6) mais ne jamais l'automatiser via un système de CI, en comptant sur chaque personne contribuant au projet pour l'exécuter manuellement avant chaque modification — cette dépendance à la discipline individuelle finit inévitablement par être oubliée à un moment ou un autre, laissant passer une régression qu'un système automatisé aurait détectée systématiquement.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour la pyramide de tests déjà établie au module 6 (leçon 6.4), à quel moment du cycle de CI ci-dessus les tests de bout en bout les plus coûteux devraient-ils s'exécuter, par rapport aux tests unitaires plus rapides ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l2" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 7.2</span>Valider un pipeline avant de le déployer</h2>
+
+        <p>Rappel direct du cours 23 (l'ensemble du cours, sur la validation de données) : au-delà des tests de code (leçon 7.1), un système de CI complet devrait aussi exécuter la validation de données déjà couverte au cours 23, sur des données de test représentatives, avant tout déploiement d'une nouvelle version du pipeline.</p>
+
+        <pre><code class="language-yaml"># Extrait conceptuel d'une configuration de CI (syntaxe
+# simplifiée), combinant les tests de ce cours ET la
+# validation de données du cours 23
+etapes_ci:
+  - nom: "Tests unitaires"          # rappel module 5, leçon 5.2
+    commande: "pytest tests/unitaires/"
+  - nom: "Tests d'intégration"       # rappel module 5, leçon 5.3
+    commande: "pytest tests/integration/"
+  - nom: "Validation du schéma"      # rappel cours 23, modules 2-4
+    commande: "python valider_schema.py --donnees donnees_test/"
+  - nom: "Tests de non-régression"   # rappel module 6
+    commande: "pytest tests/snapshots/"
+</code></pre>
+
+        <div class="ascii">Pourquoi intégrer la validation de données (cours 23) dans le
+même pipeline de CI que les tests de code (leçon 7.1) :
+
+Un test de code peut RÉUSSIR tout en produisant, sur des
+données réelles ultérieures, un résultat qui violerait le
+schéma de validation déjà établi au cours 23 — deux
+vérifications INDÉPENDANTES, toutes deux nécessaires avant
+de considérer une modification prête pour le déploiement</div>
+
+        <p>Cette combinaison referme directement la boucle entre les cours 23 et 24 : la validation de données (cours 23) et les tests de reproductibilité (ce cours) ne sont pas deux pratiques concurrentes, mais deux vérifications complémentaires qui, ensemble, couvrent respectivement le contenu des données et la fiabilité du processus qui les transforme.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Exécuter les tests de code (leçon 7.1) et la validation de données (cours 23) comme deux processus complètement séparés et déconnectés, plutôt que de les intégrer dans un même pipeline de CI cohérent — cette séparation augmente le risque qu'une des deux vérifications soit oubliée ou exécutée de façon incohérente avec l'autre.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour la configuration de CI ci-dessus, que devrait-il se passer si l'étape de validation du schéma échoue alors que toutes les étapes de tests précédentes ont réussi ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l3" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 7.3</span>Gérer les environnements de test, staging, production</h2>
+
+        <p>Cette leçon traite une pratique complémentaire : exécuter un pipeline dans plusieurs environnements distincts avant qu'il n'atteigne la production réelle, chacun avec un rôle précis dans la chaîne de confiance progressive.</p>
+
+        <div class="ascii">Les trois environnements typiques et leur rôle :
+
+TEST (ou développement)
+  Exécution locale ou dans un environnement isolé, avec des
+  données de test (rappel module 5, leçon 5.4, sur les
+  fixtures) — le lieu où les tests des modules 5-6 s'exécutent
+  en premier lieu
+
+STAGING (pré-production)
+  Exécution dans un environnement proche de la production
+  réelle, souvent avec un sous-ensemble de données réelles
+  (rappel module 6, leçon 6.4, sur l'échantillonnage) — un
+  dernier filet de sécurité avant le déploiement complet
+
+PRODUCTION
+  Exécution réelle, sur l'intégralité des données, avec un
+  impact direct sur les utilisateurs ou systèmes en aval —
+  atteinte seulement après validation dans les deux
+  environnements précédents</div>
+
+        <p>Cette progression à travers plusieurs environnements rejoint directement un principe déjà établi au cours 23 (module 7, leçon 7.2, sur l'évolution compatible d'un schéma) : introduire un changement progressivement, avec des points de vérification intermédiaires, réduit le risque qu'une régression non détectée par les tests automatisés (modules 5-6) n'atteigne directement l'ensemble des utilisateurs en production.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Déployer directement en production après avoir seulement réussi les tests automatisés en environnement de développement, sans étape de staging intermédiaire sur des données plus proches de la réalité — certains problèmes (volume, performance, interaction avec des systèmes externes réels) ne se manifestent parfois qu'à cette étape intermédiaire, avant l'impact complet de la production.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour le pipeline RAG des cours 9-13, quelles données choisiriez-vous pour l'environnement de staging, distinctes à la fois des fixtures de test (module 5) et de l'intégralité des données de production ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l4" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 7.4</span>Rollback et récupération en cas de régression détectée</h2>
+
+        <p>Rappel direct du module 3 (leçon 3.3, sur la paire code/données) : même avec des tests rigoureux (modules 5-6) et une progression par environnements (leçon 7.3), une régression peut malgré tout atteindre la production. Cette leçon traite comment s'en remettre rapidement grâce au versionnement déjà établi aux modules 2-3.</p>
+
+        <pre><code class="language-python">def rollback_vers_version_precedente(version_code_stable: str, version_donnees_stable: str) -> None:
+    """Rappel modules 2-3 — le versionnement rigoureux du code
+    ET des données permet un ROLLBACK rapide : revenir à une
+    paire (code, données) connue pour être stable, plutôt que
+    de tenter une correction en urgence sous pression."""
+    deployer_version_code(version_code_stable)
+    restaurer_version_donnees(version_donnees_stable)
+    verifier_determinisme(pipeline_actuel, entrees_test=DONNEES_VERIFICATION)  # rappel module 4, leçon 4.5
+</code></pre>
+
+        <div class="ascii">Pourquoi le versionnement rigoureux (modules 2-3) rend le
+rollback possible et rapide :
+
+SANS VERSIONNEMENT RIGOUREUX                AVEC VERSIONNEMENT RIGOUREUX
+────────────────────────────────            ────────────────────────────────
+Revenir à un état stable antérieur           Revenir à un état stable antérieur
+nécessite une reconstruction MANUELLE         est une opération QUASI IMMÉDIATE :
+et incertaine, sous la pression d'un          redéployer une paire (code, données)
+incident en cours                            déjà identifiée et testée comme
+                                            stable (rappel module 3, leçon 3.3)</div>
+
+        <p>Ce mécanisme illustre concrètement pourquoi les efforts de versionnement des modules 2-3 ne sont pas seulement utiles pour la reproductibilité au sens diagnostique, mais aussi pour la résilience opérationnelle : la capacité à revenir rapidement à un état stable connu constitue un filet de sécurité essentiel, complémentaire mais distinct des tests eux-mêmes.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Ne disposer d'aucune procédure de rollback définie à l'avance, découvrant seulement au moment d'un incident réel qu'il n'existe aucun moyen rapide de revenir à une version antérieure stable — cette procédure devrait être définie et testée AVANT qu'un incident ne survienne, pas improvisée dans l'urgence.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour le pipeline de fine-tuning des cours 20-22, si une régression était détectée après le déploiement d'une nouvelle version du dataset formaté, quelles informations (rappel module 3, leçon 3.3) seraient nécessaires pour effectuer un rollback rapide ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l5" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 7.5</span>Documentation et traçabilité d'une exécution de pipeline</h2>
+
+        <p>Cette dernière leçon du module referme la boucle du module 3 (leçon 3.3, sur l'enregistrement conjoint de version de code et de données) : chaque exécution d'un pipeline en production devrait produire un enregistrement complet, exploitable pour le diagnostic, l'audit, et le rollback (leçon 7.4).</p>
+
+        <div class="ascii">Ce qu'un enregistrement complet d'exécution devrait inclure,
+en rassemblant les éléments déjà établis dans ce cours :
+
+VERSION DE CODE ET DE DONNÉES (rappel module 3, leçon 3.3)
+  La paire exacte utilisée pour cette exécution précise
+
+RÉSULTATS DES TESTS EXÉCUTÉS (rappel modules 5-6)
+  Confirmation que la suite de tests a bien été exécutée et
+  a réussi avant cette exécution en production
+
+RÉSULTATS DE VALIDATION DE DONNÉES (rappel cours 23)
+  Le rapport de validation associé à cette exécution précise
+
+ENVIRONNEMENT D'EXÉCUTION (rappel leçon 7.3)
+  Dans quel environnement (test, staging, production) cette
+  exécution a eu lieu, et à quel moment exactement</div>
+
+        <p>Cette documentation complète, combinée à celle déjà établie au cours 23 (module 7, leçon 7.5, sur l'ownership et les data contracts), forme une chaîne de traçabilité de bout en bout : de la conception d'un schéma de validation (cours 23) jusqu'à l'exécution effective d'un pipeline reproductible et testé (ce cours), chaque étape du cycle de vie d'un pipeline de données devient auditable et diagnosticable.</p>
+
+        <div class="ascii">Ce module clôt la partie "intégration continue" du cours. Le
+dernier module assemble l'ensemble des concepts vus (versionnement
+de code et de données, déterminisme, tests, CI) dans une checklist
+de conception et une étude de cas complète.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer la documentation d'une exécution de pipeline comme une formalité optionnelle, à ajouter "si le temps le permet", plutôt que comme une partie intégrante et automatisée du pipeline lui-même — sans cette traçabilité systématique, chaque incident nécessite une reconstruction manuelle et incertaine des circonstances exactes d'une exécution passée.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : au-delà des quatre éléments listés ci-dessus, quelle autre information jugeriez-vous utile à enregistrer systématiquement pour chaque exécution d'un pipeline en production ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-8">
+      <span class="module-kicker">MODULE 08 / 08</span>
+      <h1>Implémentation complète et étude de cas</h1>
+      <p class="intro">Ce dernier module assemble l'ensemble des notions vues — versionnement de code (module 2), versionnement de données (module 3), déterminisme (module 4), tests unitaires et d'intégration (module 5), non-régression (module 6), intégration continue (module 7) — dans une checklist de conception et une étude de cas complète.</p>
+
+      <section class="lesson" id="m8-l1" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 8.1</span>Checklist de reproductibilité et de test d'un pipeline</h2>
+
+        <div class="ascii">Checklist de reproductibilité (à appliquer à un pipeline de
+transformation de données déjà validé selon le cours 23) :
+
+□ 1. CODE VERSIONNÉ dans Git, structuré en fonctions
+     MODULAIRES et PARAMÉTRÉES explicitement (module 2)
+
+□ 2. DÉPENDANCES FIGÉES via un lockfile, garantissant le
+     même environnement d'exécution partout (module 2,
+     leçon 2.3)
+
+□ 3. DONNÉES VERSIONNÉES avec un outil dédié (DVC ou
+     équivalent), liées explicitement à la version de code
+     correspondante (module 3)
+
+□ 4. SOURCES DE NON-DÉTERMINISME neutralisées : graines
+     aléatoires fixées, dépendances au temps explicites,
+     appels externes capturés (module 4)
+
+□ 5. DÉTERMINISME VÉRIFIÉ EMPIRIQUEMENT en rejouant le
+     pipeline, pas seulement supposé (module 4, leçon 4.5)
+
+□ 6. TESTS UNITAIRES ET D'INTÉGRATION couvrant les fonctions
+     individuelles et leur assemblage (module 5)
+
+□ 7. FIXTURES DE TEST construites pour couvrir les cas
+     limites, pas seulement des données réelles (module 5,
+     leçon 5.4)
+
+□ 8. TESTS DE NON-RÉGRESSION (snapshot testing) en place
+     pour détecter tout changement non intentionnel (module 6)
+
+□ 9. INTÉGRATION CONTINUE configurée, exécutant automatiquement
+     tests ET validation de données (cours 23) à chaque
+     modification (module 7)
+
+□ 10. PROCÉDURE DE ROLLBACK définie et testée, avec
+     traçabilité complète de chaque exécution (module 7,
+     leçons 7.4-7.5)</div>
+
+        <p>Cette checklist complète directement celle déjà établie au cours 23 (module 8, leçon 8.1) : ensemble, elles couvrent respectivement la validité du contenu des données et la fiabilité reproductible du processus qui les transforme — deux dimensions complémentaires nécessaires à un pipeline de données réellement industrialisé.</p>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un pipeline que vous avez construit ou envisagez de construire, appliquez cette checklist et identifiez les trois points qui nécessiteraient le plus de travail supplémentaire.
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l2" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 8.2</span>Pipeline complet : du code versionné à la CI</h2>
+
+        <div class="ascii">Architecture de référence complète du cours :
+
+CODE VERSIONNÉ (module 2) + DONNÉES VERSIONNÉES (module 3)
+                    │
+                    ▼
+PIPELINE RENDU DÉTERMINISTE (module 4) : graines fixées,
+dépendances au temps neutralisées, appels externes capturés
+                    │
+                    ▼
+SUITE DE TESTS COMPLÈTE (modules 5-6) : unitaires,
+intégration, non-régression (snapshots)
+                    │
+                    ▼
+INTÉGRATION CONTINUE (module 7) : exécution automatique à
+chaque modification, combinée à la validation de données
+(cours 23)
+                    │
+        ┌───────────┴───────────┐
+        ▼                       ▼
+   TESTS RÉUSSIS               TESTS ÉCHOUÉS
+        │                       │
+        ▼                       ▼
+DÉPLOIEMENT PROGRESSIF        MODIFICATION REJETÉE,
+(test → staging → production,   retour à la personne
+module 7, leçon 7.3)           contributrice
+        │
+        ▼
+TRAÇABILITÉ COMPLÈTE ENREGISTRÉE (module 7, leçon 7.5) —
+prête pour un ROLLBACK rapide si nécessaire (module 7,
+leçon 7.4)</div>
+
+        <p>Cette architecture referme la logique complète de ce cours : la reproductibilité n'est jamais un état figé atteint une seule fois, mais un système continu qui accompagne chaque modification du pipeline, de son développement (modules 2-4) à son test (modules 5-6) jusqu'à son déploiement surveillé (module 7).</p>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour l'architecture ci-dessus, à quelle étape ajouteriez-vous la vérification de représentativité déjà établie au cours 21 (module 7, leçon 7.1), si ce pipeline traitait un dataset de fine-tuning ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l3" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 8.3</span>Étude de cas : rendre reproductible un pipeline RAG</h2>
+
+        <h3>Contexte</h3>
+        <p>Reprenant le pipeline RAG déjà construit aux cours 9-13 et déjà partiellement validé au cours 23 (module 8, leçon 8.3) : une équipe souhaite le rendre pleinement reproductible et testé, après avoir constaté que deux exécutions successives, sur les mêmes documents sources, produisaient des chunks légèrement différents.</p>
+
+        <div class="ascii">Diagnostic et application du cours à ce contexte :
+
+DIAGNOSTIC (module 4, leçon 4.1) : l'équipe découvre que le
+chunking (cours 9) utilise un découpage par similarité
+sémantique impliquant un tirage aléatoire non maîtrisé pour
+départager des cas ambigus — une source de non-déterminisme
+non identifiée jusqu'ici
+
+CORRECTION (module 4, leçon 4.2) : fixation explicite de la
+graine aléatoire utilisée par cette étape de chunking
+
+VERSIONNEMENT (modules 2-3) : le corpus documentaire est
+versionné avec DVC, lié à la version de code du pipeline
+via un enregistrement conjoint (module 3, leçon 3.3)
+
+TESTS AJOUTÉS (modules 5-6) : un test unitaire vérifie que
+le chunking respecte la taille maximale (module 5, leçon 5.2),
+et un snapshot test capture le résultat complet sur un
+document de référence pour détecter toute régression future
+(module 6, leçon 6.2)
+
+VÉRIFICATION EMPIRIQUE (module 4, leçon 4.5) : le pipeline
+est rejoué trois fois sur les mêmes documents, confirmant
+un résultat désormais IDENTIQUE à chaque exécution</div>
+
+        <p>Cette étude de cas illustre comment ce cours 24 complète directement le cours 23 sur ce même pipeline RAG : la validation de données (cours 23) avait déjà vérifié la conformité des documents en entrée, mais n'avait pas révélé ce problème de non-déterminisme, propre au PROCESSUS de transformation lui-même plutôt qu'au contenu des données.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Face à des résultats légèrement différents entre deux exécutions, chercher la cause uniquement du côté des données (en supposant qu'elles ont changé) sans envisager qu'une source de non-déterminisme interne au pipeline lui-même (module 4) pourrait expliquer cette variation, malgré des données sources rigoureusement identiques.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour cette étude de cas, au-delà du chunking, quelle autre étape du pipeline RAG (rappel cours 10, sur les embeddings) pourrait potentiellement introduire une source de non-déterminisme similaire ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l4" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 8.4</span>Exercice final</h2>
+
+        <div class="callout exercise">
+          <strong>Exercice final — à traiter dans l'ordre</strong>
+          <p>1. <strong>Déterminisme (module 4)</strong> : pour l'étude de cas de la leçon 8.3, écrivez le code qui fixerait explicitement la graine aléatoire de l'étape de chunking mentionnée.</p>
+          <p>2. <strong>Versionnement (module 3)</strong> : décrivez la structure d'un enregistrement conjoint (version de code, version de données) qui permettrait de reproduire exactement une exécution passée de ce pipeline.</p>
+          <p>3. <strong>Test unitaire (module 5)</strong> : écrivez un test unitaire vérifiant qu'une fonction de chunking respecte une taille maximale de chunk donnée.</p>
+          <p>4. <strong>Snapshot test (module 6)</strong> : décrivez comment vous construiriez le document de référence pour un snapshot test de ce pipeline de chunking.</p>
+          <p>5. <strong>CI (module 7)</strong> : listez les étapes que vous incluriez dans une configuration de CI pour ce pipeline, en vous inspirant de l'exemple de la leçon 7.2.</p>
+        </div>
+
+        <p>Comme pour les exercices finaux des cours précédents de cette série, il n'existe pas de réponse unique — l'objectif est de démontrer une application cohérente de l'ensemble du cycle de reproductibilité (déterminisme, versionnement, tests, CI) à un cas concret.</p>
+      </section>
+
+      <section class="lesson" id="m8-l5" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 8.5</span>Synthèse et transition vers le cours 25</h2>
+
+        <h3>Ce que ce cours a couvert</h3>
+        <div class="ascii">Récapitulatif des 8 modules :
+
+1. Fondamentaux — reproductibilité, sources de non-
+   reproductibilité, positionnement dans le Bloc 7
+2. Versionnement de code — Git, modularité, dépendances,
+   paramétrisation
+3. Versionnement de données — DVC, lien code/données,
+   gestion du volume
+4. Déterminisme — sources de non-déterminisme, graines
+   aléatoires, dépendances au temps, appels externes,
+   vérification empirique
+5. Tests de transformation — tests unitaires, tests
+   d'intégration, fixtures
+6. Non-régression — snapshot testing, tests de bout en bout,
+   gestion des tests coûteux
+7. Intégration continue — CI, validation avant déploiement,
+   environnements, rollback, traçabilité
+8. Implémentation complète — checklist, pipeline de
+   référence, étude de cas RAG</div>
+
+        <h3>Transition vers le cours 25</h3>
+        <p>Ce cours a traité comment garantir qu'un pipeline produit un résultat stable et reproductible à un instant donné. Le cours 25, qui clôt le Bloc 7 de cette série, aborde une dimension complémentaire mais distincte : comment surveiller dans la durée qu'une source de données ne se dégrade pas progressivement — un prolongement direct du suivi de tendance déjà entamé au cours 23 (module 7, leçon 7.4) et de la traçabilité d'exécution établie au module 7 de ce cours.</p>
+
+        <div class="ascii">Les trois cours du Bloc 7 et leur progression logique :
+
+Cours 23 — Validation de données             Cours 24 (ce cours) — Pipelines
+(QUOI vérifier : contraintes                  reproductibles
+explicites sur les données)                   (COMMENT garantir un processus
+        │                                     de transformation fiable et
+        │                                     testable dans le temps)
+        └───────────────┬───────────────────┘
+                        ▼
+              Cours 25 — Monitoring de qualité
+              (SURVEILLER dans la durée la dégradation
+               progressive d'une source de données)</div>
+
+        <p>Ce cours s'appuie sur l'ensemble des blocs précédents de la série : chaque pipeline déjà construit (RAG, agents IA, fine-tuning) constitue un candidat direct pour l'application des principes de reproductibilité de ce cours, prolongeant directement les fondations posées au cours 23 vers une industrialisation complète et durable.</p>
+
+        <h3>Pour aller plus loin</h3>
+        <ul>
+          <li>La documentation officielle de DVC et des outils de versionnement de données équivalents, pour les fonctionnalités avancées non couvertes en détail dans ce cours introductif.</li>
+          <li>Les plateformes d'orchestration de pipelines (Airflow, Dagster) déjà mentionnées au cours 23, pour approfondir leur intégration avec les principes de CI et de déploiement progressif de ce cours.</li>
+          <li>Le cours 25 de ce même bloc, qui prolonge directement le suivi de tendance déjà entamé au module 7, leçon 7.5 de ce cours, vers un monitoring complet de la dégradation de qualité dans le temps.</li>
+        </ul>
+
+        <div class="callout exercise">
+          <strong>Pour conclure</strong>
+          En une phrase, formulez le principe de ce cours qui vous semble le plus déterminant pour éviter qu'un pipeline de données, en apparence fonctionnel, ne produise silencieusement des résultats différents d'une exécution à l'autre.
+        </div>
+      </section>
+    </div>
+
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+  hljs.highlightAll();
+
+  const storageKey = 'pipelines-reproductibles-course-progress';
+  const total = 40;
+  const menuToggle = document.getElementById('menuToggle');
+  const sidebar = document.getElementById('sidebar');
+  menuToggle.addEventListener('click', () => sidebar.classList.toggle('open'));
+
+  function getProgress() {
+    try { return JSON.parse(localStorage.getItem(storageKey)) || {}; }
+    catch (e) { return {}; }
+  }
+  function saveProgress(p) { localStorage.setItem(storageKey, JSON.stringify(p)); }
+
+  function updateProgressBar() {
+    const p = getProgress();
+    const done = Object.values(p).filter(Boolean).length;
+    document.getElementById('progressFill').style.width = (done / total * 100) + '%';
+  }
+
+  function markVisible() {
+    const progress = getProgress();
+    const links = document.querySelectorAll('[data-lesson]');
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const id = entry.target.id;
+          links.forEach(l => l.classList.remove('active'));
+          const link = document.querySelector('[data-lesson="' + id + '"]');
+          if (link) link.classList.add('active');
+          if (!progress[id]) {
+            progress[id] = true;
+            saveProgress(progress);
+            updateProgressBar();
+            const check = link ? link.querySelector('.lesson-check') : null;
+            if (check) check.classList.add('done');
+          }
+        }
+      });
+    }, { threshold: 0.4 });
+    document.querySelectorAll('section.lesson').forEach(s => observer.observe(s));
+  }
+
+  function restoreChecks() {
+    const progress = getProgress();
+    Object.keys(progress).forEach(id => {
+      if (progress[id]) {
+        const link = document.querySelector('[data-lesson="' + id + '"]');
+        if (link) {
+          const check = link.querySelector('.lesson-check');
+          if (check) check.classList.add('done');
+        }
+      }
+    });
+    updateProgressBar();
+  }
+
+  restoreChecks();
+  markVisible();
+
+  document.querySelectorAll('.sidebar a').forEach(a => {
+    a.addEventListener('click', () => { sidebar.classList.remove('open'); });
+  });
+</script>
+</body>
+</html>

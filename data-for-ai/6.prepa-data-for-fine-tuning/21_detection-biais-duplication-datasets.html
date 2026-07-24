@@ -1,0 +1,1920 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Détection de Biais et Duplication dans les Datasets de Fine-Tuning</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<style>
+  :root {
+    --bg: #f4f6f8; --bg-alt: #e8edf1; --panel: #ffffff; --text: #1f2430; --text-muted: #5b6472;
+    --accent: #0891b2; --accent-dark: #0e7490; --pitfall: #f59e0b; --border: #dbe2e8;
+    --chunk-1: #7c5cff; --chunk-2: #17b8a6; --chunk-3: #ff6b6b; --chunk-4: #ffb020;
+    --font-display: "Space Grotesk", sans-serif; --font-body: "Inter", system-ui, sans-serif; --font-mono: "JetBrains Mono", monospace;
+    --sidebar-width: 300px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font-body); color: var(--text); background: var(--bg); line-height: 1.65; }
+  .layout { display: flex; min-height: 100vh; }
+  .sidebar { width: var(--sidebar-width); flex-shrink: 0; background: var(--panel); border-right: 1px solid var(--border); padding: 1.5rem 1rem 3rem; overflow-y: auto; position: sticky; top: 0; height: 100vh; }
+  .sidebar a.brand { display: block; font-family: var(--font-display); font-weight: 700; font-size: 1rem; margin-bottom: 1.5rem; color: var(--text); text-decoration: none; padding: 0.4rem 0.5rem; }
+  .sidebar a.brand span { color: var(--accent); }
+  .module-group { margin-bottom: 0.35rem; border-radius: 8px; }
+  .module-title { font-family: var(--font-display); font-weight: 600; font-size: 0.88rem; padding: 0.55rem 0.6rem; display: flex; gap: 0.5rem; align-items: baseline; color: var(--text); text-decoration: none; }
+  .module-title .n { font-family: var(--font-mono); font-size: 0.72rem; opacity: 0.7; }
+  .lesson-list { list-style: none; padding-left: 0.6rem; margin-bottom: 0.4rem; }
+  .lesson-list li a { display: flex; align-items: center; gap: 0.5rem; padding: 0.32rem 0.5rem; border-radius: 6px; color: var(--text-muted); text-decoration: none; font-size: 0.83rem; }
+  .lesson-list li a:hover { background: var(--bg-alt); color: var(--text); }
+  .lesson-list li a.active { color: var(--accent-dark); font-weight: 600; background: rgba(8,145,178,0.1); }
+  .lesson-check { width: 12px; height: 12px; flex-shrink: 0; border: 1.5px solid var(--text-muted); border-radius: 3px; }
+  .lesson-check.done { background: var(--chunk-2); border-color: var(--chunk-2); }
+  .progress-bar { height: 4px; background: var(--border); position: sticky; top: 0; z-index: 10; }
+  .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--chunk-1), var(--accent)); width: 0%; transition: width 0.2s ease; }
+  .content { flex: 1; max-width: 760px; margin: 0 auto; padding: 3rem 2rem 6rem; }
+  .module-kicker { font-family: var(--font-mono); font-size: 0.8rem; color: var(--accent-dark); background: rgba(8,145,178,0.08); border: 1px dashed var(--accent); display: inline-block; padding: 0.2rem 0.8rem; border-radius: 999px; margin-bottom: 1rem; }
+  section.lesson { border-top: 2px dashed var(--border); padding-top: 2rem; margin-top: 2rem; position: relative; padding-left: 1.1rem; border-left: 4px solid var(--lesson-color, var(--accent)); }
+  section.lesson h2 { font-family: var(--font-display); font-size: 1.5rem; margin-bottom: 1rem; }
+  section.lesson h2 .tag { font-family: var(--font-mono); font-size: 0.7rem; color: var(--lesson-color, var(--accent)); display: block; margin-bottom: 0.3rem; }
+  section.lesson h3 { font-family: var(--font-display); font-size: 1.1rem; margin: 1.4rem 0 0.6rem; }
+  section.lesson p, section.lesson ul, section.lesson ol { margin-bottom: 1rem; }
+  section.lesson li { margin-left: 1.3rem; margin-bottom: 0.35rem; }
+  pre { border-radius: 8px; padding: 1rem; overflow-x: auto; margin: 1rem 0; font-size: 0.85rem; }
+  code.inline { font-family: var(--font-mono); background: var(--bg-alt); padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.85em; }
+  .ascii { font-family: var(--font-mono); font-size: 0.78rem; background: #1e222b; color: #d7dce2; padding: 1rem 1.2rem; border-radius: 8px; overflow-x: auto; margin: 1rem 0; line-height: 1.5; white-space: pre; }
+  .callout { border-left: 4px solid var(--accent); background: var(--bg-alt); padding: 1rem 1.2rem; border-radius: 0 8px 8px 0; margin: 1.2rem 0; }
+  .callout strong { font-family: var(--font-display); display: block; margin-bottom: 0.3rem; font-size: 0.92rem; }
+  .callout.pitfall { border-left-color: var(--pitfall); }
+  .callout.exercise { border-left-color: var(--chunk-2); }
+  .menu-toggle { display: none; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.88rem; }
+  thead tr { text-align: left; border-bottom: 2px solid var(--border); }
+  th, td { padding: 0.5rem 0.6rem; }
+  tbody tr { border-bottom: 1px solid var(--border); }
+
+  .hero {
+    border-bottom: 2px dashed var(--border);
+    padding: 3rem 0 2.5rem;
+    text-align: center;
+    margin-bottom: 1rem;
+  }
+  .hero .tag {
+    display: inline-block; font-family: var(--font-mono); font-size: 0.8rem;
+    color: var(--accent-dark); background: rgba(8,145,178,0.1);
+    border: 1px dashed var(--accent); border-radius: 999px;
+    padding: 0.25rem 0.9rem; margin-bottom: 1.25rem;
+  }
+  .hero-title {
+    font-family: var(--font-display); font-size: clamp(1.8rem, 5vw, 2.6rem);
+    font-weight: 700; margin: 0 auto 1rem; letter-spacing: -0.01em;
+  }
+  .hero-title span {
+    background: linear-gradient(90deg, var(--chunk-1), var(--accent), var(--chunk-2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .hero-lead { max-width: 620px; margin: 0 auto; color: var(--text-muted); font-size: 1.02rem; }
+  .strip { display: flex; justify-content: center; gap: 0.4rem; margin: 2rem auto 0; max-width: 520px; }
+  .strip .seg { height: 8px; flex: 1; border-radius: 3px; }
+  .strip .seg:nth-child(1) { background: var(--chunk-1); }
+  .strip .seg:nth-child(2) { background: var(--chunk-2); }
+  .strip .seg:nth-child(3) { background: var(--chunk-3); }
+  .strip .seg:nth-child(4) { background: var(--chunk-4); }
+  .strip .seg:nth-child(5) { background: var(--chunk-1); }
+  .strip .seg:nth-child(6) { background: var(--chunk-2); }
+
+  .module-block { border-top: 3px solid var(--border); padding-top: 2.5rem; margin-top: 3rem; }
+  .module-block:first-of-type { border-top: none; margin-top: 0; }
+  .module-block > h1 { font-family: var(--font-display); font-size: 2rem; margin-bottom: 0.5rem; }
+  .module-block > p.intro { color: var(--text-muted); margin-bottom: 2rem; font-size: 1.02rem; }
+
+  .finale {
+    margin-top: 3rem; padding: 1.5rem; border-radius: 10px;
+    background: linear-gradient(135deg, rgba(124,92,255,0.08), rgba(23,184,166,0.08));
+    border: 1px dashed var(--accent);
+    text-align: center;
+  }
+  .finale p { color: var(--text-muted); margin-bottom: 0.8rem; }
+  .finale a {
+    display: inline-block; background: var(--accent); color: white;
+    text-decoration: none; padding: 0.6rem 1.4rem; border-radius: 6px;
+    font-family: var(--font-display); font-weight: 600; font-size: 0.9rem;
+  }
+
+  @media (max-width: 860px) {
+    .sidebar { position: fixed; left: -100%; z-index: 20; transition: left 0.2s ease; box-shadow: 4px 0 12px rgba(0,0,0,0.15); background: var(--panel); }
+    .sidebar.open { left: 0; }
+    .menu-toggle { display: block; position: fixed; top: 1rem; left: 1rem; z-index: 30; background: var(--accent); color: white; border: none; border-radius: 6px; padding: 0.5rem 0.75rem; cursor: pointer; font-size: 1rem; }
+    .content { padding: 4.5rem 1.25rem 3rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-bar-fill" id="progressFill"></div></div>
+<button class="menu-toggle" id="menuToggle">☰</button>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar">
+    <a class="brand" href="#top">Biais<span>&amp;Duplication</span></a>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-1"><span class="n">01</span> Fondamentaux du biais et de la duplication</a>
+      <ul class="lesson-list">
+        <li><a href="#m1-l1" data-lesson="m1-l1"><span class="lesson-check"></span>Deux problèmes distincts mais liés</a></li>
+        <li><a href="#m1-l2" data-lesson="m1-l2"><span class="lesson-check"></span>Comment un dataset biaisé produit un modèle biaisé</a></li>
+        <li><a href="#m1-l3" data-lesson="m1-l3"><span class="lesson-check"></span>Comment la duplication déséquilibre l'apprentissage</a></li>
+        <li><a href="#m1-l4" data-lesson="m1-l4"><span class="lesson-check"></span>Où cette étape s'insère dans le pipeline</a></li>
+        <li><a href="#m1-l5" data-lesson="m1-l5"><span class="lesson-check"></span>Erreurs courantes de détection</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-2"><span class="n">02</span> Types de biais dans un dataset</a>
+      <ul class="lesson-list">
+        <li><a href="#m2-l1" data-lesson="m2-l1"><span class="lesson-check"></span>Biais de représentation</a></li>
+        <li><a href="#m2-l2" data-lesson="m2-l2"><span class="lesson-check"></span>Biais de source</a></li>
+        <li><a href="#m2-l3" data-lesson="m2-l3"><span class="lesson-check"></span>Biais stylistique et de longueur</a></li>
+        <li><a href="#m2-l4" data-lesson="m2-l4"><span class="lesson-check"></span>Biais d'annotateur et de génération synthétique</a></li>
+        <li><a href="#m2-l5" data-lesson="m2-l5"><span class="lesson-check"></span>Biais de label</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-3"><span class="n">03</span> Mesurer et quantifier le biais</a>
+      <ul class="lesson-list">
+        <li><a href="#m3-l1" data-lesson="m3-l1"><span class="lesson-check"></span>Statistiques descriptives de distribution</a></li>
+        <li><a href="#m3-l2" data-lesson="m3-l2"><span class="lesson-check"></span>Corrélations indésirables entre attributs et labels</a></li>
+        <li><a href="#m3-l3" data-lesson="m3-l3"><span class="lesson-check"></span>Cartographier la diversité via les embeddings</a></li>
+        <li><a href="#m3-l4" data-lesson="m3-l4"><span class="lesson-check"></span>Outils et bibliothèques de détection</a></li>
+        <li><a href="#m3-l5" data-lesson="m3-l5"><span class="lesson-check"></span>Pièges de mesure</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-4"><span class="n">04</span> Duplication exacte et quasi-duplication</a>
+      <ul class="lesson-list">
+        <li><a href="#m4-l1" data-lesson="m4-l1"><span class="lesson-check"></span>Rappel de la déduplication exacte et ses limites</a></li>
+        <li><a href="#m4-l2" data-lesson="m4-l2"><span class="lesson-check"></span>Quasi-duplication par similarité textuelle</a></li>
+        <li><a href="#m4-l3" data-lesson="m4-l3"><span class="lesson-check"></span>Quasi-duplication par similarité sémantique</a></li>
+        <li><a href="#m4-l4" data-lesson="m4-l4"><span class="lesson-check"></span>Choisir un seuil de similarité</a></li>
+        <li><a href="#m4-l5" data-lesson="m4-l5"><span class="lesson-check"></span>Pièges de la déduplication</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-5"><span class="n">05</span> Impact de la duplication sur l'entraînement</a>
+      <ul class="lesson-list">
+        <li><a href="#m5-l1" data-lesson="m5-l1"><span class="lesson-check"></span>Mémorisation et surapprentissage</a></li>
+        <li><a href="#m5-l2" data-lesson="m5-l2"><span class="lesson-check"></span>Duplication inter-split et fuite de données</a></li>
+        <li><a href="#m5-l3" data-lesson="m5-l3"><span class="lesson-check"></span>Duplication et vie privée</a></li>
+        <li><a href="#m5-l4" data-lesson="m5-l4"><span class="lesson-check"></span>Datasets combinant plusieurs sources</a></li>
+        <li><a href="#m5-l5" data-lesson="m5-l5"><span class="lesson-check"></span>Mesurer l'impact réel après déduplication</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-6"><span class="n">06</span> Corriger et atténuer le biais</a>
+      <ul class="lesson-list">
+        <li><a href="#m6-l1" data-lesson="m6-l1"><span class="lesson-check"></span>Rééquilibrage par sur/sous-échantillonnage</a></li>
+        <li><a href="#m6-l2" data-lesson="m6-l2"><span class="lesson-check"></span>Augmentation ciblée</a></li>
+        <li><a href="#m6-l3" data-lesson="m6-l3"><span class="lesson-check"></span>Pondération des exemples à l'entraînement</a></li>
+        <li><a href="#m6-l4" data-lesson="m6-l4"><span class="lesson-check"></span>Réviser les sources en amont</a></li>
+        <li><a href="#m6-l5" data-lesson="m6-l5"><span class="lesson-check"></span>Pièges de correction</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-7"><span class="n">07</span> Outillage et automatisation</a>
+      <ul class="lesson-list">
+        <li><a href="#m7-l1" data-lesson="m7-l1"><span class="lesson-check"></span>Construire un pipeline de détection automatisé</a></li>
+        <li><a href="#m7-l2" data-lesson="m7-l2"><span class="lesson-check"></span>Rapports de biais et duplication</a></li>
+        <li><a href="#m7-l3" data-lesson="m7-l3"><span class="lesson-check"></span>Intégrer la détection au cycle de vie du dataset</a></li>
+        <li><a href="#m7-l4" data-lesson="m7-l4"><span class="lesson-check"></span>Seuils d'alerte et validation humaine</a></li>
+        <li><a href="#m7-l5" data-lesson="m7-l5"><span class="lesson-check"></span>Documenter les décisions de correction</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-8"><span class="n">08</span> Implémentation complète et étude de cas</a>
+      <ul class="lesson-list">
+        <li><a href="#m8-l1" data-lesson="m8-l1"><span class="lesson-check"></span>Checklist de détection de biais et duplication</a></li>
+        <li><a href="#m8-l2" data-lesson="m8-l2"><span class="lesson-check"></span>Pipeline complet : détection à validation</a></li>
+        <li><a href="#m8-l3" data-lesson="m8-l3"><span class="lesson-check"></span>Étude de cas : dataset d'agent de support</a></li>
+        <li><a href="#m8-l4" data-lesson="m8-l4"><span class="lesson-check"></span>Exercice final</a></li>
+        <li><a href="#m8-l5" data-lesson="m8-l5"><span class="lesson-check"></span>Synthèse et transition vers le cours 22</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main class="content">
+    <header class="hero" id="top">
+      <span class="tag">// data-for-ai · 6.prepa-data-for-fine-tuning · Formation 21</span>
+      <h1 class="hero-title">Détection de Biais et <span>Duplication</span></h1>
+      <p class="hero-lead">Comment détecter, mesurer et corriger les biais de représentation et les redondances cachées dans un dataset de fine-tuning, avant qu'ils ne se figent dans le comportement du modèle entraîné. 8 modules, 40 leçons.</p>
+      <div class="strip" aria-hidden="true">
+        <div class="seg"></div><div class="seg"></div><div class="seg"></div>
+        <div class="seg"></div><div class="seg"></div><div class="seg"></div>
+      </div>
+    </header>
+
+    <div class="module-block" id="module-1">
+      <span class="module-kicker">MODULE 01 / 08</span>
+      <h1>Fondamentaux du biais et de la duplication</h1>
+      <p class="intro">Ce cours poursuit le Bloc 6 de la série, entamé au cours 20 sur le formatage des datasets d'entraînement. Une fois un dataset correctement structuré et encodé, deux problèmes de contenu distincts mais souvent liés menacent sa qualité réelle : le biais de représentation et la duplication cachée — le sujet de ce cours.</p>
+
+      <section class="lesson" id="m1-l1" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 1.1</span>Pourquoi biais et duplication sont deux problèmes distincts mais liés</h2>
+
+        <p>Le <strong>biais</strong> désigne une sur- ou sous-représentation systématique de certains types de contenu, catégories ou perspectives dans un dataset, par rapport à ce qui serait souhaitable pour un usage donné. La <strong>duplication</strong> désigne la présence d'exemples identiques ou quasi identiques répétés plusieurs fois. Ces deux notions sont distinctes — un dataset peut être biaisé sans contenir de doublons, et contenir des doublons sans être biaisé — mais elles s'aggravent mutuellement dans la pratique.</p>
+
+        <div class="ascii">Comment la duplication AGGRAVE le biais :
+
+Un dataset contient déjà une légère sur-représentation de la
+catégorie A par rapport à la catégorie B (biais initial, léger)
+                    │
+                    ▼
+Une source de données est traitée deux fois par erreur dans
+le pipeline de collecte (rappel cours 20, module 4), et cette
+source contenait majoritairement des exemples de catégorie A
+                    │
+                    ▼
+La duplication AMPLIFIE le déséquilibre déjà présent —
+un biais initialement mineur devient significatif une fois
+la duplication non détectée</div>
+
+        <p>Cette interaction justifie de traiter les deux sujets dans un même cours plutôt que séparément : une détection de duplication insuffisante peut masquer ou amplifier un biais qu'une analyse de distribution seule (rappel cours 20, module 7, leçon 7.3) pourrait sous-estimer si elle ne tient pas compte des exemples répétés comme des occurrences distinctes à tort.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Traiter la détection de biais et la déduplication comme deux tâches complètement indépendantes menées séparément, sans reconnaître qu'une duplication non détectée peut directement fausser une analyse de distribution censée mesurer le biais — la déduplication devrait généralement précéder l'analyse de biais, pas l'inverse.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Décrivez un scénario plausible où une duplication non détectée ferait paraître un dataset bien équilibré alors qu'il ne l'est pas réellement une fois les doublons retirés.
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l2" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 1.2</span>Comment un dataset biaisé produit un modèle biaisé</h2>
+
+        <p>Rappel direct du cours 20 (module 1, leçon 1.3) : la qualité d'un modèle fine-tuné ne peut pas dépasser celle de son dataset d'entraînement. Cette leçon détaille précisément le mécanisme par lequel un déséquilibre dans les données d'entraînement se traduit en comportement biaisé du modèle final.</p>
+
+        <div class="ascii">Mécanisme de propagation du biais, du dataset au modèle :
+
+DATASET : 90% des exemples de support client concernent
+des demandes de remboursement, 10% concernent d'autres motifs
+(livraison, information produit, réclamation qualité)
+                    │
+                    ▼
+ENTRAÎNEMENT : le modèle voit 9 fois plus d'exemples de
+gestion de remboursement que de tout autre motif combiné
+                    │
+                    ▼
+COMPORTEMENT APPRIS : le modèle devient disproportionnellement
+compétent et "confiant" sur les remboursements, et moins fiable
+sur les motifs sous-représentés — un déséquilibre qui n'était
+pas nécessairement intentionnel, mais hérité PASSIVEMENT de la
+composition du dataset source</div>
+
+        <p>Ce mécanisme explique pourquoi le biais d'un dataset n'est presque jamais la conséquence d'une décision explicite et volontaire, mais plutôt d'un déséquilibre hérité passivement des sources de collecte (rappel cours 20, module 4) — un motif de service très fréquent dans les logs réels produit naturellement davantage d'exemples que des motifs plus rares, sans qu'aucune décision explicite de sur-représentation n'ait été prise.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Supposer qu'un biais dans le comportement d'un modèle fine-tuné provient nécessairement d'une décision explicite de conception (un choix de collecte volontairement orienté) alors qu'il résulte le plus souvent d'un déséquilibre statistique passif dans les sources utilisées — la détection de biais doit donc porter sur la composition RÉELLE du dataset, indépendamment des intentions déclarées de sa construction.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour l'exemple ci-dessus (90% remboursement, 10% autres motifs), décrivez concrètement le type d'erreur qu'un utilisateur pourrait rencontrer en interagissant avec le modèle final sur un motif de livraison.
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l3" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 1.3</span>Comment la duplication déséquilibre l'apprentissage</h2>
+
+        <p>Rappel du cours 20 (module 5, leçon 5.4) : un exemple dupliqué donne un poids disproportionné à ce cas précis pendant l'entraînement. Cette leçon approfondit ce mécanisme, distinct du biais de représentation par catégorie (leçon 1.2) mais produisant un effet similaire.</p>
+
+        <div class="ascii">Différence entre biais de CATÉGORIE et duplication d'EXEMPLES :
+
+BIAIS DE REPRÉSENTATION (leçon 1.2)        DUPLICATION (cette leçon)
+────────────────────────────────           ────────────────────────────────
+Plusieurs exemples DIFFÉRENTS mais          Le MÊME exemple (ou un exemple
+appartenant à la même catégorie             quasi identique) apparaît
+sur-représentée                            plusieurs fois dans le dataset
+
+Le modèle apprend une CATÉGORIE             Le modèle sur-apprend un CAS
+plus large de façon disproportionnée         PARTICULIER de façon disproportionnée,
+                                            au point de le MÉMORISER plutôt
+                                            que d'en généraliser le principe
+                                            sous-jacent (approfondi module 5)</div>
+
+        <p>Cette distinction a une implication concrète pour la détection : le biais de catégorie (leçon 1.2) se détecte par une analyse de distribution sur des métadonnées (rappel cours 20, module 7, leçon 7.3), tandis que la duplication nécessite une comparaison directe entre le contenu des exemples eux-mêmes — deux méthodes de détection différentes, approfondies respectivement aux modules 3 et 4 de ce cours.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer qu'une analyse de distribution par catégorie (rappel cours 20, module 7) suffit à détecter tous les déséquilibres d'un dataset, en oubliant que la duplication d'exemples individuels au sein d'une même catégorie peut créer un déséquilibre invisible à cette seule analyse par catégorie.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Un dataset a une distribution de catégories parfaitement équilibrée (25% chacune sur 4 catégories), mais un seul exemple de la catégorie A apparaît 50 fois de façon quasi identique. Ce dataset est-il réellement équilibré ? Justifiez.
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l4" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 1.4</span>Où cette étape s'insère dans le pipeline complet</h2>
+
+        <p>Rappel du cours 20 (module 1, leçon 1.4, sur le pipeline complet de préparation) : ce cours approfondit spécifiquement l'étape 3 de ce pipeline (nettoyage et déduplication), au-delà de la déduplication exacte de base déjà couverte au cours 20 (module 5, leçon 5.4).</p>
+
+        <div class="ascii">Rappel du pipeline complet (cours 20, module 1, leçon 1.4),
+situant précisément ce cours :
+
+1. COLLECTE (cours 20, module 4)
+2. FORMATAGE (cours 20, modules 2-3, 6)
+3. NETTOYAGE ET DÉDUPLICATION
+   → Déduplication EXACTE (cours 20, module 5, leçon 5.4)
+   → Détection de BIAIS et QUASI-DUPLICATION (CE COURS)
+4. FILTRAGE DE QUALITÉ (cours 22 — heuristiques, LLM-as-judge)
+5. VALIDATION ET SPLIT FINAL (cours 20, module 7)
+6. ENTRAÎNEMENT (hors périmètre de cette série)</div>
+
+        <p>Ce positionnement clarifie la frontière entre ce cours et le cours 20 : la déduplication exacte (comparaison stricte de hash) reste un prérequis simple déjà couvert, tandis que ce cours 21 traite des formes plus subtiles — la quasi-duplication (formulations différentes, même contenu) et le biais de représentation (déséquilibre de catégories, de style, de source) qui nécessitent des techniques de détection plus sophistiquées.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer que la déduplication exacte déjà appliquée (rappel cours 20) suffit à éliminer tout risque de redondance, sans envisager que la quasi-duplication — des exemples formulés différemment mais redondants en substance — représente un risque tout aussi réel et souvent plus fréquent en pratique.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour le pipeline ci-dessus, à quel moment précis la détection de biais devrait-elle intervenir par rapport à la déduplication — avant, après, ou en parallèle ? Justifiez en vous appuyant sur la leçon 1.1.
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l5" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 1.5</span>Erreurs courantes de détection</h2>
+
+        <p>Cette dernière leçon du module recense les erreurs les plus fréquentes lors de la détection de biais et de duplication, approfondies individuellement dans les modules suivants.</p>
+
+        <h3>Erreur 1 : se limiter à la déduplication exacte</h3>
+        <p>Rappel de la leçon 1.4 : s'arrêter à la comparaison de hash déjà couverte au cours 20 sans jamais détecter la quasi-duplication, plus fréquente et souvent plus dommageable — approfondi au module 4.</p>
+
+        <h3>Erreur 2 : analyser la distribution sans en vérifier la source</h3>
+        <p>Détecter un déséquilibre statistique sans investiguer sa cause profonde (une source unique sur-représentée, un biais d'annotateur) — approfondi au module 2.</p>
+
+        <h3>Erreur 3 : corriger le biais sans mesurer l'impact réel</h3>
+        <p>Appliquer une correction (rééquilibrage, filtrage) sans vérifier ensuite qu'elle a réellement amélioré la représentativité du dataset, ou sans vérifier qu'elle n'a pas introduit un nouveau déséquilibre — approfondi au module 6.</p>
+
+        <h3>Erreur 4 : ne pas automatiser la détection pour les mises à jour futures</h3>
+        <p>Effectuer une détection ponctuelle une seule fois, sans processus reproductible pour les prochaines versions du dataset — approfondi au module 7.</p>
+
+        <div class="ascii">Les quatre erreurs à éviter, résumées :
+
+1. DÉDUPLICATION EXACTE SEULE       →  Quasi-duplication non détectée
+2. DISTRIBUTION SANS INVESTIGATION   →  Cause racine du biais ignorée
+3. CORRECTION SANS MESURE            →  Efficacité de la correction incertaine
+4. DÉTECTION NON AUTOMATISÉE          →  Régression à chaque nouvelle version</div>
+
+        <p>Les modules suivants traitent chacune de ces erreurs : le module 2 détaille les types de biais et leurs causes, le module 3 leur mesure quantitative, le module 4 la quasi-duplication, le module 6 la correction avec vérification, et le module 7 l'automatisation pour un usage reproductible.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Traiter la détection de biais et de duplication comme une vérification ponctuelle effectuée une seule fois avant le premier entraînement, plutôt que comme un processus à reproduire à chaque mise à jour du dataset — un dataset évolue (rappel cours 18, sur le cycle de vie des données), et un biais absent initialement peut apparaître après l'ajout de nouvelles sources.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de synthèse</strong>
+          Pour clore ce module : parmi les quatre erreurs listées, laquelle vous semble la plus probable dans un projet que vous avez connu ou pourriez rencontrer — et pourquoi ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-2">
+      <span class="module-kicker">MODULE 02 / 08</span>
+      <h1>Types de biais dans un dataset de fine-tuning</h1>
+      <p class="intro">Ce module détaille les catégories de biais les plus fréquentes dans un dataset de fine-tuning, chacune nécessitant une attention et parfois une technique de détection différente — une base nécessaire avant d'aborder leur mesure quantitative au module 3.</p>
+
+      <section class="lesson" id="m2-l1" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 2.1</span>Biais de représentation</h2>
+
+        <p>Le <strong>biais de représentation</strong> désigne une sur- ou sous-représentation systématique de certains sujets, catégories ou populations dans un dataset — le type de biais le plus intuitif, déjà illustré à la leçon 1.2 avec l'exemple des motifs de support client.</p>
+
+        <div class="ascii">Exemples de biais de représentation dans différents contextes :
+
+Un dataset de support client où 90% des exemples concernent
+un seul type de demande (rappel leçon 1.2)
+
+Un dataset multilingue où 95% des exemples sont en anglais
+et seulement 5% répartis entre toutes les autres langues visées
+
+Un dataset de questions-réponses générales où certains domaines
+(technologie, actualité) sont sur-représentés par rapport à
+d'autres (santé, droit, questions pratiques du quotidien)</div>
+
+        <p>Ce type de biais se détecte généralement par une analyse statistique de métadonnées (catégorie, langue, domaine) déjà rattachées aux exemples — une technique de détection relativement directe, approfondie au module 3, à condition que ces métadonnées existent et soient fiables, ce qui suppose un travail d'enrichissement en amont (rappel cours 12, sur l'enrichissement de métadonnées).</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Chercher à détecter un biais de représentation sans disposer de métadonnées de catégorisation fiables pour les exemples du dataset — sans ce travail préalable d'enrichissement (rappel cours 12), toute analyse de distribution reste impossible à mener de façon rigoureuse.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un dataset destiné à un assistant de rédaction généraliste, quelles catégories ou dimensions (type de texte, longueur, registre de langue) mériteraient d'être suivies pour détecter un éventuel biais de représentation ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l2" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 2.2</span>Biais de source</h2>
+
+        <p>Rappel direct du cours 20 (module 4, leçon 4.5) : un dataset construit à partir d'une source unique hérite pleinement des caractéristiques et limitations de cette source — un problème distinct du simple déséquilibre de catégories (leçon 2.1), car il porte sur l'ORIGINE des exemples plutôt que sur leur contenu classifié.</p>
+
+        <div class="ascii">Comment le biais de source se distingue du biais de représentation :
+
+BIAIS DE REPRÉSENTATION (leçon 2.1)         BIAIS DE SOURCE (cette leçon)
+────────────────────────────────            ────────────────────────────────
+Porte sur les CATÉGORIES de contenu          Porte sur l'ORIGINE des exemples,
+(sujets, langues, domaines)                  indépendamment de leur catégorie
+
+Se détecte par analyse de                    Se détecte en traçant, pour
+métadonnées de CONTENU                       chaque exemple, sa PROVENANCE
+                                            (rappel cours 20, module 7,
+                                            leçon 7.5, sur la documentation
+                                            des sources)
+
+Exemple : trop d'exemples sur                Exemple : tous les exemples
+un même sujet                                proviennent d'un même canal de
+                                            support (chat web), aucun d'un
+                                            canal différent (téléphone,
+                                            email) qui pourrait présenter
+                                            un style de langage distinct</div>
+
+        <p>Ce biais est particulièrement insidieux car il peut coexister avec une distribution de catégories parfaitement équilibrée (leçon 2.1) : un dataset peut couvrir tous les motifs de support de façon équilibrée tout en ne provenant que d'un seul canal de collecte, avec un style et des contraintes propres à ce canal qui ne représentent pas la diversité réelle des interactions attendues en production.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Vérifier uniquement la distribution des catégories de contenu (leçon 2.1) sans jamais tracer et analyser la distribution des SOURCES d'origine des exemples — un dataset peut sembler équilibré en catégories tout en étant fortement biaisé vers le style ou les contraintes d'une seule source de collecte.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un dataset combinant logs réels et génération synthétique (rappel cours 20, module 4), quel biais de source spécifique pourrait résulter d'une sur-dépendance à la génération synthétique ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l3" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 2.3</span>Biais stylistique et de longueur</h2>
+
+        <p>Ce type de biais, souvent négligé, concerne non pas le contenu ou la source, mais la <strong>forme</strong> des exemples : leur longueur, leur registre de langue, leur structure syntaxique — des caractéristiques qui influencent directement le style de réponse que le modèle fine-tuné apprendra à reproduire systématiquement.</p>
+
+        <pre><code class="language-python">def analyser_biais_longueur(exemples: list[dict]) -> dict:
+    """Rappel cours 20, module 7, leçon 7.3 — même principe
+    d'analyse quantitative de distribution, appliqué ici à la
+    LONGUEUR des réponses plutôt qu'à leur catégorie."""
+    longueurs = [len(ex["output"].split()) for ex in exemples]
+    return {
+        "longueur_moyenne": sum(longueurs) / len(longueurs),
+        "longueur_min": min(longueurs),
+        "longueur_max": max(longueurs),
+        "ecart_type": calculer_ecart_type(longueurs),
+    }
+</code></pre>
+
+        <div class="ascii">Conséquence d'un biais de longueur non détecté :
+
+Si 95% des réponses du dataset font entre 20 et 30 mots, le
+modèle fine-tuné apprendra à produire SYSTÉMATIQUEMENT des
+réponses de cette longueur — même pour des questions qui
+appelleraient naturellement une réponse plus courte (une
+confirmation simple) ou plus longue (une explication détaillée)
+
+→ Le modèle "sur-généralise" un STYLE plutôt qu'une COMPÉTENCE,
+  produisant des réponses artificiellement uniformes en longueur
+  quelle que soit la complexité réelle de la question posée</div>
+
+        <p>Ce risque rejoint directement un principe déjà établi au cours 20 (module 6, leçon 6.1) sur la diversité de longueur et de complexité des instructions — un principe qui s'applique symétriquement aux réponses : un dataset devrait représenter la variété naturelle de longueurs appropriées selon le type de question, pas une longueur uniforme héritée passivement d'une convention de rédaction homogène dans les sources.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Ignorer la distribution de longueur des réponses lors de l'analyse de biais, en se concentrant uniquement sur le contenu thématique — un dataset peut être parfaitement équilibré en sujets tout en étant biaisé en longueur, produisant un modèle qui répond toujours avec la même verbosité, quelle que soit la complexité réelle de la question.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un dataset destiné à un assistant capable de répondre aussi bien par une confirmation brève que par une explication détaillée, quelle distribution de longueur de réponses viseriez-vous ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l4" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 2.4</span>Biais d'annotateur et de génération synthétique</h2>
+
+        <p>Rappel direct du cours 20 (module 4, leçons 4.3 et 4.4) : les exemples générés synthétiquement par un LLM ou annotés manuellement par des personnes portent chacun l'empreinte de leur source de production — un modèle générateur a ses propres tics de formulation, un annotateur humain ses propres préférences stylistiques.</p>
+
+        <div class="ascii">Deux sources de biais spécifiques à ce type de production :
+
+BIAIS DE GÉNÉRATION SYNTHÉTIQUE             BIAIS D'ANNOTATEUR HUMAIN
+────────────────────────────────            ────────────────────────────────
+Un modèle générateur (rappel cours          Un annotateur individuel (ou une
+20, module 4, leçon 4.3) tend à              petite équipe) tend à privilégier
+produire des formulations                    certaines tournures, un registre
+RÉPÉTITIVES et un style reconnaissable        de langue ou une structure de
+                                             réponse particulière, reflétant
+Le modèle FINE-TUNÉ peut hériter              ses propres habitudes d'écriture
+de ce style caractéristique du
+modèle GÉNÉRATEUR, plutôt que d'un            Si un seul annotateur produit une
+style neutre et diversifié                    grande part du dataset, ce biais
+                                             individuel devient un biais
+                                             SYSTÉMIQUE du dataset entier</div>
+
+        <p>Ce biais se détecte en partie par les mêmes techniques que le biais stylistique (leçon 2.3), mais avec une dimension supplémentaire : il devrait être tracé par PRODUCTEUR (quel modèle générateur, quel annotateur) plutôt que globalement, pour identifier si un déséquilibre stylistique provient d'une source de production spécifique — rappel du principe de traçabilité déjà établi à la leçon 2.2 sur le biais de source.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Faire produire une large proportion d'un dataset par un seul modèle générateur ou un seul annotateur humain, sans varier les sources de production — cette pratique concentre le risque de biais stylistique sur les particularités de cette source unique, un risque directement atténuable en diversifiant les producteurs des exemples.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un dataset partiellement généré par un LLM (rappel cours 20, module 4, leçon 4.3), quelle métadonnée faudrait-il conserver pour chaque exemple afin de pouvoir tracer ce biais potentiel de génération après coup ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l5" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 2.5</span>Biais de label</h2>
+
+        <p>Rappel direct du cours 20 (module 6, leçon 6.4) : pour les tâches de classification, un déséquilibre entre les valeurs de label (par exemple, 90% d'exemples "positif" contre 10% "négatif") constitue un cas particulier de biais de représentation (leçon 2.1), avec des conséquences spécifiques sur les tâches de classification.</p>
+
+        <pre><code class="language-python">from collections import Counter
+
+def analyser_biais_label(exemples: list[dict]) -> dict:
+    labels = [ex["output"] for ex in exemples]
+    compteur = Counter(labels)
+    total = len(labels)
+    return {label: {"nombre": n, "proportion": n / total} for label, n in compteur.items()}
+
+# Un déséquilibre significatif (ex : proportion majoritaire > 80%)
+# signale un risque de modèle biaisé vers cette classe majoritaire
+</code></pre>
+
+        <div class="ascii">Conséquence spécifique d'un déséquilibre de label sur la
+classification :
+
+Dataset avec 90% "positif" / 10% "négatif"
+                │
+                ▼
+Le modèle apprend qu'il est STATISTIQUEMENT plus sûr de
+prédire "positif" par défaut — une stratégie qui MINIMISE
+l'erreur d'entraînement globale sans réellement apprendre à
+distinguer les deux classes de façon fiable
+                │
+                ▼
+En production, le modèle sous-détecte systématiquement la
+classe minoritaire ("négatif"), précisément la classe qui
+est souvent la plus importante à détecter correctement
+(un avis client négatif nécessitant une action, par exemple)</div>
+
+        <p>Ce dernier point mérite d'être souligné : la classe minoritaire est fréquemment celle qui compte le plus sur le plan métier (détecter un avis négatif, une transaction frauduleuse, une réclamation urgente) — un déséquilibre de label non corrigé produit donc souvent un modèle défaillant précisément là où sa fiabilité importe le plus, pas de façon uniforme sur l'ensemble des cas.</p>
+
+        <div class="ascii">Ce module clôt la partie "typologie du biais" du cours. Le module
+suivant traite comment mesurer et quantifier ces différents types
+de biais de façon rigoureuse, au-delà d'une simple identification
+qualitative de leur existence potentielle.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer un déséquilibre de label comme un problème mineur tant que le modèle atteint une bonne performance globale mesurée en moyenne — cette moyenne masque souvent une performance très dégradée spécifiquement sur la classe minoritaire, qui est fréquemment la plus critique sur le plan métier.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : parmi les cinq types de biais vus (représentation, source, stylistique, annotateur/génération, label), lequel vous semble le plus difficile à détecter sans outillage dédié, et pourquoi ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-3">
+      <span class="module-kicker">MODULE 03 / 08</span>
+      <h1>Mesurer et quantifier le biais</h1>
+      <p class="intro">Le module précédent a établi une typologie du biais. Ce module traite comment le mesurer rigoureusement — passer d'une impression qualitative ("ce dataset semble déséquilibré") à une quantification qui permette de comparer objectivement des versions successives d'un même dataset.</p>
+
+      <section class="lesson" id="m3-l1" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 3.1</span>Statistiques descriptives de distribution</h2>
+
+        <p>Rappel direct du cours 20 (module 7, leçon 7.3) : la première étape de mesure consiste à calculer des statistiques descriptives simples sur les métadonnées de catégorisation du dataset — une extension directe de la technique déjà introduite, appliquée ici spécifiquement à des fins de détection de biais plutôt que de simple vérification de couverture.</p>
+
+        <pre><code class="language-python">from collections import Counter
+import math
+
+def calculer_entropie_distribution(exemples: list[dict], champ_categorie: str) -> float:
+    """L'entropie mesure le DÉSÉQUILIBRE d'une distribution en
+    un seul chiffre : une entropie maximale correspond à une
+    répartition parfaitement égale entre catégories, une entropie
+    proche de zéro signale une concentration extrême sur une
+    seule catégorie."""
+    categories = [ex[champ_categorie] for ex in exemples]
+    compteur = Counter(categories)
+    total = len(categories)
+    entropie = -sum((n / total) * math.log2(n / total) for n in compteur.values())
+    entropie_maximale = math.log2(len(compteur))
+    return entropie / entropie_maximale if entropie_maximale > 0 else 1.0
+</code></pre>
+
+        <div class="ascii">Interprétation du ratio d'entropie normalisée (0 à 1) :
+
+Proche de 1.0                              Proche de 0.0
+────────────────────────                   ────────────────────────
+Distribution QUASI ÉGALE entre              Distribution FORTEMENT
+toutes les catégories présentes             CONCENTRÉE sur une ou
+                                           quelques catégories —
+Signal d'un dataset bien                    signal d'un biais de
+équilibré selon cette dimension              représentation significatif
+                                           (rappel module 2, leçon 2.1)</div>
+
+        <p>Ce ratio d'entropie normalisée offre un avantage pratique sur une simple liste de proportions par catégorie : un seul chiffre comparable permet de suivre l'évolution de l'équilibre d'un dataset au fil de ses versions successives (rappel cours 20, module 7, leçon 7.5, sur le versionnement), sans devoir comparer manuellement des tableaux de distribution complets à chaque révision.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Se contenter d'examiner visuellement un tableau de proportions par catégorie sans calculer de métrique synthétique comparable dans le temps — cette approche rend difficile de détecter automatiquement une dégradation progressive de l'équilibre du dataset au fil de ses mises à jour successives.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un dataset avec 4 catégories réparties à 70%, 10%, 10%, 10%, calculez intuitivement si le ratio d'entropie serait plus proche de 1.0 ou de 0.0, sans effectuer le calcul exact.
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l2" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 3.2</span>Détecter les corrélations indésirables entre attributs et labels</h2>
+
+        <p>Au-delà de la distribution simple d'une seule dimension (leçon 3.1), un biais plus subtil peut apparaître sous forme de <strong>corrélation indésirable</strong> entre deux attributs — par exemple, si toutes les réponses "négatives" d'un dataset de classification proviennent systématiquement d'un même canal de collecte, le modèle pourrait apprendre à associer ce canal au sentiment négatif plutôt qu'au contenu réel du texte.</p>
+
+        <pre><code class="language-python">def detecter_correlation_attribut_label(exemples: list[dict], attribut: str, label: str) -> dict:
+    """Vérifie si la distribution du LABEL diffère significativement
+    selon la valeur de l'ATTRIBUT — une corrélation forte signale
+    un biais potentiellement caché, invisible dans une analyse
+    de distribution simple sur chaque dimension séparément."""
+    resultats = {}
+    valeurs_attribut = set(ex[attribut] for ex in exemples)
+    for valeur in valeurs_attribut:
+        sous_ensemble = [ex for ex in exemples if ex[attribut] == valeur]
+        distribution_labels = Counter(ex[label] for ex in sous_ensemble)
+        total = len(sous_ensemble)
+        resultats[valeur] = {l: n / total for l, n in distribution_labels.items()}
+    return resultats
+
+# Exemple : detecter_correlation_attribut_label(exemples, "canal_collecte", "sentiment")
+# Si le canal "telephone" montre 80% de "negatif" alors que la moyenne
+# globale est de 30%, cela signale une corrélation à investiguer
+</code></pre>
+
+        <div class="ascii">Pourquoi ce type de biais est plus difficile à détecter que le
+simple déséquilibre de distribution (leçon 3.1) :
+
+Distribution GLOBALE des labels             Distribution PAR SOUS-GROUPE
+────────────────────────────────            ────────────────────────────────
+Peut paraître PARFAITEMENT                  Peut révéler qu'un sous-groupe
+équilibrée (50% positif, 50%                spécifique (un canal, une
+négatif) quand on regarde                   source, une catégorie) est
+l'ensemble du dataset                       TRÈS DÉSÉQUILIBRÉ, même si la
+                                           moyenne globale semble neutre —
+                                           un biais qui n'apparaît QUE
+                                           lorsqu'on croise deux dimensions</div>
+
+        <p>Cette analyse croisée rejoint directement le principe déjà établi au module 2, leçon 2.2 (biais de source) : un dataset globalement équilibré en label peut malgré tout encoder une association indésirable entre une source spécifique et un label particulier — un modèle fine-tuné sur ce dataset pourrait alors apprendre cette corrélation superficielle plutôt que la distinction sémantique réellement visée.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Se satisfaire d'une distribution de labels globalement équilibrée sans jamais croiser cette distribution avec d'autres attributs (source, canal, catégorie) — un déséquilibre caché à l'intérieur d'un sous-groupe spécifique peut passer complètement inaperçu dans une analyse qui ne regarde que les moyennes globales.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Au-delà du canal de collecte, quel autre attribut d'un dataset de classification d'avis clients mériterait d'être croisé avec le label pour détecter une corrélation indésirable ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l3" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 3.3</span>Cartographier la diversité via les embeddings</h2>
+
+        <p>Rappel direct des cours 10 et 18 (module 5, leçon 5.3, sur le cache sémantique) : les embeddings permettent de mesurer une similarité sémantique entre exemples, au-delà des seules métadonnées explicites déjà exploitées aux leçons précédentes — utile pour détecter une concentration thématique que les catégories déclarées ne capturent pas.</p>
+
+        <pre><code class="language-python">def cartographier_diversite_semantique(exemples: list[dict]) -> dict:
+    """Rappel cours 10 (embeddings) — calcule un embedding pour
+    chaque exemple, puis mesure la dispersion globale de ces
+    embeddings pour estimer la diversité SÉMANTIQUE réelle du
+    dataset, au-delà des catégories explicitement étiquetées."""
+    embeddings = [calculer_embedding(ex["instruction"] + " " + ex["output"]) for ex in exemples]
+    centre = calculer_moyenne_vecteurs(embeddings)
+    distances_au_centre = [distance_cosinus(e, centre) for e in embeddings]
+    return {
+        "dispersion_moyenne": sum(distances_au_centre) / len(distances_au_centre),
+        "nombre_exemples_tres_proches_du_centre": sum(1 for d in distances_au_centre if d < 0.1),
+    }
+</code></pre>
+
+        <div class="ascii">Pourquoi les embeddings révèlent un biais invisible aux
+métadonnées déclarées (leçons 3.1-3.2) :
+
+Deux exemples peuvent porter des CATÉGORIES DIFFÉRENTES
+déclarées dans les métadonnées, tout en étant sémantiquement
+très proches en substance — une reformulation légère d'un
+même cas, mal catégorisée différemment par erreur ou par
+ambiguïté de classification
+
+→ Une CONCENTRATION dans l'espace des embeddings (beaucoup
+  d'exemples proches du centre, peu de dispersion) signale
+  un manque de diversité RÉELLE, même si les métadonnées
+  déclarées suggèrent une bonne couverture de catégories</div>
+
+        <p>Cette technique complète, sans la remplacer, l'analyse par métadonnées des leçons précédentes : elle capture une dimension de diversité que des catégories explicites, nécessairement simplifiées, ne peuvent pas entièrement représenter — un même sujet peut être aussi bien traité avec une grande variété de formulations qu'avec une redondance de fond dissimulée derrière des catégories déclarées différentes.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Se reposer uniquement sur les métadonnées de catégorisation déclarées pour juger de la diversité d'un dataset, sans jamais vérifier la diversité sémantique réelle via les embeddings — des catégories bien réparties sur le papier peuvent masquer une redondance de fond que seule une analyse de similarité sémantique révèle.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un dataset où l'analyse d'embeddings révèle une forte concentration autour d'un centre (peu de dispersion), mais où les métadonnées déclarées montrent une bonne répartition de catégories, quelle serait votre hypothèse pour expliquer cet écart ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l4" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 3.4</span>Outils et bibliothèques de détection de biais</h2>
+
+        <p>Cette leçon donne un aperçu des catégories d'outils existants pour la détection de biais dans des datasets, au-delà des implémentations manuelles illustrées dans les leçons précédentes à des fins pédagogiques.</p>
+
+        <table>
+          <thead><tr><th>Catégorie d'outil</th><th>Ce qu'il apporte</th><th>Quand y recourir</th></tr></thead>
+          <tbody>
+            <tr><td>Bibliothèques d'analyse de distribution générique (pandas, bibliothèques statistiques)</td><td>Calculs statistiques de base (leçon 3.1) sur des métadonnées structurées</td><td>Toujours, comme première étape de tout projet</td></tr>
+            <tr><td>Bibliothèques spécialisées en équité algorithmique (fairness)</td><td>Métriques de biais standardisées, souvent héritées de la recherche en apprentissage automatique classique</td><td>Quand le dataset comporte des attributs démographiques ou sensibles explicites à surveiller</td></tr>
+            <tr><td>Outils de visualisation d'embeddings (réduction de dimension)</td><td>Représentation visuelle de la dispersion sémantique (rappel leçon 3.3), utile pour une inspection humaine rapide</td><td>Lors d'une revue exploratoire, en complément des métriques quantitatives</td></tr>
+          </tbody>
+        </table>
+
+        <p>Le choix entre développer une analyse maison (comme illustré dans les leçons précédentes) et recourir à un outil existant dépend largement de la spécificité du besoin : les métriques génériques (entropie, distribution) sont simples à implémenter directement, tandis que des besoins plus spécialisés (biais démographiques réglementés, visualisation exploratoire à grande échelle) bénéficient souvent d'outils dédiés déjà éprouvés.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Développer un outillage de détection de biais entièrement sur mesure sans évaluer d'abord les bibliothèques existantes, en particulier pour des métriques standardisées d'équité algorithmique qui bénéficient d'une validation et d'une adoption bien établies dans la communauté.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un dataset de classification d'avis clients sans attribut démographique explicite, laquelle des trois catégories d'outils du tableau serait la plus pertinente à utiliser en priorité ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l5" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 3.5</span>Pièges de mesure</h2>
+
+        <p>Cette dernière leçon du module traite un risque souvent négligé : la mesure du biais elle-même peut être biaisée ou trompeuse si elle n'est pas conçue avec la même rigueur que le sujet qu'elle cherche à évaluer.</p>
+
+        <h3>Piège 1 : métriques agrégées qui masquent des déséquilibres locaux</h3>
+        <p>Rappel de la leçon 3.2 : une entropie globale satisfaisante (leçon 3.1) peut masquer une corrélation indésirable localisée à un sous-groupe spécifique — une seule métrique agrégée ne suffit jamais à elle seule.</p>
+
+        <h3>Piège 2 : catégorisation elle-même biaisée</h3>
+        <p>Si le schéma de catégorisation utilisé pour mesurer la distribution (leçon 3.1) est lui-même mal conçu ou trop grossier, l'analyse de biais qui s'appuie dessus hérite de cette même limitation — mesurer avec des catégories inadéquates produit une fausse impression d'équilibre ou de déséquilibre.</p>
+
+        <h3>Piège 3 : confondre absence de biais mesuré et absence de biais réel</h3>
+        <p>Une mesure qui ne détecte rien d'anormal ne garantit pas l'absence de biais — elle signale seulement l'absence de biais selon les dimensions et méthodes effectivement mesurées, ce qui devrait inciter à combiner plusieurs approches (statistiques, sémantiques, croisées) plutôt qu'à se fier à une seule.</p>
+
+        <div class="ascii">Ce module clôt la partie "mesure du biais" du cours. Le module
+suivant change de sujet pour traiter en profondeur la seconde
+problématique de ce cours : la détection de la duplication, au-delà
+de la simple correspondance exacte déjà couverte au cours 20.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer qu'une seule métrique de biais, aussi rigoureuse soit-elle isolément, suffit à certifier l'absence de biais dans un dataset — une mesure ne peut détecter que ce qu'elle a été conçue pour détecter, et devrait toujours être combinée à d'autres approches complémentaires plutôt qu'utilisée seule comme garantie définitive.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de synthèse</strong>
+          Pour clore ce module : combinez au moins deux des techniques de mesure vues dans ce module (entropie, corrélation croisée, embeddings) pour concevoir un protocole de mesure de biais plus robuste qu'une seule technique isolée.
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-4">
+      <span class="module-kicker">MODULE 04 / 08</span>
+      <h1>Duplication exacte et quasi-duplication</h1>
+      <p class="intro">Ce module traite en profondeur la seconde problématique de ce cours : la détection de duplication, en partant du rappel de la déduplication exacte déjà couverte au cours 20, avant d'aborder les techniques nécessaires pour détecter des formes plus subtiles de redondance.</p>
+
+      <section class="lesson" id="m4-l1" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 4.1</span>Rappel : déduplication exacte et ses limites</h2>
+
+        <p>Rappel direct du cours 20 (module 5, leçon 5.4) : la déduplication exacte détecte des exemples strictement identiques via une empreinte de hachage sur le contenu complet. Cette technique, simple et efficace, présente une limite fondamentale que ce module se propose de dépasser.</p>
+
+        <div class="ascii">Ce que la déduplication exacte NE détecte PAS :
+
+Exemple A : "Résume ce texte en une phrase."
+Exemple B : "Peux-tu résumer ce texte en une seule phrase ?"
+
+→ Ces deux instructions sont SÉMANTIQUEMENT quasi identiques,
+  mais leur hachage sera COMPLÈTEMENT différent — la
+  déduplication exacte (cours 20) les traiterait comme deux
+  exemples parfaitement distincts et les conserverait tous
+  les deux, alors qu'ils constituent une REDONDANCE réelle</div>
+
+        <p>Cette limite n'est pas un défaut de conception de la déduplication exacte, mais le résultat attendu de sa méthode : elle est conçue pour détecter une correspondance strictement littérale, pas une équivalence de sens. La <strong>quasi-duplication</strong> — le sujet des leçons suivantes — nécessite des techniques fondamentalement différentes, fondées sur une notion de similarité plutôt que d'égalité stricte.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer qu'une déduplication exacte déjà appliquée (rappel cours 20) élimine tout risque de redondance dans un dataset — cette technique ne couvre qu'une fraction du problème réel, la quasi-duplication étant souvent plus fréquente qu'une duplication strictement littérale, en particulier dans des datasets combinant plusieurs sources (rappel module 1, leçon 1.1).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Au-delà de l'exemple ci-dessus, formulez deux instructions différemment rédigées mais sémantiquement équivalentes, qui illustreraient un cas de quasi-duplication non détectable par hachage exact.
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l2" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 4.2</span>Détecter la quasi-duplication par similarité textuelle</h2>
+
+        <p>Une première approche pour détecter la quasi-duplication s'appuie sur une comparaison de similarité textuelle de surface — sans recourir à une compréhension sémantique profonde (réservée à la leçon 4.3), mais suffisante pour détecter des reformulations proches.</p>
+
+        <pre><code class="language-python">def similarite_jaccard_ngrammes(texte_a: str, texte_b: str, n: int = 3) -> float:
+    """Compare deux textes via leurs n-grammes (séquences de N
+    mots consécutifs) — une reformulation légère (rappel leçon 4.1)
+    partage encore une grande partie de ses n-grammes avec
+    l'original, même si le hachage global diffère entièrement."""
+    def ngrammes(texte, n):
+        mots = texte.lower().split()
+        return set(tuple(mots[i:i+n]) for i in range(len(mots) - n + 1))
+    ngrammes_a, ngrammes_b = ngrammes(texte_a, n), ngrammes(texte_b, n)
+    if not ngrammes_a or not ngrammes_b:
+        return 0.0
+    intersection = len(ngrammes_a & ngrammes_b)
+    union = len(ngrammes_a | ngrammes_b)
+    return intersection / union
+</code></pre>
+
+        <div class="ascii">Le principe de la similarité de Jaccard sur n-grammes :
+
+Texte A : "Résume ce texte en une phrase"
+  n-grammes (3 mots) : ("résume","ce","texte"), ("ce","texte","en"),
+                        ("texte","en","une"), ("en","une","phrase")
+
+Texte B : "Peux-tu résumer ce texte en une phrase"
+  n-grammes (3 mots) : ("peux-tu","résumer","ce"), ("résumer","ce","texte"),
+                        ("ce","texte","en"), ("texte","en","une"),
+                        ("en","une","phrase")
+
+→ Plusieurs n-grammes COMMUNS entre A et B, malgré une
+  formulation différente en surface — un score de similarité
+  Jaccard élevé signale une quasi-duplication probable</div>
+
+        <p>Cette technique, peu coûteuse en calcul, reste limitée aux reformulations qui conservent une proximité lexicale importante — deux phrases sémantiquement identiques mais utilisant un vocabulaire entièrement différent (des synonymes plutôt que les mêmes mots) échapperaient à cette détection, un cas traité par la technique de la leçon suivante.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Se reposer uniquement sur une similarité textuelle de surface (n-grammes) pour détecter toute quasi-duplication, en oubliant qu'elle manque les cas de reformulation profonde utilisant un vocabulaire différent pour exprimer la même idée — une limite qui motive directement le recours complémentaire aux embeddings sémantiques (leçon 4.3).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour les deux textes de l'exemple ci-dessus, ce genre de similarité serait-elle capable de détecter que "Résume ce texte" et "Fais-moi une synthèse de ce contenu" sont des reformulations équivalentes ? Justifiez.
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l3" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 4.3</span>Détecter la quasi-duplication par similarité sémantique</h2>
+
+        <p>Rappel direct des cours 10 et 18 (embeddings et cache sémantique) : pour détecter des reformulations qui n'utilisent pas le même vocabulaire, une comparaison fondée sur des embeddings capture une similarité de SENS plutôt que de simple forme textuelle.</p>
+
+        <pre><code class="language-python">def detecter_quasi_duplication_semantique(exemples: list[dict], seuil: float = 0.92) -> list[list[int]]:
+    """Rappel cours 18, module 5, leçon 5.3 — même principe de
+    regroupement par similarité d'embeddings déjà appliqué au
+    cache sémantique, ici appliqué à la détection de redondance
+    dans un dataset d'entraînement."""
+    embeddings = [calculer_embedding(ex["instruction"] + " " + ex["output"]) for ex in exemples]
+    groupes = []
+    deja_groupes = set()
+    for i, embedding_i in enumerate(embeddings):
+        if i in deja_groupes:
+            continue
+        groupe_courant = [i]
+        for j, embedding_j in enumerate(embeddings[i+1:], start=i+1):
+            if j not in deja_groupes and similarite_cosinus(embedding_i, embedding_j) >= seuil:
+                groupe_courant.append(j)
+                deja_groupes.add(j)
+        if len(groupe_courant) > 1:
+            groupes.append(groupe_courant)
+    return groupes
+</code></pre>
+
+        <div class="ascii">Pourquoi la similarité sémantique détecte des cas que la
+similarité textuelle (leçon 4.2) manque :
+
+Similarité TEXTUELLE (n-grammes)          Similarité SÉMANTIQUE (embeddings)
+────────────────────────────────           ────────────────────────────────
+Nécessite un chevauchement de               Capture l'équivalence de SENS
+VOCABULAIRE explicite entre les              même avec un vocabulaire
+deux textes comparés                        entièrement différent
+
+Manque : "Résume ce texte" vs               Détecte : "Résume ce texte"
+"Fais une synthèse de ce contenu"           et "Fais une synthèse de ce
+(aucun mot commun significatif)             contenu" comme sémantiquement
+                                           proches, malgré l'absence de
+                                           chevauchement lexical</div>
+
+        <p>Cette technique complète directement celle de la leçon 4.2 : une détection robuste de quasi-duplication combine généralement les deux approches, la similarité textuelle étant moins coûteuse à calculer à grande échelle (utile comme premier filtre), et la similarité sémantique capturant des cas de reformulation plus profonde qu'un simple chevauchement lexical ne peut révéler.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Calculer une similarité sémantique par embeddings de façon exhaustive entre TOUTES les paires d'exemples d'un grand dataset, sans filtrage préalable — cette approche devient rapidement prohibitive en temps de calcul à mesure que le dataset grandit, un problème d'échelle abordé à la leçon 4.4 et au module 7.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un dataset de 100 000 exemples, pourquoi une comparaison exhaustive de toutes les paires possibles via embeddings deviendrait-elle rapidement impraticable en pratique ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l4" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 4.4</span>Choisir un seuil de similarité : compromis précision/rappel</h2>
+
+        <p>Que ce soit pour la similarité textuelle (leçon 4.2) ou sémantique (leçon 4.3), un <strong>seuil</strong> détermine à partir de quel score deux exemples sont considérés comme des quasi-doublons. Ce choix implique un compromis classique entre deux types d'erreurs.</p>
+
+        <div class="ascii">Le compromis précision/rappel appliqué à la détection de
+quasi-duplication :
+
+SEUIL TROP BAS (permissif)                SEUIL TROP ÉLEVÉ (strict)
+────────────────────────────────           ────────────────────────────────
+Détecte plus de quasi-doublons,             Détecte moins de faux positifs,
+mais risque des FAUX POSITIFS :              mais risque des FAUX NÉGATIFS :
+des exemples réellement différents           de véritables quasi-doublons
+marqués à tort comme redondants              passent inaperçus, restant
+                                            dans le dataset final
+
+RAPPEL élevé, PRÉCISION faible              PRÉCISION élevée, RAPPEL faible</div>
+
+        <pre><code class="language-python">def evaluer_seuils_sur_echantillon(paires_annotees_manuellement: list[dict]) -> dict:
+    """Rappel module 3, leçon 3.4 sur les outils — ici, calibrer
+    le seuil empiriquement sur un échantillon annoté MANUELLEMENT
+    (rappel cours 20, module 4, leçon 4.4), plutôt que de choisir
+    une valeur arbitraire sans validation."""
+    resultats_par_seuil = {}
+    for seuil_test in [0.85, 0.90, 0.92, 0.95]:
+        vrais_positifs = sum(1 for p in paires_annotees_manuellement
+                              if p["similarite"] >= seuil_test and p["est_vraiment_doublon"])
+        faux_positifs = sum(1 for p in paires_annotees_manuellement
+                             if p["similarite"] >= seuil_test and not p["est_vraiment_doublon"])
+        resultats_par_seuil[seuil_test] = {"vrais_positifs": vrais_positifs, "faux_positifs": faux_positifs}
+    return resultats_par_seuil
+</code></pre>
+
+        <p>Cette calibration empirique, sur un échantillon annoté manuellement, rejoint directement le principe déjà établi au cours 20 (module 4, leçon 4.4) : plutôt que de choisir un seuil arbitraire par intuition, une petite vérification manuelle sur un échantillon représentatif permet de calibrer objectivement le meilleur compromis entre précision et rappel pour le dataset spécifique traité.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Choisir un seuil de similarité arbitraire (souvent copié d'un exemple trouvé en ligne, sans validation sur les données réelles) plutôt que de le calibrer empiriquement sur un échantillon annoté manuellement — un seuil qui fonctionne bien pour un type de contenu peut être totalement inadapté pour un autre, selon la nature et le style du dataset traité.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un dataset destiné à un usage où manquer un vrai doublon serait plus problématique que signaler à tort un faux positif (rappel module 5, leçon 5.2, à venir sur la fuite de données), quel type de seuil (permissif ou strict) privilégieriez-vous ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l5" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 4.5</span>Pièges de la déduplication</h2>
+
+        <p>Cette dernière leçon du module recense des pièges spécifiques à la déduplication, en complément des principes déjà établis.</p>
+
+        <h3>Piège 1 : sur-déduplication qui élimine une diversité légitime</h3>
+        <p>Un seuil trop permissif (rappel leçon 4.4) peut supprimer à tort des exemples qui, bien que similaires en structure, représentent des variations légitimement utiles pour l'entraînement (par exemple, la même tâche appliquée à des contenus différents mais de structure proche).</p>
+
+        <h3>Piège 2 : ne conserver aucun exemple d'un groupe de quasi-doublons</h3>
+        <p>Une déduplication mal implémentée pourrait supprimer TOUS les exemples d'un groupe détecté comme redondant plutôt que d'en conserver un représentant — l'objectif est de réduire la redondance, pas d'éliminer la couverture du cas qu'ils représentent collectivement.</p>
+
+        <h3>Piège 3 : négliger le coût de calcul à grande échelle</h3>
+        <p>Rappel de la leçon 4.3 : une comparaison exhaustive entre toutes les paires devient rapidement impraticable ; des techniques d'indexation approximative (approfondies au module 7) deviennent nécessaires au-delà d'un certain volume de dataset.</p>
+
+        <div class="ascii">Ce module clôt la partie "détection de duplication" du cours. Le
+module suivant traite les conséquences concrètes d'une duplication
+non détectée sur le comportement du modèle entraîné, au-delà du
+simple déséquilibre statistique déjà évoqué au module 1.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Implémenter une déduplication qui supprime intégralement tous les exemples d'un groupe de quasi-doublons détecté, plutôt que d'en conserver un représentant — cette erreur transforme un problème de redondance en un problème de perte de couverture, éliminant potentiellement le seul exemple traitant un cas donné.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de synthèse</strong>
+          Pour clore ce module : pour un groupe de 5 exemples détectés comme quasi-doublons, quel critère utiliseriez-vous pour choisir lequel conserver comme représentant du groupe ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-5">
+      <span class="module-kicker">MODULE 05 / 08</span>
+      <h1>Impact de la duplication sur l'entraînement</h1>
+      <p class="intro">Ce module approfondit pourquoi la duplication détectée au module 4 constitue un problème concret pour l'entraînement, au-delà de l'intuition générale déjà posée au module 1 — avec des conséquences spécifiques sur la mémorisation, la fuite de données et la vie privée.</p>
+
+      <section class="lesson" id="m5-l1" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 5.1</span>Mémorisation et surapprentissage dû à la duplication</h2>
+
+        <p>Rappel de la leçon 1.3 : un exemple dupliqué reçoit un poids disproportionné pendant l'entraînement. Cette leçon détaille le mécanisme précis par lequel cela conduit à de la <strong>mémorisation</strong> — le modèle apprend à reproduire un exemple spécifique presque mot pour mot, plutôt que d'en généraliser le principe sous-jacent.</p>
+
+        <div class="ascii">Différence entre GÉNÉRALISATION et MÉMORISATION :
+
+GÉNÉRALISATION (comportement souhaité)     MÉMORISATION (risque de la duplication)
+────────────────────────────────           ────────────────────────────────
+Le modèle apprend un PRINCIPE ou            Le modèle apprend à reproduire
+un PATTERN à partir de plusieurs             un EXEMPLE SPÉCIFIQUE presque
+exemples variés illustrant ce                à l'identique, sans généraliser
+même principe                               le principe qu'il illustrait
+
+Se transfère à de NOUVEAUX cas              Ne fonctionne que pour des cas
+non vus pendant l'entraînement               très proches de l'exemple
+                                            mémorisé, échoue sur des
+Résultat d'une exposition VARIÉE             variations même mineures
+à un même type de situation
+                                            Résultat d'une exposition
+                                            RÉPÉTÉE au même exemple précis
+                                            (duplication, rappel module 4)</div>
+
+        <p>Ce risque de mémorisation rejoint directement un principe déjà établi au cours 20 (module 1, leçon 1.3) : un dataset de qualité privilégie la diversité d'exemples illustrant un même principe plutôt que la répétition d'un même cas — la duplication, même non intentionnelle, va exactement à l'encontre de cet objectif en concentrant artificiellement l'attention du modèle sur un nombre restreint de cas répétés.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Supposer qu'un plus grand nombre d'occurrences d'un même type d'exemple (même dupliqué) renforce toujours l'apprentissage de ce comportement — au-delà d'un certain point, la répétition d'exemples quasi identiques favorise la mémorisation littérale plutôt qu'une généralisation robuste et transférable à de nouveaux cas.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Décrivez un signe observable, une fois le modèle entraîné et déployé, qui pourrait indiquer qu'il a mémorisé des exemples spécifiques plutôt que d'avoir généralisé un comportement.
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l2" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 5.2</span>Duplication inter-split et fuite de données</h2>
+
+        <p>Rappel direct du cours 20 (module 7, leçon 7.1) : un exemple ou une quasi-variante d'un exemple qui se retrouve à la fois dans l'ensemble d'entraînement et dans l'ensemble de test compromet la validité de toute évaluation effectuée sur ce dernier — un problème que la déduplication au sein d'un seul ensemble (module 4) ne résout pas si elle n'est pas appliquée AVANT le split.</p>
+
+        <pre><code class="language-python">def verifier_fuite_inter_splits(train: list[dict], test: list[dict], seuil: float = 0.92) -> list[dict]:
+    """Rappel cours 20, module 7, leçon 7.1 sur la fuite de
+    données — cette vérification applique la détection de
+    quasi-duplication (module 4, leçon 4.3) SPÉCIFIQUEMENT
+    entre deux ensembles distincts, pas seulement à l'intérieur
+    d'un même ensemble."""
+    embeddings_train = [calculer_embedding(ex["instruction"] + " " + ex["output"]) for ex in train]
+    fuites_detectees = []
+    for i, exemple_test in enumerate(test):
+        embedding_test = calculer_embedding(exemple_test["instruction"] + " " + exemple_test["output"])
+        for j, embedding_train in enumerate(embeddings_train):
+            if similarite_cosinus(embedding_test, embedding_train) >= seuil:
+                fuites_detectees.append({"index_test": i, "index_train": j})
+    return fuites_detectees
+</code></pre>
+
+        <div class="ascii">Pourquoi la déduplication au module 4 ne suffit pas seule :
+
+Déduplication AU SEIN d'un ensemble         Déduplication ENTRE ensembles
+(module 4)                                  (cette leçon)
+────────────────────────────────            ────────────────────────────────
+Élimine les doublons À L'INTÉRIEUR           Élimine les doublons ENTRE
+du train, ou à l'intérieur du test,          le train et le test — un
+séparément                                   contrôle DISTINCT, nécessaire
+                                            même si chaque ensemble est
+Ne détecte PAS qu'un exemple du               individuellement dédupliqué
+train et un exemple du test soient
+en réalité de quasi-doublons l'un
+de l'autre</div>
+
+        <p>Cette vérification devrait s'exécuter après le split (rappel cours 20, module 7, leçon 7.1), en complément — et non en remplacement — de la déduplication interne à chaque ensemble déjà couverte au module 4 : les deux vérifications répondent à des questions différentes et sont l'une comme l'autre nécessaires pour garantir la validité de l'évaluation finale du modèle.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Dédupliquer un dataset avant de le diviser en train/validation/test, en supposant à tort que cette seule étape suffit à garantir l'absence de fuite entre les ensembles — si le split est effectué après une déduplication qui ne visait que les doublons internes à l'ensemble complet, rien ne garantit qu'un exemple et sa quasi-variante ne se retrouvent pas malgré tout de part et d'autre du split.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un pipeline de préparation de dataset, à quel moment précis — avant ou après le split train/test — la vérification de fuite inter-splits de cette leçon devrait-elle s'exécuter ? Justifiez.
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l3" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 5.3</span>Duplication et vie privée</h2>
+
+        <p>Rappel direct du cours 19 (module 4, sur l'anonymisation des logs) et du cours 20 (module 4, leçon 4.2, sur les risques hérités des logs de conversation) : la duplication d'un exemple contenant une donnée personnelle amplifie directement le risque déjà identifié dans ces cours précédents — un modèle qui voit une même information personnelle plusieurs fois pendant l'entraînement présente un risque de mémorisation accru pour cette donnée spécifique.</p>
+
+        <div class="ascii">Comment la duplication aggrave spécifiquement le risque de
+mémorisation de données personnelles :
+
+Une donnée personnelle apparaissant UNE SEULE FOIS dans
+un dataset volumineux a une probabilité de mémorisation
+relativement faible
+
+La MÊME donnée personnelle apparaissant PLUSIEURS FOIS
+(via des logs de conversation dupliqués ou quasi dupliqués,
+rappel module 4) augmente significativement le risque que
+le modèle la mémorise et puisse potentiellement la restituer
+lors d'une utilisation ultérieure</div>
+
+        <p>Cette leçon relie directement la détection de duplication (module 4) à une préoccupation de conformité déjà établie au cours 19 (module 4, leçon 4.4, sur la rétention et la conformité) : au-delà de son impact sur la qualité générale de l'entraînement (leçon 5.1), la duplication d'exemples contenant des données personnelles constitue un facteur de risque de conformité supplémentaire, distinct mais lié à la détection de PII elle-même.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer que l'anonymisation des données personnelles (rappel cours 19, module 4) suffit à éliminer tout risque de vie privée dans un dataset de fine-tuning, sans tenir compte du fait que la duplication d'un même exemple, même correctement anonymisé, peut malgré tout amplifier un pattern spécifique associé à un individu, si l'anonymisation elle-même n'a pas été appliquée de façon cohérente à travers les occurrences dupliquées.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un dataset construit à partir de logs réels (rappel cours 20, module 4, leçon 4.2) où une même conversation apparaîtrait dupliquée dans le corpus source, quel double risque cela poserait-il — en reliant à la fois cette leçon et la leçon 5.1 ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l4" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 5.4</span>Cas des datasets combinant plusieurs sources</h2>
+
+        <p>Rappel direct du cours 20 (module 4, leçon 4.1) : un dataset combine fréquemment plusieurs sources (logs réels, génération synthétique, annotation manuelle). Cette leçon traite un risque de duplication spécifique à cette combinaison : le chevauchement involontaire entre sources distinctes.</p>
+
+        <div class="ascii">Scénarios fréquents de duplication inter-sources :
+
+CHEVAUCHEMENT TEMPOREL
+  Deux extractions de logs effectuées à des périodes qui se
+  recoupent partiellement (rappel cours 18, sur la fraîcheur
+  et les cycles de rafraîchissement) peuvent réintroduire les
+  mêmes conversations dans le dataset final
+
+GÉNÉRATION SYNTHÉTIQUE REDONDANTE AVEC DES CAS RÉELS
+  Un modèle générateur (rappel cours 20, module 4, leçon 4.3)
+  peut produire un exemple synthétique qui recoupe fortement
+  un cas déjà présent dans les logs réels, sans que les deux
+  pipelines de collecte n'en aient conscience l'un de l'autre
+
+FUSION DE PLUSIEURS VERSIONS D'UN MÊME DATASET
+  Combiner une ancienne version d'un dataset avec une version
+  plus récente, sans retirer les exemples déjà présents dans
+  les deux, réintroduit une duplication déjà en principe résolue</div>
+
+        <p>Ce dernier scénario mérite une attention particulière : rappel du cours 20 (module 7, leçon 7.5, sur le versionnement), la fusion de versions successives d'un dataset est une opération fréquente dans un cycle de vie réel, et devrait systématiquement être suivie d'une nouvelle passe de déduplication (module 4) plutôt que de supposer que chaque version individuelle, déjà dédupliquée séparément, garantit l'absence de duplication une fois combinées.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Fusionner plusieurs sources ou versions d'un dataset en supposant que chacune, ayant déjà été dédupliquée individuellement, garantit l'absence de duplication dans le résultat combiné — la déduplication devrait toujours être ré-exécutée après toute fusion de sources, pas seulement une fois par source avant combinaison.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un dataset combinant des logs de deux périodes de collecte consécutives qui se chevauchent partiellement (rappel du premier scénario ci-dessus), quelle vérification spécifique effectueriez-vous avant de les fusionner ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l5" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 5.5</span>Mesurer l'impact réel après déduplication</h2>
+
+        <p>Cette dernière leçon du module traite une pratique souvent omise : après avoir appliqué une déduplication (module 4), vérifier concrètement son effet plutôt que de supposer qu'elle a résolu le problème — rappel du même principe déjà établi au cours 20 (module 6, leçon 6.5) sur la vérification a posteriori d'une correction.</p>
+
+        <pre><code class="language-python">def comparer_avant_apres_deduplication(dataset_avant: list[dict], dataset_apres: list[dict]) -> dict:
+    """Rappel cours 20, module 6, leçon 6.5 — même principe de
+    boucle de feedback, appliqué ici à la vérification de
+    l'efficacité de la déduplication plutôt qu'à une correction
+    de routage d'agent."""
+    return {
+        "nombre_exemples_avant": len(dataset_avant),
+        "nombre_exemples_apres": len(dataset_apres),
+        "proportion_retiree": 1 - (len(dataset_apres) / len(dataset_avant)),
+        "entropie_avant": calculer_entropie_distribution(dataset_avant, "categorie"),
+        "entropie_apres": calculer_entropie_distribution(dataset_apres, "categorie"),
+    }
+</code></pre>
+
+        <div class="ascii">Ce que cette comparaison avant/après permet de vérifier :
+
+La PROPORTION retirée est-elle raisonnable ? (rappel module 4,
+leçon 4.5 — une sur-déduplication excessive signalerait un
+seuil trop permissif à revoir)
+
+L'ENTROPIE de distribution (rappel module 3, leçon 3.1)
+s'est-elle AMÉLIORÉE après déduplication ? Une amélioration
+confirmerait que la duplication contribuait bien au
+déséquilibre identifié au module 1, leçon 1.1
+
+Le dataset reste-t-il de TAILLE SUFFISANTE après retrait des
+doublons, pour l'objectif d'entraînement visé ?</div>
+
+        <p>Ce module clôt la partie "conséquences et vérification de la duplication" du cours. Le module suivant change de perspective : comment corriger activement les biais détectés au module 2-3, au-delà de la simple déduplication déjà couverte ici.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Appliquer une déduplication puis passer directement à l'étape suivante du pipeline sans jamais vérifier quantitativement son effet réel sur la taille et la distribution du dataset — une déduplication mal calibrée (leçon 4.4) peut retirer trop ou trop peu d'exemples, un problème qui ne se détecte qu'en mesurant explicitement l'avant et l'après.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de synthèse</strong>
+          Pour clore ce module : si la comparaison avant/après révèle qu'une déduplication a retiré 40% du dataset initial, quelle serait votre réaction et quelle vérification supplémentaire mèneriez-vous ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-6">
+      <span class="module-kicker">MODULE 06 / 08</span>
+      <h1>Corriger et atténuer le biais détecté</h1>
+      <p class="intro">Les modules 2 et 3 ont traité la détection et la mesure du biais. Ce module traite l'étape suivante : comment le corriger concrètement, avec les mêmes précautions de vérification déjà établies pour la duplication au module 5.</p>
+
+      <section class="lesson" id="m6-l1" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 6.1</span>Rééquilibrage par sur/sous-échantillonnage</h2>
+
+        <p>La technique de correction la plus directe face à un déséquilibre de représentation (rappel module 2, leçon 2.1) ou de label (module 2, leçon 2.5) consiste à ajuster les proportions par échantillonnage : réduire la sur-représentation, ou dupliquer délibérément la sous-représentation.</p>
+
+        <pre><code class="language-python">import random
+
+def rééquilibrer_par_sous_echantillonnage(exemples: list[dict], champ_categorie: str) -> list[dict]:
+    """Réduit les catégories sur-représentées au niveau de la
+    catégorie la MOINS représentée — approche conservatrice qui
+    ne duplique jamais artificiellement, au prix de réduire la
+    taille totale du dataset."""
+    par_categorie = {}
+    for ex in exemples:
+        par_categorie.setdefault(ex[champ_categorie], []).append(ex)
+    taille_min = min(len(v) for v in par_categorie.values())
+    resultat = []
+    for categorie, exemples_categorie in par_categorie.items():
+        resultat.extend(random.sample(exemples_categorie, taille_min))
+    return resultat
+</code></pre>
+
+        <div class="ascii">Sur-échantillonnage vs sous-échantillonnage :
+
+SOUS-ÉCHANTILLONNAGE (ci-dessus)           SUR-ÉCHANTILLONNAGE
+────────────────────────────────           ────────────────────────────────
+Réduit les catégories majoritaires          Duplique délibérément les
+au niveau de la minoritaire                 catégories minoritaires pour
+                                           atteindre le niveau des
+Ne crée AUCUNE duplication                  catégories majoritaires
+artificielle
+                                           RÉINTRODUIT une forme de
+Réduit la TAILLE TOTALE du                  duplication CONTRÔLÉE — un
+dataset, parfois significativement          risque à mettre en balance
+                                           avec les enseignements du
+                                           module 5 sur la mémorisation</div>
+
+        <p>Ce compromis mérite d'être souligné explicitement : le sur-échantillonnage, en dupliquant délibérément des exemples minoritaires, réintroduit une forme du risque de mémorisation déjà établi au module 5, leçon 5.1 — un arbitrage à faire consciemment plutôt qu'un choix par défaut, souvent en faveur d'une combinaison avec l'augmentation ciblée de la leçon suivante, qui évite la duplication stricte.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Choisir systématiquement le sur-échantillonnage par simplicité, sans considérer qu'il réintroduit directement une forme de duplication contrôlée — un choix qui devrait être évalué à la lumière des risques de mémorisation déjà établis au module 5, plutôt qu'appliqué mécaniquement dès qu'un déséquilibre est détecté.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un dataset avec 1000 exemples de catégorie A et seulement 50 de catégorie B, quel serait l'inconvénient principal d'un sous-échantillonnage strict de la catégorie A au niveau de B ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l2" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 6.2</span>Augmentation ciblée pour combler une sous-représentation</h2>
+
+        <p>Rappel direct du cours 20 (module 4, leçon 4.3, sur la génération synthétique) : plutôt que de dupliquer des exemples existants (leçon 6.1), l'<strong>augmentation ciblée</strong> consiste à générer de NOUVEAUX exemples pour la catégorie sous-représentée, évitant ainsi le risque de mémorisation associé à la duplication pure.</p>
+
+        <pre><code class="language-python">def augmenter_categorie_sous_representee(categorie_cible: str, nombre_a_generer: int,
+                                            exemples_existants_categorie: list[dict]) -> list[dict]:
+    """Rappel cours 20, module 4, leçon 4.3 — même technique de
+    génération synthétique, appliquée ici spécifiquement pour
+    COMBLER un déséquilibre plutôt que pour atteindre un volume
+    global insuffisant."""
+    nouveaux_exemples = []
+    for _ in range(nombre_a_generer):
+        exemple_inspiration = random.choice(exemples_existants_categorie)
+        nouvel_exemple = generer_variation_synthetique(exemple_inspiration, categorie_cible)
+        nouveaux_exemples.append(nouvel_exemple)
+    return nouveaux_exemples
+</code></pre>
+
+        <div class="ascii">Pourquoi préférer l'augmentation ciblée au sur-échantillonnage
+(leçon 6.1) quand c'est possible :
+
+SUR-ÉCHANTILLONNAGE                        AUGMENTATION CIBLÉE
+────────────────────────                   ────────────────────────
+Duplique un nombre FIXE d'exemples          Génère de NOUVEAUX exemples,
+existants — le modèle voit                  augmentant la DIVERSITÉ réelle
+plusieurs fois le MÊME contenu              de la catégorie sous-représentée
+exact
+                                           Risque de mémorisation
+Risque de mémorisation                      nettement réduit — chaque
+(rappel module 5, leçon 5.1)                exemple généré est distinct,
+directement proportionnel au                pas une simple répétition
+nombre de répétitions</div>
+
+        <p>Cette technique n'est cependant pas sans limite propre : rappel du cours 20 (module 4, leçon 4.3), un exemple généré synthétiquement doit être vérifié avec la même rigueur qu'un exemple issu d'une autre source — l'augmentation ciblée résout le problème de mémorisation du sur-échantillonnage, mais hérite du risque de fiabilité déjà établi pour toute génération synthétique.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Utiliser l'augmentation ciblée pour combler un déséquilibre sans appliquer la même vérification de qualité qu'à tout autre exemple synthétique (rappel cours 20, module 4, leçon 4.3) — corriger un biais de représentation ne devrait jamais se faire au prix d'une dégradation de la qualité factuelle ou stylistique des exemples ajoutés.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour la catégorie B sous-représentée de l'exercice précédent (50 exemples contre 1000 pour A), combien de nouveaux exemples l'augmentation ciblée devrait-elle générer pour atteindre un équilibre à mi-chemin entre les deux catégories, sans viser une égalité stricte ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l3" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 6.3</span>Pondération des exemples pendant l'entraînement</h2>
+
+        <p>Une troisième approche, distincte des deux précédentes, ne modifie pas la composition du dataset lui-même mais ajuste le processus d'entraînement pour compenser un déséquilibre — une technique qui dépasse le strict périmètre de préparation de données de cette série, mais qu'il est utile de connaître pour situer les limites de ce que la préparation de données seule peut accomplir.</p>
+
+        <div class="ascii">Où se situe la pondération par rapport aux techniques
+précédentes de ce module :
+
+RÉÉCHANTILLONNAGE (leçons 6.1-6.2)          PONDÉRATION (cette leçon)
+────────────────────────────────            ────────────────────────────────
+Modifie la COMPOSITION du dataset            Modifie l'IMPORTANCE accordée
+lui-même, avant l'entraînement               à chaque exemple PENDANT le
+                                            processus d'entraînement lui-même
+Relève du périmètre de la
+PRÉPARATION de données (cette série)         Relève du périmètre de la
+                                            CONFIGURATION d'entraînement
+                                            (hors périmètre de cette série,
+                                            qui se concentre sur la donnée)</div>
+
+        <p>Cette technique mérite d'être mentionnée car elle offre une alternative aux modifications de dataset des leçons précédentes : plutôt que de sous-échantillonner (perte de données) ou de sur-échantillonner/augmenter (risque de mémorisation ou coût de génération), un paramètre d'entraînement peut directement indiquer au processus d'apprentissage d'accorder plus de poids aux exemples minoritaires sans dupliquer ni modifier le dataset source.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Négliger complètement l'option de pondération pendant l'entraînement en considérant, à tort, que seule une modification du dataset (rééquilibrage, augmentation) peut corriger un déséquilibre — cette option, bien que hors du périmètre strict de la préparation de données, mérite d'être connue et communiquée à l'équipe responsable de l'entraînement comme alternative complémentaire.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un dataset où le sous-échantillonnage supprimerait une part trop importante des données disponibles, et où l'augmentation ciblée ne serait pas envisageable (temps ou coût insuffisant), la pondération pendant l'entraînement serait-elle une option pertinente à proposer à l'équipe d'entraînement ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l4" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 6.4</span>Réviser les sources en amont plutôt que corriger en aval</h2>
+
+        <p>Rappel direct du cours 20 (module 4) : la meilleure correction d'un biais n'est parfois pas une technique statistique appliquée après coup (leçons 6.1-6.3), mais une révision de la stratégie de collecte elle-même, à la source du déséquilibre.</p>
+
+        <div class="ascii">Corriger EN AVAL (leçons 6.1-6.3)          Réviser la source EN AMONT (cette leçon)
+────────────────────────────────           ────────────────────────────────
+Techniques statistiques appliquées          Modifier la STRATÉGIE DE
+APRÈS que le déséquilibre existe            COLLECTE elle-même (rappel
+déjà dans les données collectées            cours 20, module 4) pour éviter
+                                           que le déséquilibre ne se
+Traite le SYMPTÔME — corrige un              produise dès le départ
+déséquilibre déjà présent
+
+Nécessaire quand la collecte ne peut         Traite la CAUSE — plus durable,
+plus être ajustée (données historiques,      mais nécessite d'agir avant
+sources figées)                             ou pendant la collecte, pas
+                                           après coup sur des données
+                                           déjà rassemblées</div>
+
+        <p>Un exemple concret : si un dataset de support client est structurellement dominé par un seul motif de contact (rappel module 1, leçon 1.2), la correction la plus durable pourrait consister à collecter délibérément davantage de conversations sur les motifs sous-représentés (rappel cours 20, module 4, leçon 4.1, sur la diversité des sources) plutôt que de rééquilibrer artificiellement après coup un dataset déjà collecté de façon déséquilibrée.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Toujours traiter un biais détecté comme un problème à résoudre exclusivement par des techniques statistiques appliquées après la collecte (leçons 6.1-6.3), sans envisager qu'une révision de la stratégie de collecte elle-même pourrait constituer une solution plus durable et moins risquée pour les prochaines versions du dataset.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour le biais de source déjà évoqué au module 2 (leçon 2.2, un dataset provenant exclusivement d'un canal de chat web), quelle révision de stratégie de collecte en amont permettrait de corriger ce biais plus durablement qu'une correction statistique en aval ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l5" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 6.5</span>Pièges de correction</h2>
+
+        <p>Cette dernière leçon du module recense des pièges spécifiques à la phase de correction, en écho aux principes déjà établis dans les leçons précédentes.</p>
+
+        <h3>Piège 1 : sur-correction qui introduit un nouveau biais</h3>
+        <p>Rééquilibrer une catégorie initialement sous-représentée au point qu'elle devienne à son tour sur-représentée par rapport aux autres — une correction devrait viser un équilibre raisonnable, pas un renversement complet du déséquilibre initial.</p>
+
+        <h3>Piège 2 : corriger sans revérifier (rappel module 5, leçon 5.5)</h3>
+        <p>Le même principe déjà établi pour la déduplication s'applique ici : une correction de biais devrait systématiquement être suivie d'une nouvelle mesure (rappel module 3) pour confirmer son efficacité réelle, pas simplement supposée efficace du fait de son application.</p>
+
+        <h3>Piège 3 : corriger un biais isolément sans considérer les interactions entre types de biais</h3>
+        <p>Rappel du module 1, leçon 1.1 sur l'interaction entre biais et duplication : corriger un déséquilibre de catégorie (leçon 6.1) sans revérifier la duplication après rééquilibrage peut réintroduire un problème déjà résolu au module 4, si la technique de correction choisie duplique des exemples existants.</p>
+
+        <div class="ascii">Ce module clôt la partie "correction du biais" du cours. Le module
+suivant traite comment automatiser l'ensemble des techniques de
+détection et de correction vues jusqu'ici, pour un usage reproductible
+à chaque nouvelle version d'un dataset.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer la correction d'un biais ou d'une duplication comme une action isolée et définitive, sans revérifier l'ensemble du dataset après coup pour s'assurer qu'aucun nouveau problème (sur-correction, duplication réintroduite) n'a été introduit par la correction elle-même.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de synthèse</strong>
+          Pour clore ce module : après avoir appliqué un sur-échantillonnage (leçon 6.1) pour corriger un déséquilibre de catégorie, quelle vérification du module 4 serait particulièrement importante à ré-exécuter ensuite ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-7">
+      <span class="module-kicker">MODULE 07 / 08</span>
+      <h1>Outillage et automatisation de la détection</h1>
+      <p class="intro">Ce module traite comment faire fonctionner l'ensemble des techniques de détection et de correction vues jusqu'ici de façon reproductible et automatisée, en s'appuyant directement sur les principes de pipeline déjà établis au cours 20 (module 7).</p>
+
+      <section class="lesson" id="m7-l1" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 7.1</span>Construire un pipeline de détection automatisé</h2>
+
+        <p>Rappel direct du cours 20 (module 7, leçon 7.1, sur l'architecture d'un pipeline) : les techniques de détection de biais (modules 2-3) et de duplication (module 4) devraient s'exécuter automatiquement à chaque nouvelle version d'un dataset, plutôt que comme une vérification manuelle ponctuelle.</p>
+
+        <pre><code class="language-python">def pipeline_detection_complet(exemples: list[dict]) -> dict:
+    """Assemble les techniques des modules 2-4 en un seul
+    pipeline reproductible, appelable automatiquement à chaque
+    nouvelle version du dataset (rappel cours 20, module 7,
+    leçon 7.1, sur l'architecture de pipeline)."""
+    rapport = {
+        "distribution_categories": analyser_distribution(exemples, lambda ex: ex.get("categorie")),
+        "entropie_categories": calculer_entropie_distribution(exemples, "categorie"),
+        "distribution_longueur": analyser_biais_longueur(exemples),
+        "groupes_quasi_doublons": detecter_quasi_duplication_semantique(exemples),
+        "correlations_suspectes": detecter_correlation_attribut_label(exemples, "source", "categorie"),
+    }
+    return rapport
+</code></pre>
+
+        <div class="ascii">Architecture du pipeline de détection, située dans le
+pipeline complet du cours 20 :
+
+Dataset formaté et nettoyé (cours 20, modules 2-3, 5)
+                    │
+                    ▼
+PIPELINE DE DÉTECTION (ce module)
+├── Analyse de distribution et entropie (module 3)
+├── Détection de corrélations indésirables (module 3)
+├── Détection de quasi-duplication (module 4)
+└── Vérification de fuite inter-splits (module 5)
+                    │
+                    ▼
+RAPPORT DE BIAIS ET DUPLICATION (leçon 7.2)
+                    │
+                    ▼
+CORRECTION (module 6) SI NÉCESSAIRE, puis RE-EXÉCUTION
+du pipeline de détection pour vérifier l'efficacité
+(rappel module 5, leçon 5.5 ; module 6, leçon 6.5)</div>
+
+        <p>Ce pipeline devrait s'exécuter systématiquement, pas seulement lors de la constitution initiale du dataset : rappel du principe déjà établi à la leçon 1.5 (erreur 4), une détection non automatisée risque d'être oubliée lors des mises à jour futures, laissant un biais ou une duplication réapparaître silencieusement à mesure que le dataset évolue.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Exécuter manuellement les vérifications de biais et de duplication une seule fois lors de la constitution initiale du dataset, sans les intégrer comme une étape automatisée et systématique du pipeline de préparation — cette pratique garantit presque certainement qu'une régression future passera inaperçue.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour le pipeline ci-dessus, à quelle fréquence recommanderiez-vous son exécution : à chaque ajout d'exemples, quotidiennement, ou uniquement avant chaque entraînement ? Justifiez selon le rythme de mise à jour du dataset.
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l2" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 7.2</span>Rapports de biais et duplication : ce qu'il faut visualiser</h2>
+
+        <p>Rappel indirect du cours 19 (module 5, sur les logs débogables) : un rapport de détection n'a de valeur que s'il est structuré pour répondre directement aux questions qu'une personne se poserait en le consultant, plutôt que de présenter des données brutes sans interprétation.</p>
+
+        <div class="ascii">Ce qu'un rapport de détection devrait présenter clairement :
+
+RÉSUMÉ EXÉCUTIF EN TÊTE DE RAPPORT
+  "3 catégories sur-représentées détectées, 127 groupes de
+  quasi-doublons identifiés, entropie globale de 0.72 (sur 1.0)"
+  — un aperçu immédiat avant les détails complets
+
+DÉTAIL PAR TYPE DE PROBLÈME
+  Une section par type de biais (module 2) et de duplication
+  (module 4), chacune avec ses propres métriques et exemples
+  concrets illustrant le problème détecté
+
+EXEMPLES CONCRETS, PAS SEULEMENT DES CHIFFRES
+  Rappel du principe déjà établi au cours 19 (module 5,
+  leçon 5.1) — un rapport qui indique "127 groupes de quasi-
+  doublons" sans montrer AU MOINS quelques exemples concrets
+  de ces groupes force une investigation supplémentaire avant
+  de pouvoir agir
+
+RECOMMANDATION D'ACTION
+  Rappel du principe établi au cours 19 (module 6, leçon 6.4) :
+  un rapport devrait pointer vers une action concrète (rééquilibrer
+  telle catégorie, revoir tel seuil) plutôt que de se limiter
+  à un constat sans suite</div>
+
+        <p>Ce dernier point rejoint directement un principe déjà établi au cours 19 sur les logs et métriques d'agents : un rapport de détection sans recommandation d'action concrète a une valeur bien moindre qu'un rapport qui relie explicitement chaque problème détecté à une piste de correction parmi celles du module 6.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Produire un rapport de détection constitué uniquement de métriques agrégées et de chiffres, sans exemples concrets illustrant les problèmes détectés ni recommandation d'action — un tel rapport, bien que techniquement complet, nécessite une investigation supplémentaire avant de pouvoir être exploité concrètement.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour le pipeline de détection de la leçon 7.1, rédigez le résumé exécutif d'un rapport hypothétique révélant une entropie de 0.55 et 200 groupes de quasi-doublons sur un dataset de 5000 exemples.
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l3" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 7.3</span>Intégrer la détection dans le cycle de vie du dataset</h2>
+
+        <p>Rappel direct du cours 18 (module 2, sur le cycle de vie des données statiques) et du cours 20 (module 7, leçon 7.5, sur le versionnement) : la détection de biais et de duplication devrait s'inscrire dans le cycle de vie complet du dataset, pas comme une étape isolée.</p>
+
+        <div class="ascii">Cycle de vie d'un dataset intégrant la détection (rappel
+cours 18, module 2, leçon 2.2, sur le cycle de vie des
+données, adapté ici à un dataset de fine-tuning) :
+
+1. INGESTION de nouveaux exemples (rappel cours 20, module 4)
+                    │
+                    ▼
+2. DÉTECTION AUTOMATISÉE (ce module) exécutée sur le dataset
+   mis à jour, PAS seulement sur les nouveaux exemples isolés
+   (rappel module 5, leçon 5.4, sur les risques de fusion)
+                    │
+                    ▼
+3. COMPARAISON avec la version précédente (rappel module 5,
+   leçon 5.5) — l'entropie ou le taux de duplication se
+   sont-ils dégradés depuis la dernière version ?
+                    │
+                    ▼
+4. CORRECTION SI NÉCESSAIRE (module 6)
+                    │
+                    ▼
+5. NOUVELLE VERSION documentée (rappel cours 20, module 7,
+   leçon 7.5) avec le rapport de détection associé</div>
+
+        <p>Ce cycle souligne un point important : la détection au point 2 doit s'exécuter sur le dataset COMPLET après ingestion des nouveaux exemples, pas seulement sur les exemples nouvellement ajoutés isolément — rappel du module 5, leçon 5.4, une duplication ou un biais peut apparaître précisément à l'intersection entre les anciens et les nouveaux exemples, invisible si chaque lot est analysé séparément.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Exécuter la détection de biais et de duplication uniquement sur les nouveaux exemples ajoutés à un dataset existant, sans réanalyser l'ensemble complet après fusion — cette pratique manque précisément les problèmes qui émergent de l'INTERACTION entre anciens et nouveaux exemples, un risque déjà souligné au module 5, leçon 5.4.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un dataset mis à jour chaque semaine avec de nouveaux exemples, comment organiseriez-vous l'étape 3 (comparaison avec la version précédente) pour qu'elle reste gérable à mesure que le dataset grandit au fil des semaines ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l4" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 7.4</span>Seuils d'alerte et validation humaine</h2>
+
+        <p>Rappel direct du cours 19 (module 7, leçon 7.4, sur l'alerting basé sur les logs) : plutôt que d'attendre qu'une personne consulte manuellement chaque rapport de détection (leçon 7.2), des seuils d'alerte peuvent déclencher automatiquement une notification quand un problème dépasse un niveau jugé préoccupant.</p>
+
+        <pre><code class="language-python">def verifier_seuils_alerte_dataset(rapport_detection: dict, seuils: dict) -> list[str]:
+    """Rappel cours 19, module 7, leçon 7.4 — même principe
+    d'alerting calibré sur des seuils réalistes, appliqué ici
+    à la qualité d'un dataset plutôt qu'au comportement d'un
+    agent en production."""
+    alertes = []
+    if rapport_detection["entropie_categories"] < seuils["entropie_min"]:
+        alertes.append(f"Entropie de catégories anormalement basse : "
+                        f"{rapport_detection['entropie_categories']:.2f}")
+    if len(rapport_detection["groupes_quasi_doublons"]) > seuils["max_groupes_doublons"]:
+        alertes.append(f"Nombre élevé de groupes de quasi-doublons : "
+                        f"{len(rapport_detection['groupes_quasi_doublons'])}")
+    return alertes
+</code></pre>
+
+        <p>Rappel du même principe déjà établi au cours 19 sur l'alerting : ces seuils devraient être calibrés sur une baseline réelle du dataset (ses versions précédentes, rappel leçon 7.3) plutôt que fixés arbitrairement — et une alerte déclenchée ne devrait pas nécessairement bloquer automatiquement l'entraînement, mais plutôt déclencher une <strong>validation humaine</strong> ciblée sur les cas signalés, avant de décider d'une correction (module 6).</p>
+
+        <div class="ascii">Rôle de la validation humaine face à une alerte automatisée :
+
+L'automatisation (leçons 7.1, 7.4) DÉTECTE et SIGNALE des
+anomalies potentielles à un rythme et une échelle qu'une revue
+manuelle seule ne pourrait pas atteindre
+
+La VALIDATION HUMAINE reste nécessaire pour CONFIRMER qu'une
+anomalie signalée constitue réellement un problème à corriger,
+plutôt que d'agir automatiquement sur chaque signal détecté
+sans discernement — rappel du même principe déjà établi au
+cours 20 (module 4, leçon 4.4) sur la revue manuelle d'échantillon</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Automatiser une correction déclenchée directement par une alerte, sans validation humaine intermédiaire — une alerte signale une anomalie STATISTIQUE potentielle, mais seule une revue humaine peut confirmer si cette anomalie constitue réellement un problème à corriger dans le contexte spécifique du dataset concerné.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour l'alerte de nombre élevé de groupes de quasi-doublons, quelle information supplémentaire faudrait-il fournir à la personne chargée de la validation humaine pour qu'elle puisse juger rapidement de la pertinence de l'alerte ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l5" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 7.5</span>Documenter les décisions de correction</h2>
+
+        <p>Rappel direct du cours 20 (module 7, leçon 7.5, sur la documentation de dataset) : les décisions de correction prises suite à une détection de biais ou de duplication (module 6) devraient être documentées explicitement, pour la même raison déjà établie au cours 20 — la traçabilité facilite le diagnostic futur d'un comportement de modèle inattendu.</p>
+
+        <div class="ascii">Ce qu'une documentation de correction devrait inclure, en
+complément de la documentation générale déjà établie au
+cours 20 (module 7, leçon 7.5) :
+
+QUEL PROBLÈME A ÉTÉ DÉTECTÉ ET COMMENT
+  Le rapport de détection associé (leçon 7.2), avec ses
+  métriques précises au moment de la décision
+
+QUELLE TECHNIQUE DE CORRECTION A ÉTÉ CHOISIE ET POURQUOI
+  Sous-échantillonnage, augmentation ciblée, ou révision de
+  source (module 6) — et la justification de ce choix parmi
+  les alternatives disponibles
+
+QUEL A ÉTÉ L'IMPACT MESURÉ APRÈS CORRECTION
+  Rappel module 5, leçon 5.5 et module 6, leçon 6.5 — les
+  métriques avant/après qui confirment l'efficacité de la
+  correction appliquée</div>
+
+        <p>Cette documentation, combinée à celle déjà établie au cours 20, permet de répondre à une question cruciale si un modèle fine-tuné présente un comportement inattendu des mois après son entraînement : quelles décisions de correction ont été appliquées à ce dataset précis, et sur la base de quelles observations — une information qui, sans documentation, serait extrêmement coûteuse à reconstituer après coup.</p>
+
+        <div class="ascii">Ce module clôt la partie "outillage" du cours. Le dernier module
+assemble l'ensemble des concepts vus (types de biais, mesure,
+duplication, correction, automatisation) dans une checklist de
+conception et une étude de cas complète.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Documenter uniquement le résultat final d'une correction (le dataset corrigé) sans conserver la trace du raisonnement qui a mené à cette correction — cette omission rend très difficile de comprendre, après coup, pourquoi une décision spécifique a été prise plutôt qu'une alternative disponible au module 6.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : au-delà des trois éléments listés ci-dessus, quelle autre information jugeriez-vous utile à documenter pour une décision de correction de biais destinée à être consultée par une autre personne de votre équipe ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-8">
+      <span class="module-kicker">MODULE 08 / 08</span>
+      <h1>Implémentation complète et étude de cas</h1>
+      <p class="intro">Ce dernier module assemble l'ensemble des notions vues — types de biais (module 2), mesure (module 3), duplication (module 4), impact sur l'entraînement (module 5), correction (module 6), automatisation (module 7) — dans une checklist de conception et une étude de cas complète.</p>
+
+      <section class="lesson" id="m8-l1" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 8.1</span>Checklist de détection de biais et duplication</h2>
+
+        <div class="ascii">Checklist de détection (à appliquer sur un dataset de
+fine-tuning déjà formaté selon les principes du cours 20) :
+
+□ 1. DISTRIBUTION par catégorie, source, longueur mesurée
+     et son entropie calculée (modules 2-3)
+
+□ 2. CORRÉLATIONS entre attributs et labels vérifiées,
+     pas seulement les distributions globales isolées
+     (module 3, leçon 3.2)
+
+□ 3. DIVERSITÉ SÉMANTIQUE cartographiée via embeddings, au-
+     delà des seules métadonnées déclarées (module 3, leçon 3.3)
+
+□ 4. DÉDUPLICATION EXACTE déjà appliquée (rappel cours 20)
+     ET quasi-duplication détectée (textuelle et sémantique,
+     module 4)
+
+□ 5. SEUILS de similarité calibrés empiriquement sur un
+     échantillon annoté, pas choisis arbitrairement (module 4,
+     leçon 4.4)
+
+□ 6. FUITE INTER-SPLITS vérifiée après le découpage
+     train/validation/test (module 5, leçon 5.2)
+
+□ 7. CORRECTIONS appliquées avec la technique la plus adaptée
+     (rééquilibrage, augmentation, révision de source — module 6)
+
+□ 8. IMPACT DES CORRECTIONS mesuré après coup, pas supposé
+     (modules 5-6, leçon "5.5"/"6.5")
+
+□ 9. PIPELINE AUTOMATISÉ en place pour les futures mises à
+     jour du dataset (module 7)
+
+□ 10. DÉCISIONS DE CORRECTION documentées et versionnées
+     (module 7, leçon 7.5)</div>
+
+        <p>Cette checklist complète directement celle déjà établie au cours 20 (module 8, leçon 8.1) : elle ne la remplace pas, mais l'approfondit spécifiquement sur les dimensions de biais et de duplication, deux problèmes de contenu qui peuvent affecter un dataset par ailleurs parfaitement conforme sur le plan structurel.</p>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un dataset que vous avez construit ou envisagez de construire (rappel cours 20), appliquez cette checklist et identifiez les trois points qui nécessiteraient le plus de travail supplémentaire.
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l2" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 8.2</span>Pipeline complet : de la détection à la validation</h2>
+
+        <div class="ascii">Architecture de référence complète du cours :
+
+DATASET FORMATÉ (cours 20)
+                    │
+                    ▼
+DÉTECTION DE BIAIS (modules 2-3)
+Distribution, entropie, corrélations, diversité sémantique
+                    │
+                    ▼
+DÉTECTION DE DUPLICATION (module 4)
+Quasi-duplication textuelle et sémantique, seuils calibrés
+                    │
+                    ▼
+RAPPORT DE DÉTECTION (module 7, leçon 7.2)
+                    │
+        ┌───────────┴───────────┐
+        ▼                       ▼
+  PROBLÈME DÉTECTÉ          AUCUN PROBLÈME
+        │                    SIGNIFICATIF
+        ▼                       │
+  VALIDATION HUMAINE             │
+  (module 7, leçon 7.4)          │
+        │                       │
+        ▼                       │
+  CORRECTION (module 6)          │
+        │                       │
+        ▼                       │
+  RE-MESURE DE L'IMPACT          │
+  (modules 5-6, leçon 5.5/6.5)   │
+        │                       │
+        └───────────┬───────────┘
+                    ▼
+  VÉRIFICATION FUITE INTER-SPLITS (module 5, leçon 5.2)
+                    │
+                    ▼
+  DOCUMENTATION ET VERSIONNEMENT (module 7, leçon 7.5)
+                    │
+                    ▼
+  Dataset prêt pour le FILTRAGE DE QUALITÉ (cours 22)</div>
+
+        <p>Cette architecture referme la boucle amorcée dès le module 1 : la détection de biais et de duplication n'est pas une étape isolée, mais un cycle qui se répète (détection, correction, re-mesure) jusqu'à ce que le dataset atteigne un niveau de qualité jugé acceptable, avant de passer à l'étape suivante du pipeline global déjà établi au cours 20.</p>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour l'architecture ci-dessus, à quel moment jugeriez-vous qu'il faut arrêter le cycle détection-correction-re-mesure plutôt que de chercher une perfection statistique impossible à atteindre ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l3" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 8.3</span>Étude de cas : dataset d'agent de support avec biais de catégorie et duplication de logs</h2>
+
+        <h3>Contexte</h3>
+        <p>Reprenant l'étude de cas du cours 20 (module 8, leçon 8.3) : le dataset de fine-tuning pour l'agent de support client, une fois formaté, est soumis à la détection de ce cours. Le pipeline révèle deux problèmes distincts.</p>
+
+        <div class="ascii">Résultats de la détection (rappel pipeline, leçon 8.2) :
+
+PROBLÈME 1 : BIAIS DE CATÉGORIE
+Entropie de 0.58 sur la distribution des motifs de contact —
+80% des exemples concernent le suivi de commande (rappel
+cours 20, module 8, leçon 8.3), seulement 20% répartis sur
+tous les autres motifs
+
+PROBLÈME 2 : DUPLICATION DE LOGS
+142 groupes de quasi-doublons détectés (module 4, leçon 4.3),
+principalement dus à des conversations très similaires où
+plusieurs utilisateurs ont posé la même question de façon
+quasi identique sur le suivi de commande
+
+→ Ces deux problèmes sont LIÉS (rappel module 1, leçon 1.1) :
+  la sur-représentation du suivi de commande est à la fois un
+  biais de catégorie ET la source principale de la duplication
+  détectée, deux facettes d'un même déséquilibre sous-jacent</div>
+
+        <p>Application de la démarche de correction (module 6) : plutôt que de sous-échantillonner drastiquement la catégorie "suivi de commande" (perte importante de données), l'équipe choisit de dédupliquer d'abord cette catégorie spécifiquement (module 4), puis d'augmenter les catégories sous-représentées par génération ciblée (module 6, leçon 6.2) plutôt que par simple duplication.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Traiter le biais de catégorie et la duplication détectés comme deux problèmes complètement indépendants nécessitant des corrections séparées, sans reconnaître, comme dans cette étude de cas, qu'ils peuvent partager une même cause racine — une correction qui traite la cause commune peut résoudre les deux problèmes simultanément, plus efficacement que deux corrections isolées.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour cette étude de cas, après avoir dédupliqué la catégorie "suivi de commande", quelle nouvelle mesure (rappel module 5, leçon 5.5) effectueriez-vous pour vérifier si le biais de catégorie initial (entropie 0.58) s'est amélioré ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l4" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 8.4</span>Exercice final</h2>
+
+        <div class="callout exercise">
+          <strong>Exercice final — à traiter dans l'ordre</strong>
+          <p>1. <strong>Mesure (module 3)</strong> : pour l'étude de cas de la leçon 8.3, si les motifs de contact sont répartis en 5 catégories (80%, 8%, 6%, 4%, 2%), calculez intuitivement si l'entropie normalisée serait plus proche de 0.5 ou de 0.9.</p>
+          <p>2. <strong>Détection de duplication (module 4)</strong> : proposez un seuil de similarité sémantique que vous jugeriez raisonnable pour détecter des conversations de suivi de commande quasi identiques, en justifiant votre choix.</p>
+          <p>3. <strong>Correction (module 6)</strong> : entre le sous-échantillonnage, l'augmentation ciblée et la révision de source, quelle combinaison choisiriez-vous pour cette étude de cas, et dans quel ordre les appliqueriez-vous ?</p>
+          <p>4. <strong>Vérification inter-splits (module 5, leçon 5.2)</strong> : pourquoi la duplication de conversations de suivi de commande présenterait-elle un risque particulier de fuite de données entre train et test pour ce dataset spécifiquement ?</p>
+          <p>5. <strong>Documentation (module 7, leçon 7.5)</strong> : rédigez un court paragraphe documentant la décision de correction prise à la question 3, pour un collègue qui consulterait cette décision plus tard.</p>
+        </div>
+
+        <p>Comme pour les exercices finaux des cours précédents de cette série, il n'existe pas de réponse unique — l'objectif est de démontrer une application cohérente de l'ensemble du cycle de détection et correction (mesure, duplication, correction, vérification, documentation) à un cas concret.</p>
+      </section>
+
+      <section class="lesson" id="m8-l5" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 8.5</span>Synthèse et transition vers le cours 22</h2>
+
+        <h3>Ce que ce cours a couvert</h3>
+        <div class="ascii">Récapitulatif des 8 modules :
+
+1. Fondamentaux — biais et duplication comme problèmes
+   distincts mais liés, positionnement dans le pipeline
+2. Types de biais — représentation, source, stylistique,
+   annotateur/génération, label
+3. Mesure du biais — entropie, corrélations croisées,
+   diversité sémantique par embeddings, outils existants
+4. Duplication — rappel de la déduplication exacte,
+   quasi-duplication textuelle et sémantique, calibration de seuil
+5. Impact de la duplication — mémorisation, fuite inter-splits,
+   vie privée, sources combinées
+6. Correction du biais — rééquilibrage, augmentation ciblée,
+   pondération, révision de source
+7. Outillage — pipeline automatisé, rapports, cycle de vie,
+   alerting, documentation
+8. Implémentation complète — checklist, pipeline de référence,
+   étude de cas</div>
+
+        <h3>Transition vers le cours 22</h3>
+        <p>Ce cours a traité la structure statistique d'un dataset — sa distribution, sa diversité, l'absence de redondance excessive. Le cours 22, qui clôt le Bloc 6 de cette série, aborde une dimension complémentaire mais distincte : la <strong>qualité intrinsèque</strong> de chaque exemple individuel, via des heuristiques de qualité et la technique du LLM-as-judge — utiliser un modèle de langage pour évaluer si un exemple donné est factuellement correct, cohérent et bien formulé, une question que la détection de biais et de duplication de ce cours ne traite pas directement.</p>
+
+        <div class="ascii">Progression logique des trois cours du Bloc 6 :
+
+Cours 20 — Formatage                    Cours 21 (ce cours) — Biais
+(structure et encodage)                 et duplication (représentativité
+        │                              statistique du dataset)
+        └───────────────┬───────────────────┘
+                        ▼
+              Cours 22 — Filtrage de qualité
+              (qualité INTRINSÈQUE de chaque exemple,
+               heuristiques et LLM-as-judge)</div>
+
+        <p>Un dataset peut ainsi être parfaitement structuré (cours 20), statistiquement équilibré et sans duplication (ce cours), tout en contenant des exemples individuellement de mauvaise qualité — une réponse factuellement incorrecte, mal rédigée, ou incohérente avec son instruction. C'est précisément cette dernière dimension que le cours 22 complète.</p>
+
+        <div class="callout exercise">
+          <strong>Pour conclure</strong>
+          En une phrase, formulez le principe de ce cours qui vous semble le plus déterminant pour éviter qu'un dataset, en apparence bien équilibré statistiquement, ne produise malgré tout un modèle fine-tuné décevant.
+        </div>
+      </section>
+    </div>
+
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+  hljs.highlightAll();
+
+  const storageKey = 'biais-duplication-course-progress';
+  const total = 40;
+  const menuToggle = document.getElementById('menuToggle');
+  const sidebar = document.getElementById('sidebar');
+  menuToggle.addEventListener('click', () => sidebar.classList.toggle('open'));
+
+  function getProgress() {
+    try { return JSON.parse(localStorage.getItem(storageKey)) || {}; }
+    catch (e) { return {}; }
+  }
+  function saveProgress(p) { localStorage.setItem(storageKey, JSON.stringify(p)); }
+
+  function updateProgressBar() {
+    const p = getProgress();
+    const done = Object.values(p).filter(Boolean).length;
+    document.getElementById('progressFill').style.width = (done / total * 100) + '%';
+  }
+
+  function markVisible() {
+    const progress = getProgress();
+    const links = document.querySelectorAll('[data-lesson]');
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const id = entry.target.id;
+          links.forEach(l => l.classList.remove('active'));
+          const link = document.querySelector('[data-lesson="' + id + '"]');
+          if (link) link.classList.add('active');
+          if (!progress[id]) {
+            progress[id] = true;
+            saveProgress(progress);
+            updateProgressBar();
+            const check = link ? link.querySelector('.lesson-check') : null;
+            if (check) check.classList.add('done');
+          }
+        }
+      });
+    }, { threshold: 0.4 });
+    document.querySelectorAll('section.lesson').forEach(s => observer.observe(s));
+  }
+
+  function restoreChecks() {
+    const progress = getProgress();
+    Object.keys(progress).forEach(id => {
+      if (progress[id]) {
+        const link = document.querySelector('[data-lesson="' + id + '"]');
+        if (link) {
+          const check = link.querySelector('.lesson-check');
+          if (check) check.classList.add('done');
+        }
+      }
+    });
+    updateProgressBar();
+  }
+
+  restoreChecks();
+  markVisible();
+
+  document.querySelectorAll('.sidebar a').forEach(a => {
+    a.addEventListener('click', () => { sidebar.classList.remove('open'); });
+  });
+</script>
+</body>
+</html>

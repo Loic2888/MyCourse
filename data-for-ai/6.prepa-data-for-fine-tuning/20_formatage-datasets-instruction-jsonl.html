@@ -1,0 +1,2115 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Formatage de Datasets d'Entraînement — Format Instruction/Réponse et JSONL</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<style>
+  :root {
+    --bg: #f4f6f8; --bg-alt: #e8edf1; --panel: #ffffff; --text: #1f2430; --text-muted: #5b6472;
+    --accent: #0891b2; --accent-dark: #0e7490; --pitfall: #f59e0b; --border: #dbe2e8;
+    --chunk-1: #7c5cff; --chunk-2: #17b8a6; --chunk-3: #ff6b6b; --chunk-4: #ffb020;
+    --font-display: "Space Grotesk", sans-serif; --font-body: "Inter", system-ui, sans-serif; --font-mono: "JetBrains Mono", monospace;
+    --sidebar-width: 300px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font-body); color: var(--text); background: var(--bg); line-height: 1.65; }
+  .layout { display: flex; min-height: 100vh; }
+  .sidebar { width: var(--sidebar-width); flex-shrink: 0; background: var(--panel); border-right: 1px solid var(--border); padding: 1.5rem 1rem 3rem; overflow-y: auto; position: sticky; top: 0; height: 100vh; }
+  .sidebar a.brand { display: block; font-family: var(--font-display); font-weight: 700; font-size: 1rem; margin-bottom: 1.5rem; color: var(--text); text-decoration: none; padding: 0.4rem 0.5rem; }
+  .sidebar a.brand span { color: var(--accent); }
+  .module-group { margin-bottom: 0.35rem; border-radius: 8px; }
+  .module-title { font-family: var(--font-display); font-weight: 600; font-size: 0.88rem; padding: 0.55rem 0.6rem; display: flex; gap: 0.5rem; align-items: baseline; color: var(--text); text-decoration: none; }
+  .module-title .n { font-family: var(--font-mono); font-size: 0.72rem; opacity: 0.7; }
+  .lesson-list { list-style: none; padding-left: 0.6rem; margin-bottom: 0.4rem; }
+  .lesson-list li a { display: flex; align-items: center; gap: 0.5rem; padding: 0.32rem 0.5rem; border-radius: 6px; color: var(--text-muted); text-decoration: none; font-size: 0.83rem; }
+  .lesson-list li a:hover { background: var(--bg-alt); color: var(--text); }
+  .lesson-list li a.active { color: var(--accent-dark); font-weight: 600; background: rgba(8,145,178,0.1); }
+  .lesson-check { width: 12px; height: 12px; flex-shrink: 0; border: 1.5px solid var(--text-muted); border-radius: 3px; }
+  .lesson-check.done { background: var(--chunk-2); border-color: var(--chunk-2); }
+  .progress-bar { height: 4px; background: var(--border); position: sticky; top: 0; z-index: 10; }
+  .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--chunk-1), var(--accent)); width: 0%; transition: width 0.2s ease; }
+  .content { flex: 1; max-width: 760px; margin: 0 auto; padding: 3rem 2rem 6rem; }
+  .module-kicker { font-family: var(--font-mono); font-size: 0.8rem; color: var(--accent-dark); background: rgba(8,145,178,0.08); border: 1px dashed var(--accent); display: inline-block; padding: 0.2rem 0.8rem; border-radius: 999px; margin-bottom: 1rem; }
+  section.lesson { border-top: 2px dashed var(--border); padding-top: 2rem; margin-top: 2rem; position: relative; padding-left: 1.1rem; border-left: 4px solid var(--lesson-color, var(--accent)); }
+  section.lesson h2 { font-family: var(--font-display); font-size: 1.5rem; margin-bottom: 1rem; }
+  section.lesson h2 .tag { font-family: var(--font-mono); font-size: 0.7rem; color: var(--lesson-color, var(--accent)); display: block; margin-bottom: 0.3rem; }
+  section.lesson h3 { font-family: var(--font-display); font-size: 1.1rem; margin: 1.4rem 0 0.6rem; }
+  section.lesson p, section.lesson ul, section.lesson ol { margin-bottom: 1rem; }
+  section.lesson li { margin-left: 1.3rem; margin-bottom: 0.35rem; }
+  pre { border-radius: 8px; padding: 1rem; overflow-x: auto; margin: 1rem 0; font-size: 0.85rem; }
+  code.inline { font-family: var(--font-mono); background: var(--bg-alt); padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.85em; }
+  .ascii { font-family: var(--font-mono); font-size: 0.78rem; background: #1e222b; color: #d7dce2; padding: 1rem 1.2rem; border-radius: 8px; overflow-x: auto; margin: 1rem 0; line-height: 1.5; white-space: pre; }
+  .callout { border-left: 4px solid var(--accent); background: var(--bg-alt); padding: 1rem 1.2rem; border-radius: 0 8px 8px 0; margin: 1.2rem 0; }
+  .callout strong { font-family: var(--font-display); display: block; margin-bottom: 0.3rem; font-size: 0.92rem; }
+  .callout.pitfall { border-left-color: var(--pitfall); }
+  .callout.exercise { border-left-color: var(--chunk-2); }
+  .menu-toggle { display: none; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.88rem; }
+  thead tr { text-align: left; border-bottom: 2px solid var(--border); }
+  th, td { padding: 0.5rem 0.6rem; }
+  tbody tr { border-bottom: 1px solid var(--border); }
+
+  .hero {
+    border-bottom: 2px dashed var(--border);
+    padding: 3rem 0 2.5rem;
+    text-align: center;
+    margin-bottom: 1rem;
+  }
+  .hero .tag {
+    display: inline-block; font-family: var(--font-mono); font-size: 0.8rem;
+    color: var(--accent-dark); background: rgba(8,145,178,0.1);
+    border: 1px dashed var(--accent); border-radius: 999px;
+    padding: 0.25rem 0.9rem; margin-bottom: 1.25rem;
+  }
+  .hero-title {
+    font-family: var(--font-display); font-size: clamp(1.8rem, 5vw, 2.6rem);
+    font-weight: 700; margin: 0 auto 1rem; letter-spacing: -0.01em;
+  }
+  .hero-title span {
+    background: linear-gradient(90deg, var(--chunk-1), var(--accent), var(--chunk-2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .hero-lead { max-width: 620px; margin: 0 auto; color: var(--text-muted); font-size: 1.02rem; }
+  .strip { display: flex; justify-content: center; gap: 0.4rem; margin: 2rem auto 0; max-width: 520px; }
+  .strip .seg { height: 8px; flex: 1; border-radius: 3px; }
+  .strip .seg:nth-child(1) { background: var(--chunk-1); }
+  .strip .seg:nth-child(2) { background: var(--chunk-2); }
+  .strip .seg:nth-child(3) { background: var(--chunk-3); }
+  .strip .seg:nth-child(4) { background: var(--chunk-4); }
+  .strip .seg:nth-child(5) { background: var(--chunk-1); }
+  .strip .seg:nth-child(6) { background: var(--chunk-2); }
+
+  .module-block { border-top: 3px solid var(--border); padding-top: 2.5rem; margin-top: 3rem; }
+  .module-block:first-of-type { border-top: none; margin-top: 0; }
+  .module-block > h1 { font-family: var(--font-display); font-size: 2rem; margin-bottom: 0.5rem; }
+  .module-block > p.intro { color: var(--text-muted); margin-bottom: 2rem; font-size: 1.02rem; }
+
+  .finale {
+    margin-top: 3rem; padding: 1.5rem; border-radius: 10px;
+    background: linear-gradient(135deg, rgba(124,92,255,0.08), rgba(23,184,166,0.08));
+    border: 1px dashed var(--accent);
+    text-align: center;
+  }
+  .finale p { color: var(--text-muted); margin-bottom: 0.8rem; }
+  .finale a {
+    display: inline-block; background: var(--accent); color: white;
+    text-decoration: none; padding: 0.6rem 1.4rem; border-radius: 6px;
+    font-family: var(--font-display); font-weight: 600; font-size: 0.9rem;
+  }
+
+  @media (max-width: 860px) {
+    .sidebar { position: fixed; left: -100%; z-index: 20; transition: left 0.2s ease; box-shadow: 4px 0 12px rgba(0,0,0,0.15); background: var(--panel); }
+    .sidebar.open { left: 0; }
+    .menu-toggle { display: block; position: fixed; top: 1rem; left: 1rem; z-index: 30; background: var(--accent); color: white; border: none; border-radius: 6px; padding: 0.5rem 0.75rem; cursor: pointer; font-size: 1rem; }
+    .content { padding: 4.5rem 1.25rem 3rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-bar-fill" id="progressFill"></div></div>
+<button class="menu-toggle" id="menuToggle">☰</button>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar">
+    <a class="brand" href="#top">Format<span>Dataset</span></a>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-1"><span class="n">01</span> Fondamentaux du fine-tuning et du formatage</a>
+      <ul class="lesson-list">
+        <li><a href="#m1-l1" data-lesson="m1-l1"><span class="lesson-check"></span>Qu'est-ce que le fine-tuning et pourquoi le format compte</a></li>
+        <li><a href="#m1-l2" data-lesson="m1-l2"><span class="lesson-check"></span>Fine-tuning vs prompting, RAG, function calling</a></li>
+        <li><a href="#m1-l3" data-lesson="m1-l3"><span class="lesson-check"></span>Le rôle du dataset dans la qualité du modèle final</a></li>
+        <li><a href="#m1-l4" data-lesson="m1-l4"><span class="lesson-check"></span>Où se situe cette étape dans le pipeline</a></li>
+        <li><a href="#m1-l5" data-lesson="m1-l5"><span class="lesson-check"></span>Erreurs courantes de conception de dataset</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-2"><span class="n">02</span> Le format instruction/réponse</a>
+      <ul class="lesson-list">
+        <li><a href="#m2-l1" data-lesson="m2-l1"><span class="lesson-check"></span>Anatomie d'un exemple instruction/réponse</a></li>
+        <li><a href="#m2-l2" data-lesson="m2-l2"><span class="lesson-check"></span>Formats courants : Alpaca, ShareGPT, messages</a></li>
+        <li><a href="#m2-l3" data-lesson="m2-l3"><span class="lesson-check"></span>Single-turn vs multi-turn</a></li>
+        <li><a href="#m2-l4" data-lesson="m2-l4"><span class="lesson-check"></span>Le system prompt dans le format d'entraînement</a></li>
+        <li><a href="#m2-l5" data-lesson="m2-l5"><span class="lesson-check"></span>Choisir le bon format selon modèle et tâche</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-3"><span class="n">03</span> JSONL en profondeur</a>
+      <ul class="lesson-list">
+        <li><a href="#m3-l1" data-lesson="m3-l1"><span class="lesson-check"></span>Qu'est-ce que JSONL et pourquoi ce format</a></li>
+        <li><a href="#m3-l2" data-lesson="m3-l2"><span class="lesson-check"></span>Structure ligne par ligne, encodage, streaming</a></li>
+        <li><a href="#m3-l3" data-lesson="m3-l3"><span class="lesson-check"></span>Valider la conformité d'un fichier JSONL</a></li>
+        <li><a href="#m3-l4" data-lesson="m3-l4"><span class="lesson-check"></span>JSONL vs CSV, Parquet et autres formats</a></li>
+        <li><a href="#m3-l5" data-lesson="m3-l5"><span class="lesson-check"></span>Pièges courants du JSONL</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-4"><span class="n">04</span> Construire le dataset à partir de sources brutes</a>
+      <ul class="lesson-list">
+        <li><a href="#m4-l1" data-lesson="m4-l1"><span class="lesson-check"></span>Sources de données pour le fine-tuning</a></li>
+        <li><a href="#m4-l2" data-lesson="m4-l2"><span class="lesson-check"></span>Transformer des logs de conversation en exemples</a></li>
+        <li><a href="#m4-l3" data-lesson="m4-l3"><span class="lesson-check"></span>Générer des paires synthétiques (self-instruct)</a></li>
+        <li><a href="#m4-l4" data-lesson="m4-l4"><span class="lesson-check"></span>Annoter et vérifier manuellement un échantillon</a></li>
+        <li><a href="#m4-l5" data-lesson="m4-l5"><span class="lesson-check"></span>Pièges courants de construction du dataset</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-5"><span class="n">05</span> Nettoyage et normalisation pour le fine-tuning</a>
+      <ul class="lesson-list">
+        <li><a href="#m5-l1" data-lesson="m5-l1"><span class="lesson-check"></span>Nettoyer le texte des instructions et réponses</a></li>
+        <li><a href="#m5-l2" data-lesson="m5-l2"><span class="lesson-check"></span>Gérer la longueur : troncature et tokens</a></li>
+        <li><a href="#m5-l3" data-lesson="m5-l3"><span class="lesson-check"></span>Normaliser rôles et balises spéciales</a></li>
+        <li><a href="#m5-l4" data-lesson="m5-l4"><span class="lesson-check"></span>Déduplication des exemples</a></li>
+        <li><a href="#m5-l5" data-lesson="m5-l5"><span class="lesson-check"></span>Pièges courants de nettoyage</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-6"><span class="n">06</span> Structurer pour des cas d'usage spécifiques</a>
+      <ul class="lesson-list">
+        <li><a href="#m6-l1" data-lesson="m6-l1"><span class="lesson-check"></span>Formater pour l'instruction-following générique</a></li>
+        <li><a href="#m6-l2" data-lesson="m6-l2"><span class="lesson-check"></span>Formater pour le function calling</a></li>
+        <li><a href="#m6-l3" data-lesson="m6-l3"><span class="lesson-check"></span>Formater pour un chatbot multi-tour</a></li>
+        <li><a href="#m6-l4" data-lesson="m6-l4"><span class="lesson-check"></span>Formater pour classification et extraction</a></li>
+        <li><a href="#m6-l5" data-lesson="m6-l5"><span class="lesson-check"></span>Mélanger plusieurs types de tâches</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-7"><span class="n">07</span> Découpage, validation et préparation finale</a>
+      <ul class="lesson-list">
+        <li><a href="#m7-l1" data-lesson="m7-l1"><span class="lesson-check"></span>Split train / validation / test</a></li>
+        <li><a href="#m7-l2" data-lesson="m7-l2"><span class="lesson-check"></span>Valider automatiquement le format avant entraînement</a></li>
+        <li><a href="#m7-l3" data-lesson="m7-l3"><span class="lesson-check"></span>Vérifier distribution et couverture du dataset</a></li>
+        <li><a href="#m7-l4" data-lesson="m7-l4"><span class="lesson-check"></span>Estimer coût et taille (tokens, budget)</a></li>
+        <li><a href="#m7-l5" data-lesson="m7-l5"><span class="lesson-check"></span>Versionner et documenter le dataset</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-8"><span class="n">08</span> Implémentation complète et étude de cas</a>
+      <ul class="lesson-list">
+        <li><a href="#m8-l1" data-lesson="m8-l1"><span class="lesson-check"></span>Checklist de conception d'un dataset</a></li>
+        <li><a href="#m8-l2" data-lesson="m8-l2"><span class="lesson-check"></span>Pipeline complet : collecte à export JSONL</a></li>
+        <li><a href="#m8-l3" data-lesson="m8-l3"><span class="lesson-check"></span>Étude de cas : dataset pour un agent de support</a></li>
+        <li><a href="#m8-l4" data-lesson="m8-l4"><span class="lesson-check"></span>Exercice final</a></li>
+        <li><a href="#m8-l5" data-lesson="m8-l5"><span class="lesson-check"></span>Synthèse et ouverture du Bloc 6</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main class="content">
+    <header class="hero" id="top">
+      <span class="tag">// data-for-ai · 6.prepa-data-for-fine-tuning · Formation 20</span>
+      <h1 class="hero-title">Formatage de Datasets <span>d'Entraînement</span></h1>
+      <p class="hero-lead">Format instruction/réponse et JSONL — comment transformer des données brutes en un dataset structuré, propre et exploitable pour le fine-tuning d'un modèle de langage. 8 modules, 40 leçons.</p>
+      <div class="strip" aria-hidden="true">
+        <div class="seg"></div><div class="seg"></div><div class="seg"></div>
+        <div class="seg"></div><div class="seg"></div><div class="seg"></div>
+      </div>
+    </header>
+
+    <div class="module-block" id="module-1">
+      <span class="module-kicker">MODULE 01 / 08</span>
+      <h1>Fondamentaux du fine-tuning et du formatage de données</h1>
+      <p class="intro">Ce cours ouvre un nouveau bloc de la série, consacré à la préparation de données pour le fine-tuning — l'entraînement complémentaire d'un modèle de langage sur un jeu de données spécifique. Contrairement aux blocs précédents (RAG, agents IA), où la donnée est consultée au moment de l'inférence, ici la donnée devient une partie du modèle lui-même : sa qualité et son format déterminent directement le comportement final.</p>
+
+      <section class="lesson" id="m1-l1" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 1.1</span>Qu'est-ce que le fine-tuning et pourquoi le format des données est critique</h2>
+
+        <p>Le <strong>fine-tuning</strong> consiste à poursuivre l'entraînement d'un modèle de langage déjà pré-entraîné, sur un jeu de données plus restreint et spécifique, pour adapter son comportement — un ton particulier, un domaine spécialisé, un format de réponse précis, ou une capacité que le modèle de base ne maîtrise pas suffisamment bien.</p>
+
+        <p>Contrairement au RAG (cours 9-13) ou au function calling (cours 17), où l'information reste externe au modèle et est injectée au moment de la question, le fine-tuning modifie les <strong>poids internes</strong> du modèle lui-même. Cette différence de nature a une conséquence directe sur ce cours : alors qu'un chunk RAG mal formaté produit une mauvaise réponse ponctuelle, un exemple d'entraînement mal formaté influence durablement le comportement du modèle sur l'ensemble de ses réponses futures.</p>
+
+        <div class="ascii">RAG / function calling (blocs 3, 5)         Fine-tuning (ce bloc)
+────────────────────────────────            ────────────────────────────
+La donnée reste EXTERNE au modèle,           La donnée est ABSORBÉE dans
+consultée à chaque requête                   les poids du modèle, une
+                                            fois pour toutes lors de
+Une donnée mal formatée affecte              l'entraînement
+UNE seule réponse, ponctuellement
+                                            Une donnée mal formatée dans
+Erreur corrigeable en modifiant              le dataset affecte TOUTES les
+la source et en relançant la                 réponses futures influencées
+requête suivante                            par cet exemple, de façon
+                                            diffuse et difficile à isoler
+
+                                            Erreur corrigeable seulement
+                                            en RE-ENTRAÎNANT le modèle
+                                            avec un dataset corrigé —
+                                            un cycle bien plus coûteux</div>
+
+        <p>Cette différence de coût de correction justifie l'exigence de rigueur de ce cours : une erreur de formatage détectée après l'entraînement ne se corrige pas par un simple ajustement, mais nécessite de reprendre le dataset et de relancer un cycle d'entraînement complet — un argument fort en faveur d'une validation systématique du format <em>avant</em> l'entraînement plutôt qu'après.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer la préparation d'un dataset de fine-tuning comme une tâche similaire à la préparation de données pour du RAG (cours 9-13), avec un niveau d'exigence comparable — alors que le coût d'une erreur de format est structurellement plus élevé pour le fine-tuning, puisqu'elle se propage dans le modèle lui-même plutôt que de rester isolée à une consultation ponctuelle.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un projet de fine-tuning que vous imaginez (un assistant spécialisé dans un domaine précis, par exemple), décrivez ce qui se passerait concrètement si 10% des exemples de votre dataset contenaient une erreur de formatage systématique, non détectée avant l'entraînement.
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l2" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 1.2</span>Fine-tuning vs prompting, RAG, function calling : quand fine-tuner</h2>
+
+        <p>Cette leçon situe le fine-tuning parmi les techniques déjà couvertes dans cette série, pour clarifier quand cette approche, plus coûteuse à mettre en œuvre, se justifie réellement par rapport aux alternatives.</p>
+
+        <table>
+          <thead><tr><th>Technique</th><th>Modifie</th><th>Se justifie quand</th></tr></thead>
+          <tbody>
+            <tr><td>Prompting / ingénierie de prompt</td><td>Rien dans le modèle, seulement l'entrée</td><td>Le comportement souhaité peut être obtenu par des instructions claires dans le prompt</td></tr>
+            <tr><td>RAG (cours 9-13)</td><td>Rien dans le modèle, ajoute du contexte externe</td><td>Le modèle a besoin d'accéder à des connaissances spécifiques et évolutives</td></tr>
+            <tr><td>Function calling (cours 17)</td><td>Rien dans le modèle, ajoute une capacité d'action</td><td>Le modèle doit déclencher des actions ou récupérer des données externes précises</td></tr>
+            <tr><td>Fine-tuning (ce cours)</td><td>Les poids internes du modèle</td><td>Le comportement souhaité (ton, format, capacité spécialisée) résiste aux approches ci-dessus, ou doit être fiable sans dépendre d'un prompt répété à chaque requête</td></tr>
+          </tbody>
+        </table>
+
+        <p>En pratique, le fine-tuning n'est presque jamais une alternative exclusive aux techniques précédentes : un agent réel combine fréquemment un modèle fine-tuné (pour un ton ou un format spécifique) avec du RAG (pour des connaissances à jour, cours 9-13) et du function calling (pour des actions, cours 17) — les blocs de cette série ne s'excluent pas mutuellement, ils s'assemblent selon le besoin.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Se tourner vers le fine-tuning comme première solution face à un comportement de modèle insatisfaisant, sans avoir d'abord épuisé les possibilités du prompting ou du RAG — des techniques nettement moins coûteuses à itérer, et qui suffisent à résoudre la majorité des problèmes de comportement de modèle rencontrés en pratique.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un agent qui doit systématiquement répondre dans un format très particulier (par exemple, toujours structurer sa réponse en trois sections précises), le fine-tuning serait-il justifié plutôt qu'un prompt système bien conçu ? Discutez les deux options.
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l3" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 1.3</span>Le rôle du dataset dans la qualité du modèle final</h2>
+
+        <p>Le principe fondateur de ce cours, souvent résumé par l'expression "garbage in, garbage out" : la qualité d'un modèle après fine-tuning ne peut pas dépasser la qualité du dataset utilisé pour l'entraîner. Un modèle de base excellent, fine-tuné sur des exemples médiocres, produira un résultat médiocre.</p>
+
+        <div class="ascii">Ce qui détermine la qualité du modèle fine-tuné :
+
+QUALITÉ DES EXEMPLES INDIVIDUELS
+  Chaque paire instruction/réponse doit être correcte,
+  cohérente et représentative du comportement souhaité
+  (approfondi module 2)
+
+COHÉRENCE DU FORMAT À TRAVERS LE DATASET
+  Rappel leçon 1.1 : une incohérence de format n'affecte pas
+  un seul exemple, elle brouille le signal d'apprentissage
+  pour l'ensemble du dataset (approfondi modules 3, 5)
+
+REPRÉSENTATIVITÉ DE LA DISTRIBUTION
+  Le dataset doit couvrir la variété des cas que le modèle
+  rencontrera en production, sans sur-représenter certains
+  types de requêtes au détriment d'autres (approfondi module 7)
+
+VOLUME SUFFISANT MAIS PAS EXCESSIF
+  Un dataset trop petit ne permet pas au modèle d'apprendre
+  le comportement voulu ; un dataset trop volumineux mais de
+  mauvaise qualité peut être pire qu'un dataset plus restreint
+  mais rigoureusement contrôlé</div>
+
+        <p>Ce dernier point mérite d'être souligné dès ce premier module : contrairement à une intuition répandue, un dataset plus petit mais soigneusement construit produit souvent un meilleur résultat qu'un dataset volumineux mais bâclé — un principe qui justifie l'investissement en temps que ce cours consacre au nettoyage (module 5) et à la validation (module 7) plutôt qu'à la seule accumulation de volume.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Prioriser le volume du dataset ("plus il y a d'exemples, mieux c'est") au détriment de sa qualité et de sa cohérence — une conviction intuitive mais souvent contredite en pratique, où un dataset plus restreint et rigoureusement contrôlé produit fréquemment de meilleurs résultats qu'un dataset large mais bruité.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un projet de fine-tuning, comment arbitreriez-vous entre "collecter davantage d'exemples rapidement" et "vérifier soigneusement moins d'exemples" si votre temps est limité ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l4" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 1.4</span>Où se situe cette étape dans le pipeline complet de fine-tuning</h2>
+
+        <p>Cette leçon situe le sujet de ce cours — le formatage — dans le pipeline complet de fine-tuning, pour clarifier ce qui est couvert ici et ce qui relève d'étapes ultérieures (traitées aux cours 21 et 22 de ce même bloc).</p>
+
+        <div class="ascii">Pipeline complet de préparation pour le fine-tuning :
+
+1. COLLECTE DES DONNÉES BRUTES
+   Logs de conversation (rappel cours 19), documents,
+   génération synthétique (approfondi module 4 de ce cours)
+                    │
+                    ▼
+2. FORMATAGE (CE COURS)
+   Transformation en paires instruction/réponse structurées,
+   export au format JSONL (modules 2-3, 6)
+                    │
+                    ▼
+3. NETTOYAGE ET DÉDUPLICATION (ce cours, module 5 ;
+   approfondi au cours 21 pour la détection de biais et
+   de duplication à plus grande échelle)
+                    │
+                    ▼
+4. FILTRAGE DE QUALITÉ (approfondi au cours 22 —
+   heuristiques et LLM-as-judge)
+                    │
+                    ▼
+5. VALIDATION ET SPLIT FINAL (ce cours, module 7)
+                    │
+                    ▼
+6. ENTRAÎNEMENT (hors du périmètre de cette série,
+   qui se concentre sur la PRÉPARATION de données)</div>
+
+        <p>Ce cours se concentre donc spécifiquement sur les étapes 2, une partie de 3, et 5 — le formatage structurel et sa validation — tandis que les cours 21 (détection de biais et duplication) et 22 (filtrage de qualité) de ce même bloc approfondiront les aspects de qualité et de représentativité du contenu, une fois la structure de base maîtrisée ici.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Confondre le formatage structurel d'un dataset (ce cours) avec le contrôle de sa qualité de contenu (cours 21-22) — un dataset peut être parfaitement formaté (JSONL valide, structure instruction/réponse cohérente) tout en contenant des biais, des doublons ou des exemples de mauvaise qualité, des problèmes distincts qui nécessitent des techniques différentes.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour le pipeline ci-dessus, à quelle étape précise situeriez-vous la détection d'un exemple d'entraînement factuellement incorrect (une réponse qui contient une erreur de fait) ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l5" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 1.5</span>Erreurs courantes de conception de dataset</h2>
+
+        <p>Cette dernière leçon du module recense les erreurs les plus fréquentes observées lors de la conception d'un dataset de fine-tuning, approfondies individuellement dans les modules suivants.</p>
+
+        <h3>Erreur 1 : incohérence de format à travers le dataset</h3>
+        <p>Mélanger différentes conventions de structuration (certains exemples avec un champ "input" vide, d'autres non ; des styles de formulation d'instruction incohérents) sans standardisation préalable — approfondi au module 2.</p>
+
+        <h3>Erreur 2 : ne pas valider la conformité JSONL avant l'entraînement</h3>
+        <p>Soumettre un fichier contenant des lignes malformées ou des erreurs d'encodage à un pipeline d'entraînement, découvrant le problème seulement après l'échec du job — approfondi au module 3.</p>
+
+        <h3>Erreur 3 : dataset non représentatif de l'usage réel</h3>
+        <p>Construire un dataset à partir d'une source unique et biaisée (par exemple, uniquement des conversations "faciles" bien résolues), sans représenter la diversité des cas rencontrés en production — approfondi au module 4.</p>
+
+        <h3>Erreur 4 : négliger la validation avant de lancer l'entraînement</h3>
+        <p>Passer directement de la construction du dataset à l'entraînement, sans étape de vérification systématique de la distribution, du format et de la couverture — approfondi au module 7.</p>
+
+        <div class="ascii">Les quatre erreurs à éviter, résumées :
+
+1. INCOHÉRENCE DE FORMAT          →  Signal d'apprentissage brouillé
+2. JSONL NON VALIDÉ                →  Échec tardif et coûteux du job
+                                      d'entraînement
+3. DATASET NON REPRÉSENTATIF        →  Modèle qui généralise mal en
+                                      production
+4. VALIDATION NÉGLIGÉE              →  Problèmes découverts trop tard,
+                                      après un cycle d'entraînement
+                                      complet</div>
+
+        <p>Les modules suivants traitent chacune de ces erreurs en détail : le module 2 établit la structure du format instruction/réponse, le module 3 la rigueur du format JSONL, le module 4 la construction représentative du dataset, et le module 7 la validation systématique avant l'entraînement final.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Traiter ces quatre erreurs comme des vérifications ponctuelles à effectuer une seule fois en fin de projet, plutôt que comme des principes à intégrer dès la conception initiale du pipeline de préparation — une erreur de format découverte après avoir collecté des milliers d'exemples est bien plus coûteuse à corriger qu'une convention établie clairement dès le départ.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de synthèse</strong>
+          Pour clore ce module : parmi les quatre erreurs listées, laquelle vous semble la plus probable dans un projet que vous avez connu ou pourriez rencontrer — et pourquoi ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-2">
+      <span class="module-kicker">MODULE 02 / 08</span>
+      <h1>Le format instruction/réponse</h1>
+      <p class="intro">Ce module détaille la structure de base d'un exemple d'entraînement pour le fine-tuning : le format instruction/réponse, ses variantes courantes, et comment choisir la bonne convention selon le modèle et la tâche visés.</p>
+
+      <section class="lesson" id="m2-l1" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 2.1</span>Anatomie d'un exemple instruction/réponse</h2>
+
+        <p>La forme la plus simple d'un exemple d'entraînement pour le fine-tuning comporte trois composantes, dont une est optionnelle selon les cas.</p>
+
+        <pre><code class="language-json">{
+  "instruction": "Résume ce texte en une phrase.",
+  "input": "Le chat s'est assis sur le tapis rouge près de la fenêtre "
+           "ensoleillée, observant les oiseaux dans le jardin voisin.",
+  "output": "Un chat observe des oiseaux depuis un tapis près d'une fenêtre."
+}
+</code></pre>
+
+        <div class="ascii">Les trois composantes et leur rôle :
+
+INSTRUCTION
+  La consigne ou la tâche demandée — ce que l'utilisateur ou
+  le système souhaite que le modèle accomplisse
+
+INPUT (optionnel)
+  Le contenu sur lequel l'instruction doit s'appliquer — pour
+  certaines tâches, l'instruction se suffit à elle-même et ce
+  champ reste vide ("Explique la photosynthèse" n'a pas besoin
+  d'un input séparé)
+
+OUTPUT
+  La réponse attendue — c'est ce texte précis que le modèle
+  apprend à produire face à cette instruction et cet input
+  pendant l'entraînement</div>
+
+        <p>La séparation entre <code class="inline">instruction</code> et <code class="inline">input</code> permet de réutiliser une même instruction générique ("Résume ce texte") sur des contenus différents, tandis qu'une instruction auto-suffisante ("Explique la photosynthèse") peut laisser ce champ vide — un choix de conception qui a des implications directes sur la variété du dataset, approfondies au module 4.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Toujours combiner l'instruction et l'input en un seul champ de texte libre, même quand une tâche générique et un contenu variable pourraient être clairement séparés — cette fusion réduit la capacité du modèle à généraliser la même instruction à des contenus différents, en la traitant à chaque fois comme un exemple entièrement nouveau et distinct.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour la tâche "traduire un texte en anglais", formulez un exemple avec les trois champs (instruction, input, output) distincts.
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l2" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 2.2</span>Formats courants : Alpaca, ShareGPT, chat/messages</h2>
+
+        <p>Plusieurs conventions de formatage se sont établies comme standards de facto dans l'écosystème du fine-tuning, chacune héritée d'un projet ou d'un usage particulier — connaître ces conventions permet de choisir celle la mieux supportée par l'outillage d'entraînement utilisé.</p>
+
+        <pre><code class="language-json">// Format "Alpaca" — hérité du projet Stanford Alpaca,
+// la structure la plus simple, dérivée directement de la leçon 2.1
+{"instruction": "Résume ce texte.", "input": "...", "output": "..."}
+
+// Format "ShareGPT" — structuré comme une liste de tours de
+// conversation, plus adapté au multi-turn (approfondi leçon 2.3)
+{"conversations": [
+  {"from": "human", "value": "Résume ce texte : ..."},
+  {"from": "gpt", "value": "Un chat observe des oiseaux..."}
+]}
+
+// Format "chat / messages" — le plus proche des API de production
+// actuelles (rappel cours 17, sur la structure des appels LLM)
+{"messages": [
+  {"role": "system", "content": "Tu es un assistant qui résume des textes."},
+  {"role": "user", "content": "Résume ce texte : ..."},
+  {"role": "assistant", "content": "Un chat observe des oiseaux..."}
+]}
+</code></pre>
+
+        <div class="ascii">Comparaison rapide des trois formats :
+
+Format ALPACA                             Format CHAT/MESSAGES
+────────────────────────                  ────────────────────────
+Simple, adapté aux tâches                  Représente nativement les
+single-turn (leçon 2.3)                     rôles (system/user/assistant)
+                                           et les conversations multi-tours
+Pas de notion native de "rôle"
+ou de system prompt                        Format le plus proche de ce
+                                           qu'un modèle rencontre déjà
+Historiquement le plus répandu              en PRODUCTION (rappel cours 17,
+dans les premiers datasets                 structure des messages API)
+open-source de fine-tuning</div>
+
+        <p>Le format "chat/messages" tend aujourd'hui à devenir le standard le plus largement supporté, en particulier parce qu'il correspond exactement à la structure utilisée par les API de production (rappel cours 17) — un modèle entraîné avec ce même format n'a pas besoin d'apprendre une convention différente entre l'entraînement et l'usage réel.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Choisir un format de dataset sans vérifier au préalable lequel est attendu par l'outil ou la plateforme d'entraînement utilisée — chaque outil a généralement une préférence ou une exigence stricte de format, et une conversion tardive entre formats peut introduire des erreurs subtiles si elle n'est pas effectuée avec soin (approfondi module 3).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Convertissez l'exemple Alpaca de la leçon 2.1 vers le format chat/messages, en ajoutant un system prompt pertinent pour la tâche de résumé.
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l3" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 2.3</span>Single-turn vs multi-turn (conversations)</h2>
+
+        <p>Un exemple <strong>single-turn</strong> représente un unique échange (une instruction, une réponse) ; un exemple <strong>multi-turn</strong> représente une conversation complète avec plusieurs échanges successifs — un choix qui dépend directement du comportement final souhaité pour le modèle.</p>
+
+        <pre><code class="language-json">// SINGLE-TURN : un échange isolé
+{"messages": [
+  {"role": "user", "content": "Quelle est la capitale de la France ?"},
+  {"role": "assistant", "content": "La capitale de la France est Paris."}
+]}
+
+// MULTI-TURN : une conversation avec plusieurs échanges, où
+// chaque réponse doit tenir compte du contexte des tours précédents
+{"messages": [
+  {"role": "user", "content": "Quelle est la capitale de la France ?"},
+  {"role": "assistant", "content": "La capitale de la France est Paris."},
+  {"role": "user", "content": "Et sa population ?"},
+  {"role": "assistant", "content": "Paris compte environ 2,1 millions d'habitants."}
+]}
+</code></pre>
+
+        <p>Le second exemple illustre une compétence spécifique que seul un format multi-turn peut entraîner : comprendre que "sa population" fait référence à Paris, mentionné dans le tour précédent — une capacité de suivi de contexte qu'un agent conversationnel réel doit maîtriser, mais qu'un dataset uniquement single-turn ne peut pas lui enseigner directement.</p>
+
+        <div class="ascii">Quand privilégier chaque approche :
+
+SINGLE-TURN                               MULTI-TURN
+────────────────────────                  ────────────────────────
+Tâches ponctuelles et                      Comportement conversationnel
+indépendantes (résumé, traduction,          réel, avec suivi de contexte
+classification d'un texte isolé)           entre plusieurs échanges
+
+Plus simple à construire et                Nécessaire pour un modèle
+à vérifier (module 5)                       destiné à un usage de chat
+                                           multi-tours en production
+Risque : un modèle entraîné
+uniquement en single-turn peut              Plus complexe à construire :
+mal gérer les références                    chaque tour doit rester
+implicites en conversation réelle           cohérent avec les précédents</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Construire un dataset exclusivement single-turn pour un modèle destiné à un usage conversationnel multi-tours en production — un tel modèle peut alors échouer à comprendre les références implicites au contexte des tours précédents ("et sa population ?"), un mode d'échec qui n'apparaît qu'après le déploiement, dans des conversations réelles à plusieurs tours.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un modèle destiné à un agent de support client (rappel cours 17-19), le dataset devrait-il être exclusivement multi-turn, exclusivement single-turn, ou un mélange des deux ? Justifiez.
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l4" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 2.4</span>Le system prompt et son rôle dans le format d'entraînement</h2>
+
+        <p>Rappel du cours 17 (module 1) : un system prompt définit le rôle, le ton et les contraintes générales d'un modèle. Dans un dataset de fine-tuning au format chat/messages (leçon 2.2), ce même mécanisme peut être utilisé pour entraîner le modèle à adopter un comportement cohérent à travers l'ensemble du dataset.</p>
+
+        <pre><code class="language-json">{"messages": [
+  {"role": "system", "content": "Tu es un assistant de support client pour "
+                                  "une boutique en ligne. Réponds toujours "
+                                  "de façon concise et polie."},
+  {"role": "user", "content": "Où en est ma commande ?"},
+  {"role": "assistant", "content": "Je vais vérifier cela pour vous. Pouvez-vous "
+                                    "me communiquer votre numéro de commande ?"}
+]}
+</code></pre>
+
+        <div class="ascii">Deux stratégies possibles pour le system prompt dans un dataset :
+
+STRATÉGIE 1 : SYSTEM PROMPT IDENTIQUE PARTOUT
+  Le même system prompt apparaît dans tous les exemples du
+  dataset — renforce un comportement stable et cohérent,
+  adapté à un modèle destiné à un usage unique et bien défini
+
+STRATÉGIE 2 : SYSTEM PROMPTS VARIÉS
+  Différents system prompts selon les exemples — utile pour
+  entraîner un modèle plus généraliste, capable de s'adapter
+  à des instructions système différentes selon le contexte
+  d'utilisation final</div>
+
+        <p>Un point souvent mal compris : le fine-tuning avec un system prompt cohérent ne rend pas ce prompt "inutile" au moment de l'inférence — au contraire, le modèle apprend à répondre de façon optimale <em>en présence</em> de ce prompt, qui doit donc continuer à être fourni lors de l'utilisation réelle du modèle fine-tuné, exactement comme il l'était pendant l'entraînement.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Entraîner un modèle avec un system prompt cohérent dans le dataset, puis l'utiliser en production sans fournir ce même system prompt — le modèle a appris son comportement en présence de ce contexte précis, et son omission au moment de l'inférence peut dégrader significativement la qualité et la cohérence des réponses obtenues.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un dataset destiné à entraîner un modèle à toujours répondre en une seule phrase concise, rédigez le system prompt qui devrait accompagner chaque exemple.
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l5" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 2.5</span>Choisir le bon format selon le modèle et la tâche cible</h2>
+
+        <p>Cette dernière leçon du module synthétise les critères de décision pour choisir parmi les formats et options couverts jusqu'ici, en fonction du modèle à entraîner et de l'usage final visé.</p>
+
+        <div class="ascii">Arbre de décision pour le choix du format :
+
+Le modèle/framework d'entraînement impose-t-il un format
+précis (rappel leçon 2.2) ?
+   │
+   ├── OUI ──► Utiliser ce format imposé, quel que soit
+   │           le format de collecte initial (conversion
+   │           nécessaire, approfondi module 3)
+   │
+   └── NON ──► Le modèle final sera-t-il utilisé en
+               CONVERSATION MULTI-TOURS (leçon 2.3) ?
+                   │
+                   ├── OUI ──► Privilégier le format chat/
+                   │           messages avec des exemples
+                   │           multi-turn
+                   │
+                   └── NON ──► Le format Alpaca (instruction/
+                               input/output) simple suffit
+                               généralement</div>
+
+        <p>Ce module a établi la structure de base d'un exemple d'entraînement — le module suivant traite un aspect complémentaire mais distinct : comment ces exemples, une fois structurés, doivent être physiquement encodés et stockés dans un fichier, au format JSONL, pour être ingérés correctement par un pipeline d'entraînement.</p>
+
+        <div class="ascii">Ce module clôt la partie "structure du format instruction/réponse"
+du cours. Le module suivant traite le format d'ENCODAGE physique
+de ces exemples — JSONL — indépendamment du choix de structure
+(Alpaca, ShareGPT, chat/messages) déjà fait dans ce module.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Choisir un format de structuration par habitude ou par simplicité perçue, sans vérifier explicitement les contraintes du framework d'entraînement cible — une conversion tardive entre formats, une fois le dataset déjà largement construit, est un travail évitable si le bon format est identifié dès le départ.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : au-delà des critères de cet arbre de décision, quel autre facteur pourrait influencer le choix du format (pensez à la maintenance et à l'évolution future du dataset) ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-3">
+      <span class="module-kicker">MODULE 03 / 08</span>
+      <h1>JSONL en profondeur</h1>
+      <p class="intro">Le module précédent a établi la structure logique d'un exemple d'entraînement (instruction/réponse, chat/messages). Ce module traite son encodage physique : le format JSONL, quasi universellement utilisé pour stocker et transmettre des datasets de fine-tuning.</p>
+
+      <section class="lesson" id="m3-l1" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 3.1</span>Qu'est-ce que JSONL et pourquoi ce format pour le fine-tuning</h2>
+
+        <p><strong>JSONL</strong> (JSON Lines) est un format où chaque ligne d'un fichier texte contient un objet JSON complet et valide, indépendant des autres lignes — par opposition à un unique fichier JSON contenant un tableau englobant tous les exemples.</p>
+
+        <pre><code class="language-json">// dataset.jsonl — chaque LIGNE est un objet JSON indépendant
+{"messages": [{"role": "user", "content": "Q1 ?"}, {"role": "assistant", "content": "R1."}]}
+{"messages": [{"role": "user", "content": "Q2 ?"}, {"role": "assistant", "content": "R2."}]}
+{"messages": [{"role": "user", "content": "Q3 ?"}, {"role": "assistant", "content": "R3."}]}
+</code></pre>
+
+        <div class="ascii">JSON classique (un tableau englobant)      JSONL (une ligne par exemple)
+────────────────────────────────           ────────────────────────────
+[                                          {"messages": [...]}
+  {"messages": [...]},                     {"messages": [...]}
+  {"messages": [...]},                     {"messages": [...]}
+  {"messages": [...]}
+]                                          Chaque ligne est un document
+                                          JSON COMPLET et INDÉPENDANT
+Nécessite de charger et parser
+l'INTÉGRALITÉ du fichier avant             Peut être lu, traité et validé
+de pouvoir accéder à un seul               LIGNE PAR LIGNE, sans charger
+exemple                                   l'ensemble du fichier en mémoire</div>
+
+        <p>Cet avantage de traitement ligne par ligne explique l'adoption quasi universelle de JSONL pour les datasets de fine-tuning, souvent volumineux : un pipeline peut lire, valider ou transformer un exemple à la fois sans jamais charger l'intégralité du fichier en mémoire — une propriété précieuse quand un dataset atteint plusieurs centaines de milliers d'exemples.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Utiliser un fichier JSON classique (un unique tableau englobant) pour un dataset volumineux, en supposant que le format importe peu tant que le contenu est correct — au-delà de la non-conformité aux attentes de la plupart des outils d'entraînement, ce choix impose de charger l'intégralité du fichier en mémoire pour la moindre opération, un problème qui s'aggrave à mesure que le dataset grandit.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un dataset de 500 000 exemples, décrivez concrètement la différence pratique entre valider un seul exemple corrompu en JSON classique (tableau englobant) versus en JSONL.
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l2" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 3.2</span>Structure ligne par ligne, encodage, streaming</h2>
+
+        <p>Cette leçon détaille les règles précises du format JSONL et comment le lire ou l'écrire correctement en pratique, en particulier pour des fichiers trop volumineux pour être chargés entièrement en mémoire.</p>
+
+        <pre><code class="language-python">import json
+
+def ecrire_jsonl(exemples: list[dict], chemin_fichier: str) -> None:
+    """Chaque exemple est sérialisé sur SA PROPRE ligne, terminée
+    par un retour à la ligne — jamais de tableau englobant, jamais
+    de virgule entre les exemples (rappel leçon 3.1)."""
+    with open(chemin_fichier, "w", encoding="utf-8") as f:
+        for exemple in exemples:
+            f.write(json.dumps(exemple, ensure_ascii=False) + "\n")
+
+def lire_jsonl_en_streaming(chemin_fichier: str):
+    """Lecture LIGNE PAR LIGNE — ne charge jamais l'intégralité
+    du fichier en mémoire, contrairement à json.load() sur un
+    fichier JSON classique."""
+    with open(chemin_fichier, "r", encoding="utf-8") as f:
+        for ligne in f:
+            ligne = ligne.strip()
+            if ligne:
+                yield json.loads(ligne)
+</code></pre>
+
+        <div class="ascii">Points de rigueur essentiels pour un encodage JSONL correct :
+
+ENCODAGE UTF-8 EXPLICITE
+  Toujours ouvrir le fichier avec encoding="utf-8" — un défaut
+  d'encodage varie selon le système d'exploitation et peut
+  corrompre silencieusement des caractères accentués ou spéciaux
+
+ensure_ascii=False
+  Sans ce paramètre, json.dumps() échapperait tous les
+  caractères non-ASCII (accents français, par exemple) en
+  séquences \\uXXXX — techniquement valide mais moins lisible
+  et parfois source de confusion lors d'un débogage manuel
+
+UN OBJET JSON PAR LIGNE, RIEN D'AUTRE
+  Pas de virgule finale, pas de tableau englobant, pas de
+  ligne vide au milieu du fichier (approfondi leçon 3.5)</div>
+
+        <p>La fonction de lecture en streaming illustrée ci-dessus (un générateur Python utilisant <code class="inline">yield</code>) matérialise concrètement l'avantage de la leçon 3.1 : chaque ligne est lue, parsée et traitée une à une, sans jamais retenir l'ensemble du fichier en mémoire — un pattern à privilégier systématiquement dès que le dataset dépasse quelques milliers d'exemples.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Charger un fichier JSONL volumineux avec une simple boucle qui accumule tous les exemples dans une liste en mémoire avant de les traiter, perdant ainsi l'avantage principal du format — pour un traitement séquentiel (validation, nettoyage), le streaming ligne par ligne évite un pic de consommation mémoire inutile.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pourquoi le paramètre <code class="inline">ensure_ascii=False</code> est-il particulièrement important pour un dataset en français, par rapport à un dataset entièrement en anglais ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l3" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 3.3</span>Valider la conformité d'un fichier JSONL</h2>
+
+        <p>Rappel de la leçon 1.5 (erreur 2) : soumettre un fichier JSONL non validé à un pipeline d'entraînement risque un échec tardif et coûteux. Cette leçon détaille une validation systématique à effectuer avant tout entraînement.</p>
+
+        <pre><code class="language-python">def valider_jsonl(chemin_fichier: str, schema_attendu: type) -> dict:
+    """Valide chaque ligne individuellement, en isolant les
+    erreurs plutôt que de faire échouer toute la validation
+    au premier problème rencontré — rappel du principe déjà
+    établi au cours 17 (module 4) pour la validation d'appels
+    de fonction, appliqué ici à un dataset entier."""
+    resultats = {"total": 0, "valides": 0, "erreurs": []}
+    with open(chemin_fichier, "r", encoding="utf-8") as f:
+        for numero_ligne, ligne in enumerate(f, start=1):
+            resultats["total"] += 1
+            ligne = ligne.strip()
+            if not ligne:
+                resultats["erreurs"].append({"ligne": numero_ligne, "erreur": "ligne vide"})
+                continue
+            try:
+                donnees = json.loads(ligne)
+                schema_attendu(**donnees)  # rappel cours 17, validation Pydantic
+                resultats["valides"] += 1
+            except json.JSONDecodeError as e:
+                resultats["erreurs"].append({"ligne": numero_ligne, "erreur": f"JSON invalide: {e}"})
+            except Exception as e:
+                resultats["erreurs"].append({"ligne": numero_ligne, "erreur": f"schéma invalide: {e}"})
+    return resultats
+</code></pre>
+
+        <div class="ascii">Pourquoi valider LIGNE PAR LIGNE avec isolation des erreurs :
+
+Validation qui s'arrête à la               Validation qui ISOLE chaque
+PREMIÈRE erreur rencontrée                  erreur (comme ci-dessus)
+────────────────────────────────           ────────────────────────────────
+Une seule ligne corrompue sur                Révèle l'INTÉGRALITÉ des
+100 000 bloque la validation                 lignes problématiques en UNE
+complète — l'erreur suivante                 SEULE passe, avec leur numéro
+n'est découverte qu'après avoir              de ligne exact — permet une
+corrigé la première                          correction ciblée et complète
+                                            avant de relancer quoi que
+Cycle correction-revalidation                ce soit</div>
+
+        <p>Cette approche d'isolation des erreurs, plutôt qu'un arrêt au premier problème, rejoint directement un principe déjà établi au cours 17 (module 4, leçon 4.5) sur la gestion des échecs de validation : révéler l'ensemble des problèmes en une seule passe permet une correction plus efficace qu'un cycle itératif de découverte-correction-relance.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Valider un dataset en s'arrêtant à la première erreur rencontrée (par exemple, via une exception non gérée qui interrompt tout le script), forçant un cycle de correction ligne par ligne plutôt que de révéler l'ensemble des problèmes en une seule exécution de la validation.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour la fonction <code class="inline">valider_jsonl</code> ci-dessus, quelle information supplémentaire ajouteriez-vous au rapport de résultats pour faciliter la correction des erreurs trouvées ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l4" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 3.4</span>JSONL vs CSV, Parquet et autres formats</h2>
+
+        <p>Cette leçon compare JSONL à d'autres formats de stockage de données courants, pour clarifier pourquoi JSONL domine spécifiquement pour les datasets de fine-tuning, malgré l'existence d'alternatives par ailleurs très répandues dans d'autres contextes.</p>
+
+        <table>
+          <thead><tr><th>Format</th><th>Adapté aux données structurées imbriquées ?</th><th>Pertinence pour le fine-tuning</th></tr></thead>
+          <tbody>
+            <tr><td>JSONL</td><td>Oui, nativement — un exemple avec plusieurs tours de conversation (leçon 2.3) se représente naturellement</td><td>Standard de facto — supporté par la quasi-totalité des outils d'entraînement</td></tr>
+            <tr><td>CSV</td><td>Difficilement — une colonne par champ, mal adapté à une liste de messages imbriquée</td><td>Rare pour le fine-tuning, plus courant pour des données tabulaires simples</td></tr>
+            <tr><td>Parquet</td><td>Oui, avec un typage plus strict, mais moins lisible en texte brut</td><td>Utile pour de très gros volumes et l'analyse en data warehouse, moins pour l'itération manuelle sur le contenu</td></tr>
+          </tbody>
+        </table>
+
+        <div class="ascii">Pourquoi le CSV convient mal à un exemple multi-turn (rappel
+leçon 2.3) :
+
+Un exemple avec 4 tours de conversation ne peut pas tenir dans
+une ligne CSV sans un encodage artificiel (concaténation des
+tours dans une seule cellule texte, avec un séparateur maison) —
+alors qu'en JSONL, la structure imbriquée native du JSON
+représente directement cette liste de messages, sans compromis
+ni conversion artificielle</div>
+
+        <p>Le Parquet, très utilisé pour l'analyse de données à grande échelle (rappel des entrepôts de données, cours 19, module 7, leçon 7.2), reste pertinent pour le stockage et l'analyse de très gros datasets de fine-tuning, mais son format binaire compressé le rend moins pratique pour l'inspection manuelle directe du contenu — un besoin fréquent lors des étapes de nettoyage et de vérification (module 5).</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Choisir le CSV pour un dataset de fine-tuning par familiarité, en sous-estimant la difficulté de représenter correctement des structures imbriquées (messages multiples, rôles) dans un format fondamentalement tabulaire et plat.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Dans quelle situation le Parquet serait-il malgré tout préférable au JSONL pour un projet de fine-tuning ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l5" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 3.5</span>Pièges courants du JSONL</h2>
+
+        <p>Cette dernière leçon du module recense des pièges spécifiques au format JSONL, complémentaires aux principes déjà établis.</p>
+
+        <h3>Piège 1 : lignes vides au milieu du fichier</h3>
+        <p>Une ligne vide (souvent introduite par un export ou une concaténation maladroite de fichiers) peut faire échouer un parseur strict qui attend un objet JSON valide sur chaque ligne non vide — rappel de la gestion explicite de ce cas dans la fonction de validation de la leçon 3.3.</p>
+
+        <h3>Piège 2 : retours à la ligne dans le contenu texte</h3>
+        <pre><code class="language-python"># PROBLÉMATIQUE : un retour à la ligne LITTÉRAL dans le contenu
+# casserait la structure "une ligne = un exemple" du format JSONL
+contenu_avec_saut_de_ligne = "Premier paragraphe.\nDeuxième paragraphe."
+
+# CORRECT : json.dumps() échappe automatiquement le retour à la
+# ligne en "\\n" (deux caractères) DANS la valeur de la chaîne —
+# la ligne du fichier JSONL elle-même reste une seule ligne physique
+json.dumps({"texte": contenu_avec_saut_de_ligne})
+# → '{"texte": "Premier paragraphe.\\nDeuxième paragraphe."}'
+</code></pre>
+
+        <p>Ce piège n'est dangereux que si l'écriture du fichier est effectuée manuellement (concaténation de chaînes) plutôt qu'en passant systématiquement par une fonction de sérialisation JSON appropriée comme <code class="inline">json.dumps()</code>, qui échappe automatiquement les retours à la ligne internes au contenu.</p>
+
+        <h3>Piège 3 : fichiers concaténés avec des encodages différents</h3>
+        <p>Fusionner plusieurs fichiers JSONL provenant de sources différentes (rappel cours 19, module 3, sur la normalisation de formats hétérogènes) sans vérifier que tous partagent le même encodage peut introduire des caractères corrompus à la jonction des fichiers.</p>
+
+        <div class="ascii">Ce module clôt la partie "encodage physique" du cours. Le module
+suivant revient en amont du processus : comment construire le
+contenu même de ces exemples à partir de sources de données brutes,
+avant même de se préoccuper de leur encodage final en JSONL.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Construire un fichier JSONL par concaténation manuelle de chaînes de caractères plutôt qu'en passant systématiquement par une bibliothèque de sérialisation JSON — une pratique qui semble fonctionner pour des cas simples mais qui échoue silencieusement dès qu'un contenu contient des caractères spéciaux, des guillemets ou des retours à la ligne non anticipés.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de synthèse</strong>
+          Pour clore ce module : écrivez la ligne de code qui garantirait qu'un texte contenant à la fois des guillemets et des retours à la ligne soit correctement encodé dans un fichier JSONL.
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-4">
+      <span class="module-kicker">MODULE 04 / 08</span>
+      <h1>Construire le dataset à partir de sources brutes</h1>
+      <p class="intro">Les modules précédents ont établi la structure (module 2) et l'encodage (module 3) d'un exemple d'entraînement. Ce module traite l'étape en amont : d'où proviennent concrètement les exemples d'un dataset de fine-tuning, et comment les constituer à partir de sources brutes disponibles.</p>
+
+      <section class="lesson" id="m4-l1" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 4.1</span>Sources de données pour le fine-tuning</h2>
+
+        <p>Cette leçon recense les sources les plus courantes pour constituer un dataset de fine-tuning, dont plusieurs recoupent directement des mécanismes déjà couverts dans cette série.</p>
+
+        <div class="ascii">Sources courantes pour un dataset de fine-tuning :
+
+LOGS DE CONVERSATION RÉELS
+  Des interactions passées entre utilisateurs et un agent
+  existant (rappel cours 19, sur les logs et traces d'agents)
+  — approfondi à la leçon 4.2 de ce module
+
+DOCUMENTATION ET CONTENU EXISTANT
+  Transformer des documents (rappel cours 11, 14, 15) en
+  paires question/réponse, en dérivant des questions
+  plausibles à partir du contenu documentaire
+
+GÉNÉRATION SYNTHÉTIQUE PAR UN AUTRE MODÈLE
+  Utiliser un LLM pour générer des exemples d'entraînement
+  (approfondi à la leçon 4.3 — self-instruct, distillation)
+
+ANNOTATION MANUELLE DÉDIÉE
+  Des exemples rédigés spécifiquement pour l'entraînement,
+  souvent les plus coûteux à produire mais aussi les plus
+  contrôlés en qualité (approfondi à la leçon 4.4)</div>
+
+        <p>En pratique, un dataset de fine-tuning de qualité combine fréquemment plusieurs de ces sources : les logs réels apportent une représentativité authentique de l'usage (leçon 4.2), la génération synthétique permet d'atteindre un volume suffisant à moindre coût (leçon 4.3), et l'annotation manuelle sert à couvrir des cas spécifiques mal représentés ailleurs.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Se reposer sur une seule source de données par simplicité (par exemple, uniquement de la génération synthétique), sans envisager qu'une combinaison de sources pourrait mieux représenter la diversité réelle des cas que le modèle rencontrera en production — chaque source a ses propres biais, souvent atténués par leur combinaison plutôt que par le recours à une source unique.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un projet de fine-tuning que vous imaginez, quelles sources parmi celles listées seraient réalistement disponibles, et lesquelles nécessiteraient un travail de constitution dédié ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l2" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 4.2</span>Transformer des logs de conversation en exemples instruction/réponse</h2>
+
+        <p>Rappel direct du cours 19 (module 1, leçon 1.3) : un système de logging bien conçu capture le prompt complet et la réponse d'un agent. Cette leçon montre comment transformer ces traces déjà collectées en exemples d'entraînement structurés.</p>
+
+        <pre><code class="language-python">def transformer_trace_en_exemple(trace: dict) -> dict:
+    """Convertit une trace de log (rappel cours 19, module 2)
+    en un exemple d'entraînement au format chat/messages
+    (rappel module 2, leçon 2.2 de ce cours)."""
+    messages = []
+    if trace.get("system_prompt"):
+        messages.append({"role": "system", "content": trace["system_prompt"]})
+    for tour in trace["tours_conversation"]:
+        messages.append({"role": "user", "content": tour["question_utilisateur"]})
+        messages.append({"role": "assistant", "content": tour["reponse_agent"]})
+    return {"messages": messages}
+</code></pre>
+
+        <div class="ascii">Ce qu'il faut vérifier avant d'utiliser une trace comme exemple
+d'entraînement (au-delà de la simple transformation de format) :
+
+La réponse de l'agent était-elle RÉELLEMENT CORRECTE ?
+  Rappel cours 19, module 5 : une trace capture ce qui s'est
+  PASSÉ, pas nécessairement ce qui aurait dû se passer — une
+  réponse incorrecte, si elle est utilisée telle quelle comme
+  exemple d'entraînement, enseigne ce même comportement
+  incorrect au modèle fine-tuné
+
+Les données personnelles ont-elles été anonymisées ?
+  Rappel cours 19, module 4 — un dataset de fine-tuning
+  construit à partir de logs hérite directement du même
+  risque de PII que les logs eux-mêmes, avec un enjeu
+  aggravé : ces données seraient absorbées dans les poids
+  du modèle plutôt que simplement stockées dans un journal</div>
+
+        <p>Ce second point rejoint directement la leçon 1.1 de ce cours : une donnée personnelle mal protégée dans un log (risque déjà traité au cours 19) devient un risque bien plus grave si elle est absorbée dans le modèle via le fine-tuning, car un modèle entraîné sur une donnée peut, dans certaines conditions, la restituer partiellement lors de son utilisation ultérieure.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Transformer des logs de conversation en exemples d'entraînement sans filtrer au préalable les traces où la réponse de l'agent était incorrecte ou de mauvaise qualité — un dataset construit ainsi enseignerait au modèle fine-tuné à reproduire les mêmes erreurs que celles observées dans les logs sources.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Au-delà de la correction factuelle de la réponse, quel autre critère de qualité appliqueriez-vous avant d'inclure une trace de log dans un dataset de fine-tuning ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l3" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 4.3</span>Générer des paires instruction/réponse synthétiques</h2>
+
+        <p>Quand les données réelles (leçon 4.2) sont insuffisantes en volume, une pratique répandue consiste à utiliser un LLM existant pour générer des exemples d'entraînement synthétiques — une technique connue sous le nom de <strong>self-instruct</strong> ou de <strong>distillation</strong> selon le contexte.</p>
+
+        <pre><code class="language-python">def generer_exemple_synthetique(sujet: str, style_reponse: str) -> dict:
+    """Utilise un LLM existant pour générer un exemple
+    d'entraînement — rappel cours 17, module 1 : le prompt
+    envoyé à ce modèle générateur doit être aussi rigoureusement
+    conçu qu'un prompt de production, puisque sa sortie devient
+    directement un exemple d'entraînement."""
+    prompt_generation = (
+        f"Génère une question qu'un utilisateur pourrait poser sur '{sujet}', "
+        f"puis une réponse {style_reponse}. Réponds au format JSON avec les "
+        f"clés 'instruction' et 'output'."
+    )
+    resultat = appeler_llm(prompt_generation)
+    return json.loads(resultat.texte)
+</code></pre>
+
+        <div class="ascii">Avantages et risques de la génération synthétique :
+
+AVANTAGE                                  RISQUE
+────────────────────────                  ────────────────────────
+Permet d'atteindre un volume               Peut hériter des BIAIS ou
+important à moindre coût que               des ERREURS du modèle
+l'annotation manuelle                       générateur lui-même — un
+                                           modèle qui se trompe sur un
+Utile pour couvrir des cas                  sujet produira des exemples
+rares ou spécifiques, difficiles            d'entraînement erronés sur
+à trouver dans des logs réels               ce même sujet
+
+                                           Risque de DIVERSITÉ LIMITÉE :
+                                           un modèle générateur tend à
+                                           produire des formulations
+                                           répétitives sans varier
+                                           explicitement le style</div>
+
+        <p>Un exemple synthétique n'est jamais automatiquement fiable simplement parce qu'il provient d'un LLM : il devrait subir la même vérification qu'un exemple issu de logs réels (leçon 4.2), et souvent davantage — un modèle générateur peut halluciner une réponse plausible mais incorrecte, un risque qui se propage directement dans le dataset final s'il n'est pas contrôlé.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer un exemple généré par un LLM comme intrinsèquement fiable du simple fait qu'il provient d'un modèle sophistiqué, sans le soumettre à la même vérification qu'un exemple d'origine humaine — un modèle générateur peut halluciner une réponse incorrecte avec la même confiance apparente qu'une réponse correcte.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour la fonction <code class="inline">generer_exemple_synthetique</code> ci-dessus, quelle étape de vérification ajouteriez-vous avant d'accepter un exemple généré dans le dataset final ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l4" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 4.4</span>Annoter et vérifier manuellement un échantillon</h2>
+
+        <p>Quelle que soit la source principale utilisée (logs réels, génération synthétique), une vérification manuelle d'un échantillon reste une pratique essentielle — rappel du principe déjà établi au cours 22 de ce même bloc (filtrage de qualité), dont ce module pose les bases.</p>
+
+        <div class="ascii">Méthode d'échantillonnage pour une revue manuelle :
+
+1. SÉLECTIONNER UN ÉCHANTILLON REPRÉSENTATIF
+   Ni uniquement les premiers exemples produits (souvent
+   biaisés vers les cas les plus simples), ni un échantillon
+   trop restreint pour être statistiquement significatif —
+   un échantillon aléatoire d'au moins quelques centaines
+   d'exemples pour un dataset de taille moyenne
+
+2. DÉFINIR DES CRITÈRES DE REVUE EXPLICITES
+   Correction factuelle, cohérence de ton, respect du format
+   attendu (rappel module 2) — des critères écrits plutôt
+   qu'un jugement intuitif variable d'un exemple à l'autre
+
+3. DOCUMENTER LES PROBLÈMES TROUVÉS PAR CATÉGORIE
+   Pas seulement "bon" ou "mauvais", mais le TYPE de problème
+   rencontré — permet d'estimer si un type d'erreur spécifique
+   affecte une proportion significative du dataset complet</div>
+
+        <pre><code class="language-python">def echantillonner_pour_revue(dataset: list[dict], taille_echantillon: int = 200) -> list[dict]:
+    import random
+    return random.sample(dataset, min(taille_echantillon, len(dataset)))
+
+# Après revue manuelle de l'échantillon, extrapoler le taux de
+# problèmes détectés à l'ensemble du dataset pour estimer son
+# ampleur réelle avant de décider d'une correction systématique
+</code></pre>
+
+        <p>Le principe d'extrapolation statistique évoqué en commentaire ci-dessus mérite d'être souligné : si 8% d'un échantillon aléatoire de 200 exemples présentent un problème de cohérence de ton, il est raisonnable d'estimer qu'une proportion similaire affecte l'ensemble du dataset — une estimation bien plus fiable qu'une impression tirée de quelques exemples examinés au hasard sans méthode.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Examiner uniquement quelques exemples choisis arbitrairement (souvent les premiers du fichier) plutôt qu'un échantillon véritablement aléatoire et de taille suffisante — une revue non systématique donne une impression de qualité qui peut être trompeuse si elle ne reflète pas la diversité réelle du dataset complet.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un dataset de 10 000 exemples, quelle taille d'échantillon jugeriez-vous suffisante pour une revue manuelle raisonnable, et pourquoi ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l5" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 4.5</span>Pièges courants de construction du dataset</h2>
+
+        <p>Cette dernière leçon du module recense des pièges qui affectent spécifiquement la phase de construction, en amont du nettoyage (module 5) et de la validation (module 7).</p>
+
+        <h3>Piège 1 : biais de source</h3>
+        <p>Un dataset construit uniquement à partir de logs de conversations "réussies" (par exemple, celles n'ayant généré aucune plainte) exclut systématiquement les cas difficiles ou ambigus — précisément ceux où l'amélioration du modèle serait la plus utile.</p>
+
+        <h3>Piège 2 : non-représentativité par rapport à l'usage réel</h3>
+        <p>Un dataset dominé par un seul type de requête (par exemple, des questions simples et courtes) alors que l'usage réel du modèle inclura une proportion significative de requêtes complexes ou multi-tours (rappel leçon 2.3) produira un modèle mal préparé pour ces derniers cas.</p>
+
+        <h3>Piège 3 : sur-dépendance à une seule technique de construction</h3>
+        <p>Rappel de la leçon 4.1 : combiner logs réels, génération synthétique et annotation manuelle atténue les biais propres à chaque source individuelle — une dépendance exclusive à une seule technique hérite pleinement de ses limites propres.</p>
+
+        <div class="ascii">Ce module clôt la partie "construction du dataset" du cours. Le
+module suivant traite l'étape logique suivante : une fois les
+exemples bruts rassemblés (quelle que soit leur source), comment
+les nettoyer et les normaliser avant de les considérer prêts pour
+l'entraînement.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Évaluer la qualité d'un dataset uniquement sur la base de son volume total, sans jamais examiner la répartition des TYPES de cas qu'il contient — un dataset volumineux mais non représentatif de la diversité réelle des usages produira un modèle qui généralise mal, malgré une quantité d'exemples en apparence suffisante.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de synthèse</strong>
+          Pour clore ce module : parmi les trois pièges listés, lequel vous semble le plus difficile à détecter sans un travail d'analyse dédié de la composition du dataset ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-5">
+      <span class="module-kicker">MODULE 05 / 08</span>
+      <h1>Nettoyage et normalisation spécifique au fine-tuning</h1>
+      <p class="intro">Une fois les exemples bruts rassemblés (module 4), ce module traite leur nettoyage et leur normalisation avant qu'ils ne soient considérés prêts pour l'entraînement — en s'appuyant directement sur les techniques de nettoyage de texte (cours 11) et de tokenization (cours 16) déjà couvertes dans cette série.</p>
+
+      <section class="lesson" id="m5-l1" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 5.1</span>Nettoyer le texte des instructions et réponses</h2>
+
+        <p>Rappel direct du cours 11 (nettoyage de texte non structuré) : les mêmes principes de nettoyage — suppression de caractères de contrôle, normalisation des espaces, correction d'artefacts d'extraction — s'appliquent au contenu d'un dataset de fine-tuning, avec un enjeu spécifique : ce nettoyage affecte directement ce que le modèle apprendra à reproduire.</p>
+
+        <pre><code class="language-python">import re
+import unicodedata
+
+def nettoyer_texte_exemple(texte: str) -> str:
+    """Rappel cours 11 — les mêmes techniques de nettoyage de
+    texte s'appliquent ici, avec un enjeu supplémentaire : tout
+    artefact non nettoyé sera APPRIS par le modèle comme faisant
+    partie du style de réponse normal."""
+    texte = unicodedata.normalize("NFKC", texte)  # normalise les formes Unicode
+    texte = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", texte)  # caractères de contrôle
+    texte = re.sub(r" {2,}", " ", texte)  # espaces multiples
+    texte = re.sub(r"\n{3,}", "\n\n", texte)  # sauts de ligne excessifs
+    return texte.strip()
+</code></pre>
+
+        <div class="ascii">Pourquoi ce nettoyage compte davantage qu'en contexte RAG :
+
+Contexte RAG (cours 9-13)                 Contexte fine-tuning (ce module)
+────────────────────────────────           ────────────────────────────────
+Un artefact non nettoyé (espace            Un artefact non nettoyé dans
+multiple, caractère de contrôle)            une RÉPONSE d'entraînement
+dégrade légèrement la qualité               enseigne au modèle à
+d'un chunk consulté ponctuellement          REPRODUIRE ce même artefact
+                                           dans ses réponses futures —
+                                           un comportement appris,
+                                           pas une consultation ponctuelle</div>
+
+        <p>Ce contraste avec le contexte RAG rejoint directement le principe déjà établi à la leçon 1.1 de ce cours : une imperfection dans une donnée de fine-tuning ne reste jamais isolée, elle se diffuse dans le comportement général du modèle une fois l'entraînement effectué.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Appliquer le même niveau de nettoyage à un dataset de fine-tuning qu'à des chunks destinés à un système RAG, sans reconnaître que les artefacts non nettoyés ici seront appris et reproduits par le modèle, plutôt que simplement consultés une fois puis oubliés.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Au-delà des exemples de la fonction ci-dessus, quel autre artefact de nettoyage, spécifique à une source de données que vous connaissez (rappel cours 11, 14, 15), mériterait d'être traité avant d'inclure ce contenu dans un dataset de fine-tuning ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l2" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 5.2</span>Gérer la longueur : troncature, découpage, tokens</h2>
+
+        <p>Rappel direct du cours 16 (NLP de base, tokenization) : un modèle de langage traite le texte sous forme de tokens, avec une limite de contexte maximale. Un exemple d'entraînement qui dépasse cette limite pose un problème spécifique à traiter avant l'entraînement.</p>
+
+        <pre><code class="language-python">def compter_tokens_exemple(exemple: dict, tokenizer) -> int:
+    """Rappel cours 16 sur la tokenization — le compte de TOKENS,
+    pas de caractères, détermine si un exemple dépasse la limite
+    de contexte du modèle à entraîner."""
+    texte_complet = "\n".join(m["content"] for m in exemple["messages"])
+    return len(tokenizer.encode(texte_complet))
+
+def gerer_exemple_trop_long(exemple: dict, tokenizer, limite_tokens: int) -> dict | None:
+    nombre_tokens = compter_tokens_exemple(exemple, tokenizer)
+    if nombre_tokens <= limite_tokens:
+        return exemple
+    return None  # rappel leçon suivante : rejeter plutôt que tronquer à l'aveugle
+</code></pre>
+
+        <div class="ascii">Stratégies face à un exemple dépassant la limite de tokens :
+
+REJETER L'EXEMPLE
+  Le plus sûr par défaut — évite de tronquer arbitrairement
+  une réponse, ce qui produirait un exemple d'entraînement
+  INCOMPLET et potentiellement incohérent (une réponse coupée
+  au milieu d'une phrase, enseignant au modèle à s'arrêter là)
+
+TRONQUER AVEC PRÉCAUTION
+  Envisageable seulement si la troncature préserve un sens
+  complet (par exemple, couper au dernier point final avant
+  la limite) — jamais une troncature brutale au token exact
+
+DÉCOUPER EN PLUSIEURS EXEMPLES DISTINCTS
+  Pour un contenu naturellement divisible (rappel cours 9,
+  chunking), scinder en plusieurs exemples plus courts plutôt
+  que d'en perdre le contenu intégralement</div>
+
+        <p>Le rejet reste l'option la plus sûre par défaut : rappel de la leçon 5.1, un exemple mal formé (ici, tronqué de façon incohérente) enseigne un comportement indésirable au modèle — mieux vaut un dataset légèrement plus restreint mais entièrement cohérent qu'un dataset plus volumineux contenant des exemples corrompus par une troncature mal maîtrisée.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Tronquer systématiquement et sans discernement tout exemple dépassant la limite de tokens à un nombre fixe de caractères, sans vérifier que le résultat reste cohérent — une réponse coupée en plein milieu d'une phrase enseigne au modèle un comportement de troncature qu'il pourrait reproduire dans ses propres réponses futures.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un exemple d'entraînement dont seul le champ "input" (rappel module 2, leçon 2.1) est excessivement long, quelle stratégie parmi celles listées choisiriez-vous, sachant que le champ "output" reste court et complet ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l3" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 5.3</span>Normaliser les rôles et les balises spéciales</h2>
+
+        <p>Rappel du module 2 (formats courants) : différentes sources peuvent utiliser des conventions différentes pour désigner les rôles d'une conversation (par exemple "human"/"gpt" en ShareGPT vs "user"/"assistant" en format chat/messages). Cette leçon traite la normalisation nécessaire quand un dataset combine plusieurs sources.</p>
+
+        <pre><code class="language-python">MAPPING_ROLES = {
+    "human": "user", "gpt": "assistant", "bot": "assistant",
+    "user": "user", "assistant": "assistant", "system": "system",
+}
+
+def normaliser_roles(exemple_brut: dict) -> dict:
+    """Rappel cours 19, module 3, leçon 3.2 — même principe de
+    normalisation de champs hétérogènes, appliqué ici aux rôles
+    de conversation plutôt qu'aux champs de logs."""
+    messages_normalises = []
+    for message in exemple_brut.get("conversations", exemple_brut.get("messages", [])):
+        role_brut = message.get("from", message.get("role"))
+        contenu = message.get("value", message.get("content"))
+        role_normalise = MAPPING_ROLES.get(role_brut)
+        if role_normalise is None:
+            raise ValueError(f"Rôle non reconnu : {role_brut}")
+        messages_normalises.append({"role": role_normalise, "content": contenu})
+    return {"messages": messages_normalises}
+</code></pre>
+
+        <div class="ascii">Pourquoi lever une exception sur un rôle NON RECONNU plutôt que
+de l'ignorer silencieusement :
+
+Un rôle non reconnu (une faute de frappe, une nouvelle
+convention introduite par une source récente) signale soit une
+ERREUR DE DONNÉES à corriger, soit un NOUVEAU FORMAT à intégrer
+explicitement au mapping — l'ignorer silencieusement risque de
+perdre ou de mal attribuer ce message dans l'exemple final</div>
+
+        <p>Ce principe rejoint directement celui déjà établi au cours 19 (module 3, leçon 3.3) sur le traitement des logs non reconnus : marquer explicitement un cas non anticipé, plutôt que de le traiter silencieusement par une valeur par défaut potentiellement incorrecte, permet de détecter et corriger les nouveaux formats au fur et à mesure qu'ils apparaissent.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Assigner un rôle par défaut arbitraire (par exemple, toujours "user") à tout rôle non reconnu plutôt que de signaler explicitement l'anomalie — cette pratique peut silencieusement corrompre la structure de la conversation, par exemple en attribuant à tort le rôle "user" à un message qui provenait en réalité de l'assistant.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour le mapping de rôles ci-dessus, si une nouvelle source utilise le rôle "agent" au lieu de "assistant", quelle serait la démarche correcte pour l'intégrer ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l4" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 5.4</span>Déduplication des exemples</h2>
+
+        <p>Un dataset construit à partir de plusieurs sources (module 4) ou par génération synthétique (leçon 4.3) accumule fréquemment des doublons ou quasi-doublons — cette leçon traite une déduplication de base, qui sera approfondie à plus grande échelle au cours 21 de ce même bloc.</p>
+
+        <pre><code class="language-python">import hashlib
+
+def dedupliquer_exemples_exacts(exemples: list[dict]) -> list[dict]:
+    """Déduplication EXACTE — détecte les exemples strictement
+    identiques via une empreinte de hachage (rappel cours 19,
+    module 4, leçon 4.3, sur le même principe de hachage appliqué
+    ici au contenu complet d'un exemple plutôt qu'à une PII)."""
+    empreintes_vues = set()
+    exemples_uniques = []
+    for exemple in exemples:
+        empreinte = hashlib.sha256(
+            json.dumps(exemple, sort_keys=True).encode()
+        ).hexdigest()
+        if empreinte not in empreintes_vues:
+            empreintes_vues.add(empreinte)
+            exemples_uniques.append(exemple)
+    return exemples_uniques
+</code></pre>
+
+        <div class="ascii">Deux niveaux de duplication à distinguer :
+
+DUPLICATION EXACTE (traitée ici)          QUASI-DUPLICATION (cours 21)
+────────────────────────────────           ────────────────────────────────
+Deux exemples STRICTEMENT                  Deux exemples formulés
+identiques, caractère pour                  différemment mais transmettant
+caractère — détectable par un                la même information ou
+simple hachage du contenu complet            structure — nécessite une
+                                            détection par SIMILARITÉ
+Fréquent quand une même source              (embeddings, rappel cours 18,
+est traitée plusieurs fois par               module 5, leçon 5.3) plutôt
+erreur, ou quand plusieurs pipelines          qu'une correspondance exacte
+de collecte se recoupent partiellement</div>
+
+        <p>Pourquoi la duplication, même exacte, pose problème pour l'entraînement : un exemple répété plusieurs fois dans un dataset lui donne un poids disproportionné dans l'apprentissage du modèle par rapport aux exemples uniques — un déséquilibre qui peut biaiser le comportement final vers une sur-représentation involontaire de ce cas particulier.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Se contenter d'une déduplication exacte (comme celle de cette leçon) en la considérant suffisante, sans anticiper que la quasi-duplication — des exemples formulés différemment mais redondants en substance — pose un problème similaire de déséquilibre, un sujet qui nécessite les techniques plus avancées approfondies au cours 21.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un dataset combinant des logs réels et des exemples synthétiques (rappel module 4), pourquoi la duplication exacte serait-elle plus probable entre exemples synthétiques qu'entre exemples issus de logs réels ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l5" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 5.5</span>Pièges courants de nettoyage pour le fine-tuning</h2>
+
+        <p>Cette dernière leçon du module recense des pièges spécifiques au nettoyage d'un dataset de fine-tuning, en complément des principes déjà établis.</p>
+
+        <h3>Piège 1 : nettoyer l'instruction mais pas la réponse (ou l'inverse)</h3>
+        <p>Un nettoyage appliqué de façon incohérente selon les champs peut introduire une asymétrie de qualité entre l'instruction et sa réponse associée, alors que les deux devraient recevoir la même rigueur de traitement.</p>
+
+        <h3>Piège 2 : sur-nettoyer au point de perdre la voix naturelle du contenu</h3>
+        <p>Un nettoyage trop agressif (suppression de toute variation stylistique, normalisation excessive de la ponctuation) peut uniformiser artificiellement le dataset au point de produire un modèle au style monotone et peu naturel — un équilibre similaire à celui déjà discuté au cours 19 (module 4, leçon 4.5) entre sur-masquage et sous-masquage, appliqué ici au style plutôt qu'à la protection de données.</p>
+
+        <h3>Piège 3 : ne pas revalider après nettoyage</h3>
+        <p>Un traitement de nettoyage peut lui-même introduire des erreurs (rappel cours 19, module 3, leçon 3.5, sur les pièges de nettoyage) — une nouvelle passe de validation (approfondie au module 7) après nettoyage reste nécessaire, pas seulement avant.</p>
+
+        <div class="ascii">Ce module clôt la partie "nettoyage" du cours. Le module suivant
+change de perspective : comment structurer un dataset non plus pour
+une tâche générique, mais pour des cas d'usage spécifiques —
+function calling, conversations multi-tours, classification.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer le nettoyage comme une étape strictement antérieure à la validation (module 7), alors que le nettoyage lui-même peut introduire de nouvelles erreurs qui nécessitent une revalidation après coup — la validation devrait encadrer le nettoyage des deux côtés, avant ET après, plutôt que de se limiter à une seule vérification en amont.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de synthèse</strong>
+          Pour clore ce module : parmi les trois pièges listés, lequel vous semble le plus facile à détecter par une simple inspection automatisée, et lequel nécessiterait plutôt une revue humaine ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-6">
+      <span class="module-kicker">MODULE 06 / 08</span>
+      <h1>Structurer pour des cas d'usage spécifiques</h1>
+      <p class="intro">Les modules précédents ont traité la structure générique d'un exemple d'entraînement. Ce module aborde des cas d'usage spécifiques qui nécessitent des adaptations particulières du format, en s'appuyant directement sur des mécanismes déjà couverts dans les blocs précédents de cette série.</p>
+
+      <section class="lesson" id="m6-l1" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 6.1</span>Formater pour l'instruction-following générique</h2>
+
+        <p>Le cas le plus simple : entraîner un modèle à suivre des instructions variées de façon générale, sans spécialisation particulière — le format de base déjà établi au module 2 suffit, à condition de veiller à une diversité suffisante des types d'instructions représentées.</p>
+
+        <div class="ascii">Ce qui distingue un bon dataset d'instruction-following générique :
+
+DIVERSITÉ DES TYPES DE TÂCHES
+  Résumé, traduction, question-réponse, rédaction, analyse —
+  une variété qui évite qu'un modèle ne devienne compétent
+  sur un seul type de tâche au détriment des autres
+
+DIVERSITÉ DE FORMULATION DES INSTRUCTIONS
+  "Résume ce texte", "Peux-tu faire un résumé de...",
+  "Rédige une synthèse de..." — plusieurs façons d'exprimer
+  une même intention, pour que le modèle généralise la
+  compétence plutôt que de mémoriser une formulation unique
+
+DIVERSITÉ DE LONGUEUR ET DE COMPLEXITÉ
+  Des instructions courtes et simples aux instructions
+  longues et à plusieurs contraintes, pour couvrir la
+  variété réelle des requêtes en production</div>
+
+        <p>Ce cas d'usage, bien que le plus simple structurellement, est souvent le plus exigeant en diversité : rappel de la leçon 1.3, un dataset non représentatif produit un modèle qui généralise mal — un risque particulièrement présent ici, où l'objectif même est une compétence générale plutôt qu'une spécialisation étroite.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Construire un dataset d'instruction-following générique en se concentrant sur un seul type de tâche familier (par exemple, uniquement des résumés), en pensant à tort couvrir "l'instruction-following" en général — cette étroitesse produit un modèle compétent sur ce seul type de tâche, pas sur la diversité que le terme "générique" implique.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un dataset d'instruction-following générique de 1000 exemples, quelle répartition entre types de tâches (résumé, traduction, rédaction, analyse...) proposeriez-vous ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l2" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 6.2</span>Formater pour le function calling</h2>
+        <p>Rappel direct du cours 17 : un modèle destiné à effectuer du function calling doit apprendre, via le fine-tuning, à générer des appels de fonction structurés et valides. Le dataset d'entraînement doit refléter exactement ce même format que celui utilisé en production.</p>
+
+        <pre><code class="language-json">{"messages": [
+  {"role": "system", "content": "Tu as accès à des outils. Utilise-les "
+                                  "quand c'est pertinent pour répondre."},
+  {"role": "user", "content": "Quel temps fait-il à Paris ?"},
+  {"role": "assistant", "content": null, "tool_calls": [
+    {"id": "call_1", "type": "function", "function": {
+      "name": "obtenir_meteo", "arguments": "{\"ville\": \"Paris\"}"}}
+  ]},
+  {"role": "tool", "tool_call_id": "call_1", "content": "{\"temperature\": 18, \"condition\": \"ensoleillé\"}"},
+  {"role": "assistant", "content": "Il fait actuellement 18°C et ensoleillé à Paris."}
+]}
+</code></pre>
+
+        <div class="ascii">Points de vigilance spécifiques au fine-tuning pour function calling
+(rappel direct des principes déjà établis au cours 17) :
+
+Le dataset doit inclure les DÉFINITIONS DE SCHÉMA (module 3
+du cours 17) exactement comme elles seront fournies en
+production — un modèle entraîné avec un schéma légèrement
+différent de celui utilisé à l'inférence peut se comporter
+de façon incohérente
+
+Le dataset doit couvrir les cas où l'agent NE DOIT PAS
+appeler d'outil (rappel cours 17, module 1, leçon 1.2, sur
+l'ambiguïté de décision) — un dataset qui n'illustre que des
+appels d'outils positifs entraîne un modèle trop enclin à
+toujours appeler un outil, même quand ce n'est pas pertinent
+
+Le dataset devrait couvrir les cas d'ERREUR DE VALIDATION
+(rappel cours 17, module 4) et la façon appropriée d'y réagir,
+pas seulement les appels réussis du premier coup</div>
+
+        <p>Ce dernier point rejoint directement un principe déjà établi à la leçon 4.2 de ce cours : un dataset construit uniquement à partir de cas "réussis" omet précisément les situations les plus utiles à bien maîtriser — ici, la gestion appropriée d'un échec de validation ou d'une décision de ne pas appeler d'outil.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Construire un dataset de fine-tuning pour function calling exclusivement à partir d'exemples où un outil est effectivement appelé avec succès, sans jamais inclure de cas où le modèle doit répondre directement sans outil, ou gérer une erreur de validation — ce déséquilibre entraîne un modèle sur-enclin à appeler des outils inutilement.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un dataset de fine-tuning destiné au function calling, proposez une répartition approximative entre trois catégories : appels d'outils réussis, réponses directes sans outil, et gestion d'erreurs de validation.
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l3" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 6.3</span>Formater pour un chatbot multi-tour avec contexte</h2>
+
+        <p>Rappel de la leçon 2.3 : un format multi-turn permet d'entraîner un modèle à suivre le contexte d'une conversation. Cette leçon approfondit les considérations spécifiques à ce cas d'usage, en particulier la gestion de conversations longues qui peuvent inclure des sources de données variées (rappel cours 18).</p>
+
+        <pre><code class="language-json">{"messages": [
+  {"role": "system", "content": "Tu es un assistant de support pour "
+                                  "une boutique en ligne."},
+  {"role": "user", "content": "Bonjour, ma commande CMD-123456 est en retard"},
+  {"role": "assistant", "content": "Je vérifie immédiatement. Un instant..."},
+  {"role": "assistant", "content": "Votre commande est actuellement en transit, "
+                                    "livraison prévue demain."},
+  {"role": "user", "content": "D'accord, et pour un remboursement partiel "
+                                "si elle arrive encore en retard ?"},
+  {"role": "assistant", "content": "Si la livraison dépasse le délai de 48h "
+                                    "supplémentaires, vous serez éligible à un "
+                                    "geste commercial. Je note votre demande."}
+]}
+</code></pre>
+
+        <p>Cet exemple illustre une compétence spécifique au multi-turn : la seconde réponse de l'assistant doit tenir compte à la fois du contexte de la commande CMD-123456 mentionnée plus tôt ET de la politique de remboursement (rappel cours 18, module 4, leçon 4.3, sur la fusion de sources statiques et temps réel) — un exemple d'entraînement multi-turn bien construit doit refléter cette même complexité que l'agent rencontrera réellement en production.</p>
+
+        <div class="ascii">Ce qui distingue un bon exemple multi-turn d'un mauvais :
+
+BON EXEMPLE                               MAUVAIS EXEMPLE
+────────────────────────                  ────────────────────────
+Chaque réponse de l'assistant              Les réponses pourraient être
+dépend GENUINEMENT du contexte              écrites dans n'importe quel
+des tours précédents — la retirer           ordre sans perte de sens —
+de son contexte la rendrait                 aucune référence implicite
+incompréhensible ou ambiguë                 réelle entre les tours
+
+Le nombre de tours reflète la               Systématiquement 2 tours
+distribution RÉELLE des                     (une question, une réponse)
+conversations en production                 quel que soit le cas d'usage
+(certaines courtes, d'autres                réel visé
+longues)</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Construire des exemples multi-turn où chaque tour pourrait en réalité être compris isolément, sans dépendance réelle au contexte précédent — un tel dataset n'entraîne pas la compétence de suivi de contexte visée, malgré une structure multi-turn en apparence correcte.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour l'exemple ci-dessus, identifiez précisément quel mot ou quelle référence dans la dernière réponse de l'assistant dépend du contexte établi plus tôt dans la conversation.
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l4" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 6.4</span>Formater pour des tâches de classification et d'extraction structurée</h2>
+
+        <p>Rappel du cours 16 (NLP de base) et du cours 12 (enrichissement de métadonnées) : entraîner un modèle à produire une sortie structurée (une catégorie, des entités extraites) nécessite un format d'exemple où l'<code class="inline">output</code> suit une convention strictement cohérente à travers tout le dataset.</p>
+
+        <pre><code class="language-json">// Classification : l'output est TOUJOURS une des catégories
+// prédéfinies, jamais une reformulation libre
+{"instruction": "Classifie le sentiment de cet avis client.",
+ "input": "Le produit est arrivé cassé, très déçu.",
+ "output": "négatif"}
+
+// Extraction structurée : l'output est un JSON respectant un
+// schéma fixe (rappel cours 17, sur la rigueur des schémas)
+{"instruction": "Extrais le nom du produit et la quantité mentionnés.",
+ "input": "Je voudrais commander 3 exemplaires du produit ABC123.",
+ "output": "{\"produit\": \"ABC123\", \"quantite\": 3}"}
+</code></pre>
+
+        <div class="ascii">Exigence de cohérence STRICTE pour ces cas d'usage :
+
+Classification                             Extraction structurée
+────────────────────────                   ────────────────────────
+TOUTES les valeurs possibles                Le format de sortie (JSON,
+doivent apparaître dans le                  avec des clés précises) doit
+dataset, sans variation de                  être STRICTEMENT identique
+formulation ("négatif" partout,             à travers tout le dataset —
+jamais "Négatif" ou "NEGATIF"               rappel cours 17, module 3,
+mélangés)                                   sur la rigueur des schémas
+
+Un déséquilibre entre catégories            Une variation de format (une
+(90% d'exemples "positif", 10%              fois avec des guillemets
+"négatif") entraîne un modèle                simples, une fois doubles)
+biaisé vers la catégorie majoritaire         brouille le signal d'apprentissage</div>
+
+        <p>Cette exigence de cohérence stricte rejoint directement le principe établi au module 5 (nettoyage et normalisation) : pour ces cas d'usage spécifiques, une variation même mineure dans le format de sortie — jugée mineure dans un contexte de langage naturel libre — peut significativement dégrader la fiabilité du modèle fine-tuné à produire une sortie exploitable de façon cohérente.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Tolérer de légères variations de formulation dans les outputs d'un dataset de classification ("négatif", "Négatif", "sentiment négatif" utilisés de façon interchangeable) en les considérant équivalentes sémantiquement — cette tolérance introduit un bruit qui peut empêcher le modèle d'apprendre une sortie parfaitement cohérente et facilement exploitable par du code en aval.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour l'exemple d'extraction structurée ci-dessus, si le dataset contient un mélange d'exemples avec la clé "quantite" et d'autres avec "quantité" (avec accent), quel problème cela poserait-il pour l'usage du modèle fine-tuné en production ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l5" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 6.5</span>Mélanger plusieurs types de tâches dans un même dataset</h2>
+
+        <p>Cette dernière leçon du module traite une pratique fréquente : combiner plusieurs des cas d'usage précédents (instruction-following générique, function calling, classification) au sein d'un même dataset, pour entraîner un modèle polyvalent plutôt que strictement spécialisé sur une seule tâche.</p>
+
+        <div class="ascii">Pourquoi et quand mélanger les types de tâches (data mixing) :
+
+RAISON DE MÉLANGER                         RISQUE DU MÉLANGE
+────────────────────────                  ────────────────────────
+Un modèle destiné à un usage                Un déséquilibre entre les
+réel (un agent complet) doit                 types de tâches (rappel
+gérer plusieurs types de                    module 4, sur la
+requêtes — pas seulement une                représentativité) peut faire
+tâche isolée                                dominer un type de tâche au
+                                           détriment des autres dans le
+Le mélange peut aussi AIDER la               comportement final du modèle
+généralisation, un modèle
+apprenant certains patterns                 Nécessite un contrôle de
+transférables entre tâches                  PROPORTION rigoureux entre
+proches                                     les types de tâches</div>
+
+        <pre><code class="language-python">def controler_proportions_dataset(exemples_par_type: dict[str, list], proportions_cibles: dict[str, float],
+                                     taille_totale: int) -> list:
+    """Assemble un dataset final en respectant des PROPORTIONS
+    explicites entre types de tâches, plutôt que de simplement
+    concaténer toutes les sources disponibles sans contrôle."""
+    dataset_final = []
+    for type_tache, proportion in proportions_cibles.items():
+        nombre_a_prendre = int(taille_totale * proportion)
+        dataset_final.extend(exemples_par_type[type_tache][:nombre_a_prendre])
+    random.shuffle(dataset_final)  # éviter un ordre groupé par type de tâche
+    return dataset_final
+</code></pre>
+
+        <p>Le mélange (<code class="inline">random.shuffle</code>) en fin de constitution mérite une attention particulière : un dataset où tous les exemples d'un même type de tâche se suivent consécutivement peut, selon la méthode d'entraînement utilisée, induire un apprentissage moins stable qu'un dataset où les types de tâches sont distribués de façon homogène tout au long du fichier.</p>
+
+        <div class="ascii">Ce module clôt la partie "structuration par cas d'usage" du cours.
+Le module suivant traite les dernières étapes avant l'entraînement
+proprement dit : découper le dataset en ensembles distincts, le
+valider automatiquement, et estimer son coût.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Concaténer simplement plusieurs sous-datasets de types de tâches différents sans contrôler explicitement leurs proportions relatives ni mélanger leur ordre — un dataset assemblé ainsi peut sur-représenter involontairement le type de tâche le plus facile à collecter, au détriment des autres compétences visées.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : pour un agent combinant instruction-following générique et function calling (rappel cours 17), quelle proportion approximative entre ces deux types de tâches proposeriez-vous, et pourquoi ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-7">
+      <span class="module-kicker">MODULE 07 / 08</span>
+      <h1>Découpage, validation et préparation finale</h1>
+      <p class="intro">Ce module traite les dernières étapes avant qu'un dataset ne soit soumis à un entraînement : le découpage en ensembles distincts, une validation automatisée complète, l'estimation de son coût, et sa documentation.</p>
+
+      <section class="lesson" id="m7-l1" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 7.1</span>Split train / validation / test — principes et pièges</h2>
+
+        <p>Un dataset de fine-tuning est généralement divisé en plusieurs sous-ensembles distincts, chacun avec un rôle précis dans le processus d'entraînement et d'évaluation.</p>
+
+        <div class="ascii">Les trois ensembles et leur rôle :
+
+TRAIN (typiquement 80-90%)
+  Les exemples sur lesquels le modèle est effectivement
+  entraîné — la majorité du dataset
+
+VALIDATION (typiquement 5-10%)
+  Utilisé PENDANT l'entraînement pour surveiller la
+  progression et détecter un surapprentissage (le modèle
+  mémorise le train sans généraliser)
+
+TEST (typiquement 5-10%)
+  Réservé pour une évaluation FINALE, après l'entraînement
+  complet — ne doit JAMAIS être consulté ni utilisé pendant
+  le processus d'entraînement lui-même</div>
+
+        <pre><code class="language-python">import random
+
+def diviser_dataset(exemples: list[dict], proportions: tuple = (0.85, 0.10, 0.05)) -> dict:
+    exemples_melanges = exemples.copy()
+    random.shuffle(exemples_melanges)
+    n = len(exemples_melanges)
+    fin_train = int(n * proportions[0])
+    fin_validation = fin_train + int(n * proportions[1])
+    return {
+        "train": exemples_melanges[:fin_train],
+        "validation": exemples_melanges[fin_train:fin_validation],
+        "test": exemples_melanges[fin_validation:],
+    }
+</code></pre>
+
+        <p>Un piège fréquent, distinct de la simple proportion : si le dataset contient des exemples provenant de la même source originale (par exemple, plusieurs variations générées à partir d'un même document, rappel module 4), ces variations ne devraient pas se répartir entre train et test — un modèle qui a "vu" une version très proche d'un exemple de test pendant l'entraînement produira une évaluation artificiellement optimiste, un phénomène appelé fuite de données (data leakage).</p>
+
+        <div class="ascii">Risque de fuite de données entre ensembles :
+
+Exemple A (train) : dérivé du document X
+Exemple B (test) : également dérivé du document X, avec une
+                    formulation légèrement différente
+
+→ Le modèle a indirectement "vu" le contenu du document X
+  pendant l'entraînement (via l'exemple A) — évaluer sa
+  performance sur l'exemple B ne mesure pas une VRAIE
+  généralisation, mais une familiarité résiduelle</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Découper un dataset en train/validation/test par un simple tirage aléatoire sur les exemples individuels, sans vérifier si plusieurs exemples partagent une même source ou un même document d'origine — un tel découpage risque une fuite de données qui rend l'évaluation finale sur l'ensemble de test artificiellement optimiste.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un dataset où plusieurs exemples sont dérivés des mêmes documents sources (rappel module 4, leçon 4.1), comment adapteriez-vous la fonction de découpage ci-dessus pour éviter la fuite de données décrite ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l2" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 7.2</span>Valider automatiquement le format avant entraînement</h2>
+
+        <p>Cette leçon assemble une validation finale complète, combinant les vérifications déjà couvertes individuellement dans les modules précédents (structure au module 2, JSONL au module 3, longueur au module 5) en une seule passe de contrôle avant l'entraînement.</p>
+
+        <pre><code class="language-python">def validation_finale_complete(chemin_fichier: str, tokenizer, limite_tokens: int) -> dict:
+    """Combine les validations des modules précédents en une
+    seule passe — rappel du principe déjà établi au module 3,
+    leçon 3.3, d'isoler chaque erreur plutôt que de s'arrêter
+    à la première rencontrée."""
+    rapport = {"total": 0, "valides": 0, "problemes": []}
+    for numero_ligne, exemple in enumerate(lire_jsonl_en_streaming(chemin_fichier), start=1):
+        rapport["total"] += 1
+        problemes_exemple = []
+        if "messages" not in exemple or not exemple["messages"]:
+            problemes_exemple.append("structure manquante ou vide")
+        elif not all(m.get("role") in ("system", "user", "assistant", "tool") for m in exemple["messages"]):
+            problemes_exemple.append("rôle non reconnu (rappel module 5, leçon 5.3)")
+        nombre_tokens = compter_tokens_exemple(exemple, tokenizer)
+        if nombre_tokens > limite_tokens:
+            problemes_exemple.append(f"dépasse la limite de tokens ({nombre_tokens})")
+        if problemes_exemple:
+            rapport["problemes"].append({"ligne": numero_ligne, "problemes": problemes_exemple})
+        else:
+            rapport["valides"] += 1
+    return rapport
+</code></pre>
+
+        <p>Cette validation finale ne remplace pas les vérifications effectuées à chaque étape antérieure (modules 3 et 5) — elle constitue un dernier filet de sécurité qui confirme, juste avant l'entraînement, qu'aucune régression ne s'est introduite lors des étapes intermédiaires de transformation du dataset.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer que les validations effectuées à chaque étape antérieure (modules 3, 5) rendent superflue une validation finale complète juste avant l'entraînement — une étape de transformation ultérieure (déduplication, split, mélange de sources) peut réintroduire une erreur, même après des vérifications antérieures rigoureuses.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Au-delà des trois vérifications de la fonction ci-dessus, quelle autre vérification finale ajouteriez-vous avant de considérer un dataset prêt pour l'entraînement ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l3" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 7.3</span>Vérifier la distribution et la couverture du dataset</h2>
+
+        <p>Rappel de la leçon 4.5 (piège 2) : un dataset peut être structurellement valide tout en étant mal réparti entre types de cas. Cette leçon propose une vérification quantitative de cette distribution, complémentaire à la validation structurelle de la leçon précédente.</p>
+
+        <pre><code class="language-python">from collections import Counter
+
+def analyser_distribution(exemples: list[dict], fonction_categorisation) -> dict:
+    """Rappel module 6, leçon 6.5 : vérifier QUANTITATIVEMENT
+    les proportions entre catégories, plutôt que de supposer
+    qu'elles sont équilibrées sans les mesurer."""
+    categories = [fonction_categorisation(exemple) for exemple in exemples]
+    compteur = Counter(categories)
+    total = len(exemples)
+    return {categorie: {"nombre": n, "proportion": n / total} for categorie, n in compteur.items()}
+
+# Exemple d'utilisation pour un dataset mêlant plusieurs types
+# de tâches (rappel module 6, leçon 6.5)
+distribution = analyser_distribution(exemples, lambda ex: ex.get("type_tache", "non_categorise"))
+</code></pre>
+
+        <div class="ascii">Ce qu'une analyse de distribution permet de détecter :
+
+DÉSÉQUILIBRE ENTRE CATÉGORIES
+  Rappel module 6, leçon 6.4 — un déséquilibre de
+  classification (90% positif, 10% négatif) devient
+  visible immédiatement plutôt que découvert après
+  l'entraînement via un modèle biaisé
+
+SOUS-REPRÉSENTATION D'UN CAS D'USAGE CRITIQUE
+  Un cas d'usage jugé important (rappel module 6, leçon 6.2,
+  gestion d'erreur de validation en function calling) qui ne
+  représente que 2% du dataset, alors qu'il mériterait une
+  part plus significative compte tenu de sa criticité
+
+ABSENCE COMPLÈTE D'UNE CATÉGORIE ATTENDUE
+  Une catégorie prévue dans la conception initiale du
+  dataset (module 8, leçon 8.1) mais absente en pratique —
+  signale un problème dans le pipeline de construction
+  (module 4) passé inaperçu jusqu'ici</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Valider uniquement la conformité structurelle d'un dataset (leçon 7.2) sans jamais analyser quantitativement sa distribution par catégorie ou type de tâche — un dataset peut être parfaitement valide structurellement tout en étant fortement déséquilibré, un problème invisible sans cette analyse dédiée.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un dataset de function calling (rappel module 6, leçon 6.2) où l'analyse de distribution révèle que 95% des exemples concernent des appels réussis et seulement 5% des cas de gestion d'erreur, quelle action correctrice envisageriez-vous ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l4" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 7.4</span>Estimer le coût et la taille du dataset</h2>
+
+        <p>Le fine-tuning d'un modèle, en particulier via une API commerciale, est généralement facturé au nombre de tokens traités pendant l'entraînement. Cette leçon traite comment estimer ce coût avant de lancer un entraînement, pour éviter une surprise budgétaire après coup.</p>
+
+        <pre><code class="language-python">def estimer_cout_entrainement(exemples: list[dict], tokenizer, cout_par_million_tokens: float,
+                                 nombre_epochs: int = 3) -> dict:
+    """Le coût dépend du nombre de tokens ET du nombre
+    d'EPOCHS (passages complets sur le dataset) — un dataset
+    parcouru 3 fois pendant l'entraînement coûte environ 3 fois
+    le coût d'un seul passage."""
+    total_tokens = sum(compter_tokens_exemple(ex, tokenizer) for ex in exemples)
+    total_tokens_avec_epochs = total_tokens * nombre_epochs
+    cout_estime = (total_tokens_avec_epochs / 1_000_000) * cout_par_million_tokens
+    return {
+        "nombre_exemples": len(exemples),
+        "total_tokens_par_epoch": total_tokens,
+        "total_tokens_entrainement": total_tokens_avec_epochs,
+        "cout_estime_usd": round(cout_estime, 2),
+    }
+</code></pre>
+
+        <div class="ascii">Pourquoi estimer AVANT de lancer l'entraînement, pas après :
+
+Sans estimation préalable                  Avec estimation préalable
+────────────────────────────────           ────────────────────────────────
+Le coût réel n'est découvert                Une estimation réaliste
+qu'APRÈS l'exécution complète               permet de décider, en amont,
+du job d'entraînement — trop tard            si le dataset doit être
+pour ajuster si le montant                   réduit, ou si le nombre
+dépasse le budget prévu                      d'epochs doit être révisé
+                                            AVANT tout engagement de coût</div>
+
+        <p>Au-delà du seul coût monétaire, cette estimation de taille en tokens permet aussi d'anticiper le temps d'entraînement approximatif — une information utile pour planifier un calendrier de projet, indépendamment de la question budgétaire.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Lancer un entraînement complet sans avoir estimé au préalable son coût en tokens, en découvrant le montant final seulement après facturation — une estimation, même approximative, prend quelques minutes à calculer et évite des surprises budgétaires qui peuvent être significatives à l'échelle d'un dataset volumineux et de plusieurs epochs.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un dataset de 5000 exemples avec une moyenne de 300 tokens chacun, entraîné sur 3 epochs, calculez le nombre total de tokens traités pendant l'entraînement.
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l5" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 7.5</span>Versionner et documenter un dataset de fine-tuning</h2>
+
+        <p>Cette dernière leçon du module traite une pratique souvent négligée mais essentielle pour la reproductibilité et la maintenance à long terme : documenter et versionner chaque dataset produit, plutôt que de le considérer comme un simple fichier de travail temporaire.</p>
+
+        <div class="ascii">Ce qu'une documentation de dataset devrait inclure :
+
+VERSION ET DATE DE CONSTITUTION
+  Un identifiant de version explicite, similaire au
+  versionnement déjà établi pour les données statiques
+  (rappel cours 18, module 2, leçon 2.2)
+
+SOURCES UTILISÉES ET PROPORTIONS
+  Quelle part provient de logs réels (leçon 4.2), de
+  génération synthétique (leçon 4.3), d'annotation manuelle
+  (leçon 4.4) — une traçabilité utile pour diagnostiquer un
+  comportement du modèle final qui semblerait hérité d'une
+  source spécifique
+
+STATISTIQUES DE DISTRIBUTION (rappel leçon 7.3)
+  Les proportions par catégorie ou type de tâche, pour que
+  quiconque réutilise ce dataset comprenne sa composition
+  sans devoir la ré-analyser depuis zéro
+
+TRANSFORMATIONS APPLIQUÉES
+  Quel nettoyage (module 5), quelle déduplication, quels
+  critères d'exclusion ont été appliqués — pour comprendre
+  ce que le dataset final NE contient PAS, et pourquoi</div>
+
+        <p>Cette documentation devient particulièrement précieuse quand un modèle fine-tuné présente un comportement inattendu après déploiement : pouvoir remonter précisément à la version du dataset utilisée, ses sources et ses transformations permet un diagnostic bien plus rapide qu'une reconstitution a posteriori de ces informations, si elles n'ont jamais été consignées.</p>
+
+        <div class="ascii">Ce module clôt la partie "préparation finale" du cours. Le dernier
+module assemble l'ensemble des concepts vus (format, JSONL,
+construction, nettoyage, structuration, validation) dans une
+checklist de conception et une étude de cas complète.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Traiter un dataset de fine-tuning comme un fichier de travail temporaire, sans versionnement ni documentation, ce qui rend très difficile de comprendre après coup — parfois plusieurs mois plus tard — quelle version exacte du dataset a produit un modèle donné, ni pourquoi certaines décisions de construction ont été prises.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : au-delà des quatre éléments listés ci-dessus, quelle autre information jugeriez-vous utile à documenter pour un dataset destiné à être réutilisé par une autre personne de votre équipe ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-8">
+      <span class="module-kicker">MODULE 08 / 08</span>
+      <h1>Implémentation complète et étude de cas</h1>
+      <p class="intro">Ce dernier module assemble l'ensemble des notions vues — format instruction/réponse (module 2), JSONL (module 3), construction (module 4), nettoyage (module 5), structuration par cas d'usage (module 6), validation finale (module 7) — dans une checklist de conception et une étude de cas complète.</p>
+
+      <section class="lesson" id="m8-l1" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 8.1</span>Checklist de conception d'un dataset de fine-tuning</h2>
+
+        <div class="ascii">Checklist de conception (à appliquer lors de la constitution
+d'un dataset de fine-tuning) :
+
+□ 1. FORMAT DE STRUCTURE choisi et cohérent (module 2) :
+     Alpaca, ShareGPT, ou chat/messages selon le besoin
+
+□ 2. SOURCES identifiées et combinées de façon équilibrée
+     (module 4) : logs réels, génération synthétique,
+     annotation manuelle
+
+□ 3. NETTOYAGE appliqué de façon cohérente sur instructions
+     ET réponses (module 5)
+
+□ 4. DÉDUPLICATION effectuée, au minimum au niveau exact
+     (module 5, leçon 5.4)
+
+□ 5. FORMATAGE PAR CAS D'USAGE adapté à l'objectif du modèle
+     (module 6) : générique, function calling, multi-turn,
+     classification, ou un mélange contrôlé
+
+□ 6. PROPORTIONS entre types de tâches et catégories vérifiées
+     quantitativement (module 7, leçon 7.3), pas supposées
+
+□ 7. ENCODAGE JSONL valide et vérifié ligne par ligne
+     (module 3, leçon 3.3)
+
+□ 8. LONGUEUR de chaque exemple vérifiée par rapport à la
+     limite de tokens du modèle cible (module 5, leçon 5.2)
+
+□ 9. SPLIT train/validation/test effectué sans fuite de
+     données (module 7, leçon 7.1)
+
+□ 10. COÛT ESTIMÉ avant de lancer l'entraînement (module 7,
+     leçon 7.4)
+
+□ 11. DOCUMENTATION ET VERSIONNEMENT en place (module 7,
+     leçon 7.5)</div>
+
+        <p>Cette checklist condense onze points issus des sept modules précédents — un nombre qui peut sembler exigeant, mais qui reflète directement le principe établi dès la leçon 1.1 de ce cours : le coût d'une erreur non détectée avant l'entraînement dépasse largement le temps investi dans cette vérification préalable.</p>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un dataset que vous avez construit ou envisagez de construire, appliquez cette checklist et identifiez les trois points qui nécessiteraient le plus de travail supplémentaire.
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l2" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 8.2</span>Pipeline complet : de la collecte à l'export JSONL</h2>
+
+        <div class="ascii">Architecture de référence complète du cours :
+
+COLLECTE (module 4)
+Logs réels (cours 19) + génération synthétique + annotation
+                    │
+                    ▼
+FORMATAGE STRUCTUREL (module 2)
+Conversion vers le format choisi (Alpaca, ShareGPT, ou
+chat/messages), normalisation des rôles (module 5, leçon 5.3)
+                    │
+                    ▼
+NETTOYAGE (module 5)
+Nettoyage de texte, gestion de la longueur, déduplication
+                    │
+                    ▼
+STRUCTURATION PAR CAS D'USAGE (module 6)
+Adaptation au besoin final (générique, function calling,
+multi-turn, classification), contrôle des proportions
+                    │
+                    ▼
+VALIDATION FINALE (module 7)
+Conformité structurelle et JSONL, distribution vérifiée,
+absence de fuite de données entre splits
+                    │
+                    ▼
+EXPORT JSONL (module 3)
+Fichiers train.jsonl, validation.jsonl, test.jsonl,
+encodage UTF-8 vérifié
+                    │
+                    ▼
+DOCUMENTATION ET VERSIONNEMENT (module 7, leçon 7.5)
+                    │
+                    ▼
+Prêt pour l'ENTRAÎNEMENT (hors périmètre de ce cours) —
+puis, en aval, DÉTECTION DE BIAIS ET DUPLICATION (cours 21)
+et FILTRAGE DE QUALITÉ (cours 22)</div>
+
+        <p>Cette architecture referme la logique établie dès le module 1 : le formatage n'est qu'une partie du pipeline complet de préparation pour le fine-tuning, qui se poursuit au-delà de ce cours avec les cours 21 et 22 de ce même bloc, centrés sur la qualité du contenu plutôt que sur sa structure.</p>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour l'architecture ci-dessus, à quelle étape ajouteriez-vous la revue manuelle d'échantillon déjà établie au module 4, leçon 4.4 ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l3" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 8.3</span>Étude de cas : construire un dataset pour un agent de support spécialisé</h2>
+
+        <h3>Contexte</h3>
+        <p>Une équipe souhaite fine-tuner un modèle pour qu'il adopte systématiquement le ton et les procédures spécifiques de son service de support client, en complément d'un système existant combinant RAG (cours 9-13) et function calling (cours 17). L'équipe dispose de six mois de logs de conversations réelles (rappel cours 19).</p>
+
+        <div class="ascii">Application de la checklist (leçon 8.1) à ce projet :
+
+1. FORMAT : chat/messages choisi (module 2, leçon 2.2), car
+   le modèle final doit gérer des conversations multi-tours
+   (module 2, leçon 2.3) en production
+
+2. SOURCES : logs réels filtrés pour ne garder que les
+   conversations sans plainte utilisateur (rappel module 4,
+   leçon 4.2, sur la vérification de qualité avant usage),
+   complétés par des exemples synthétiques pour les cas rares
+   insuffisamment représentés dans les logs (module 4, leçon 4.3)
+
+3. NETTOYAGE : suppression des artefacts de copier-coller
+   observés dans certaines réponses d'agents humains présents
+   dans les logs (rappel module 5, leçon 5.1)
+
+4. STRUCTURATION : mélange contrôlé (module 6, leçon 6.5)
+   entre conversations générales et exemples de function
+   calling (module 6, leçon 6.2), avec une proportion
+   volontairement plus élevée de cas de gestion d'erreur
+   que ce qu'on observe naturellement dans les logs
+
+5. VALIDATION : split train/validation/test en veillant à ce
+   qu'une même conversation ne soit jamais scindée entre deux
+   ensembles différents (rappel module 7, leçon 7.1, sur la
+   fuite de données)</div>
+
+        <p>Cette étude de cas illustre une décision récurrente dans ce cours : ne pas se contenter de refléter passivement la distribution naturelle des logs (rappel module 4, leçon 4.5, sur la non-représentativité), mais ajuster délibérément certaines proportions — ici, sur-représenter volontairement la gestion d'erreur de function calling — quand cette compétence est jugée particulièrement critique pour l'usage final du modèle.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer que reproduire fidèlement la distribution naturelle des logs constitue toujours le choix le plus sûr — dans certains cas, comme celui de cette étude, un ajustement délibéré des proportions vers les compétences les plus critiques produit un modèle mieux préparé que la seule reproduction passive de ce qui a été observé.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour cette étude de cas, si les logs révèlent que 80% des conversations concernent une seule catégorie de demande (par exemple, le suivi de commande) et 20% une grande variété d'autres sujets, comment ajusteriez-vous les proportions du dataset final ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l4" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 8.4</span>Exercice final</h2>
+
+        <div class="callout exercise">
+          <strong>Exercice final — à traiter dans l'ordre</strong>
+          <p>1. <strong>Format (module 2)</strong> : pour l'étude de cas de la leçon 8.3, rédigez un exemple complet au format chat/messages incluant un system prompt reflétant le ton de ce service de support.</p>
+          <p>2. <strong>Nettoyage (module 5)</strong> : si un exemple de log contient un artefact de copier-coller ("Cordialement,\n\n\n\nL'équipe support"), montrez le résultat après nettoyage.</p>
+          <p>3. <strong>Déduplication (module 5, leçon 5.4)</strong> : écrivez la logique qui détecterait que deux exemples de conversation, bien que légèrement reformulés, proviennent de la même interaction dupliquée dans les logs source.</p>
+          <p>4. <strong>Validation (module 7)</strong> : proposez trois vérifications automatisées que vous exécuteriez avant de considérer ce dataset prêt pour l'entraînement.</p>
+          <p>5. <strong>Documentation (module 7, leçon 7.5)</strong> : rédigez un court paragraphe de documentation décrivant ce dataset (sources, proportions, transformations) pour un collègue qui le réutiliserait plus tard.</p>
+        </div>
+
+        <p>Comme pour les exercices finaux des cours précédents de cette série, il n'existe pas de réponse unique — l'objectif est de démontrer une application cohérente de l'ensemble du cycle de préparation de dataset (format, nettoyage, déduplication, validation, documentation) à un cas concret.</p>
+      </section>
+
+      <section class="lesson" id="m8-l5" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 8.5</span>Synthèse et ouverture du Bloc 6</h2>
+
+        <h3>Ce que ce cours a couvert</h3>
+        <div class="ascii">Récapitulatif des 8 modules :
+
+1. Fondamentaux — fine-tuning vs prompting/RAG/function
+   calling, rôle du dataset, pipeline complet
+2. Format instruction/réponse — anatomie, formats courants,
+   single/multi-turn, system prompt
+3. JSONL en profondeur — structure, validation, comparaison
+   avec d'autres formats, pièges d'encodage
+4. Construction du dataset — sources, transformation de logs,
+   génération synthétique, annotation manuelle
+5. Nettoyage et normalisation — texte, longueur/tokens,
+   rôles, déduplication
+6. Structuration par cas d'usage — instruction-following,
+   function calling, multi-turn, classification, mélange
+7. Découpage et validation finale — split, validation
+   automatisée, distribution, coût, documentation
+8. Implémentation complète — checklist, pipeline de
+   référence, étude de cas</div>
+
+        <h3>Ouverture du Bloc 6 — Préparation de Données pour Fine-Tuning</h3>
+        <p>Ce cours ouvre le Bloc 6 de cette série, qui se poursuivra avec deux cours complémentaires centrés non plus sur la structure d'un dataset, mais sur son contenu et sa qualité : le cours 21 approfondira la détection de biais et de duplication à une échelle plus fine que la déduplication exacte vue au module 5 de ce cours, et le cours 22 traitera le filtrage de qualité via des heuristiques et la technique du LLM-as-judge — utiliser un modèle de langage pour évaluer la qualité d'exemples d'entraînement, prolongeant directement les principes de vérification manuelle établis au module 4, leçon 4.4.</p>
+
+        <div class="ascii">Les trois cours du Bloc 6 et leur progression logique :
+
+Cours 20 (ce cours) — Formatage                Cours 21 — Biais et duplication
+(structure et encodage du dataset)              (approfondit la qualité du
+        │                                       contenu au-delà de la
+        │                                       structure)
+        └───────────────┬───────────────────┘
+                        ▼
+              Cours 22 — Filtrage de qualité
+              (heuristiques et LLM-as-judge,
+               dernière étape avant l'entraînement)</div>
+
+        <h3>Pour aller plus loin</h3>
+        <ul>
+          <li>La documentation spécifique de la plateforme ou du framework d'entraînement visé, pour vérifier les exigences exactes de format qu'elle impose (rappel module 2, leçon 2.5).</li>
+          <li>Les techniques de fine-tuning efficace en paramètres (comme LoRA), qui influencent parfois les contraintes de format et de taille de dataset acceptées.</li>
+          <li>Les cours 21 et 22 de ce même bloc, qui approfondissent directement la qualité du contenu au-delà de la structure couverte ici.</li>
+        </ul>
+
+        <div class="callout exercise">
+          <strong>Pour conclure</strong>
+          En une phrase, formulez le principe de ce cours qui vous semble le plus déterminant pour éviter qu'un dataset de fine-tuning, en apparence complet, ne produise malgré tout un modèle décevant après l'entraînement.
+        </div>
+      </section>
+    </div>
+
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+  hljs.highlightAll();
+
+  const storageKey = 'formatage-datasets-course-progress';
+  const total = 40;
+  const menuToggle = document.getElementById('menuToggle');
+  const sidebar = document.getElementById('sidebar');
+  menuToggle.addEventListener('click', () => sidebar.classList.toggle('open'));
+
+  function getProgress() {
+    try { return JSON.parse(localStorage.getItem(storageKey)) || {}; }
+    catch (e) { return {}; }
+  }
+  function saveProgress(p) { localStorage.setItem(storageKey, JSON.stringify(p)); }
+
+  function updateProgressBar() {
+    const p = getProgress();
+    const done = Object.values(p).filter(Boolean).length;
+    document.getElementById('progressFill').style.width = (done / total * 100) + '%';
+  }
+
+  function markVisible() {
+    const progress = getProgress();
+    const links = document.querySelectorAll('[data-lesson]');
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const id = entry.target.id;
+          links.forEach(l => l.classList.remove('active'));
+          const link = document.querySelector('[data-lesson="' + id + '"]');
+          if (link) link.classList.add('active');
+          if (!progress[id]) {
+            progress[id] = true;
+            saveProgress(progress);
+            updateProgressBar();
+            const check = link ? link.querySelector('.lesson-check') : null;
+            if (check) check.classList.add('done');
+          }
+        }
+      });
+    }, { threshold: 0.4 });
+    document.querySelectorAll('section.lesson').forEach(s => observer.observe(s));
+  }
+
+  function restoreChecks() {
+    const progress = getProgress();
+    Object.keys(progress).forEach(id => {
+      if (progress[id]) {
+        const link = document.querySelector('[data-lesson="' + id + '"]');
+        if (link) {
+          const check = link.querySelector('.lesson-check');
+          if (check) check.classList.add('done');
+        }
+      }
+    });
+    updateProgressBar();
+  }
+
+  restoreChecks();
+  markVisible();
+
+  document.querySelectorAll('.sidebar a').forEach(a => {
+    a.addEventListener('click', () => { sidebar.classList.remove('open'); });
+  });
+</script>
+</body>
+</html>

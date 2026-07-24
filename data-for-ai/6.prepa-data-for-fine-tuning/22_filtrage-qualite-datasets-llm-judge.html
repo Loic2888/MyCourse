@@ -1,0 +1,1993 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Filtrage de Qualité de Datasets — Heuristiques et LLM-as-Judge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<style>
+  :root {
+    --bg: #f4f6f8; --bg-alt: #e8edf1; --panel: #ffffff; --text: #1f2430; --text-muted: #5b6472;
+    --accent: #0891b2; --accent-dark: #0e7490; --pitfall: #f59e0b; --border: #dbe2e8;
+    --chunk-1: #7c5cff; --chunk-2: #17b8a6; --chunk-3: #ff6b6b; --chunk-4: #ffb020;
+    --font-display: "Space Grotesk", sans-serif; --font-body: "Inter", system-ui, sans-serif; --font-mono: "JetBrains Mono", monospace;
+    --sidebar-width: 300px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font-body); color: var(--text); background: var(--bg); line-height: 1.65; }
+  .layout { display: flex; min-height: 100vh; }
+  .sidebar { width: var(--sidebar-width); flex-shrink: 0; background: var(--panel); border-right: 1px solid var(--border); padding: 1.5rem 1rem 3rem; overflow-y: auto; position: sticky; top: 0; height: 100vh; }
+  .sidebar a.brand { display: block; font-family: var(--font-display); font-weight: 700; font-size: 1rem; margin-bottom: 1.5rem; color: var(--text); text-decoration: none; padding: 0.4rem 0.5rem; }
+  .sidebar a.brand span { color: var(--accent); }
+  .module-group { margin-bottom: 0.35rem; border-radius: 8px; }
+  .module-title { font-family: var(--font-display); font-weight: 600; font-size: 0.88rem; padding: 0.55rem 0.6rem; display: flex; gap: 0.5rem; align-items: baseline; color: var(--text); text-decoration: none; }
+  .module-title .n { font-family: var(--font-mono); font-size: 0.72rem; opacity: 0.7; }
+  .lesson-list { list-style: none; padding-left: 0.6rem; margin-bottom: 0.4rem; }
+  .lesson-list li a { display: flex; align-items: center; gap: 0.5rem; padding: 0.32rem 0.5rem; border-radius: 6px; color: var(--text-muted); text-decoration: none; font-size: 0.83rem; }
+  .lesson-list li a:hover { background: var(--bg-alt); color: var(--text); }
+  .lesson-list li a.active { color: var(--accent-dark); font-weight: 600; background: rgba(8,145,178,0.1); }
+  .lesson-check { width: 12px; height: 12px; flex-shrink: 0; border: 1.5px solid var(--text-muted); border-radius: 3px; }
+  .lesson-check.done { background: var(--chunk-2); border-color: var(--chunk-2); }
+  .progress-bar { height: 4px; background: var(--border); position: sticky; top: 0; z-index: 10; }
+  .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--chunk-1), var(--accent)); width: 0%; transition: width 0.2s ease; }
+  .content { flex: 1; max-width: 760px; margin: 0 auto; padding: 3rem 2rem 6rem; }
+  .module-kicker { font-family: var(--font-mono); font-size: 0.8rem; color: var(--accent-dark); background: rgba(8,145,178,0.08); border: 1px dashed var(--accent); display: inline-block; padding: 0.2rem 0.8rem; border-radius: 999px; margin-bottom: 1rem; }
+  section.lesson { border-top: 2px dashed var(--border); padding-top: 2rem; margin-top: 2rem; position: relative; padding-left: 1.1rem; border-left: 4px solid var(--lesson-color, var(--accent)); }
+  section.lesson h2 { font-family: var(--font-display); font-size: 1.5rem; margin-bottom: 1rem; }
+  section.lesson h2 .tag { font-family: var(--font-mono); font-size: 0.7rem; color: var(--lesson-color, var(--accent)); display: block; margin-bottom: 0.3rem; }
+  section.lesson h3 { font-family: var(--font-display); font-size: 1.1rem; margin: 1.4rem 0 0.6rem; }
+  section.lesson p, section.lesson ul, section.lesson ol { margin-bottom: 1rem; }
+  section.lesson li { margin-left: 1.3rem; margin-bottom: 0.35rem; }
+  pre { border-radius: 8px; padding: 1rem; overflow-x: auto; margin: 1rem 0; font-size: 0.85rem; }
+  code.inline { font-family: var(--font-mono); background: var(--bg-alt); padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.85em; }
+  .ascii { font-family: var(--font-mono); font-size: 0.78rem; background: #1e222b; color: #d7dce2; padding: 1rem 1.2rem; border-radius: 8px; overflow-x: auto; margin: 1rem 0; line-height: 1.5; white-space: pre; }
+  .callout { border-left: 4px solid var(--accent); background: var(--bg-alt); padding: 1rem 1.2rem; border-radius: 0 8px 8px 0; margin: 1.2rem 0; }
+  .callout strong { font-family: var(--font-display); display: block; margin-bottom: 0.3rem; font-size: 0.92rem; }
+  .callout.pitfall { border-left-color: var(--pitfall); }
+  .callout.exercise { border-left-color: var(--chunk-2); }
+  .menu-toggle { display: none; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.88rem; }
+  thead tr { text-align: left; border-bottom: 2px solid var(--border); }
+  th, td { padding: 0.5rem 0.6rem; }
+  tbody tr { border-bottom: 1px solid var(--border); }
+
+  .hero {
+    border-bottom: 2px dashed var(--border);
+    padding: 3rem 0 2.5rem;
+    text-align: center;
+    margin-bottom: 1rem;
+  }
+  .hero .tag {
+    display: inline-block; font-family: var(--font-mono); font-size: 0.8rem;
+    color: var(--accent-dark); background: rgba(8,145,178,0.1);
+    border: 1px dashed var(--accent); border-radius: 999px;
+    padding: 0.25rem 0.9rem; margin-bottom: 1.25rem;
+  }
+  .hero-title {
+    font-family: var(--font-display); font-size: clamp(1.8rem, 5vw, 2.6rem);
+    font-weight: 700; margin: 0 auto 1rem; letter-spacing: -0.01em;
+  }
+  .hero-title span {
+    background: linear-gradient(90deg, var(--chunk-1), var(--accent), var(--chunk-2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .hero-lead { max-width: 620px; margin: 0 auto; color: var(--text-muted); font-size: 1.02rem; }
+  .strip { display: flex; justify-content: center; gap: 0.4rem; margin: 2rem auto 0; max-width: 520px; }
+  .strip .seg { height: 8px; flex: 1; border-radius: 3px; }
+  .strip .seg:nth-child(1) { background: var(--chunk-1); }
+  .strip .seg:nth-child(2) { background: var(--chunk-2); }
+  .strip .seg:nth-child(3) { background: var(--chunk-3); }
+  .strip .seg:nth-child(4) { background: var(--chunk-4); }
+  .strip .seg:nth-child(5) { background: var(--chunk-1); }
+  .strip .seg:nth-child(6) { background: var(--chunk-2); }
+
+  .module-block { border-top: 3px solid var(--border); padding-top: 2.5rem; margin-top: 3rem; }
+  .module-block:first-of-type { border-top: none; margin-top: 0; }
+  .module-block > h1 { font-family: var(--font-display); font-size: 2rem; margin-bottom: 0.5rem; }
+  .module-block > p.intro { color: var(--text-muted); margin-bottom: 2rem; font-size: 1.02rem; }
+
+  .finale {
+    margin-top: 3rem; padding: 1.5rem; border-radius: 10px;
+    background: linear-gradient(135deg, rgba(124,92,255,0.08), rgba(23,184,166,0.08));
+    border: 1px dashed var(--accent);
+    text-align: center;
+  }
+  .finale p { color: var(--text-muted); margin-bottom: 0.8rem; }
+  .finale a {
+    display: inline-block; background: var(--accent); color: white;
+    text-decoration: none; padding: 0.6rem 1.4rem; border-radius: 6px;
+    font-family: var(--font-display); font-weight: 600; font-size: 0.9rem;
+  }
+
+  @media (max-width: 860px) {
+    .sidebar { position: fixed; left: -100%; z-index: 20; transition: left 0.2s ease; box-shadow: 4px 0 12px rgba(0,0,0,0.15); background: var(--panel); }
+    .sidebar.open { left: 0; }
+    .menu-toggle { display: block; position: fixed; top: 1rem; left: 1rem; z-index: 30; background: var(--accent); color: white; border: none; border-radius: 6px; padding: 0.5rem 0.75rem; cursor: pointer; font-size: 1rem; }
+    .content { padding: 4.5rem 1.25rem 3rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-bar-fill" id="progressFill"></div></div>
+<button class="menu-toggle" id="menuToggle">☰</button>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar">
+    <a class="brand" href="#top">Filtrage<span>Qualité</span></a>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-1"><span class="n">01</span> Fondamentaux du filtrage de qualité</a>
+      <ul class="lesson-list">
+        <li><a href="#m1-l1" data-lesson="m1-l1"><span class="lesson-check"></span>Qu'est-ce que la qualité d'un exemple</a></li>
+        <li><a href="#m1-l2" data-lesson="m1-l2"><span class="lesson-check"></span>Pourquoi biais et duplication ne suffisent pas</a></li>
+        <li><a href="#m1-l3" data-lesson="m1-l3"><span class="lesson-check"></span>Le compromis volume vs qualité</a></li>
+        <li><a href="#m1-l4" data-lesson="m1-l4"><span class="lesson-check"></span>Où se situe cette étape dans le pipeline</a></li>
+        <li><a href="#m1-l5" data-lesson="m1-l5"><span class="lesson-check"></span>Erreurs courantes de filtrage</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-2"><span class="n">02</span> Heuristiques de qualité simples et rapides</a>
+      <ul class="lesson-list">
+        <li><a href="#m2-l1" data-lesson="m2-l1"><span class="lesson-check"></span>Longueur et complétude</a></li>
+        <li><a href="#m2-l2" data-lesson="m2-l2"><span class="lesson-check"></span>Cohérence structurelle et formatage</a></li>
+        <li><a href="#m2-l3" data-lesson="m2-l3"><span class="lesson-check"></span>Contenu répétitif ou dégénéré</a></li>
+        <li><a href="#m2-l4" data-lesson="m2-l4"><span class="lesson-check"></span>Filtres lexicaux et de toxicité de base</a></li>
+        <li><a href="#m2-l5" data-lesson="m2-l5"><span class="lesson-check"></span>Limites des heuristiques simples</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-3"><span class="n">03</span> Heuristiques avancées et signaux statistiques</a>
+      <ul class="lesson-list">
+        <li><a href="#m3-l1" data-lesson="m3-l1"><span class="lesson-check"></span>La perplexité comme signal de qualité</a></li>
+        <li><a href="#m3-l2" data-lesson="m3-l2"><span class="lesson-check"></span>Cohérence entre instruction et réponse</a></li>
+        <li><a href="#m3-l3" data-lesson="m3-l3"><span class="lesson-check"></span>Modèles de scoring dédiés</a></li>
+        <li><a href="#m3-l4" data-lesson="m3-l4"><span class="lesson-check"></span>Combiner plusieurs heuristiques en un score</a></li>
+        <li><a href="#m3-l5" data-lesson="m3-l5"><span class="lesson-check"></span>Pièges des heuristiques avancées</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-4"><span class="n">04</span> Le principe du LLM-as-judge</a>
+      <ul class="lesson-list">
+        <li><a href="#m4-l1" data-lesson="m4-l1"><span class="lesson-check"></span>Qu'est-ce que le LLM-as-judge</a></li>
+        <li><a href="#m4-l2" data-lesson="m4-l2"><span class="lesson-check"></span>Concevoir un prompt d'évaluation efficace</a></li>
+        <li><a href="#m4-l3" data-lesson="m4-l3"><span class="lesson-check"></span>Évaluation absolue vs comparative</a></li>
+        <li><a href="#m4-l4" data-lesson="m4-l4"><span class="lesson-check"></span>Rubriques d'évaluation multi-critères</a></li>
+        <li><a href="#m4-l5" data-lesson="m4-l5"><span class="lesson-check"></span>Limites et biais du LLM-as-judge</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-5"><span class="n">05</span> Implémenter un pipeline LLM-as-judge</a>
+      <ul class="lesson-list">
+        <li><a href="#m5-l1" data-lesson="m5-l1"><span class="lesson-check"></span>Structurer les appels d'évaluation</a></li>
+        <li><a href="#m5-l2" data-lesson="m5-l2"><span class="lesson-check"></span>Scoring structuré et validation de la sortie</a></li>
+        <li><a href="#m5-l3" data-lesson="m5-l3"><span class="lesson-check"></span>Gérer le coût et la latence à grande échelle</a></li>
+        <li><a href="#m5-l4" data-lesson="m5-l4"><span class="lesson-check"></span>Calibrer le juge sur un échantillon humain</a></li>
+        <li><a href="#m5-l5" data-lesson="m5-l5"><span class="lesson-check"></span>Pièges d'implémentation</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-6"><span class="n">06</span> Combiner heuristiques et LLM-as-judge</a>
+      <ul class="lesson-list">
+        <li><a href="#m6-l1" data-lesson="m6-l1"><span class="lesson-check"></span>Architecture en cascade</a></li>
+        <li><a href="#m6-l2" data-lesson="m6-l2"><span class="lesson-check"></span>Présélectionner les cas à envoyer au juge</a></li>
+        <li><a href="#m6-l3" data-lesson="m6-l3"><span class="lesson-check"></span>Pondérer et fusionner plusieurs scores</a></li>
+        <li><a href="#m6-l4" data-lesson="m6-l4"><span class="lesson-check"></span>Seuil de rejet et zone grise</a></li>
+        <li><a href="#m6-l5" data-lesson="m6-l5"><span class="lesson-check"></span>Pièges de la combinaison</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-7"><span class="n">07</span> Validation, itération et gouvernance</a>
+      <ul class="lesson-list">
+        <li><a href="#m7-l1" data-lesson="m7-l1"><span class="lesson-check"></span>Vérifier la représentativité après filtrage</a></li>
+        <li><a href="#m7-l2" data-lesson="m7-l2"><span class="lesson-check"></span>Mesurer l'impact sur taille et distribution</a></li>
+        <li><a href="#m7-l3" data-lesson="m7-l3"><span class="lesson-check"></span>Ajuster les critères de filtrage dans le temps</a></li>
+        <li><a href="#m7-l4" data-lesson="m7-l4"><span class="lesson-check"></span>Documenter les critères et décisions</a></li>
+        <li><a href="#m7-l5" data-lesson="m7-l5"><span class="lesson-check"></span>Automatiser et monitorer en continu</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-8"><span class="n">08</span> Implémentation complète et étude de cas</a>
+      <ul class="lesson-list">
+        <li><a href="#m8-l1" data-lesson="m8-l1"><span class="lesson-check"></span>Checklist de filtrage de qualité</a></li>
+        <li><a href="#m8-l2" data-lesson="m8-l2"><span class="lesson-check"></span>Pipeline complet : heuristiques à validation</a></li>
+        <li><a href="#m8-l3" data-lesson="m8-l3"><span class="lesson-check"></span>Étude de cas : dataset d'agent de support</a></li>
+        <li><a href="#m8-l4" data-lesson="m8-l4"><span class="lesson-check"></span>Exercice final</a></li>
+        <li><a href="#m8-l5" data-lesson="m8-l5"><span class="lesson-check"></span>Synthèse et clôture du Bloc 6</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main class="content">
+    <header class="hero" id="top">
+      <span class="tag">// data-for-ai · 6.prepa-data-for-fine-tuning · Formation 22</span>
+      <h1 class="hero-title">Filtrage de Qualité <span>de Datasets</span></h1>
+      <p class="hero-lead">Heuristiques et LLM-as-judge — comment évaluer et filtrer la qualité intrinsèque de chaque exemple d'un dataset de fine-tuning, au-delà de sa structure et de sa représentativité statistique. 8 modules, 40 leçons.</p>
+      <div class="strip" aria-hidden="true">
+        <div class="seg"></div><div class="seg"></div><div class="seg"></div>
+        <div class="seg"></div><div class="seg"></div><div class="seg"></div>
+      </div>
+    </header>
+
+    <div class="module-block" id="module-1">
+      <span class="module-kicker">MODULE 01 / 08</span>
+      <h1>Fondamentaux du filtrage de qualité</h1>
+      <p class="intro">Ce cours clôt le Bloc 6 de la série. Après le formatage (cours 20) et la détection de biais et de duplication (cours 21), il reste une dimension distincte à traiter : la qualité intrinsèque de chaque exemple individuel, indépendamment de sa structure ou de sa représentativité statistique dans l'ensemble du dataset.</p>
+
+      <section class="lesson" id="m1-l1" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 1.1</span>Qu'est-ce que la qualité d'un exemple d'entraînement</h2>
+
+        <p>Rappel direct du cours 20 (module 1, leçon 1.3) : la qualité d'un modèle fine-tuné ne peut pas dépasser celle de son dataset. Cette leçon précise ce que "qualité" signifie au niveau d'un exemple individuel, une notion restée implicite jusqu'ici dans cette série.</p>
+
+        <div class="ascii">Dimensions de la qualité d'un exemple instruction/réponse
+(rappel de la structure établie au cours 20, module 2) :
+
+CORRECTION FACTUELLE
+  La réponse est-elle vraie, exacte, sans erreur de fait ?
+
+PERTINENCE
+  La réponse répond-elle réellement à l'instruction posée,
+  ou dérive-t-elle vers un sujet différent ?
+
+COHÉRENCE ET CLARTÉ
+  La réponse est-elle bien formulée, sans contradiction
+  interne, compréhensible sans ambiguïté ?
+
+COMPLÉTUDE
+  La réponse couvre-t-elle ce que l'instruction demandait,
+  sans être ni tronquée ni superflue ?</div>
+
+        <p>Ces quatre dimensions sont indépendantes des sujets déjà traités au cours 21 : un exemple peut appartenir à une catégorie parfaitement équilibrée (aucun biais, rappel cours 21, module 2) et n'avoir aucun doublon (rappel cours 21, module 4), tout en étant individuellement de mauvaise qualité — une réponse incorrecte ou mal formulée reste un problème même dans un dataset par ailleurs statistiquement irréprochable.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer qu'un dataset bien structuré (cours 20) et statistiquement équilibré (cours 21) est nécessairement un dataset de bonne qualité — ces deux propriétés n'ont aucune garantie logique sur la qualité intrinsèque du contenu de chaque exemple, le sujet spécifique de ce cours.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour les quatre dimensions listées ci-dessus, donnez un exemple concret d'une réponse qui serait factuellement correcte mais qui échouerait néanmoins sur l'une des trois autres dimensions.
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l2" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 1.2</span>Pourquoi la détection de biais et de duplication ne suffit pas</h2>
+
+        <p>Rappel direct du cours 21 (module 1, leçon 1.1) : biais et duplication concernent la structure statistique globale d'un dataset — sa distribution, sa diversité. Cette leçon clarifie pourquoi ces techniques, aussi rigoureuses soient-elles, ne peuvent jamais détecter un problème de qualité au niveau d'un exemple isolé.</p>
+
+        <div class="ascii">Ce que le cours 21 peut détecter                Ce que le cours 21 NE PEUT PAS détecter
+────────────────────────────────                ────────────────────────────────
+Un déséquilibre entre catégories                  Qu'un exemple PRÉCIS contient
+(module 2 du cours 21)                            une erreur factuelle
+
+Une redondance entre plusieurs                    Qu'une réponse, bien qu'unique
+exemples (module 4 du cours 21)                   dans le dataset, soit mal
+                                                 rédigée ou peu pertinente
+
+Une corrélation statistique                       Qu'une instruction et sa
+suspecte entre attributs                          réponse associée ne
+(module 3 du cours 21)                            correspondent pas vraiment
+                                                 l'une à l'autre</div>
+
+        <p>Cette distinction justifie que ce cours 22 traite un sujet complémentaire, pas redondant, avec le cours 21 : un exemple <em>unique</em> dans le dataset, appartenant à une catégorie <em>parfaitement équilibrée</em>, peut malgré tout être de mauvaise qualité — aucune des techniques déjà couvertes ne peut le révéler, car elles raisonnent toutes au niveau de l'ensemble du dataset, jamais au niveau du contenu individuel d'un exemple précis.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer que l'application rigoureuse des techniques du cours 21 (détection de biais, déduplication) constitue une garantie suffisante de qualité du dataset, en omettant qu'aucune de ces techniques n'examine le CONTENU individuel de chaque exemple — un dataset peut être structurellement et statistiquement irréprochable tout en contenant une proportion significative d'exemples de mauvaise qualité.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Décrivez un exemple d'entraînement qui passerait sans problème toutes les vérifications du cours 21 (pas de biais de catégorie, pas de duplication) tout en étant de mauvaise qualité selon les critères de la leçon 1.1.
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l3" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 1.3</span>Le compromis volume vs qualité</h2>
+
+        <p>Rappel direct du cours 20 (module 1, leçon 1.3) : un dataset plus petit mais rigoureusement contrôlé produit souvent un meilleur résultat qu'un dataset volumineux mais bâclé. Le filtrage de qualité, sujet de ce cours, met concrètement ce principe en pratique — au prix d'une réduction du volume disponible.</p>
+
+        <div class="ascii">Le compromis central du filtrage de qualité :
+
+FILTRAGE PEU STRICT                       FILTRAGE STRICT
+────────────────────────                   ────────────────────────
+Conserve un VOLUME plus élevé               Conserve un volume plus
+d'exemples                                  restreint mais de qualité
+                                           plus homogène et fiable
+Risque d'inclure des exemples
+de qualité médiocre, qui                    Risque de retirer, par excès
+dégradent l'apprentissage global            de prudence, des exemples en
+(rappel module 1, leçon 1.1)                réalité acceptables — un
+                                           risque symétrique approfondi
+                                           au module 6, leçon 6.4</div>
+
+        <p>Ce compromis n'a pas de réponse universelle : il dépend directement de la abondance relative des données disponibles. Si un projet dispose d'un volume très large de données brutes, un filtrage strict reste praticable sans sacrifier un volume final suffisant ; si les données sont rares, un filtrage trop strict pourrait laisser un dataset final trop restreint pour un entraînement efficace — une tension à arbitrer consciemment plutôt que par défaut.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Appliquer un seuil de filtrage identique et rigide sans tenir compte du volume de données disponible au départ — un seuil strict raisonnable pour un corpus abondant peut être inadapté pour un corpus déjà restreint, où chaque exemple retiré représente une perte proportionnellement plus significative.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un projet disposant de seulement 500 exemples bruts au total, comment cette contrainte de volume devrait-elle influencer la sévérité du filtrage de qualité appliqué, par rapport à un projet disposant de 50 000 exemples ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l4" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 1.4</span>Où se situe cette étape dans le pipeline complet</h2>
+
+        <p>Rappel du pipeline complet établi au cours 20 (module 1, leçon 1.4) et précisé au cours 21 (module 1, leçon 1.4) : ce cours 22 traite l'étape 4 de ce pipeline, celle du filtrage de qualité, qui suit logiquement la détection de biais et de duplication déjà couverte.</p>
+
+        <div class="ascii">Rappel du pipeline complet, situant précisément ce cours :
+
+1. COLLECTE (cours 20, module 4)
+2. FORMATAGE (cours 20, modules 2-3, 6)
+3. NETTOYAGE ET DÉDUPLICATION
+   → Déduplication exacte (cours 20, module 5)
+   → Biais et quasi-duplication (cours 21)
+4. FILTRAGE DE QUALITÉ (CE COURS)
+   → Heuristiques rapides (module 2)
+   → Heuristiques avancées (module 3)
+   → LLM-as-judge (modules 4-5)
+   → Combinaison des deux approches (module 6)
+5. VALIDATION ET SPLIT FINAL (cours 20, module 7 ;
+   vérification de représentativité après filtrage,
+   module 7 de ce cours)
+6. ENTRAÎNEMENT (hors périmètre de cette série)</div>
+
+        <p>Ce positionnement en étape 4, après la déduplication, n'est pas arbitraire : filtrer la qualité avant d'avoir dédupliqué gaspillerait de l'effort de calcul (notamment pour le LLM-as-judge, coûteux — approfondi au module 5) sur des exemples qui seraient de toute façon retirés comme doublons. L'ordre du pipeline importe autant que chacune de ses étapes individuelles.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Appliquer un filtrage de qualité coûteux (en particulier via LLM-as-judge, approfondi aux modules 4-5) avant la déduplication déjà couverte au cours 21 — cet ordre gaspille des ressources de calcul à évaluer la qualité d'exemples redondants qui seront de toute façon supprimés, un gaspillage évitable par un simple réordonnancement du pipeline.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour le pipeline ci-dessus, que se passerait-il concrètement en termes de coût si le filtrage de qualité (étape 4) était exécuté avant la déduplication (étape 3) plutôt qu'après ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l5" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 1.5</span>Erreurs courantes de filtrage</h2>
+
+        <p>Cette dernière leçon du module recense les erreurs les plus fréquentes lors du filtrage de qualité, approfondies individuellement dans les modules suivants.</p>
+
+        <h3>Erreur 1 : se reposer uniquement sur des heuristiques simples</h3>
+        <p>Des critères simples (longueur, formatage) détectent certains problèmes évidents mais manquent les problèmes de fond comme l'incorrection factuelle — approfondi aux modules 2-3.</p>
+
+        <h3>Erreur 2 : utiliser le LLM-as-judge sans validation de sa fiabilité</h3>
+        <p>Faire confiance aveuglément à un modèle juge sans jamais vérifier son accord avec un jugement humain de référence — approfondi au module 5, leçon 5.4.</p>
+
+        <h3>Erreur 3 : filtrer sans vérifier l'impact sur la représentativité</h3>
+        <p>Un filtrage de qualité peut retirer disproportionnellement des exemples d'une catégorie spécifique, réintroduisant un biais que le cours 21 avait pourtant corrigé — approfondi au module 7, leçon 7.1.</p>
+
+        <h3>Erreur 4 : ne jamais documenter ni faire évoluer les critères de filtrage</h3>
+        <p>Fixer des critères une seule fois sans les réviser à mesure que le projet évolue — approfondi au module 7, leçons 7.3-7.4.</p>
+
+        <div class="ascii">Les quatre erreurs à éviter, résumées :
+
+1. HEURISTIQUES SEULES              →  Problèmes de fond non détectés
+2. JUGE NON VALIDÉ                    →  Confiance mal placée dans le filtrage
+3. IMPACT SUR REPRÉSENTATIVITÉ IGNORÉ →  Biais réintroduit après cours 21
+4. CRITÈRES FIGÉS ET NON DOCUMENTÉS    →  Dérive silencieuse au fil du temps</div>
+
+        <p>Les modules suivants traitent chacune de ces erreurs : les modules 2-3 détaillent les heuristiques (simples puis avancées), les modules 4-5 le LLM-as-judge et sa validation, le module 6 la combinaison des approches, et le module 7 la vérification de représentativité et la gouvernance dans le temps.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer le filtrage de qualité comme une opération purement technique et mécanique, alors qu'elle implique des arbitrages (rappel leçon 1.3, volume vs qualité) qui devraient être des décisions conscientes et documentées, pas seulement le résultat d'un script exécuté une seule fois sans réflexion sur ses critères.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de synthèse</strong>
+          Pour clore ce module : parmi les quatre erreurs listées, laquelle vous semble la plus probable dans un projet que vous avez connu ou pourriez rencontrer — et pourquoi ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-2">
+      <span class="module-kicker">MODULE 02 / 08</span>
+      <h1>Heuristiques de qualité — critères simples et rapides</h1>
+      <p class="intro">Ce module détaille les techniques de filtrage les plus simples et les moins coûteuses en calcul — un premier niveau de filtrage à appliquer systématiquement avant de recourir à des méthodes plus sophistiquées (modules 3 à 5), une stratégie de cascade approfondie au module 6.</p>
+
+      <section class="lesson" id="m2-l1" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 2.1</span>Longueur et complétude</h2>
+
+        <p>Rappel direct du cours 20 (module 5, leçon 5.2, sur la gestion de la longueur) : au-delà de la simple limite de tokens déjà traitée, la longueur d'un exemple peut aussi signaler un problème de qualité — une réponse anormalement courte peut indiquer une réponse tronquée ou évasive, une réponse anormalement longue peut signaler une génération qui dérive ou se répète.</p>
+
+        <pre><code class="language-python">def filtrer_par_longueur(exemples: list[dict], longueur_min_mots: int = 3,
+                           longueur_max_mots: int = 500) -> tuple[list, list]:
+    """Rappel cours 20, module 5, leçon 5.2 — ici appliqué non pas
+    à la limite de TOKENS du modèle, mais à des bornes de QUALITÉ :
+    une réponse trop courte est souvent incomplète, une réponse
+    trop longue pour une instruction simple signale une dérive."""
+    acceptes, rejetes = [], []
+    for ex in exemples:
+        nombre_mots = len(ex["output"].split())
+        if longueur_min_mots <= nombre_mots <= longueur_max_mots:
+            acceptes.append(ex)
+        else:
+            rejetes.append({"exemple": ex, "raison": f"longueur hors bornes: {nombre_mots} mots"})
+    return acceptes, rejetes
+</code></pre>
+
+        <div class="ascii">Ce qu'une longueur anormale peut signaler :
+
+RÉPONSE TROP COURTE                        RÉPONSE TROP LONGUE
+────────────────────────                   ────────────────────────
+Réponse tronquée lors de la                 Génération qui dérive hors
+collecte (rappel cours 20,                  sujet ou se répète (rappel
+module 4, sur les logs)                     module 2, leçon 2.3, sur ce
+                                           module)
+Réponse évasive qui n'apporte
+pas vraiment l'information                  Réponse qui inclut du contenu
+demandée ("Je ne sais pas.")                superflu non pertinent pour
+                                           l'instruction posée</div>
+
+        <p>Ce filtre par longueur ne devrait jamais être le seul critère appliqué : une réponse courte peut être parfaitement appropriée pour une instruction qui appelle une confirmation brève (rappel cours 20, module 2, leçon 2.3) — le seuil de longueur doit être calibré selon la nature attendue des réponses, pas appliqué comme une règle universelle sans contexte.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Appliquer un seuil de longueur minimale uniforme à l'ensemble d'un dataset hétérogène (mélangeant confirmations brèves et explications détaillées, rappel cours 20, module 6, leçon 6.1), rejetant à tort des réponses courtes mais parfaitement appropriées à leur instruction.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un dataset mêlant des tâches de classification (réponses très courtes, rappel cours 20, module 6, leçon 6.4) et de rédaction (réponses longues), comment adapteriez-vous le filtre de longueur pour éviter de pénaliser injustement les classifications ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l2" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 2.2</span>Cohérence structurelle et formatage</h2>
+
+        <p>Rappel direct du cours 20 (modules 2-3, sur le format instruction/réponse et JSONL) : au-delà de la validation structurelle déjà couverte, un exemple peut être JSONL valide et structurellement conforme tout en présentant des signes de mauvaise qualité rédactionnelle — un format cassé à l'intérieur même du texte de la réponse.</p>
+
+        <pre><code class="language-python">import re
+
+def detecter_formatage_casse(texte: str) -> list[str]:
+    """Détecte des artefacts de formatage cassé À L'INTÉRIEUR du
+    texte d'une réponse — distinct de la validation JSONL globale
+    déjà couverte au cours 20, module 3, qui vérifie la structure
+    du FICHIER, pas la qualité rédactionnelle du CONTENU."""
+    problemes = []
+    if re.search(r"\[object Object\]|undefined|null(?!\w)", texte):
+        problemes.append("artefact de sérialisation visible dans le texte")
+    if re.search(r"(\*\*|##|```){3,}", texte):
+        problemes.append("balisage markdown répété de façon suspecte")
+    if texte.count("(") != texte.count(")") or texte.count("[") != texte.count("]"):
+        problemes.append("parenthèses ou crochets non équilibrés")
+    return problemes
+</code></pre>
+
+        <div class="ascii">Différence entre validation JSONL (cours 20) et détection de
+formatage cassé (cette leçon) :
+
+VALIDATION JSONL (cours 20, module 3)      DÉTECTION DE FORMATAGE CASSÉ (ici)
+────────────────────────────────           ────────────────────────────────
+Vérifie que le FICHIER respecte             Vérifie que le CONTENU de la
+la structure JSONL (une ligne =             réponse elle-même ne contient
+un objet JSON valide)                       pas d'artefacts révélant un
+                                           problème de génération ou de
+Un exemple peut être JSONL                  collecte (rappel des artefacts
+PARFAITEMENT valide tout en                  déjà rencontrés au cours 20,
+contenant, DANS le texte de sa               module 5, leçon 5.1)
+réponse, un artefact de
+formatage cassé</div>
+
+        <p>Ce type de problème provient fréquemment d'artefacts de collecte déjà évoqués au cours 20 (module 5, leçon 5.1) qui auraient échappé au nettoyage initial — cette heuristique constitue un filet de sécurité complémentaire, pas un remplacement du nettoyage déjà effectué en amont du pipeline.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Se contenter de la validation JSONL du cours 20 en supposant qu'un fichier structurellement valide garantit l'absence de tout problème de formatage — un exemple peut passer cette validation tout en contenant, dans le texte même de sa réponse, des artefacts qui trahissent une génération ou une extraction défaillante.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Au-delà des trois vérifications de la fonction ci-dessus, quel autre artefact de formatage cassé pourrait apparaître dans un dataset construit à partir de documents extraits (rappel cours 14-15) ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l3" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 2.3</span>Détection de contenu répétitif ou dégénéré</h2>
+
+        <p>Un problème fréquent, en particulier pour des exemples issus de génération synthétique (rappel cours 20, module 4, leçon 4.3) : un texte qui se répète en boucle ou dégénère en une suite de mots peu informative — un signe classique de défaillance de génération plutôt que de contenu réellement voulu.</p>
+
+        <pre><code class="language-python">def detecter_repetition_degeneree(texte: str, taille_ngramme: int = 4, seuil_repetition: float = 0.3) -> bool:
+    """Rappel module 4, leçon 4.2 du cours 21 sur les n-grammes
+    — même technique appliquée ici pour détecter la répétition
+    À L'INTÉRIEUR d'un seul texte, plutôt qu'entre plusieurs
+    exemples différents."""
+    mots = texte.lower().split()
+    if len(mots) < taille_ngramme * 2:
+        return False
+    ngrammes = [tuple(mots[i:i+taille_ngramme]) for i in range(len(mots) - taille_ngramme + 1)]
+    ngrammes_uniques = len(set(ngrammes))
+    taux_repetition = 1 - (ngrammes_uniques / len(ngrammes))
+    return taux_repetition > seuil_repetition
+</code></pre>
+
+        <div class="ascii">Exemple de contenu dégénéré que cette heuristique détecterait :
+
+"Le produit est très bien, le produit est très bien, le
+produit est très bien et je le recommande, le produit est
+très bien..."
+
+→ Un taux de répétition de n-grammes anormalement élevé
+  signale ce type de dégénérescence — un pattern fréquent
+  quand un modèle générateur (rappel cours 20, module 4,
+  leçon 4.3) entre dans une boucle répétitive, ou quand un
+  paramètre de génération est mal configuré</div>
+
+        <p>Cette technique rejoint directement celle déjà établie au cours 21 (module 4, leçon 4.2) pour la quasi-duplication, mais appliquée ici à l'intérieur d'un seul texte plutôt qu'entre plusieurs exemples — une réutilisation du même principe de n-grammes pour un objectif de détection différent.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Confondre une répétition légitime (une liste énumérative structurée, un refrain intentionnel dans un texte créatif) avec une répétition dégénérée révélant un problème de génération — le seuil de cette heuristique devrait être calibré pour distinguer ces deux cas, plutôt que de rejeter systématiquement tout texte contenant une forme de répétition.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un dataset d'exemples de rédaction créative où certaines répétitions stylistiques seraient intentionnelles, comment calibreriez-vous le seuil de cette heuristique pour éviter de rejeter à tort ces cas légitimes ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l4" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 2.4</span>Filtres lexicaux et de toxicité de base</h2>
+
+        <p>Cette leçon traite un premier niveau de filtrage pour du contenu potentiellement problématique (langage inapproprié, contenu toxique) — un filtre lexical simple, à distinguer d'une évaluation de toxicité plus sophistiquée qui relèverait du LLM-as-judge (module 4).</p>
+
+        <pre><code class="language-python">MOTS_INTERDITS = {"...", "..."}  # liste à adapter au contexte du projet
+
+def filtrer_lexical_basique(texte: str) -> list[str]:
+    """Un premier filtre RAPIDE et PEU COÛTEUX, à base de liste
+    de termes — volontairement simpliste, complété par une
+    évaluation plus nuancée via LLM-as-judge si nécessaire
+    (rappel module 6, sur l'architecture en cascade)."""
+    texte_normalise = texte.lower()
+    return [mot for mot in MOTS_INTERDITS if mot in texte_normalise]
+</code></pre>
+
+        <div class="ascii">Rôle et limite de ce filtre lexical basique :
+
+RÔLE                                       LIMITE
+────────────────────────                   ────────────────────────
+Élimine RAPIDEMENT et à FAIBLE              Ne capture pas le contenu
+COÛT les cas les plus évidents               toxique EXPRIMÉ SANS les
+et grossiers                                termes explicitement
+                                           listés (contournement,
+Premier filtre d'une cascade                 sous-entendus, ironie)
+(rappel module 6) avant des
+méthodes plus coûteuses et plus              Une évaluation plus fine
+nuancées                                    nécessite le LLM-as-judge
+                                           (module 4), capable de
+                                           comprendre le CONTEXTE et
+                                           l'INTENTION, pas seulement
+                                           la présence de mots isolés</div>
+
+        <p>Ce filtre reste volontairement basique : il sert de premier niveau économique dans une architecture en cascade (approfondie au module 6), pas de solution complète à lui seul — un contenu problématique peut très bien être exprimé sans utiliser aucun terme explicitement listé, un cas qui nécessite une évaluation contextuelle plus poussée.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer qu'un filtre lexical basé sur une liste de termes interdits suffit à garantir l'absence de contenu problématique dans un dataset — ce type de filtre manque systématiquement le contenu problématique exprimé sans les termes explicitement listés, un angle mort que seule une évaluation contextuelle (module 4) peut réduire.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un dataset destiné à un agent de support client, quel type de contenu problématique un filtre lexical simple risquerait-il de manquer, qui nécessiterait une évaluation plus contextuelle ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l5" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 2.5</span>Limites des heuristiques — ce qu'elles ne peuvent pas capturer</h2>
+
+        <p>Cette dernière leçon du module synthétise une limite fondamentale, commune à toutes les heuristiques vues jusqu'ici : elles opèrent sur des signaux de <strong>surface</strong> (longueur, formatage, répétition, présence de termes), jamais sur le <strong>sens</strong> ou la <strong>correction factuelle</strong> du contenu.</p>
+
+        <div class="ascii">Ce que les heuristiques de ce module PEUVENT détecter :
+
+Longueur anormale (leçon 2.1)
+Formatage cassé visible dans le texte (leçon 2.2)
+Répétition ou dégénérescence textuelle (leçon 2.3)
+Présence de termes explicitement problématiques (leçon 2.4)
+
+Ce qu'AUCUNE de ces heuristiques ne peut détecter :
+
+Une réponse FACTUELLEMENT INCORRECTE mais bien formulée,
+de longueur appropriée, sans répétition ni terme problématique
+
+Une réponse qui NE RÉPOND PAS RÉELLEMENT à l'instruction posée,
+tout en étant elle-même de bonne qualité rédactionnelle isolée
+
+Une INCOHÉRENCE subtile entre l'instruction et la réponse,
+compréhensible seulement en interprétant le SENS des deux</div>
+
+        <p>Cette limite structurelle des heuristiques — aussi sophistiquées deviennent-elles au module 3 — motive directement le recours au LLM-as-judge (modules 4-5) : seule une évaluation capable de comprendre le sens du contenu, pas seulement sa forme de surface, peut détecter ces problèmes de fond. Les heuristiques restent précieuses comme premier filtre rapide et économique, jamais comme solution complète et suffisante à elles seules.</p>
+
+        <div class="ascii">Ce module clôt la partie "heuristiques simples" du cours. Le
+module suivant approfondit des heuristiques plus sophistiquées,
+encore fondées sur des signaux statistiques plutôt que sur une
+compréhension sémantique complète, avant d'aborder le LLM-as-judge
+aux modules 4-5.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer qu'empiler suffisamment d'heuristiques de surface (longueur, formatage, répétition, lexique) finira par approximer une évaluation de qualité complète — ces heuristiques, quel que soit leur nombre, resteront toujours aveugles au sens et à la correction factuelle du contenu, une limite structurelle qu'aucun raffinement de surface ne peut dépasser.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de synthèse</strong>
+          Pour clore ce module : décrivez un exemple d'entraînement qui passerait avec succès les quatre heuristiques de ce module (longueur, formatage, répétition, lexique) tout en étant de très mauvaise qualité au sens de la leçon 1.1.
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-3">
+      <span class="module-kicker">MODULE 03 / 08</span>
+      <h1>Heuristiques avancées et signaux statistiques</h1>
+      <p class="intro">Ce module approfondit des techniques de filtrage plus sophistiquées que celles du module 2, encore fondées sur des signaux statistiques ou des modèles de scoring, sans recourir à un LLM complet comme juge (réservé aux modules 4-5) — un niveau intermédiaire de la cascade de filtrage.</p>
+
+      <section class="lesson" id="m3-l1" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 3.1</span>La perplexité comme signal de qualité</h2>
+
+        <p>Rappel direct du cours 16 (tokenization) : la <strong>perplexité</strong> mesure à quel point un texte est "surprenant" ou "attendu" pour un modèle de langage — un texte très cohérent et bien formé a généralement une perplexité basse, tandis qu'un texte incohérent, dégénéré, ou dans une langue inattendue produit une perplexité anormalement élevée.</p>
+
+        <pre><code class="language-python">def calculer_perplexite(texte: str, modele_reference) -> float:
+    """Rappel cours 16 sur la tokenization — la perplexité
+    s'appuie sur les probabilités que le modèle assigne à
+    chaque token suivant, étant donné les précédents. Un texte
+    incohérent produit des probabilités faibles et donc une
+    perplexité élevée."""
+    tokens = modele_reference.tokenizer.encode(texte)
+    log_probabilites = modele_reference.calculer_log_probabilites(tokens)
+    perplexite = math.exp(-sum(log_probabilites) / len(log_probabilites))
+    return perplexite
+</code></pre>
+
+        <div class="ascii">Interprétation de la perplexité comme signal de filtrage :
+
+PERPLEXITÉ BASSE                          PERPLEXITÉ ÉLEVÉE
+────────────────────────                   ────────────────────────
+Texte cohérent, bien formé,                 Texte incohérent, dégénéré
+suivant les patterns naturels                (rappel module 2, leçon 2.3),
+du langage                                  mélange de langues inattendu,
+                                           ou contenu très atypique
+Signal RASSURANT mais PAS
+suffisant — un texte cohérent                Signal d'ALERTE à investiguer,
+peut malgré tout être                        mais pas une preuve absolue de
+factuellement incorrect                      mauvaise qualité (un texte
+                                           technique spécialisé peut aussi
+                                           avoir une perplexité élevée)</div>
+
+        <p>Cette nuance est essentielle : la perplexité mesure la <strong>fluidité linguistique</strong>, pas la <strong>correction factuelle</strong> ni la <strong>pertinence</strong> — rappel de la limite déjà établie à la leçon 2.5, un texte parfaitement fluide peut être entièrement faux, et un texte techniquement dense (jargon spécialisé légitime) peut présenter une perplexité élevée sans être de mauvaise qualité pour autant.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Utiliser la perplexité comme seul critère de qualité, en supposant qu'un texte fluide est nécessairement correct — la perplexité est un indicateur de forme linguistique, pas de vérité factuelle ; un texte peut être parfaitement fluide tout en étant complètement erroné sur le fond.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un dataset technique spécialisé (par exemple, en droit ou en médecine), pourquoi un seuil de perplexité calibré sur un corpus généraliste risquerait-il de rejeter à tort des exemples légitimes de ce domaine ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l2" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 3.2</span>Cohérence entre instruction et réponse</h2>
+
+        <p>Cette leçon traite un signal plus ciblé que la perplexité globale : vérifier spécifiquement que la réponse d'un exemple correspond bien à ce que son instruction demandait — un problème de <strong>pertinence</strong> (rappel des quatre dimensions de la leçon 1.1) plutôt que de fluidité pure.</p>
+
+        <pre><code class="language-python">def calculer_similarite_instruction_reponse(exemple: dict) -> float:
+    """Rappel cours 10 (embeddings) — une similarité TRÈS FAIBLE
+    entre l'embedding de l'instruction et celui de la réponse peut
+    signaler que la réponse ne traite pas réellement le sujet
+    demandé (bien qu'une similarité élevée ne garantisse pas non
+    plus la pertinence, une question et sa réponse n'étant pas
+    censées être identiques)."""
+    embedding_instruction = calculer_embedding(exemple["instruction"])
+    embedding_reponse = calculer_embedding(exemple["output"])
+    return similarite_cosinus(embedding_instruction, embedding_reponse)
+</code></pre>
+
+        <div class="ascii">Limite de cette mesure, à bien comprendre avant de l'utiliser :
+
+Une instruction et sa réponse NE SONT PAS censées être
+sémantiquement identiques ("Quelle est la capitale de la
+France ?" et "Paris" ont une similarité d'embedding modérée,
+pas élevée, bien que la réponse soit parfaitement correcte)
+
+→ Cette mesure sert à détecter les cas EXTRÊMES : une
+  similarité anormalement basse par rapport à la distribution
+  typique du dataset peut signaler une réponse totalement
+  hors sujet — pas à établir un seuil absolu de "bonne"
+  similarité applicable à tout type de tâche</div>
+
+        <p>Cette nuance rejoint un principe déjà établi au cours 21 (module 3, leçon 3.1, sur les statistiques descriptives) : plutôt qu'un seuil absolu, cette mesure devrait être interprétée par rapport à la distribution observée sur l'ensemble du dataset — un exemple avec une similarité très en dehors de cette distribution mérite une investigation, pas un rejet automatique basé sur un seuil arbitraire.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Fixer un seuil de similarité instruction/réponse unique et universel sans tenir compte du type de tâche — une tâche de reformulation (haute similarité attendue) et une tâche de question-réponse factuelle (similarité modérée normale) ont des distributions naturellement différentes, qu'un seuil unique traiterait à tort de façon identique.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un dataset mêlant des tâches de reformulation et des tâches de question-réponse factuelle (rappel cours 20, module 6), comment adapteriez-vous cette mesure pour tenir compte de leurs distributions naturellement différentes ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l3" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 3.3</span>Signaux de qualité basés sur des modèles de scoring dédiés</h2>
+
+        <p>Au-delà des mesures génériques des leçons précédentes, il existe des modèles spécifiquement entraînés pour attribuer un score de qualité à un texte — plus légers et rapides à exécuter qu'un LLM complet utilisé comme juge (modules 4-5), tout en capturant davantage de nuance qu'une simple heuristique de surface (module 2).</p>
+
+        <div class="ascii">Positionnement des modèles de scoring dédiés dans la cascade :
+
+HEURISTIQUES SIMPLES         MODÈLES DE SCORING          LLM-AS-JUDGE
+(module 2)                    DÉDIÉS (cette leçon)         (modules 4-5)
+────────────────────          ────────────────────          ────────────────────
+Règles explicites,             Modèle léger entraîné          Modèle de langage
+très rapides                   pour une tâche de               complet, capable de
+                              scoring spécifique               raisonnement et de
+Aucune compréhension                                        jugement contextuel
+sémantique                     Plus rapide et moins
+                              coûteux qu'un LLM complet        Le plus coûteux et
+                                                             le plus lent, mais
+                              Moins flexible et moins          le plus capable
+                              nuancé qu'un jugement
+                              contextuel complet</div>
+
+        <pre><code class="language-python">def scorer_avec_modele_dedie(exemples: list[dict], modele_scoring) -> list[dict]:
+    """Un modèle de scoring dédié (souvent un classifieur léger
+    entraîné spécifiquement pour évaluer la qualité) traite un
+    grand volume d'exemples rapidement, un compromis entre les
+    heuristiques du module 2 et le LLM-as-judge des modules 4-5."""
+    for exemple in exemples:
+        exemple["score_qualite_modele"] = modele_scoring.predire(
+            exemple["instruction"], exemple["output"]
+        )
+    return exemples
+</code></pre>
+
+        <p>Ce niveau intermédiaire de la cascade constitue une option pertinente quand le volume de données est trop important pour justifier un LLM-as-judge sur l'intégralité du dataset (rappel du coût abordé au module 5, leçon 5.3), tout en nécessitant plus de nuance que les heuristiques du module 2 — un compromis pratique plutôt qu'une nécessité pour tous les projets.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Ignorer complètement cette option intermédiaire en pensant qu'il n'existe que deux choix — heuristiques basiques ou LLM-as-judge complet — alors qu'un modèle de scoring dédié peut offrir un compromis pratique de coût et de nuance pour des datasets de très grand volume.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un dataset d'un million d'exemples, pourquoi un modèle de scoring dédié serait-il probablement plus praticable qu'un LLM-as-judge appliqué à l'intégralité du dataset ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l4" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 3.4</span>Combiner plusieurs heuristiques en un score composite</h2>
+
+        <p>Plutôt que d'appliquer chaque heuristique des modules 2-3 comme un filtre binaire indépendant, cette leçon traite comment les combiner en un <strong>score composite</strong> unique, permettant un classement plus nuancé des exemples selon leur qualité globale estimée.</p>
+
+        <pre><code class="language-python">def calculer_score_composite(exemple: dict, poids: dict) -> float:
+    """Combine plusieurs signaux en un score UNIQUE et pondéré —
+    plus flexible qu'une série de filtres binaires indépendants,
+    permet de distinguer un exemple 'limite' d'un exemple
+    clairement problématique sur PLUSIEURS dimensions à la fois."""
+    score_longueur = 1.0 if longueur_dans_bornes(exemple) else 0.0
+    score_repetition = 1.0 - detecter_taux_repetition(exemple["output"])
+    score_perplexite = normaliser_perplexite_inverse(calculer_perplexite(exemple["output"], MODELE_REF))
+    score_coherence = calculer_similarite_instruction_reponse(exemple)
+
+    return (poids["longueur"] * score_longueur +
+            poids["repetition"] * score_repetition +
+            poids["perplexite"] * score_perplexite +
+            poids["coherence"] * score_coherence)
+</code></pre>
+
+        <div class="ascii">Avantage d'un score composite sur une série de filtres binaires
+indépendants (rappel modules 2-3) :
+
+FILTRES BINAIRES INDÉPENDANTS               SCORE COMPOSITE PONDÉRÉ
+────────────────────────────────            ────────────────────────────────
+Un exemple qui échoue LÉGÈREMENT             Un exemple légèrement faible
+sur UN SEUL critère est rejeté               sur un critère mais fort sur
+de la même façon qu'un exemple                les autres obtient un score
+qui échoue sur PLUSIEURS critères             GLOBAL différent d'un exemple
+à la fois — perte de nuance                  faible sur plusieurs critères
+                                            à la fois
+
+Pas de CLASSEMENT possible entre             Permet un CLASSEMENT et un
+les exemples "acceptés"                      seuil de coupure ajustable
+                                            (approfondi module 6, leçon 6.4)</div>
+
+        <p>Cette approche par score composite prépare directement le module 6, qui traite comment combiner ce score avec l'évaluation du LLM-as-judge (modules 4-5) et fixer un seuil de décision final — le score composite de cette leçon n'est pas une fin en soi, mais un signal de plus à intégrer dans une architecture de filtrage globale.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Choisir des poids arbitraires pour combiner les différents signaux d'un score composite, sans les calibrer sur un échantillon annoté manuellement (rappel cours 20, module 4, leçon 4.4) — des poids mal calibrés peuvent donner une importance disproportionnée à un signal peu fiable au détriment d'un signal plus pertinent.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour la fonction ci-dessus, si vous deviez prioriser un seul des quatre signaux comme le plus fiable indicateur de qualité réelle, lequel choisiriez-vous, et pourquoi ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l5" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 3.5</span>Pièges des heuristiques avancées</h2>
+
+        <p>Cette dernière leçon du module recense des pièges spécifiques aux techniques statistiques avancées de ce module, en complément des principes déjà établis.</p>
+
+        <h3>Piège 1 : sur-interpréter un signal statistique comme une preuve définitive</h3>
+        <p>Rappel des leçons 3.1 et 3.2 : la perplexité et la similarité instruction/réponse sont des indicateurs à interpréter avec nuance, jamais des preuves absolues de qualité ou de défaut — un score anormal justifie une investigation, pas un rejet automatique sans vérification.</p>
+
+        <h3>Piège 2 : négliger la calibration sur le domaine spécifique du dataset</h3>
+        <p>Rappel des leçons 3.1 et 3.2 : un modèle de référence ou un seuil calibré sur un corpus généraliste peut mal s'appliquer à un domaine spécialisé, produisant des faux positifs ou faux négatifs systématiques.</p>
+
+        <h3>Piège 3 : considérer les heuristiques avancées comme suffisantes sans validation humaine</h3>
+        <p>Même les techniques les plus sophistiquées de ce module restent des signaux statistiques, pas une compréhension sémantique complète (rappel leçon 2.5) — une validation sur échantillon (rappel cours 20, module 4, leçon 4.4) reste nécessaire avant de généraliser un seuil de filtrage à l'ensemble du dataset.</p>
+
+        <div class="ascii">Ce module clôt la partie "heuristiques" du cours (modules 2-3).
+Le module suivant introduit le LLM-as-judge — une approche
+fondamentalement différente, capable d'une évaluation contextuelle
+et sémantique que les heuristiques statistiques ne peuvent
+structurellement pas atteindre.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer que l'accumulation d'heuristiques statistiques de plus en plus sophistiquées (perplexité, cohérence, scoring dédié, score composite) finit par égaler une évaluation sémantique complète — ces techniques, aussi raffinées soient-elles, restent fondées sur des signaux statistiques indirects, une limite structurelle que seule une évaluation par un modèle de langage complet (modules 4-5) peut dépasser.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de synthèse</strong>
+          Pour clore ce module : parmi les trois techniques avancées vues (perplexité, cohérence instruction/réponse, modèle de scoring dédié), laquelle vous semble la plus fiable pour un premier filtrage à grande échelle, avant un éventuel passage au LLM-as-judge ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-4">
+      <span class="module-kicker">MODULE 04 / 08</span>
+      <h1>Le principe du LLM-as-judge</h1>
+      <p class="intro">Ce module introduit une approche fondamentalement différente de celles des modules 2-3 : utiliser un modèle de langage lui-même pour évaluer la qualité d'un exemple d'entraînement, capable d'une compréhension contextuelle que les signaux statistiques ne peuvent structurellement pas atteindre.</p>
+
+      <section class="lesson" id="m4-l1" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 4.1</span>Qu'est-ce que le LLM-as-judge et pourquoi cette approche</h2>
+
+        <p>Le <strong>LLM-as-judge</strong> consiste à soumettre un exemple d'entraînement à un LLM, avec des instructions pour évaluer sa qualité selon des critères définis, plutôt que de générer une réponse. Rappel de la limite établie à la leçon 2.5 : cette approche comble précisément le vide laissé par les heuristiques, capable de juger le sens, la correction factuelle et la pertinence — pas seulement des signaux de surface.</p>
+
+        <div class="ascii">Ce que le LLM-as-judge peut évaluer, au-delà des heuristiques
+(modules 2-3) :
+
+CORRECTION FACTUELLE (rappel leçon 1.1)
+  Un LLM peut, dans une certaine mesure, vérifier si une
+  affirmation contenue dans une réponse est plausible ou
+  manifestement incorrecte — un jugement impossible pour
+  une heuristique statistique
+
+PERTINENCE RÉELLE
+  Un LLM peut comprendre si une réponse traite VRAIMENT le
+  sujet de l'instruction, au-delà d'une simple similarité
+  d'embedding (rappel module 3, leçon 3.2)
+
+QUALITÉ RÉDACTIONNELLE CONTEXTUELLE
+  Un LLM peut juger si le TON, le REGISTRE, la STRUCTURE
+  d'une réponse sont appropriés pour le contexte de
+  l'instruction posée</div>
+
+        <p>Cette capacité a un coût direct : chaque évaluation nécessite un appel à un modèle de langage, avec la latence et le coût monétaire que cela implique (rappel cours 18, sur les compromis de latence, approfondi au module 5, leçon 5.3) — un compromis à mettre en balance avec la rapidité et la gratuité relative des heuristiques des modules 2-3.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer le LLM-as-judge comme une solution miracle à appliquer systématiquement à l'intégralité d'un dataset sans réfléchir à son coût, alors qu'une architecture en cascade combinant heuristiques et LLM-as-judge (approfondie au module 6) offre généralement un bien meilleur compromis coût/qualité.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour les trois capacités listées ci-dessus (correction factuelle, pertinence, qualité contextuelle), laquelle vous semble la plus précieuse pour un dataset de support client, et pourquoi ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l2" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 4.2</span>Concevoir un prompt d'évaluation efficace</h2>
+
+        <p>Rappel direct du cours 17 (module 3, sur la conception de schémas pour guider un LLM) : le prompt soumis au modèle juge doit être conçu avec la même rigueur qu'un schéma de function calling — une description claire, sans ambiguïté, qui guide effectivement le jugement attendu.</p>
+
+        <pre><code class="language-python">PROMPT_EVALUATION = """Tu es un évaluateur de qualité pour un dataset
+d'entraînement de modèle de langage. Évalue l'exemple suivant selon
+les critères ci-dessous, et réponds UNIQUEMENT au format JSON demandé.
+
+Instruction : {instruction}
+Réponse à évaluer : {reponse}
+
+Critères d'évaluation :
+1. La réponse répond-elle réellement à l'instruction posée ?
+2. La réponse contient-elle des affirmations factuellement
+   douteuses ou vérifiables comme incorrectes ?
+3. La réponse est-elle rédigée de façon claire et cohérente ?
+
+Réponds au format JSON : {{"pertinent": bool, "facteurs_incorrects": bool,
+"clair": bool, "justification": str}}"""
+</code></pre>
+
+        <div class="ascii">Principes de conception déjà établis au cours 17, appliqués ici
+au prompt d'évaluation plutôt qu'à un schéma de fonction :
+
+DÉCOMPOSER EN CRITÈRES PRÉCIS (rappel module 4 de ce cours,
+sur les rubriques multi-critères) plutôt qu'une question
+unique et vague ("cet exemple est-il bon ?")
+
+DEMANDER UNE JUSTIFICATION (rappel du principe de traçabilité
+déjà établi au cours 19 sur les logs) — pas seulement un score
+brut, pour permettre une vérification humaine du raisonnement
+
+FORMAT DE SORTIE STRUCTURÉ ET CONTRAIGNANT (rappel cours 17,
+approfondi au module 5, leçon 5.2 de ce cours, sur le scoring
+structuré et sa validation)</div>
+
+        <p>La demande explicite de justification (le champ <code class="inline">justification</code>) rejoint un principe déjà établi au cours 19 sur les logs débogables : un score sans justification force une revérification manuelle complète en cas de désaccord, tandis qu'une justification explicite permet de comprendre rapidement le raisonnement du juge, même sans revalider l'exemple depuis zéro.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Concevoir un prompt d'évaluation vague ("évalue la qualité de cet exemple") sans décomposer en critères précis et sans exiger de format de sortie structuré — un tel prompt produit des évaluations peu cohérentes d'un exemple à l'autre, difficiles à agréger et à valider systématiquement.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour le prompt ci-dessus, quel critère supplémentaire ajouteriez-vous pour évaluer spécifiquement le risque de contenu problématique déjà évoqué au module 2, leçon 2.4 ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l3" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 4.3</span>Évaluation absolue vs comparative (pairwise)</h2>
+
+        <p>Deux modes d'évaluation existent pour le LLM-as-judge, avec des compromis différents en termes de fiabilité et de coût.</p>
+
+        <div class="ascii">ÉVALUATION ABSOLUE                        ÉVALUATION COMPARATIVE (pairwise)
+(rappel prompt de la leçon 4.2)            ────────────────────────────────
+────────────────────────────────           Le juge compare DEUX exemples
+Le juge évalue UN exemple isolé,           entre eux et indique lequel est
+lui attribue un score ou un                 meilleur, plutôt que d'attribuer
+jugement indépendant                        un score absolu à chacun isolément
+
+Plus rapide (un seul exemple par           Souvent plus FIABLE : un LLM est
+appel), permet de traiter un                généralement plus cohérent pour
+grand volume                                juger "lequel des deux est
+                                           meilleur" que pour attribuer un
+Risque de dérive de calibration :           score absolu cohérent d'un
+le juge peut devenir plus ou                appel à l'autre
+moins sévère selon les exemples
+rencontrés successivement                  Plus coûteux : nécessite des
+                                           paires d'exemples et davantage
+                                           d'appels pour classer un
+                                           ensemble complet</div>
+
+        <p>L'évaluation comparative devient particulièrement utile pour départager des exemples "limites" (approfondi au module 6, leçon 6.4, sur la zone grise) : plutôt que de trancher isolément si un exemple dépasse un seuil absolu, comparer deux exemples proches en qualité peut donner un jugement plus fiable et plus facile à interpréter pour la personne qui valide ensuite ces décisions.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Utiliser exclusivement l'évaluation absolue pour l'ensemble d'un dataset, en négligeant que l'évaluation comparative, bien que plus coûteuse, offre souvent une fiabilité supérieure pour les décisions les plus difficiles à trancher — un compromis à envisager spécifiquement pour les cas limites plutôt que pour l'ensemble du dataset.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un dataset de 10 000 exemples, à quel sous-ensemble limiteriez-vous l'évaluation comparative (plus coûteuse) plutôt que de l'appliquer à l'ensemble du dataset ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l4" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 4.4</span>Rubriques d'évaluation multi-critères</h2>
+
+        <p>Rappel de la leçon 4.2, sur la décomposition en critères précis : cette leçon approfondit la conception d'une <strong>rubrique</strong> complète — un ensemble structuré de critères, chacun avec sa propre échelle, qui ensemble définissent ce que "bonne qualité" signifie précisément pour un projet donné.</p>
+
+        <table>
+          <thead><tr><th>Critère</th><th>Échelle</th><th>Ce qu'il capture</th></tr></thead>
+          <tbody>
+            <tr><td>Pertinence</td><td>0-2 (hors sujet / partiellement pertinent / pleinement pertinent)</td><td>La réponse traite-t-elle réellement l'instruction (rappel module 3, leçon 3.2) ?</td></tr>
+            <tr><td>Correction factuelle</td><td>0-2 (incorrect / partiellement incertain / correct)</td><td>Présence d'affirmations vérifiables comme fausses</td></tr>
+            <tr><td>Clarté rédactionnelle</td><td>0-2 (confus / acceptable / clair)</td><td>Cohérence et lisibilité de la réponse (rappel leçon 1.1)</td></tr>
+            <tr><td>Adéquation au ton attendu</td><td>0-2 (inadapté / acceptable / adapté)</td><td>Cohérence avec le registre attendu (rappel cours 20, module 2, leçon 2.4, sur le system prompt)</td></tr>
+          </tbody>
+        </table>
+
+        <p>Cette rubrique à échelle graduée (0-2 plutôt qu'un simple binaire acceptable/rejeté) permet une nuance similaire à celle déjà établie au module 3, leçon 3.4 sur le score composite : un exemple avec des scores de 2 sur trois critères mais de 0 sur le quatrième n'est pas traité de la même façon qu'un exemple à 0 sur tous les critères, une distinction utile pour la décision de seuil approfondie au module 6.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Concevoir une rubrique avec des critères qui se chevauchent ou se contredisent partiellement (par exemple, "pertinence" et "adéquation au sujet" mesurant essentiellement la même chose sous deux noms différents) — une rubrique efficace nécessite des critères clairement distincts, chacun capturant une dimension de qualité réellement différente des autres.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un dataset destiné à un modèle de function calling (rappel cours 17), quel critère spécifique ajouteriez-vous à cette rubrique, au-delà des quatre déjà listés ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l5" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 4.5</span>Limites et biais du LLM-as-judge</h2>
+
+        <p>Cette dernière leçon du module traite une réalité essentielle à intégrer avant d'adopter cette technique : un LLM utilisé comme juge n'est pas un arbitre parfait et objectif — il hérite de ses propres limites et biais, un point qui prépare directement la nécessité de calibration abordée au module 5, leçon 5.4.</p>
+
+        <div class="ascii">Limites et biais connus du LLM-as-judge :
+
+BIAIS DE LONGUEUR
+  Certains modèles juges tendent à favoriser les réponses
+  plus longues, indépendamment de leur qualité réelle —
+  un biais à surveiller explicitement lors de la calibration
+
+BIAIS DE POSITION (évaluation comparative, leçon 4.3)
+  Dans une comparaison pairwise, un modèle peut favoriser
+  systématiquement le premier ou le second exemple présenté,
+  indépendamment de son contenu réel
+
+INCOHÉRENCE ENTRE APPELS
+  Le même exemple, évalué deux fois séparément, peut recevoir
+  des scores légèrement différents — une variance à prendre
+  en compte plutôt qu'à ignorer
+
+LIMITES DE CONNAISSANCE DU MODÈLE JUGE LUI-MÊME
+  Un LLM ne peut vérifier la correction factuelle que dans les
+  limites de ses propres connaissances — il peut valider à
+  tort une affirmation incorrecte qu'il croit lui-même être vraie</div>
+
+        <p>Cette dernière limite mérite d'être soulignée : le LLM-as-judge ne constitue pas une vérité de référence absolue, mais un jugement lui-même faillible — d'où la nécessité, approfondie au module 5, leçon 5.4, de calibrer ce juge sur un échantillon annoté par des humains plutôt que de lui accorder une confiance aveugle simplement parce qu'il s'agit d'un modèle sophistiqué.</p>
+
+        <div class="ascii">Ce module clôt la partie "principes du LLM-as-judge" du cours.
+Le module suivant traite son implémentation technique concrète :
+comment structurer les appels, valider la sortie du juge, gérer
+le coût à grande échelle, et calibrer sa fiabilité.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Faire confiance aveuglément aux scores produits par un LLM-as-judge du simple fait qu'il s'agit d'un modèle sophistiqué, sans jamais vérifier son accord avec un jugement humain de référence — le LLM-as-judge est un outil puissant mais faillible, dont la fiabilité doit être validée empiriquement plutôt que supposée.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : parmi les quatre limites listées, laquelle vous semble la plus problématique pour un dataset de fine-tuning destiné à un domaine technique très spécialisé ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-5">
+      <span class="module-kicker">MODULE 05 / 08</span>
+      <h1>Implémenter un pipeline LLM-as-judge</h1>
+      <p class="intro">Ce module traite l'implémentation technique concrète du LLM-as-judge introduit au module 4 : comment structurer les appels, valider la sortie du juge, gérer le coût à grande échelle, et calibrer sa fiabilité — en s'appuyant directement sur les principes déjà établis au cours 17.</p>
+
+      <section class="lesson" id="m5-l1" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 5.1</span>Structurer les appels d'évaluation</h2>
+
+        <p>Rappel direct du cours 17 (module 4, sur les Structured Outputs) : plutôt que de demander une réponse en texte libre que le juge devrait ensuite interpréter, structurer l'appel d'évaluation avec un format de sortie contraint garantit une sortie directement exploitable par du code, sans étape de parsing fragile.</p>
+
+        <pre><code class="language-python">from pydantic import BaseModel, Field
+
+class EvaluationQualite(BaseModel):
+    """Rappel cours 17, module 4 — le même principe de sortie
+    structurée via Pydantic, appliqué ici à l'évaluation de
+    qualité plutôt qu'à un appel de fonction."""
+    pertinent: bool
+    facteurs_incorrects: bool
+    clair: bool
+    score_global: int = Field(ge=0, le=10)
+    justification: str
+
+def evaluer_exemple(exemple: dict, client_llm) -> EvaluationQualite:
+    reponse = client_llm.appeler_avec_sortie_structuree(
+        prompt=PROMPT_EVALUATION.format(
+            instruction=exemple["instruction"], reponse=exemple["output"]
+        ),
+        schema_sortie=EvaluationQualite,
+    )
+    return reponse
+</code></pre>
+
+        <div class="ascii">Pourquoi structurer l'appel plutôt que de parser du texte libre
+(rappel cours 17, module 4) :
+
+TEXTE LIBRE PARSÉ MANUELLEMENT              SORTIE STRUCTURÉE (Pydantic)
+────────────────────────────────            ────────────────────────────────
+Risque d'échec de parsing si le              Garantit une structure
+modèle dévie légèrement du format             conforme dès la sortie du
+attendu dans sa réponse                      modèle (rappel cours 17,
+                                            module 4, leçon 4.4, sur les
+Nécessite une logique de                     Structured Outputs)
+récupération d'erreur fragile
+                                            Erreurs de validation
+                                            détectées immédiatement,
+                                            gérées de façon cohérente
+                                            (rappel cours 17, module 4,
+                                            leçon 4.5)</div>
+
+        <p>Cette approche rejoint directement celle déjà établie au cours 17 pour le function calling : évaluer la qualité d'un exemple d'entraînement est, du point de vue de l'implémentation, structurellement identique à n'importe quel autre appel de fonction structuré — les mêmes principes de conception de schéma et de validation s'appliquent intégralement.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Demander au LLM juge une évaluation en texte libre puis tenter de la parser manuellement avec des expressions régulières fragiles — une approche qui échoue silencieusement dès que le modèle dévie légèrement du format attendu, un risque directement évitable en utilisant une sortie structurée comme au cours 17.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour le schéma <code class="inline">EvaluationQualite</code> ci-dessus, pourquoi la présence du champ <code class="inline">justification</code> à côté des champs booléens et du score reste-t-elle utile, même avec une sortie structurée ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l2" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 5.2</span>Scoring structuré et validation de la sortie du juge</h2>
+
+        <p>Rappel direct du cours 17 (module 4, sur la validation stricte des données générées) : la sortie d'un LLM juge, bien que structurée (leçon 5.1), reste une génération de modèle potentiellement défaillante — elle nécessite la même rigueur de validation que tout autre appel de fonction déjà couverte au cours 17.</p>
+
+        <pre><code class="language-python">def evaluer_avec_validation(exemple: dict, client_llm, max_tentatives: int = 2) -> EvaluationQualite | None:
+    """Rappel cours 17, module 4, leçon 4.5 — même stratégie de
+    retry face à un échec de validation, appliquée ici à
+    l'évaluation de qualité plutôt qu'à un appel de fonction
+    applicatif."""
+    for tentative in range(max_tentatives):
+        try:
+            return evaluer_exemple(exemple, client_llm)
+        except ValidationError as erreur:
+            journaliser_echec_evaluation(exemple, erreur, tentative)
+    return None  # après épuisement des tentatives, marquer pour revue manuelle
+</code></pre>
+
+        <div class="ascii">Ce qui devrait arriver si l'évaluation échoue après plusieurs
+tentatives (rappel cours 17, module 4, leçon 4.5, sur la gestion
+des échecs de validation) :
+
+NE JAMAIS accepter silencieusement un exemple par défaut
+en cas d'échec d'évaluation — cela reviendrait à ne PAS
+filtrer un exemple qui n'a en réalité jamais été évalué
+
+MARQUER EXPLICITEMENT pour une revue manuelle (rappel du
+principe déjà établi au cours 20, module 4, leçon 4.4) les
+exemples que le juge n'a pas pu évaluer correctement, plutôt
+que de les traiter comme automatiquement acceptés ou rejetés</div>
+
+        <p>Ce principe rejoint directement celui établi au cours 17 : un échec de validation ne devrait jamais être traité comme équivalent à un succès par défaut — un exemple dont l'évaluation échoue systématiquement mérite une attention particulière, potentiellement révélatrice d'un contenu atypique qui justifierait lui-même une vérification manuelle plutôt qu'un traitement automatique dans un sens ou dans l'autre.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Traiter un échec d'évaluation (après plusieurs tentatives) comme équivalent à une acceptation automatique de l'exemple, par simplicité d'implémentation — cette pratique laisse passer sans aucune évaluation réelle des exemples potentiellement problématiques, précisément ceux pour lesquels le juge a le plus de difficulté à se prononcer.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un exemple dont l'évaluation échoue de façon répétée après plusieurs tentatives, quelle hypothèse formuleriez-vous sur la nature de cet exemple, et comment le traiteriez-vous en pratique ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l3" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 5.3</span>Gérer le coût et la latence à grande échelle</h2>
+
+        <p>Rappel direct du cours 18 (sur les compromis de latence) et du cours 20 (module 7, leçon 7.4, sur l'estimation de coût) : évaluer chaque exemple d'un dataset volumineux via un LLM-as-judge représente un coût cumulatif significatif, à estimer et optimiser avant de lancer une évaluation à grande échelle.</p>
+
+        <pre><code class="language-python">def estimer_cout_evaluation(nombre_exemples: int, tokens_moyens_par_evaluation: int,
+                              cout_par_million_tokens: float) -> float:
+    """Rappel cours 20, module 7, leçon 7.4 — même principe
+    d'estimation de coût AVANT exécution, appliqué ici à
+    l'évaluation plutôt qu'à l'entraînement lui-même."""
+    total_tokens = nombre_exemples * tokens_moyens_par_evaluation
+    return (total_tokens / 1_000_000) * cout_par_million_tokens
+
+def evaluer_par_lots_paralleles(exemples: list[dict], client_llm, taille_lot: int = 20) -> list:
+    """Rappel cours 17, module 6, leçon 6.2, sur les appels en
+    parallèle — même principe appliqué ici pour accélérer
+    l'évaluation d'un grand volume d'exemples."""
+    resultats = []
+    for i in range(0, len(exemples), taille_lot):
+        lot = exemples[i:i + taille_lot]
+        resultats.extend(executer_en_parallele(
+            [lambda ex=ex: evaluer_avec_validation(ex, client_llm) for ex in lot]
+        ))
+    return resultats
+</code></pre>
+
+        <div class="ascii">Stratégies pour gérer le coût à grande échelle, en complément
+de la parallélisation ci-dessus :
+
+UTILISER UN MODÈLE JUGE MOINS COÛTEUX
+  Un modèle plus petit ou moins cher peut suffire pour le
+  jugement de qualité, même si un modèle plus puissant est
+  utilisé pour la génération elle-même — à valider par la
+  calibration de la leçon 5.4
+
+ÉVALUER UN ÉCHANTILLON REPRÉSENTATIF PLUTÔT QUE L'INTÉGRALITÉ
+  Rappel cours 20, module 4, leçon 4.4, sur l'échantillonnage
+  pour la revue manuelle — le même principe peut réduire le
+  coût du LLM-as-judge, au prix d'une couverture partielle
+
+COMBINER AVEC LES HEURISTIQUES DES MODULES 2-3 (approfondi
+au module 6) POUR NE SOUMETTRE AU JUGE QUE LES CAS INCERTAINS</div>
+
+        <p>Cette dernière stratégie — combiner heuristiques et LLM-as-judge — est précisément le sujet du module 6 : plutôt que d'opposer les deux approches, une architecture en cascade permet de limiter le nombre d'appels coûteux au juge aux seuls cas que les heuristiques n'ont pas pu trancher avec certitude.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Soumettre systématiquement l'intégralité d'un dataset volumineux au LLM-as-judge sans envisager de stratégie de réduction de coût (échantillonnage, cascade avec heuristiques, modèle juge moins coûteux) — un coût qui peut devenir prohibitif à grande échelle, alors que des stratégies simples permettent souvent de le réduire significativement sans sacrifier la qualité du filtrage.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un dataset de 200 000 exemples, estimez approximativement pourquoi une évaluation exhaustive par LLM-as-judge pourrait devenir coûteuse, et proposez une stratégie pour réduire ce coût sans sacrifier la couverture des cas les plus incertains.
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l4" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 5.4</span>Calibrer le juge sur un échantillon annoté humainement</h2>
+
+        <p>Rappel direct du cours 20 (module 4, leçon 4.4) et du cours 21 (module 4, leçon 4.4) : le même principe de calibration empirique déjà appliqué à la revue manuelle de dataset et au seuil de similarité de déduplication s'applique ici au LLM-as-judge — vérifier son accord avec un jugement humain de référence avant de lui faire confiance à grande échelle.</p>
+
+        <pre><code class="language-python">def calculer_accord_juge_humain(evaluations_juge: list[dict], evaluations_humaines: list[dict]) -> dict:
+    """Rappel cours 20, module 4, leçon 4.4 et cours 21, module 4,
+    leçon 4.4 — même principe de calibration empirique sur un
+    échantillon annoté, appliqué ici à la fiabilité du LLM-as-judge."""
+    accords = sum(1 for j, h in zip(evaluations_juge, evaluations_humaines)
+                  if j["score_global"] == h["score_global"])
+    return {
+        "taux_accord_exact": accords / len(evaluations_juge),
+        "nombre_exemples_compares": len(evaluations_juge),
+    }
+</code></pre>
+
+        <div class="ascii">Méthode de calibration recommandée :
+
+1. Sélectionner un ÉCHANTILLON REPRÉSENTATIF du dataset
+   (rappel cours 20, module 4, leçon 4.4)
+
+2. Faire évaluer CET ÉCHANTILLON par le LLM-as-judge ET par
+   une revue humaine INDÉPENDANTE, sans que l'un influence l'autre
+
+3. Calculer le TAUX D'ACCORD entre les deux — un accord élevé
+   (rappel des seuils de calibration déjà établis au cours 21,
+   module 4, leçon 4.4) valide la fiabilité du juge pour
+   l'ensemble du dataset
+
+4. Si l'accord est INSUFFISANT, réviser le PROMPT d'évaluation
+   (rappel leçon 4.2) plutôt que d'accepter un juge peu fiable
+   par défaut</div>
+
+        <p>Cette calibration ne devrait pas être un exercice ponctuel effectué une seule fois : rappel du principe déjà établi au cours 21 (module 7, leçon 7.3, sur l'intégration au cycle de vie), elle mérite d'être répétée périodiquement, en particulier si le prompt d'évaluation évolue ou si le modèle juge lui-même change de version.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Calibrer le LLM-as-judge une seule fois lors de sa mise en place initiale, sans jamais revérifier cet accord après une modification du prompt d'évaluation ou un changement de modèle juge — la fiabilité validée à un instant donné ne se transfère pas automatiquement à une configuration modifiée.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Si la calibration révèle un taux d'accord de seulement 60% entre le juge et les évaluateurs humains, quelle serait votre première hypothèse pour expliquer cet écart, et quelle action entreprendriez-vous ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l5" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 5.5</span>Pièges d'implémentation</h2>
+
+        <p>Cette dernière leçon du module recense des pièges spécifiques à l'implémentation technique du LLM-as-judge, en complément des principes déjà établis.</p>
+
+        <h3>Piège 1 : utiliser le même modèle pour générer et pour juger sans recul</h3>
+        <p>Un modèle utilisé à la fois pour générer les exemples synthétiques (rappel cours 20, module 4, leçon 4.3) et pour les juger peut présenter un biais de complaisance envers son propre style de génération — une considération à prendre en compte lors du choix du modèle juge.</p>
+
+        <h3>Piège 2 : ne pas versionner les évaluations avec le modèle juge utilisé</h3>
+        <p>Rappel du principe de documentation déjà établi au cours 20 (module 7, leçon 7.5) : une évaluation devrait toujours être associée à la version précise du modèle juge et du prompt utilisés, pour permettre de comprendre après coup pourquoi un jugement a pu différer entre deux évaluations successives.</p>
+
+        <h3>Piège 3 : négliger la gestion des erreurs d'API à grande échelle</h3>
+        <p>Rappel du cours 18 (module 7, sur la fiabilité et la gestion des erreurs) : à grande échelle, des appels individuels au LLM-as-judge échoueront inévitablement (timeout, erreur de service) — une stratégie de retry et de repli, déjà détaillée au cours 18, s'applique directement ici.</p>
+
+        <div class="ascii">Ce module clôt la partie "implémentation du LLM-as-judge" du
+cours. Le module suivant traite comment combiner cette technique
+avec les heuristiques des modules 2-3 en une architecture de
+filtrage unifiée et économiquement viable.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Traiter l'implémentation du LLM-as-judge comme un simple script isolé plutôt que comme un système en production nécessitant les mêmes garanties de fiabilité (gestion d'erreurs, versionnement, calibration continue) que tout autre composant critique du pipeline déjà établi dans cette série.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de synthèse</strong>
+          Pour clore ce module : parmi les trois pièges listés, lequel vous semble le plus facile à négliger lors d'une première implémentation, et pourquoi ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-6">
+      <span class="module-kicker">MODULE 06 / 08</span>
+      <h1>Combiner heuristiques et LLM-as-judge</h1>
+      <p class="intro">Ce module traite comment assembler les techniques des modules 2-3 (heuristiques) et 4-5 (LLM-as-judge) en une architecture de filtrage unifiée, qui exploite les forces de chaque approche plutôt que de les opposer.</p>
+
+      <section class="lesson" id="m6-l1" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 6.1</span>Architecture en cascade</h2>
+
+        <p>Rappel du principe déjà évoqué au module 5, leçon 5.3 : une <strong>architecture en cascade</strong> applique d'abord les filtres les moins coûteux (heuristiques), puis réserve le filtre le plus coûteux (LLM-as-judge) uniquement aux exemples qui n'ont pas pu être tranchés avec certitude par les étapes précédentes.</p>
+
+        <div class="ascii">Architecture en cascade complète :
+
+Dataset complet
+        │
+        ▼
+ÉTAGE 1 : Heuristiques simples (module 2)
+   Rejette immédiatement les cas ÉVIDENTS (longueur aberrante,
+   contenu dégénéré, termes interdits) — coût quasi nul
+        │
+        ▼ (exemples survivants)
+ÉTAGE 2 : Heuristiques avancées (module 3)
+   Score composite (perplexité, cohérence) — coût modéré,
+   calcul local sans appel à un LLM externe
+        │
+        ▼ (exemples encore incertains après l'étage 2)
+ÉTAGE 3 : LLM-as-judge (modules 4-5)
+   Évaluation contextuelle complète — coût le plus élevé,
+   réservé aux cas que les étages précédents n'ont PAS pu
+   trancher avec confiance</div>
+
+        <p>Cette architecture exploite une réalité pratique déjà pressentie au module 2, leçon 2.5 : la plupart des exemples d'un dataset bien construit ne posent pas de problème évident et peuvent être acceptés rapidement, tandis qu'une minorité seulement présente une ambiguïté qui justifie le coût d'une évaluation contextuelle complète — concentrer les ressources coûteuses là où elles apportent le plus de valeur.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Construire un pipeline où toutes les techniques (heuristiques et LLM-as-judge) s'exécutent en parallèle sur l'intégralité du dataset, plutôt qu'en cascade séquentielle — cette approche gaspille le coût du LLM-as-judge sur des exemples déjà clairement acceptables ou rejetables via les heuristiques peu coûteuses.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un dataset de 50 000 exemples où les heuristiques des modules 2-3 rejettent ou acceptent avec certitude 90% des cas, combien d'exemples nécessiteraient une évaluation par LLM-as-judge à l'étage 3 ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l2" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 6.2</span>Utiliser les heuristiques pour présélectionner les cas à envoyer au juge</h2>
+
+        <p>Cette leçon détaille précisément comment déterminer, à la sortie des étages heuristiques (module 2-3), quels exemples relèvent d'une décision suffisamment confiante et lesquels nécessitent l'étage 3 (LLM-as-judge) de la cascade établie à la leçon 6.1.</p>
+
+        <pre><code class="language-python">def determiner_cas_a_juger(exemple: dict, score_composite: float,
+                              seuil_acceptation: float = 0.85, seuil_rejet: float = 0.3) -> str:
+    """Rappel module 3, leçon 3.4, sur le score composite —
+    utilisé ici pour DÉCIDER si un exemple nécessite l'étage
+    coûteux du LLM-as-judge, plutôt que comme critère final
+    de filtrage à lui seul."""
+    if score_composite >= seuil_acceptation:
+        return "accepte_directement"  # confiance suffisante, pas besoin du juge
+    elif score_composite <= seuil_rejet:
+        return "rejete_directement"  # confiance suffisante, pas besoin du juge
+    else:
+        return "a_soumettre_au_juge"  # zone d'incertitude (approfondi leçon 6.4)
+</code></pre>
+
+        <div class="ascii">Ce que cette présélection accomplit concrètement :
+
+Un score composite (rappel module 3) TRÈS ÉLEVÉ ou TRÈS BAS
+indique une confiance suffisante pour trancher SANS le
+LLM-as-judge — les cas clairement bons ou clairement
+mauvais ne justifient pas ce coût supplémentaire
+
+Seule la ZONE INTERMÉDIAIRE, où les heuristiques ne
+permettent pas de trancher avec certitude, est soumise à
+l'évaluation contextuelle plus coûteuse et plus fiable du
+LLM-as-judge (modules 4-5)</div>
+
+        <p>Cette présélection repose directement sur le principe de score composite déjà établi au module 3, leçon 3.4 : plutôt qu'un simple seuil binaire, disposer d'un score continu permet de définir explicitement une "zone grise" (approfondie à la leçon 6.4) où l'incertitude justifie le recours à une méthode plus coûteuse mais plus fiable.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Fixer les seuils d'acceptation et de rejet directs de façon arbitraire, sans les calibrer sur la distribution réelle des scores composites du dataset (rappel module 3, leçon 3.4) — des seuils mal calibrés peuvent envoyer au juge une proportion d'exemples trop importante (coût excessif) ou trop faible (perte de fiabilité sur des cas réellement ambigus).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour la fonction ci-dessus, si l'analyse révèle que 60% des exemples tombent dans la zone "a_soumettre_au_juge", que cela suggérerait-il sur la qualité du score composite lui-même ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l3" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 6.3</span>Pondérer et fusionner plusieurs scores</h2>
+
+        <p>Pour les exemples ayant traversé l'ensemble de la cascade (heuristiques ET LLM-as-judge), cette leçon traite comment combiner ces différents scores en une décision finale unique, plutôt que de les traiter comme des filtres séquentiels indépendants.</p>
+
+        <pre><code class="language-python">def fusionner_scores_finaux(score_composite_heuristiques: float,
+                               evaluation_juge: EvaluationQualite,
+                               poids_juge: float = 0.7) -> float:
+    """Fusionne le score heuristique (module 3) et le jugement
+    du LLM-as-judge (modules 4-5) en un score final unique —
+    en accordant généralement PLUS de poids au juge, plus fiable
+    sur les dimensions sémantiques (rappel module 2, leçon 2.5),
+    tout en conservant l'information des heuristiques."""
+    score_juge_normalise = evaluation_juge.score_global / 10
+    score_juge_penalise = 0 if evaluation_juge.facteurs_incorrects else score_juge_normalise
+    return (poids_juge * score_juge_penalise +
+            (1 - poids_juge) * score_composite_heuristiques)
+</code></pre>
+
+        <div class="ascii">Pourquoi accorder un poids plus élevé au juge qu'aux
+heuristiques dans cette fusion (rappel module 2, leçon 2.5) :
+
+Les heuristiques mesurent des signaux de SURFACE (longueur,
+répétition, perplexité) — utiles mais structurellement
+limités
+
+Le LLM-as-judge évalue le SENS et la CORRECTION FACTUELLE
+— une dimension que les heuristiques ne peuvent pas
+atteindre, justifiant qu'il pèse davantage dans la décision
+finale quand les deux sont disponibles</div>
+
+        <p>La pénalisation explicite en cas de <code class="inline">facteurs_incorrects</code> détecté par le juge illustre un principe important : certains critères devraient agir comme des <strong>filtres éliminatoires</strong> plutôt que comme de simples composantes pondérées d'un score continu — une incorrection factuelle détectée ne devrait généralement pas être compensée par un bon score sur d'autres dimensions.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Fusionner tous les signaux (heuristiques et jugement du LLM) en une simple moyenne pondérée sans distinguer les critères éliminatoires (comme une incorrection factuelle avérée) des critères purement graduels — un bon score sur la clarté rédactionnelle ne devrait jamais compenser une erreur factuelle détectée, quel que soit le poids relatif attribué à chaque composante.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Au-delà de <code class="inline">facteurs_incorrects</code>, quel autre critère de la rubrique établie au module 4, leçon 4.4 mériterait de fonctionner comme un filtre éliminatoire plutôt que comme une simple composante pondérée ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l4" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 6.4</span>Fixer un seuil de rejet et gérer les cas limites (zone grise)</h2>
+
+        <p>Rappel de la leçon 6.2, sur la zone d'incertitude entre acceptation et rejet directs : une fois le score final calculé (leçon 6.3), un seuil de décision doit être fixé — et les cas qui restent proches de ce seuil, même après l'ensemble de la cascade, méritent un traitement spécifique plutôt qu'une décision automatique tranchée.</p>
+
+        <div class="ascii">Traitement des cas limites, même après la cascade complète :
+
+Score final CLAIREMENT au-dessus du seuil    →  ACCEPTÉ automatiquement
+Score final CLAIREMENT en-dessous du seuil    →  REJETÉ automatiquement
+Score final PROCHE du seuil de décision       →  ZONE GRISE : à part
+
+→ Rappel cours 20, module 4, leçon 4.4 — les exemples de la
+  ZONE GRISE constituent un candidat naturel pour une REVUE
+  MANUELLE ciblée, plutôt qu'une décision purement automatique
+  sur des cas où même le pipeline complet reste incertain</div>
+
+        <p>Cette approche rejoint directement un principe déjà établi tout au long de cette série (cours 20, module 4, leçon 4.4 ; cours 21, module 7, leçon 7.4) : l'automatisation ne devrait jamais prétendre trancher tous les cas avec la même confiance — identifier explicitement une zone grise, et y appliquer une vérification humaine ciblée, produit un résultat plus fiable qu'un seuil binaire appliqué uniformément à l'ensemble du dataset.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Appliquer un seuil de décision strictement binaire sur le score final, sans jamais identifier ni traiter spécifiquement les cas proches de ce seuil — cette pratique traite avec la même confiance apparente un exemple dont le score est nettement au-dessus du seuil et un exemple dont le score le dépasse à peine, alors que ces deux situations appellent un niveau de confiance très différent.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un score final variant de 0 à 1 avec un seuil de décision à 0.5, quelle plage autour de ce seuil (par exemple 0.45-0.55) définiriez-vous comme "zone grise" nécessitant une revue manuelle ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l5" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 6.5</span>Pièges de la combinaison</h2>
+
+        <p>Cette dernière leçon du module recense des pièges spécifiques à la combinaison de plusieurs méthodes de filtrage, en complément des principes déjà établis.</p>
+
+        <h3>Piège 1 : cascade mal ordonnée</h3>
+        <p>Rappel de la leçon 6.1 : placer une heuristique coûteuse avant une heuristique moins coûteuse mais tout aussi efficace pour éliminer les cas évidents gaspille des ressources — l'ordre de la cascade devrait toujours aller du moins coûteux au plus coûteux.</p>
+
+        <h3>Piège 2 : poids de fusion non calibrés (rappel leçon 6.3)</h3>
+        <p>Choisir arbitrairement le poids relatif entre heuristiques et jugement du LLM sans validation empirique sur un échantillon annoté — le même principe de calibration déjà établi au module 5, leçon 5.4, s'applique à la pondération de fusion, pas seulement à la fiabilité du juge pris isolément.</p>
+
+        <h3>Piège 3 : ignorer la zone grise plutôt que de la traiter explicitement</h3>
+        <p>Rappel de la leçon 6.4 : traiter tous les cas de la zone grise comme automatiquement rejetés "par prudence" plutôt que de les soumettre à une revue manuelle dédiée peut retirer inutilement des exemples en réalité acceptables, un coût en volume qui rejoint le compromis déjà établi à la leçon 1.3.</p>
+
+        <div class="ascii">Ce module clôt la partie "combinaison des méthodes" du cours.
+Le module suivant traite ce qui se passe APRÈS le filtrage : comment
+vérifier son impact réel sur le dataset et gouverner ce processus
+dans la durée.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Traiter systématiquement la zone grise comme un rejet automatique "par excès de prudence", plutôt que comme une invitation à une revue manuelle ciblée — cette pratique sacrifie inutilement du volume de données potentiellement acceptables au nom d'une prudence qui pourrait être résolue par une simple vérification humaine sur un nombre limité de cas.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de synthèse</strong>
+          Pour clore ce module : parmi les trois pièges listés, lequel aurait, selon vous, l'impact le plus significatif sur la qualité finale du dataset s'il n'était pas corrigé ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-7">
+      <span class="module-kicker">MODULE 07 / 08</span>
+      <h1>Validation, itération et gouvernance du filtrage</h1>
+      <p class="intro">Ce module traite ce qui se passe après l'application du filtrage (modules 2-6) : comment vérifier son impact réel, l'ajuster dans le temps, et le documenter — en s'appuyant directement sur les principes de gouvernance déjà établis aux cours 20 et 21.</p>
+
+      <section class="lesson" id="m7-l1" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 7.1</span>Vérifier la représentativité du dataset après filtrage</h2>
+
+        <p>Rappel direct du cours 21 (module 2, sur les types de biais) : un filtrage de qualité, aussi bien conçu soit-il, peut retirer disproportionnellement des exemples d'une catégorie spécifique — réintroduisant précisément le type de biais que le cours 21 avait pourtant traité, un risque qui motive cette vérification systématique après tout filtrage.</p>
+
+        <pre><code class="language-python">def verifier_representativite_post_filtrage(dataset_avant: list[dict], dataset_apres: list[dict],
+                                                champ_categorie: str) -> dict:
+    """Rappel cours 21, module 3, leçon 3.1 — même calcul
+    d'entropie de distribution, appliqué ici pour vérifier
+    l'IMPACT DIFFÉRENTIEL du filtrage de qualité sur chaque
+    catégorie, plutôt que sur le dataset dans son ensemble."""
+    taux_retention_par_categorie = {}
+    categories = set(ex[champ_categorie] for ex in dataset_avant)
+    for categorie in categories:
+        nombre_avant = sum(1 for ex in dataset_avant if ex[champ_categorie] == categorie)
+        nombre_apres = sum(1 for ex in dataset_apres if ex[champ_categorie] == categorie)
+        taux_retention_par_categorie[categorie] = nombre_apres / nombre_avant if nombre_avant else 0
+    return taux_retention_par_categorie
+</code></pre>
+
+        <div class="ascii">Ce qu'un taux de rétention hétérogène par catégorie révèle :
+
+Si le filtrage retient 90% des exemples de la catégorie A
+mais seulement 40% de la catégorie B, cela peut signaler :
+
+Un problème RÉEL de qualité spécifique à la catégorie B
+(par exemple, une source de collecte de moindre qualité
+pour cette catégorie précise, rappel cours 21, module 2,
+leçon 2.2, sur le biais de source)
+
+OU un biais du FILTRE LUI-MÊME (heuristiques ou LLM-as-judge)
+qui pénalise injustement le style ou la structure typique
+des exemples de cette catégorie, sans rapport avec leur
+qualité réelle</div>
+
+        <p>Cette double interprétation possible souligne l'importance de cette vérification : un taux de rétention hétérogène n'est pas automatiquement le signe d'un filtre défaillant, ni automatiquement la confirmation d'un problème de qualité réel dans la catégorie concernée — il déclenche une investigation, similaire à la démarche déjà établie au cours 21 (module 3, leçon 3.2) pour les corrélations suspectes.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Vérifier uniquement le taux de rétention global du dataset après filtrage (rappel leçon 1.3, sur le compromis volume/qualité), sans le décomposer par catégorie — un taux global acceptable peut masquer un déséquilibre significatif entre catégories, un problème invisible sans cette décomposition.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Si la vérification révèle que la catégorie "gestion de réclamation" a un taux de rétention de seulement 35% contre 85% pour les autres catégories, quelles hypothèses formuleriez-vous, et comment les départageriez-vous ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l2" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 7.2</span>Mesurer l'impact du filtrage sur taille et distribution</h2>
+
+        <p>Rappel direct du cours 21 (module 5, leçon 5.5, sur la comparaison avant/après déduplication) : le même principe de vérification quantitative s'applique ici au filtrage de qualité, en combinant plusieurs métriques déjà établies dans cette série.</p>
+
+        <pre><code class="language-python">def rapport_impact_filtrage(dataset_avant: list[dict], dataset_apres: list[dict]) -> dict:
+    """Rappel cours 21, module 5, leçon 5.5 — même principe de
+    comparaison avant/après, combiné ici avec les métriques
+    d'entropie déjà établies au cours 21, module 3."""
+    return {
+        "taille_avant": len(dataset_avant),
+        "taille_apres": len(dataset_apres),
+        "proportion_retiree": 1 - (len(dataset_apres) / len(dataset_avant)),
+        "entropie_avant": calculer_entropie_distribution(dataset_avant, "categorie"),
+        "entropie_apres": calculer_entropie_distribution(dataset_apres, "categorie"),
+        "retention_par_categorie": verifier_representativite_post_filtrage(
+            dataset_avant, dataset_apres, "categorie"),
+    }
+</code></pre>
+
+        <div class="ascii">Ce que ce rapport combiné permet de vérifier en une seule fois :
+
+VOLUME : le dataset final reste-t-il de taille suffisante
+pour l'objectif d'entraînement visé (rappel leçon 1.3) ?
+
+DISTRIBUTION GLOBALE : l'entropie s'est-elle dégradée après
+filtrage (rappel cours 21, module 3, leçon 3.1) ?
+
+DISTRIBUTION PAR CATÉGORIE : le filtrage a-t-il affecté
+certaines catégories disproportionnellement (leçon 7.1) ?</div>
+
+        <p>Ce rapport combiné, plutôt que des vérifications séparées et ponctuelles, permet une décision éclairée sur la suite à donner au filtrage : accepter le résultat tel quel, ajuster les seuils (module 6, leçon 6.4), ou revoir certains critères de filtrage (approfondi à la leçon 7.3) selon ce que ces métriques révèlent collectivement.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Examiner isolément chacune des métriques de ce rapport sans les croiser — un volume final acceptable et une entropie globale stable peuvent coexister avec un déséquilibre sévère d'une catégorie spécifique, visible seulement en combinant les trois dimensions de vérification.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un rapport montrant une proportion retirée de 15%, une entropie stable, mais un taux de rétention de 50% pour une seule catégorie sur six, quelle serait votre conclusion et votre prochaine action ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l3" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 7.3</span>Ajuster les critères de filtrage dans le temps</h2>
+
+        <p>Rappel direct du cours 20 (module 6, leçon 6.5, sur la boucle de feedback) : les critères de filtrage ne devraient jamais être figés une fois pour toutes — ils méritent d'être révisés à mesure que de nouvelles données arrivent, que le modèle évolue, ou que les résultats du filtrage révèlent des ajustements nécessaires.</p>
+
+        <div class="ascii">Boucle de feedback appliquée aux critères de filtrage
+(rappel cours 20, module 6, leçon 6.5) :
+
+CRITÈRES DE FILTRAGE INITIAUX (heuristiques, seuils, rubrique
+du LLM-as-judge — modules 2-6)
+                    │
+                    ▼
+APPLICATION sur le dataset, MESURE DE L'IMPACT (leçon 7.2)
+                    │
+                    ▼
+SIGNAL détecté : biais de catégorie réintroduit (leçon 7.1),
+volume insuffisant (leçon 1.3), ou taux de désaccord élevé
+avec une revue humaine (rappel module 5, leçon 5.4)
+                    │
+                    ▼
+AJUSTEMENT DES CRITÈRES : seuils révisés (module 6, leçon 6.4),
+rubrique du juge affinée (module 4, leçon 4.4), ou prompt
+d'évaluation reformulé (module 4, leçon 4.2)
+                    │
+                    └──────────► Retour à l'application, avec
+                                 VÉRIFICATION que l'ajustement a
+                                 effectivement résolu le signal
+                                 détecté (rappel du même principe
+                                 déjà établi au cours 20, module 6,
+                                 leçon 6.5)</div>
+
+        <p>Cette boucle ne devrait pas non plus tourner indéfiniment sans limite : rappel implicite de la leçon 1.3 sur le compromis volume/qualité, un point d'arrêt raisonnable consiste à accepter un dataset une fois que les métriques de la leçon 7.2 atteignent un niveau jugé satisfaisant, plutôt que de chercher une perfection statistique qui n'existe probablement pas.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Fixer des critères de filtrage lors de la première itération d'un projet et ne plus jamais les revisiter, même quand les métriques de suivi (leçon 7.2) révèlent des signaux clairs d'ajustement nécessaire — les critères de filtrage devraient évoluer avec la compréhension croissante du dataset et de ses particularités, pas rester figés dès la première tentative.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un projet où le filtrage initial retire 40% du dataset (jugé excessif au regard du volume disponible, rappel leçon 1.3), quel ajustement de critère envisageriez-vous en priorité pour réduire cette proportion sans sacrifier la qualité globale ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l4" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 7.4</span>Documenter les critères et décisions de filtrage</h2>
+
+        <p>Rappel direct du cours 20 (module 7, leçon 7.5) et du cours 21 (module 7, leçon 7.5) : les décisions de filtrage devraient être documentées avec la même rigueur déjà établie pour le formatage et la correction de biais — une pratique qui referme la boucle de traçabilité entamée dès le cours 20.</p>
+
+        <div class="ascii">Ce qu'une documentation de filtrage devrait inclure, en
+complément de la documentation déjà établie aux cours 20-21 :
+
+CRITÈRES ET SEUILS UTILISÉS
+  Les seuils de score composite (module 6, leçon 6.2), la
+  rubrique complète du LLM-as-judge (module 4, leçon 4.4),
+  et leur justification
+
+VERSION DU MODÈLE JUGE ET DU PROMPT D'ÉVALUATION
+  Rappel module 5, leçon 5.5 — indispensable pour comprendre
+  après coup pourquoi un jugement a pu différer entre deux
+  versions du pipeline
+
+RÉSULTATS DE CALIBRATION (rappel module 5, leçon 5.4)
+  Le taux d'accord mesuré entre le juge et les évaluateurs
+  humains au moment de la décision d'utiliser ce juge
+
+IMPACT MESURÉ (rappel leçon 7.2)
+  Le rapport complet de taille, distribution, et rétention
+  par catégorie, au moment de cette version du dataset</div>
+
+        <p>Cette documentation, combinée à celle déjà établie aux cours 20 et 21, complète la traçabilité complète d'un dataset de fine-tuning : de sa collecte (cours 20) à sa structure statistique (cours 21) jusqu'à sa qualité intrinsèque filtrée (ce cours) — une chaîne de documentation complète, précieuse pour diagnostiquer tout comportement inattendu du modèle final entraîné sur ce dataset.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Documenter les décisions de filtrage séparément et sans lien avec la documentation déjà établie aux cours 20-21 pour le même dataset — une documentation fragmentée entre plusieurs sources rend plus difficile la reconstitution d'une vision complète du cycle de vie du dataset, alors qu'une documentation unifiée offrirait une traçabilité bien plus exploitable.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Au-delà des quatre éléments listés ci-dessus, quelle information de la documentation déjà établie au cours 20 (module 7, leçon 7.5) serait la plus utile à référencer directement dans la documentation de filtrage de ce cours ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l5" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 7.5</span>Automatiser et monitorer le pipeline de filtrage en continu</h2>
+
+        <p>Rappel direct du cours 21 (module 7, sur l'outillage et l'automatisation) : le pipeline de filtrage complet — cascade de heuristiques et LLM-as-judge (module 6), vérification de représentativité (leçon 7.1), mesure d'impact (leçon 7.2) — devrait s'exécuter automatiquement à chaque mise à jour du dataset, pas seulement lors de sa constitution initiale.</p>
+
+        <pre><code class="language-python">def pipeline_filtrage_complet_automatise(nouveaux_exemples: list[dict],
+                                            dataset_existant: list[dict]) -> dict:
+    """Rappel cours 21, module 7, leçon 7.1 — même principe
+    d'automatisation complète, appliqué ici à l'ensemble du
+    cycle de filtrage de qualité de ce cours."""
+    dataset_complet = dataset_existant + nouveaux_exemples
+    apres_heuristiques = appliquer_cascade_heuristiques(dataset_complet)  # modules 2-3
+    resultats_juge = evaluer_par_lots_paralleles(
+        [ex for ex in apres_heuristiques if ex["statut"] == "a_soumettre_au_juge"],
+        client_llm=CLIENT_JUGE)  # modules 4-5
+    dataset_filtre = fusionner_et_decider(apres_heuristiques, resultats_juge)  # module 6
+    rapport_impact = rapport_impact_filtrage(dataset_complet, dataset_filtre)  # leçon 7.2
+    return {"dataset_filtre": dataset_filtre, "rapport": rapport_impact}
+</code></pre>
+
+        <p>Ce module clôt la partie "validation et gouvernance" du cours. Le dernier module assemble l'ensemble des concepts vus (heuristiques, LLM-as-judge, combinaison, validation) dans une checklist de conception et une étude de cas complète, avant de clore le Bloc 6 de cette série.</p>
+
+        <div class="ascii">Ce que l'automatisation complète de ce pipeline apporte, en
+écho au même principe déjà établi au cours 21, module 7,
+leçon 7.3, sur le cycle de vie du dataset :
+
+Une régression de qualité (un lot de nouveaux exemples de
+moindre qualité) est détectée AUTOMATIQUEMENT à la prochaine
+exécution du pipeline, plutôt que découverte tardivement
+lors d'un entraînement ou, pire, après déploiement du modèle</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Exécuter manuellement le pipeline de filtrage lors de la constitution initiale du dataset, sans l'automatiser pour les mises à jour futures — cette pratique, déjà identifiée comme une erreur au cours 21 (module 7, leçon 7.1), s'applique avec la même gravité au filtrage de qualité de ce cours.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : à quelle fréquence recommanderiez-vous l'exécution de ce pipeline complet, en tenant compte à la fois du rythme de mise à jour du dataset et du coût du LLM-as-judge (rappel module 5, leçon 5.3) ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-8">
+      <span class="module-kicker">MODULE 08 / 08</span>
+      <h1>Implémentation complète et étude de cas</h1>
+      <p class="intro">Ce dernier module assemble l'ensemble des notions vues — heuristiques simples et avancées (modules 2-3), LLM-as-judge (modules 4-5), combinaison (module 6), validation et gouvernance (module 7) — dans une checklist de conception et une étude de cas complète, avant de clore le Bloc 6 de cette série.</p>
+
+      <section class="lesson" id="m8-l1" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 8.1</span>Checklist de filtrage de qualité</h2>
+
+        <div class="ascii">Checklist de filtrage (à appliquer sur un dataset déjà
+formaté — cours 20 — et débarrassé de ses biais et
+duplications — cours 21) :
+
+□ 1. HEURISTIQUES SIMPLES appliquées en premier étage de
+     cascade (longueur, formatage, répétition, lexique —
+     module 2)
+
+□ 2. HEURISTIQUES AVANCÉES appliquées en second étage
+     (perplexité, cohérence instruction/réponse, score
+     composite — module 3)
+
+□ 3. RUBRIQUE D'ÉVALUATION du LLM-as-judge conçue avec des
+     critères précis et un format structuré (module 4)
+
+□ 4. JUGE CALIBRÉ sur un échantillon annoté humainement,
+     avec un taux d'accord mesuré et jugé satisfaisant
+     (module 5, leçon 5.4)
+
+□ 5. CASCADE COMPLÈTE mise en place, limitant les appels
+     coûteux au juge aux cas incertains (module 6)
+
+□ 6. SEUILS DE DÉCISION ET ZONE GRISE définis, avec une
+     revue manuelle prévue pour les cas limites (module 6,
+     leçon 6.4)
+
+□ 7. REPRÉSENTATIVITÉ vérifiée après filtrage, par catégorie
+     et pas seulement globalement (module 7, leçon 7.1)
+
+□ 8. IMPACT MESURÉ (taille, distribution) avant de considérer
+     le filtrage terminé (module 7, leçon 7.2)
+
+□ 9. CRITÈRES DOCUMENTÉS ET VERSIONNÉS, en lien avec la
+     documentation déjà établie aux cours 20-21 (module 7,
+     leçon 7.4)
+
+□ 10. PIPELINE AUTOMATISÉ pour les futures mises à jour du
+     dataset (module 7, leçon 7.5)</div>
+
+        <p>Cette checklist referme la boucle des trois checklists de ce bloc (cours 20, 21, et celle-ci) : ensemble, elles couvrent respectivement la structure, la représentativité statistique, et la qualité intrinsèque d'un dataset de fine-tuning — trois dimensions complémentaires, chacune nécessaire mais aucune suffisante seule.</p>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un dataset que vous avez construit ou envisagez de construire au fil de ce bloc, appliquez cette checklist et identifiez les trois points qui nécessiteraient le plus de travail supplémentaire.
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l2" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 8.2</span>Pipeline complet : de la cascade heuristique à la validation</h2>
+
+        <div class="ascii">Architecture de référence complète du cours :
+
+DATASET FORMATÉ (cours 20), SANS BIAIS NI DUPLICATION
+(cours 21)
+                    │
+                    ▼
+ÉTAGE 1 : HEURISTIQUES SIMPLES (module 2)
+Rejet immédiat des cas évidents, coût quasi nul
+                    │
+                    ▼
+ÉTAGE 2 : HEURISTIQUES AVANCÉES (module 3)
+Score composite, identification de la zone d'incertitude
+                    │
+                    ▼
+ÉTAGE 3 : LLM-AS-JUDGE (modules 4-5)
+Évaluation contextuelle des cas incertains uniquement
+                    │
+                    ▼
+FUSION DES SCORES ET DÉCISION (module 6)
+Seuil de rejet, zone grise identifiée pour revue manuelle
+                    │
+                    ▼
+VALIDATION POST-FILTRAGE (module 7)
+Représentativité, impact sur taille et distribution
+                    │
+                    ▼
+DOCUMENTATION ET AUTOMATISATION (module 7)
+                    │
+                    ▼
+Dataset prêt pour le SPLIT FINAL ET L'ENTRAÎNEMENT
+(rappel cours 20, module 7)</div>
+
+        <p>Cette architecture complète referme la totalité du pipeline de préparation de données pour le fine-tuning entamé au cours 20 : de la collecte brute à un dataset structuré, statistiquement représentatif, et qualitativement filtré — prêt à être soumis à un entraînement avec une confiance raisonnable dans sa qualité globale.</p>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour l'architecture ci-dessus, à quelle étape ajouteriez-vous une vérification de conformité JSONL finale (rappel cours 20, module 3), après toutes les transformations de ce cours ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l3" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 8.3</span>Étude de cas : filtrer un dataset d'agent de support</h2>
+
+        <h3>Contexte</h3>
+        <p>Poursuite directe de l'étude de cas des cours 20-21 : le dataset de fine-tuning pour l'agent de support client, déjà formaté (cours 20), dédupliqué et rééquilibré (cours 21), est maintenant soumis au pipeline de filtrage de qualité de ce cours.</p>
+
+        <div class="ascii">Application du pipeline (leçon 8.2) à ce dataset :
+
+ÉTAGE 1-2 (heuristiques) : 12% du dataset rejeté pour
+longueur aberrante, formatage cassé, ou répétition dégénérée
+— des artefacts hérités des logs sources (rappel cours 20,
+module 4, leçon 4.2)
+
+ÉTAGE 3 (LLM-as-judge) : sur les 88% restants, le score
+composite (module 3) identifie 15% comme "incertains" —
+soumis au juge avec la rubrique établie au module 4, leçon 4.4
+(pertinence, correction factuelle, clarté, adéquation au ton)
+
+RÉSULTAT : le juge rejette 40% de ces cas incertains
+(principalement pour incohérence entre l'instruction et
+la réponse — rappel module 3, leçon 3.2), le reste est accepté
+
+VÉRIFICATION DE REPRÉSENTATIVITÉ (module 7, leçon 7.1) :
+le taux de rejet est relativement homogène entre catégories
+de motifs de contact, SAUF pour la catégorie "réclamation
+qualité produit", où le taux de rejet atteint 35% contre
+10% en moyenne ailleurs</div>
+
+        <p>Cette dernière observation déclenche une investigation (rappel module 7, leçon 7.1) : l'équipe découvre que les exemples de "réclamation qualité produit" proviennent en grande partie d'une source de collecte différente (rappel cours 21, module 2, leçon 2.2, sur le biais de source), avec un style de rédaction moins homogène — expliquant le taux de rejet plus élevé sans qu'il s'agisse d'un défaut du pipeline de filtrage lui-même.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Face à un taux de rejet élevé pour une catégorie spécifique, conclure immédiatement que le pipeline de filtrage est défaillant pour cette catégorie, sans investiguer d'abord si la cause pourrait résider dans la qualité réelle des données sources de cette catégorie, comme le révèle cette étude de cas.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour cette étude de cas, une fois la cause identifiée (source de moindre qualité pour "réclamation qualité produit"), quelle action recommanderiez-vous : ajuster le filtrage pour cette catégorie spécifiquement, ou améliorer la collecte à la source (rappel cours 21, module 6, leçon 6.4) ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l4" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 8.4</span>Exercice final</h2>
+
+        <div class="callout exercise">
+          <strong>Exercice final — à traiter dans l'ordre</strong>
+          <p>1. <strong>Heuristiques (module 2-3)</strong> : pour l'étude de cas de la leçon 8.3, proposez deux critères heuristiques spécifiques qui auraient pu détecter les artefacts hérités des logs sources mentionnés dans le contexte.</p>
+          <p>2. <strong>Rubrique LLM-as-judge (module 4)</strong> : rédigez un critère supplémentaire de la rubrique d'évaluation, spécifique aux réclamations qualité produit, qui aiderait le juge à mieux évaluer ce type d'exemple.</p>
+          <p>3. <strong>Combinaison (module 6)</strong> : pour un exemple avec un score composite de 0.6 (dans la zone grise établie à 0.45-0.55... en fait légèrement au-dessus) mais un jugement du LLM signalant une incorrection factuelle, quelle décision finale prendriez-vous ?</p>
+          <p>4. <strong>Vérification de représentativité (module 7)</strong> : au-delà de la catégorie "réclamation qualité produit", quelle autre dimension (source, longueur, style) mériterait d'être vérifiée après ce filtrage ?</p>
+          <p>5. <strong>Documentation (module 7)</strong> : rédigez un court paragraphe documentant la décision finale prise pour la catégorie "réclamation qualité produit" (ajustement de filtrage vs amélioration de collecte), pour un collègue qui la consulterait plus tard.</p>
+        </div>
+
+        <p>Comme pour les exercices finaux des cours précédents de cette série, il n'existe pas de réponse unique — l'objectif est de démontrer une application cohérente de l'ensemble du cycle de filtrage (heuristiques, LLM-as-judge, combinaison, validation, documentation) à un cas concret.</p>
+      </section>
+
+      <section class="lesson" id="m8-l5" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 8.5</span>Synthèse et clôture du Bloc 6</h2>
+
+        <h3>Ce que ce cours a couvert</h3>
+        <div class="ascii">Récapitulatif des 8 modules :
+
+1. Fondamentaux — qualité intrinsèque distincte de la
+   structure et de la représentativité, compromis volume/qualité
+2. Heuristiques simples — longueur, formatage, répétition,
+   filtres lexicaux, et leurs limites structurelles
+3. Heuristiques avancées — perplexité, cohérence instruction/
+   réponse, modèles de scoring, score composite
+4. LLM-as-judge — principe, conception de prompt, évaluation
+   absolue vs comparative, rubriques multi-critères, limites
+5. Implémentation — sortie structurée, validation, gestion du
+   coût et de la latence, calibration sur échantillon humain
+6. Combinaison — architecture en cascade, fusion de scores,
+   seuils et zone grise
+7. Validation et gouvernance — représentativité post-filtrage,
+   impact mesuré, itération, documentation, automatisation
+8. Implémentation complète — checklist, pipeline de référence,
+   étude de cas</div>
+
+        <h3>Clôture du Bloc 6 — Préparation de Données pour Fine-Tuning</h3>
+        <p>Ce cours referme le Bloc 6 de cette série, entamé au cours 20. Les trois cours de ce bloc forment un ensemble cohérent et progressif : le cours 20 a établi comment structurer et encoder un dataset (format instruction/réponse, JSONL) ; le cours 21 a traité sa représentativité statistique (biais de catégorie, de source, duplication et quasi-duplication) ; ce cours 22 a couvert sa qualité intrinsèque, exemple par exemple (heuristiques et LLM-as-judge) — trois dimensions complémentaires et nécessaires pour aboutir à un dataset réellement prêt pour un fine-tuning de qualité.</p>
+
+        <div class="ascii">Les trois cours du Bloc 6, et ce qu'ils ont construit ensemble :
+
+Cours 20 — Formatage                   Cours 21 — Biais et duplication
+(STRUCTURE : comment un exemple          (REPRÉSENTATIVITÉ : l'ensemble
+est organisé et encodé)                  du dataset reflète-t-il la
+        │                              diversité voulue, sans
+        │                              redondance excessive ?)
+        └───────────────┬───────────────────┘
+                        ▼
+              Cours 22 (ce cours) — Filtrage de qualité
+              (QUALITÉ INTRINSÈQUE : chaque exemple pris
+               individuellement est-il correct, pertinent,
+               bien formulé ?)</div>
+
+        <p>Ce bloc s'appuyait lui-même sur l'ensemble des blocs précédents de la série : le Bloc 3 (RAG, cours 9-13) et le Bloc 4 (données non structurées, cours 14-16) ont fourni les techniques de nettoyage et d'extraction réutilisées tout au long de ce bloc, tandis que le Bloc 5 (agents IA, cours 17-19) a fourni les principes de function calling, de gestion de fraîcheur, et de logging directement mobilisés dans la conception des datasets de ce bloc — notamment pour les datasets de function calling (cours 20, module 6, leçon 6.2) et la transformation de logs en exemples d'entraînement (cours 20, module 4, leçon 4.2).</p>
+
+        <h3>Pour aller plus loin</h3>
+        <ul>
+          <li>Les techniques d'évaluation de modèles après fine-tuning (benchmarks, évaluation humaine), qui prolongent directement les principes de LLM-as-judge de ce cours au-delà de la seule préparation de données.</li>
+          <li>Les techniques de fine-tuning efficace en paramètres (LoRA et variantes), qui influencent parfois le volume et la qualité de dataset nécessaires pour un résultat satisfaisant.</li>
+          <li>Les prochains blocs de cette série de data-for-ai, qui pourraient aborder l'outillage et l'industrialisation plus large de ces pipelines de préparation de données.</li>
+        </ul>
+
+        <div class="callout exercise">
+          <strong>Pour conclure</strong>
+          En une phrase, formulez le principe de ce cours qui vous semble le plus déterminant pour éviter qu'un dataset, déjà bien structuré et statistiquement représentatif, ne produise malgré tout un modèle fine-tuné décevant faute d'une qualité intrinsèque suffisante.
+        </div>
+      </section>
+    </div>
+
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+  hljs.highlightAll();
+
+  const storageKey = 'filtrage-qualite-course-progress';
+  const total = 40;
+  const menuToggle = document.getElementById('menuToggle');
+  const sidebar = document.getElementById('sidebar');
+  menuToggle.addEventListener('click', () => sidebar.classList.toggle('open'));
+
+  function getProgress() {
+    try { return JSON.parse(localStorage.getItem(storageKey)) || {}; }
+    catch (e) { return {}; }
+  }
+  function saveProgress(p) { localStorage.setItem(storageKey, JSON.stringify(p)); }
+
+  function updateProgressBar() {
+    const p = getProgress();
+    const done = Object.values(p).filter(Boolean).length;
+    document.getElementById('progressFill').style.width = (done / total * 100) + '%';
+  }
+
+  function markVisible() {
+    const progress = getProgress();
+    const links = document.querySelectorAll('[data-lesson]');
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const id = entry.target.id;
+          links.forEach(l => l.classList.remove('active'));
+          const link = document.querySelector('[data-lesson="' + id + '"]');
+          if (link) link.classList.add('active');
+          if (!progress[id]) {
+            progress[id] = true;
+            saveProgress(progress);
+            updateProgressBar();
+            const check = link ? link.querySelector('.lesson-check') : null;
+            if (check) check.classList.add('done');
+          }
+        }
+      });
+    }, { threshold: 0.4 });
+    document.querySelectorAll('section.lesson').forEach(s => observer.observe(s));
+  }
+
+  function restoreChecks() {
+    const progress = getProgress();
+    Object.keys(progress).forEach(id => {
+      if (progress[id]) {
+        const link = document.querySelector('[data-lesson="' + id + '"]');
+        if (link) {
+          const check = link.querySelector('.lesson-check');
+          if (check) check.classList.add('done');
+        }
+      }
+    });
+    updateProgressBar();
+  }
+
+  restoreChecks();
+  markVisible();
+
+  document.querySelectorAll('.sidebar a').forEach(a => {
+    a.addEventListener('click', () => { sidebar.classList.remove('open'); });
+  });
+</script>
+</body>
+</html>

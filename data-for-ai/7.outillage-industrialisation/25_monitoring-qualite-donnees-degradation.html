@@ -1,0 +1,1818 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monitoring de Qualité de Données — Détecter la Dégradation d'une Source dans le Temps</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<style>
+  :root {
+    --bg: #f4f6f8; --bg-alt: #e8edf1; --panel: #ffffff; --text: #1f2430; --text-muted: #5b6472;
+    --accent: #0891b2; --accent-dark: #0e7490; --pitfall: #f59e0b; --border: #dbe2e8;
+    --chunk-1: #7c5cff; --chunk-2: #17b8a6; --chunk-3: #ff6b6b; --chunk-4: #ffb020;
+    --font-display: "Space Grotesk", sans-serif; --font-body: "Inter", system-ui, sans-serif; --font-mono: "JetBrains Mono", monospace;
+    --sidebar-width: 300px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font-body); color: var(--text); background: var(--bg); line-height: 1.65; }
+  .layout { display: flex; min-height: 100vh; }
+  .sidebar { width: var(--sidebar-width); flex-shrink: 0; background: var(--panel); border-right: 1px solid var(--border); padding: 1.5rem 1rem 3rem; overflow-y: auto; position: sticky; top: 0; height: 100vh; }
+  .sidebar a.brand { display: block; font-family: var(--font-display); font-weight: 700; font-size: 1rem; margin-bottom: 1.5rem; color: var(--text); text-decoration: none; padding: 0.4rem 0.5rem; }
+  .sidebar a.brand span { color: var(--accent); }
+  .module-group { margin-bottom: 0.35rem; border-radius: 8px; }
+  .module-title { font-family: var(--font-display); font-weight: 600; font-size: 0.88rem; padding: 0.55rem 0.6rem; display: flex; gap: 0.5rem; align-items: baseline; color: var(--text); text-decoration: none; }
+  .module-title .n { font-family: var(--font-mono); font-size: 0.72rem; opacity: 0.7; }
+  .lesson-list { list-style: none; padding-left: 0.6rem; margin-bottom: 0.4rem; }
+  .lesson-list li a { display: flex; align-items: center; gap: 0.5rem; padding: 0.32rem 0.5rem; border-radius: 6px; color: var(--text-muted); text-decoration: none; font-size: 0.83rem; }
+  .lesson-list li a:hover { background: var(--bg-alt); color: var(--text); }
+  .lesson-list li a.active { color: var(--accent-dark); font-weight: 600; background: rgba(8,145,178,0.1); }
+  .lesson-check { width: 12px; height: 12px; flex-shrink: 0; border: 1.5px solid var(--text-muted); border-radius: 3px; }
+  .lesson-check.done { background: var(--chunk-2); border-color: var(--chunk-2); }
+  .progress-bar { height: 4px; background: var(--border); position: sticky; top: 0; z-index: 10; }
+  .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--chunk-1), var(--accent)); width: 0%; transition: width 0.2s ease; }
+  .content { flex: 1; max-width: 760px; margin: 0 auto; padding: 3rem 2rem 6rem; }
+  .module-kicker { font-family: var(--font-mono); font-size: 0.8rem; color: var(--accent-dark); background: rgba(8,145,178,0.08); border: 1px dashed var(--accent); display: inline-block; padding: 0.2rem 0.8rem; border-radius: 999px; margin-bottom: 1rem; }
+  section.lesson { border-top: 2px dashed var(--border); padding-top: 2rem; margin-top: 2rem; position: relative; padding-left: 1.1rem; border-left: 4px solid var(--lesson-color, var(--accent)); }
+  section.lesson h2 { font-family: var(--font-display); font-size: 1.5rem; margin-bottom: 1rem; }
+  section.lesson h2 .tag { font-family: var(--font-mono); font-size: 0.7rem; color: var(--lesson-color, var(--accent)); display: block; margin-bottom: 0.3rem; }
+  section.lesson h3 { font-family: var(--font-display); font-size: 1.1rem; margin: 1.4rem 0 0.6rem; }
+  section.lesson p, section.lesson ul, section.lesson ol { margin-bottom: 1rem; }
+  section.lesson li { margin-left: 1.3rem; margin-bottom: 0.35rem; }
+  pre { border-radius: 8px; padding: 1rem; overflow-x: auto; margin: 1rem 0; font-size: 0.85rem; }
+  code.inline { font-family: var(--font-mono); background: var(--bg-alt); padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.85em; }
+  .ascii { font-family: var(--font-mono); font-size: 0.78rem; background: #1e222b; color: #d7dce2; padding: 1rem 1.2rem; border-radius: 8px; overflow-x: auto; margin: 1rem 0; line-height: 1.5; white-space: pre; }
+  .callout { border-left: 4px solid var(--accent); background: var(--bg-alt); padding: 1rem 1.2rem; border-radius: 0 8px 8px 0; margin: 1.2rem 0; }
+  .callout strong { font-family: var(--font-display); display: block; margin-bottom: 0.3rem; font-size: 0.92rem; }
+  .callout.pitfall { border-left-color: var(--pitfall); }
+  .callout.exercise { border-left-color: var(--chunk-2); }
+  .menu-toggle { display: none; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.88rem; }
+  thead tr { text-align: left; border-bottom: 2px solid var(--border); }
+  th, td { padding: 0.5rem 0.6rem; }
+  tbody tr { border-bottom: 1px solid var(--border); }
+
+  .hero {
+    border-bottom: 2px dashed var(--border);
+    padding: 3rem 0 2.5rem;
+    text-align: center;
+    margin-bottom: 1rem;
+  }
+  .hero .tag {
+    display: inline-block; font-family: var(--font-mono); font-size: 0.8rem;
+    color: var(--accent-dark); background: rgba(8,145,178,0.1);
+    border: 1px dashed var(--accent); border-radius: 999px;
+    padding: 0.25rem 0.9rem; margin-bottom: 1.25rem;
+  }
+  .hero-title {
+    font-family: var(--font-display); font-size: clamp(1.8rem, 5vw, 2.6rem);
+    font-weight: 700; margin: 0 auto 1rem; letter-spacing: -0.01em;
+  }
+  .hero-title span {
+    background: linear-gradient(90deg, var(--chunk-1), var(--accent), var(--chunk-2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .hero-lead { max-width: 620px; margin: 0 auto; color: var(--text-muted); font-size: 1.02rem; }
+  .strip { display: flex; justify-content: center; gap: 0.4rem; margin: 2rem auto 0; max-width: 520px; }
+  .strip .seg { height: 8px; flex: 1; border-radius: 3px; }
+  .strip .seg:nth-child(1) { background: var(--chunk-1); }
+  .strip .seg:nth-child(2) { background: var(--chunk-2); }
+  .strip .seg:nth-child(3) { background: var(--chunk-3); }
+  .strip .seg:nth-child(4) { background: var(--chunk-4); }
+  .strip .seg:nth-child(5) { background: var(--chunk-1); }
+  .strip .seg:nth-child(6) { background: var(--chunk-2); }
+
+  .module-block { border-top: 3px solid var(--border); padding-top: 2.5rem; margin-top: 3rem; }
+  .module-block:first-of-type { border-top: none; margin-top: 0; }
+  .module-block > h1 { font-family: var(--font-display); font-size: 2rem; margin-bottom: 0.5rem; }
+  .module-block > p.intro { color: var(--text-muted); margin-bottom: 2rem; font-size: 1.02rem; }
+
+  .finale {
+    margin-top: 3rem; padding: 1.5rem; border-radius: 10px;
+    background: linear-gradient(135deg, rgba(124,92,255,0.08), rgba(23,184,166,0.08));
+    border: 1px dashed var(--accent);
+    text-align: center;
+  }
+  .finale p { color: var(--text-muted); margin-bottom: 0.8rem; }
+  .finale a {
+    display: inline-block; background: var(--accent); color: white;
+    text-decoration: none; padding: 0.6rem 1.4rem; border-radius: 6px;
+    font-family: var(--font-display); font-weight: 600; font-size: 0.9rem;
+  }
+
+  @media (max-width: 860px) {
+    .sidebar { position: fixed; left: -100%; z-index: 20; transition: left 0.2s ease; box-shadow: 4px 0 12px rgba(0,0,0,0.15); background: var(--panel); }
+    .sidebar.open { left: 0; }
+    .menu-toggle { display: block; position: fixed; top: 1rem; left: 1rem; z-index: 30; background: var(--accent); color: white; border: none; border-radius: 6px; padding: 0.5rem 0.75rem; cursor: pointer; font-size: 1rem; }
+    .content { padding: 4.5rem 1.25rem 3rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-bar-fill" id="progressFill"></div></div>
+<button class="menu-toggle" id="menuToggle">☰</button>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar">
+    <a class="brand" href="#top">Data<span>Monitoring</span></a>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-1"><span class="n">01</span> Fondamentaux du monitoring de qualité</a>
+      <ul class="lesson-list">
+        <li><a href="#m1-l1" data-lesson="m1-l1"><span class="lesson-check"></span>Qu'est-ce que la dégradation de source</a></li>
+        <li><a href="#m1-l2" data-lesson="m1-l2"><span class="lesson-check"></span>Monitoring vs validation ponctuelle</a></li>
+        <li><a href="#m1-l3" data-lesson="m1-l3"><span class="lesson-check"></span>Où ce cours se situe dans le Bloc 7</a></li>
+        <li><a href="#m1-l4" data-lesson="m1-l4"><span class="lesson-check"></span>Panorama de l'outillage de monitoring</a></li>
+        <li><a href="#m1-l5" data-lesson="m1-l5"><span class="lesson-check"></span>Erreurs courantes de conception</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-2"><span class="n">02</span> Types de dégradation de qualité</a>
+      <ul class="lesson-list">
+        <li><a href="#m2-l1" data-lesson="m2-l1"><span class="lesson-check"></span>Dégradation de distribution (data drift)</a></li>
+        <li><a href="#m2-l2" data-lesson="m2-l2"><span class="lesson-check"></span>Dégradation de fraîcheur</a></li>
+        <li><a href="#m2-l3" data-lesson="m2-l3"><span class="lesson-check"></span>Dégradation de schéma</a></li>
+        <li><a href="#m2-l4" data-lesson="m2-l4"><span class="lesson-check"></span>Dégradation de volume</a></li>
+        <li><a href="#m2-l5" data-lesson="m2-l5"><span class="lesson-check"></span>Dégradation de performance en aval</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-3"><span class="n">03</span> Mesurer le data drift statistiquement</a>
+      <ul class="lesson-list">
+        <li><a href="#m3-l1" data-lesson="m3-l1"><span class="lesson-check"></span>Comparer deux distributions dans le temps</a></li>
+        <li><a href="#m3-l2" data-lesson="m3-l2"><span class="lesson-check"></span>Tests statistiques de drift</a></li>
+        <li><a href="#m3-l3" data-lesson="m3-l3"><span class="lesson-check"></span>Drift de features vs concept drift</a></li>
+        <li><a href="#m3-l4" data-lesson="m3-l4"><span class="lesson-check"></span>Choisir une fenêtre de comparaison</a></li>
+        <li><a href="#m3-l5" data-lesson="m3-l5"><span class="lesson-check"></span>Pièges de mesure du drift</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-4"><span class="n">04</span> Construire des métriques dans le temps</a>
+      <ul class="lesson-list">
+        <li><a href="#m4-l1" data-lesson="m4-l1"><span class="lesson-check"></span>Des vérifications ponctuelles aux métriques continues</a></li>
+        <li><a href="#m4-l2" data-lesson="m4-l2"><span class="lesson-check"></span>Choisir les bonnes métriques à suivre</a></li>
+        <li><a href="#m4-l3" data-lesson="m4-l3"><span class="lesson-check"></span>Agréger et visualiser une métrique</a></li>
+        <li><a href="#m4-l4" data-lesson="m4-l4"><span class="lesson-check"></span>Baselines et seuils dynamiques vs statiques</a></li>
+        <li><a href="#m4-l5" data-lesson="m4-l5"><span class="lesson-check"></span>Pièges de construction de métriques</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-5"><span class="n">05</span> Alerting et réaction à la dégradation</a>
+      <ul class="lesson-list">
+        <li><a href="#m5-l1" data-lesson="m5-l1"><span class="lesson-check"></span>Rappel de l'alerting déjà établi</a></li>
+        <li><a href="#m5-l2" data-lesson="m5-l2"><span class="lesson-check"></span>Calibrer les seuils, éviter la fatigue d'alerte</a></li>
+        <li><a href="#m5-l3" data-lesson="m5-l3"><span class="lesson-check"></span>Escalade et priorisation des alertes</a></li>
+        <li><a href="#m5-l4" data-lesson="m5-l4"><span class="lesson-check"></span>Playbooks de réponse</a></li>
+        <li><a href="#m5-l5" data-lesson="m5-l5"><span class="lesson-check"></span>Pièges de l'alerting de qualité</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-6"><span class="n">06</span> Diagnostiquer la cause d'une dégradation</a>
+      <ul class="lesson-list">
+        <li><a href="#m6-l1" data-lesson="m6-l1"><span class="lesson-check"></span>Distinguer changement légitime et dégradation</a></li>
+        <li><a href="#m6-l2" data-lesson="m6-l2"><span class="lesson-check"></span>Remonter à la source du changement</a></li>
+        <li><a href="#m6-l3" data-lesson="m6-l3"><span class="lesson-check"></span>Corréler plusieurs métriques pour isoler la cause</a></li>
+        <li><a href="#m6-l4" data-lesson="m6-l4"><span class="lesson-check"></span>Étude de cas de diagnostic</a></li>
+        <li><a href="#m6-l5" data-lesson="m6-l5"><span class="lesson-check"></span>Pièges de diagnostic</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-7"><span class="n">07</span> Intégrer le monitoring dans l'écosystème</a>
+      <ul class="lesson-list">
+        <li><a href="#m7-l1" data-lesson="m7-l1"><span class="lesson-check"></span>Monitoring vs validation vs tests</a></li>
+        <li><a href="#m7-l2" data-lesson="m7-l2"><span class="lesson-check"></span>Dashboards et communication aux parties prenantes</a></li>
+        <li><a href="#m7-l3" data-lesson="m7-l3"><span class="lesson-check"></span>Monitoring continu vs périodique</a></li>
+        <li><a href="#m7-l4" data-lesson="m7-l4"><span class="lesson-check"></span>Coût et scalabilité du monitoring</a></li>
+        <li><a href="#m7-l5" data-lesson="m7-l5"><span class="lesson-check"></span>Gouvernance : qui surveille, qui agit</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-8"><span class="n">08</span> Implémentation complète et clôture de la série</a>
+      <ul class="lesson-list">
+        <li><a href="#m8-l1" data-lesson="m8-l1"><span class="lesson-check"></span>Checklist de mise en place du monitoring</a></li>
+        <li><a href="#m8-l2" data-lesson="m8-l2"><span class="lesson-check"></span>Pipeline complet : métriques à correction</a></li>
+        <li><a href="#m8-l3" data-lesson="m8-l3"><span class="lesson-check"></span>Étude de cas : monitorer un pipeline RAG</a></li>
+        <li><a href="#m8-l4" data-lesson="m8-l4"><span class="lesson-check"></span>Exercice final</a></li>
+        <li><a href="#m8-l5" data-lesson="m8-l5"><span class="lesson-check"></span>Synthèse et clôture de la série</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main class="content">
+    <header class="hero" id="top">
+      <span class="tag">// data-for-ai · 7.outillage-industrialisation · Formation 25</span>
+      <h1 class="hero-title">Monitoring de Qualité <span>de Données</span></h1>
+      <p class="hero-lead">Détecter la dégradation d'une source dans le temps — comment surveiller en continu qu'une source de données ne se dégrade pas silencieusement, bien après qu'elle a passé sa validation initiale. 8 modules, 40 leçons.</p>
+      <div class="strip" aria-hidden="true">
+        <div class="seg"></div><div class="seg"></div><div class="seg"></div>
+        <div class="seg"></div><div class="seg"></div><div class="seg"></div>
+      </div>
+    </header>
+
+    <div class="module-block" id="module-1">
+      <span class="module-kicker">MODULE 01 / 08</span>
+      <h1>Fondamentaux du monitoring de qualité</h1>
+      <p class="intro">Ce dernier cours de la série referme le Bloc 7, entamé au cours 23 sur la validation automatisée et poursuivi au cours 24 sur la reproductibilité des pipelines. Il traite une question complémentaire aux deux précédentes : comment surveiller, dans la durée, qu'une source de données ne se dégrade pas silencieusement — bien après avoir passé toutes les validations initiales.</p>
+
+      <section class="lesson" id="m1-l1" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 1.1</span>Qu'est-ce que la dégradation de source et pourquoi la surveiller</h2>
+
+        <p>Une source de données peut respecter parfaitement un schéma de validation (rappel cours 23) et provenir d'un pipeline pleinement reproductible (rappel cours 24), tout en se <strong>dégradant progressivement</strong> — un changement lent dans sa composition, sa fraîcheur, ou son comportement, trop graduel pour déclencher une seule violation ponctuelle, mais bien réel sur une échelle de temps plus longue.</p>
+
+        <div class="ascii">Pourquoi une dégradation progressive échappe à la validation
+ponctuelle (rappel cours 23) :
+
+Chaque exemple INDIVIDUEL, à chaque instant, continue de
+respecter le schéma défini (types corrects, plages valides,
+rappel cours 23, module 2)
+                    │
+                    ▼
+Mais la DISTRIBUTION GLOBALE de la source évolue lentement
+au fil des semaines — par exemple, la proportion de clients
+d'une nouvelle tranche d'âge augmente progressivement, ou
+la longueur moyenne des textes reçus diminue graduellement
+                    │
+                    ▼
+Aucune violation PONCTUELLE n'est jamais détectée, car
+chaque exemple pris isolément reste parfaitement valide —
+seule une comparaison dans le TEMPS révèle cette dérive
+progressive, invisible à un instant T</div>
+
+        <p>Cette distinction rejoint directement le principe déjà établi au cours 18 (module 2, leçon 2.4, sur la péremption silencieuse) : une dégradation progressive, comme une donnée périmée, ne se manifeste jamais par une erreur bruyante — elle nécessite une vigilance spécifique et continue, l'objet précis de ce cours.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer qu'une source de données ayant passé sa validation initiale (rappel cours 23) restera fiable indéfiniment sans surveillance continue — la validation vérifie un instant précis, tandis qu'une dégradation progressive ne se révèle que par une comparaison répétée dans le temps, un sujet distinct que la validation ponctuelle ne couvre pas.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour une source de données que vous connaissez (logs d'un agent, rappel cours 19 ; dataset de fine-tuning, rappel cours 20-22), décrivez un scénario plausible où cette source se dégraderait progressivement sans jamais violer une contrainte de validation ponctuelle.
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l2" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 1.2</span>Monitoring vs validation ponctuelle</h2>
+
+        <p>Cette leçon formalise la distinction déjà esquissée à la leçon 1.1, en la comparant directement aux pratiques déjà établies aux cours 23 et 24 de ce même bloc.</p>
+
+        <div class="ascii">VALIDATION PONCTUELLE (cours 23)          MONITORING DANS LE TEMPS (ce cours)
+────────────────────────────────           ────────────────────────────────
+Vérifie qu'un LOT de données,               Vérifie qu'une MÉTRIQUE, suivie
+À UN INSTANT DONNÉ, respecte                sur PLUSIEURS instants successifs,
+des contraintes explicites                  reste STABLE ou évolue de façon
+(rappel cours 23, module 2)                 attendue
+
+Détecte une violation IMMÉDIATE              Détecte une TENDANCE — un
+et LOCALE (un exemple précis                changement progressif qui
+qui viole une règle)                        n'affecte aucun exemple précis
+                                            de façon isolément détectable
+
+Complémentaire à la REPRODUCTIBILITÉ         Complémentaire à la VALIDATION :
+(cours 24) : un processus fiable             un processus fiable peut
+peut malgré tout traiter des                produire des résultats valides
+données qui, ELLES, se dégradent            à chaque exécution, tout en
+progressivement                            traitant des données en lente
+                                            dérive</div>
+
+        <p>Cette comparaison rejoint directement le principe déjà établi au cours 24 (module 1, leçon 1.3, sur le positionnement du cours dans le Bloc 7) : chacun des trois cours de ce bloc couvre une dimension distincte et complémentaire de la fiabilité d'un pipeline de données — le contenu à un instant donné (cours 23), le processus dans sa reproductibilité (cours 24), et maintenant l'évolution de ce contenu dans la durée (ce cours).</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer que la combinaison de la validation (cours 23) et de la reproductibilité (cours 24) suffit à garantir une fiabilité complète d'un pipeline de données, sans reconnaître qu'aucune des deux ne couvre l'évolution progressive du contenu des données dans le temps — une troisième dimension de surveillance, distincte et nécessaire.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un pipeline qui valide et reproduit fidèlement chaque exécution, décrivez un scénario où l'absence de monitoring dans le temps laisserait passer un problème réel malgré ces deux garanties déjà en place.
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l3" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 1.3</span>Où ce cours se situe dans le Bloc 7</h2>
+
+        <p>Rappel direct du cours 24 (module 8, leçon 8.5, sur la transition vers ce cours) : ce cours prolonge directement deux fils déjà entamés dans ce bloc — le suivi de tendance des échecs de validation (cours 23, module 7, leçon 7.4) et la traçabilité d'exécution (cours 24, module 7, leçon 7.5) — en les généralisant à une surveillance complète et systématique.</p>
+
+        <div class="ascii">Progression complète du Bloc 7, situant précisément ce cours :
+
+Cours 23 — Validation de données
+  QUOI vérifier : contraintes explicites sur les données
+  à un instant T
+                    │
+                    ▼
+Cours 24 — Pipelines reproductibles
+  COMMENT garantir un processus de transformation fiable et
+  testable, produisant le même résultat pour les mêmes entrées
+                    │
+                    ▼
+Cours 25 (ce cours) — Monitoring de qualité
+  SURVEILLER dans la DURÉE que les données elles-mêmes ne se
+  dégradent pas progressivement, au-delà de la validation
+  ponctuelle et de la reproductibilité du processus</div>
+
+        <p>Cette progression referme la boucle complète de ce bloc : un pipeline de données réellement industrialisé nécessite les trois dimensions ensemble — un contenu valide à chaque instant (cours 23), un processus reproductible et testé (cours 24), et une vigilance continue sur l'évolution de ce contenu dans le temps (ce cours) — aucune des trois ne pouvant se substituer aux deux autres.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Traiter les trois cours de ce bloc comme des alternatives interchangeables plutôt que comme des dimensions complémentaires et cumulatives — un pipeline de données mature nécessite les trois pratiques ensemble, chacune répondant à un mode de défaillance que les deux autres ne couvrent pas.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un pipeline RAG (cours 9-13) que vous jugeriez déjà bien validé (cours 23) et reproductible (cours 24), quel bénéfice supplémentaire précis ce cours 25 lui apporterait-il ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l4" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 1.4</span>Panorama de l'outillage de monitoring</h2>
+
+        <p>Cette leçon donne un aperçu des catégories d'outils et de pratiques mobilisées tout au long de ce cours, chacune approfondie dans les modules suivants.</p>
+
+        <table>
+          <thead><tr><th>Catégorie</th><th>Rôle</th><th>Approfondi au module</th></tr></thead>
+          <tbody>
+            <tr><td>Tests statistiques de drift</td><td>Comparer deux distributions pour détecter un changement significatif</td><td>Module 3</td></tr>
+            <tr><td>Systèmes de métriques et dashboards</td><td>Suivre et visualiser des métriques de qualité dans le temps</td><td>Module 4, module 7</td></tr>
+            <tr><td>Systèmes d'alerting (rappel cours 19, 23)</td><td>Notifier automatiquement une dégradation détectée</td><td>Module 5</td></tr>
+            <tr><td>Outils de corrélation et de diagnostic</td><td>Isoler la cause racine d'une dégradation détectée</td><td>Module 6</td></tr>
+          </tbody>
+        </table>
+
+        <p>Cette combinaison d'outils reprend et généralise des pratiques déjà rencontrées ponctuellement dans cette série — l'alerting déjà établi au cours 19 (module 7) pour les agents IA, et au cours 23 (module 6) pour la validation de données — appliquées ici spécifiquement à la surveillance continue de l'évolution d'une source dans le temps.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer le monitoring de qualité comme un domaine entièrement nouveau nécessitant des outils radicalement différents de ceux déjà rencontrés dans cette série — la plupart des principes (alerting, seuils, dashboards) prolongent directement des pratiques déjà établies aux cours 19 et 23, adaptées ici à une surveillance dans la durée plutôt qu'à un instant donné.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Parmi les quatre catégories d'outils de cette leçon, laquelle vous semble la plus directement héritée d'une pratique déjà rencontrée dans un cours précédent de cette série ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l5" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 1.5</span>Erreurs courantes de conception</h2>
+
+        <p>Cette dernière leçon du module recense les erreurs les plus fréquentes lors de la mise en place d'un monitoring de qualité de données, approfondies individuellement dans les modules suivants.</p>
+
+        <h3>Erreur 1 : confondre dégradation et changement légitime</h3>
+        <p>Détecter un changement de distribution et le traiter automatiquement comme un problème, sans distinguer une dégradation réelle d'une évolution légitime du comportement métier — approfondi au module 6, leçon 6.1.</p>
+
+        <h3>Erreur 2 : suivre trop de métriques sans priorisation</h3>
+        <p>Instrumenter un nombre excessif de métriques sans discernement, produisant un volume de surveillance ingérable et une dilution de l'attention sur les signaux réellement importants — approfondi au module 4, leçon 4.2.</p>
+
+        <h3>Erreur 3 : seuils d'alerte non calibrés</h3>
+        <p>Rappel implicite du cours 19 (module 7, leçon 7.4) : fixer des seuils arbitraires plutôt que calibrés sur une baseline réelle, menant soit à une fatigue d'alerte, soit à un silence face à de vraies dégradations — approfondi au module 5, leçon 5.2.</p>
+
+        <h3>Erreur 4 : détecter sans jamais diagnostiquer ni agir</h3>
+        <p>Mettre en place une détection sophistiquée sans processus clair pour diagnostiquer la cause (module 6) et y réagir (module 5, leçon 5.4) — un monitoring qui ne débouche sur aucune action perd une grande part de sa valeur.</p>
+
+        <div class="ascii">Les quatre erreurs à éviter, résumées :
+
+1. DÉGRADATION CONFONDUE AVEC CHANGEMENT   →  Fausses alertes, perte de
+   LÉGITIME                                  confiance dans le système
+2. TROP DE MÉTRIQUES SANS PRIORITÉ          →  Signal noyé dans le bruit
+3. SEUILS NON CALIBRÉS                       →  Fatigue d'alerte ou silence
+                                              face à un vrai problème
+4. DÉTECTION SANS DIAGNOSTIC NI ACTION       →  Effort de mise en place
+                                              largement stérile</div>
+
+        <p>Les modules suivants traitent chacune de ces erreurs : le module 2 détaille les types de dégradation à distinguer, le module 3 leur mesure statistique, le module 4 la construction de métriques priorisées, le module 5 l'alerting calibré, et le module 6 le diagnostic de cause.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer la mise en place d'un monitoring de qualité comme un projet ponctuel à finaliser une fois pour toutes, plutôt que comme une pratique continue qui évolue avec la compréhension croissante des sources de données surveillées et de leurs modes de dégradation propres.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de synthèse</strong>
+          Pour clore ce module : parmi les quatre erreurs listées, laquelle vous semble la plus probable dans un projet que vous avez connu ou pourriez rencontrer — et pourquoi ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-2">
+      <span class="module-kicker">MODULE 02 / 08</span>
+      <h1>Types de dégradation de qualité</h1>
+      <p class="intro">Ce module détaille les catégories de dégradation les plus fréquentes qu'une source de données peut subir dans le temps, chacune nécessitant une attention et parfois une technique de détection différente, approfondies aux modules 3-4.</p>
+
+      <section class="lesson" id="m2-l1" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 2.1</span>Dégradation de distribution (data drift)</h2>
+
+        <p>Rappel direct du cours 21 (module 3, sur la mesure du biais) : le <strong>data drift</strong> désigne un changement progressif dans la distribution statistique d'une source de données — les mêmes techniques de mesure de distribution déjà établies pour détecter un biais ponctuel s'appliquent ici, mais appliquées de façon répétée dans le temps plutôt qu'à un instant unique.</p>
+
+        <div class="ascii">Exemple de data drift, en écho à l'exemple déjà établi au
+cours 21 (module 2, leçon 2.1) :
+
+Mois 1 : 90% des exemples de support concernent le suivi de
+commande, 10% d'autres motifs (rappel cours 21)
+                    │
+                    ▼
+Mois 6 : la proportion évolue progressivement vers 70% de
+suivi de commande, 30% répartis sur d'autres motifs —
+un changement graduel, mois après mois, jamais assez brutal
+pour déclencher une seule violation ponctuelle
+
+→ Ce drift peut résulter d'un changement métier LÉGITIME
+  (nouveaux produits, nouvelle clientèle) ou d'un problème
+  de collecte à investiguer (rappel module 6, sur le
+  diagnostic de cause)</div>
+
+        <p>Cette catégorie de dégradation rejoint directement les techniques déjà établies au cours 21 (module 3, leçon 3.1, sur l'entropie de distribution) : le même calcul d'entropie, appliqué de façon répétée à intervalles réguliers plutôt qu'une seule fois, permet de suivre son évolution dans le temps — une extension naturelle et directe d'une technique déjà maîtrisée dans cette série.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Mesurer la distribution d'une source une seule fois, comme cela suffisait au cours 21 pour un instantané ponctuel, sans jamais répéter cette mesure à intervalles réguliers pour en suivre l'évolution — une distribution correcte à un instant donné n'offre aucune garantie sur sa stabilité future.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour la source de support client de l'exemple ci-dessus, à quelle fréquence recommanderiez-vous de recalculer l'entropie de distribution pour détecter un drift avant qu'il ne devienne trop significatif ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l2" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 2.2</span>Dégradation de fraîcheur</h2>
+
+        <p>Rappel direct du cours 18 (module 2, leçon 2.4, sur la péremption silencieuse) : une source censée être régulièrement rafraîchie peut voir la fréquence réelle de ses mises à jour se dégrader progressivement — un flux qui, autrefois quotidien, devient hebdomadaire sans que personne ne l'ait décidé explicitement.</p>
+
+        <div class="ascii">Comment la dégradation de fraîcheur se manifeste
+concrètement, en écho au cours 18 :
+
+Une source configurée pour se rafraîchir CHAQUE JOUR
+(rappel cours 18, module 2, leçon 2.5, sur les stratégies
+de rafraîchissement)
+                    │
+                    ▼
+Un problème en amont (une API qui échoue silencieusement,
+un job planifié mal configuré) ralentit progressivement
+cette fréquence, sans déclencher d'erreur explicite
+                    │
+                    ▼
+La source continue de FONCTIONNER, mais les données
+deviennent progressivement plus PÉRIMÉES que prévu —
+un problème invisible sans surveillance explicite de
+l'ÂGE réel des données à chaque instant</div>
+
+        <p>Cette dégradation se détecte en suivant, dans le temps, l'écart entre la fréquence de rafraîchissement attendue (rappel cours 18) et la fréquence réellement observée — une métrique de fraîcheur suivie en continu, approfondie au module 4, plutôt qu'une simple vérification ponctuelle de l'âge d'une donnée à un instant donné.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Configurer un mécanisme de rafraîchissement (rappel cours 18) sans jamais surveiller si ce mécanisme continue effectivement de fonctionner comme prévu — un job de rafraîchissement peut échouer silencieusement pendant des semaines sans que personne ne le remarque, tant que rien ne surveille explicitement la fréquence réelle des mises à jour.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour une source censée se rafraîchir chaque heure (rappel cours 18), quelle métrique simple permettrait de détecter que ce rafraîchissement ne s'est pas produit depuis plusieurs heures ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l3" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 2.3</span>Dégradation de schéma</h2>
+
+        <p>Rappel direct du cours 23 (module 7, leçon 7.2, sur l'évolution compatible d'un schéma) : une source externe peut modifier silencieusement sa structure — un champ qui change de type, une colonne qui apparaît ou disparaît — sans que cette modification ne soit communiquée explicitement, un mode de dégradation distinct des deux précédents (contenu et fraîcheur).</p>
+
+        <div class="ascii">Différence entre dégradation de schéma et data drift
+(leçon 2.1) :
+
+DATA DRIFT (leçon 2.1)                     DÉGRADATION DE SCHÉMA (ici)
+────────────────────────                   ────────────────────────
+La STRUCTURE reste identique                La STRUCTURE elle-même change
+(mêmes colonnes, mêmes types),               (un champ renommé, un type
+seule la DISTRIBUTION du contenu             modifié, un champ manquant)
+évolue
+                                            Peut faire ÉCHOUER une
+Continue généralement à passer               VALIDATION explicite (rappel
+la validation de schéma (cours               cours 23) — mais SEULEMENT
+23) sans erreur                             si cette validation couvre
+                                            bien la dimension concernée</div>
+
+        <p>Cette catégorie rejoint directement le concept de data contract déjà établi au cours 23 (module 2, leçon 2.5) : une source externe qui modifie son schéma sans préavis rompt implicitement le contrat convenu — un risque que seule une validation continue (rappel cours 23, intégrée au monitoring de ce cours) permet de détecter rapidement, plutôt qu'après que le changement ait causé des dommages en aval.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Supposer qu'une source externe, une fois son schéma validé initialement (rappel cours 23), conservera cette même structure indéfiniment sans jamais la modifier — de nombreuses sources externes évoluent sans préavis, rendant nécessaire une revalidation continue du schéma, pas seulement une vérification unique au démarrage du projet.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour une source de données externe que vous ne contrôlez pas directement, comment détecteriez-vous rapidement qu'elle a modifié sa structure sans préavis ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l4" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 2.4</span>Dégradation de volume</h2>
+
+        <p>Cette leçon traite un mode de dégradation complémentaire : le <strong>volume</strong> de données reçu dans le temps, qui peut se dégrader dans deux directions opposées — une chute soudaine (signalant probablement une panne) ou une croissance anormale (signalant potentiellement un problème différent).</p>
+
+        <div class="ascii">Deux directions de dégradation de volume, aux implications
+différentes :
+
+CHUTE DE VOLUME                            CROISSANCE ANORMALE DE VOLUME
+────────────────────────                   ────────────────────────
+Signale souvent une PANNE en                Peut signaler une DUPLICATION
+amont (rappel cours 18, module 7,           accidentelle (rappel cours 21,
+sur la gestion des pannes) —                sur la détection de duplication)
+une source qui s'arrête
+partiellement ou totalement                 Peut aussi signaler un
+                                            changement métier légitime
+Détectable par un SEUIL MINIMAL              (une nouvelle intégration, une
+de volume attendu par période                croissance réelle d'activité) —
+                                            nécessitant la même distinction
+                                            déjà établie à la leçon 2.1</div>
+
+        <p>Cette dégradation de volume rejoint directement des principes déjà établis dans cette série : la chute de volume se rapproche de la détection de panne du cours 18 (module 7), tandis qu'une croissance anormale peut nécessiter les techniques de détection de duplication déjà établies au cours 21 (module 4) pour vérifier si cette croissance résulte d'un problème réel plutôt que d'un changement métier légitime.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Surveiller uniquement les chutes de volume (plus intuitivement associées à un problème) sans surveiller également les croissances anormales, qui peuvent tout autant signaler un problème réel (duplication, boucle d'ingestion défaillante) que constituer une évolution légitime nécessitant une investigation similaire.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un pipeline d'ingestion de documents (rappel cours 9-13), quel seuil de volume minimal et maximal par jour jugeriez-vous raisonnable de surveiller, et que feriez-vous si l'un des deux était franchi ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l5" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 2.5</span>Dégradation de performance en aval</h2>
+
+        <p>Cette dernière leçon du module traite un signal complémentaire, indirect mais souvent très révélateur : plutôt que de mesurer directement la qualité des données, observer la <strong>performance d'un système en aval</strong> (un modèle, un agent) qui consomme ces données — une dégradation de qualité de source se traduit souvent par une dégradation observable de ce système consommateur.</p>
+
+        <div class="ascii">Exemples de signaux de performance en aval, déjà rencontrés
+dans cette série :
+
+Rappel cours 19 (module 6) : un taux d'erreur de validation
+de function calling qui augmente (cours 17, module 4) peut
+signaler une dégradation des données d'entraînement du
+modèle sous-jacent (rappel cours 20-22), pas seulement un
+problème du modèle lui-même
+
+Rappel cours 13 (bases de données vectorielles) : une
+dégradation de la pertinence des résultats de recherche RAG
+peut signaler que le corpus documentaire source s'est
+dégradé (documents obsolètes, rappel cours 18) plutôt qu'un
+problème du mécanisme de recherche lui-même</div>
+
+        <p>Ce signal indirect complète les mesures directes des leçons précédentes : une dégradation de données peut parfois être détectée plus tôt et plus clairement par son IMPACT en aval que par une mesure directe de la source elle-même — un principe qui rejoint la boucle de feedback déjà établie au cours 19 (module 6, leçon 6.5), reliant la qualité des données à la performance observable d'un système qui les consomme.</p>
+
+        <div class="ascii">Ce module clôt la partie "typologie de la dégradation" du cours.
+Le module suivant traite comment mesurer rigoureusement la
+première de ces catégories — le data drift — au-delà d'une simple
+identification qualitative de son existence potentielle.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Surveiller exclusivement les données sources elles-mêmes sans jamais observer la performance des systèmes en aval qui les consomment — une dégradation de qualité peut parfois être détectée plus rapidement et plus clairement via son impact observable sur un modèle ou un agent, un signal complémentaire aux mesures directes des leçons précédentes.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : parmi les cinq types de dégradation vus (distribution, fraîcheur, schéma, volume, performance en aval), lequel vous semble le plus difficile à détecter sans un système de monitoring dédié ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-3">
+      <span class="module-kicker">MODULE 03 / 08</span>
+      <h1>Mesurer le data drift statistiquement</h1>
+      <p class="intro">Ce module approfondit la première catégorie de dégradation identifiée au module 2 : comment mesurer rigoureusement un changement de distribution, au-delà d'une identification qualitative de son existence potentielle.</p>
+
+      <section class="lesson" id="m3-l1" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 3.1</span>Comparer deux distributions dans le temps</h2>
+
+        <p>Rappel direct du cours 21 (module 3, leçon 3.1, sur l'entropie de distribution) : mesurer un drift nécessite de comparer une distribution de <strong>référence</strong> (souvent une période antérieure, ou une baseline établie lors de la mise en production) à une distribution <strong>courante</strong>, sur la même dimension.</p>
+
+        <pre><code class="language-python">from collections import Counter
+
+def comparer_distributions(distribution_reference: dict, distribution_courante: dict) -> dict:
+    """Rappel cours 21, module 3, leçon 3.1 — même principe de
+    calcul de distribution par catégorie, appliqué ici à la
+    COMPARAISON entre deux périodes plutôt qu'à un seul
+    instantané isolé."""
+    toutes_categories = set(distribution_reference) | set(distribution_courante)
+    ecarts = {}
+    for categorie in toutes_categories:
+        proportion_reference = distribution_reference.get(categorie, 0)
+        proportion_courante = distribution_courante.get(categorie, 0)
+        ecarts[categorie] = proportion_courante - proportion_reference
+    return ecarts
+</code></pre>
+
+        <div class="ascii">Le choix de la distribution de RÉFÉRENCE est déterminant :
+
+RÉFÉRENCE FIXE (établie une fois)          RÉFÉRENCE GLISSANTE (mise à
+────────────────────────────────           jour régulièrement)
+Compare toujours à un MÊME point           ────────────────────────────────
+de départ (ex : au moment de la            Compare à la PÉRIODE PRÉCÉDENTE
+mise en production)                         (le mois dernier, la semaine
+                                            dernière) plutôt qu'à un point
+Détecte une DÉRIVE CUMULATIVE               fixe historique
+depuis le lancement, mais peut
+devenir moins pertinente à                  Détecte des CHANGEMENTS RÉCENTS,
+mesure que le temps passe                   mais peut manquer une dérive
+                                            très progressive qui reste sous
+                                            le seuil de chaque comparaison
+                                            successive</div>
+
+        <p>Ce choix de référence rejoint directement un principe déjà établi au cours 18 (module 5, sur les compromis de cache) : ni l'une ni l'autre approche n'est universellement supérieure — une référence fixe capture mieux la dérive cumulative depuis un point de départ connu, une référence glissante capture mieux les changements récents, un choix à faire consciemment selon l'objectif de surveillance visé.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Choisir une référence glissante systématiquement mise à jour à chaque période sans jamais conserver de référence fixe historique — cette pratique peut manquer une dérive très progressive, chaque comparaison successive restant sous le seuil d'alerte tout en s'accumulant en un changement significatif sur une plus longue période.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour la source de support client déjà évoquée au module 2 (leçon 2.1), quelle référence choisiriez-vous — fixe ou glissante — pour détecter le drift progressif décrit dans cet exemple ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l2" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 3.2</span>Tests statistiques de drift</h2>
+
+        <p>Au-delà de la simple comparaison de proportions (leçon 3.1), des tests statistiques formels permettent de quantifier si une différence observée entre deux distributions est <strong>significative</strong>, plutôt que d'être simplement due au bruit d'échantillonnage naturel.</p>
+
+        <div class="ascii">Aperçu de tests couramment utilisés pour mesurer le drift
+(mention, sans entrer dans le détail mathématique complet) :
+
+TEST DE KOLMOGOROV-SMIRNOV (KS)
+  Compare deux distributions CONTINUES (une colonne numérique,
+  par exemple), produisant une mesure de leur écart maximal
+
+PSI (Population Stability Index)
+  Une métrique largement utilisée en pratique pour quantifier
+  le changement de distribution d'une variable, avec des
+  seuils d'interprétation généralement admis (PSI faible =
+  changement mineur, PSI élevé = changement significatif)
+
+TEST DU CHI-DEUX
+  Adapté aux variables CATÉGORIELLES plutôt que continues,
+  compare des comptages observés à des comptages attendus</div>
+
+        <p>Ce module ne vise pas une maîtrise mathématique complète de ces tests, mais leur reconnaissance et leur usage pratique : ces outils, disponibles dans la plupart des bibliothèques statistiques Python, transforment une comparaison intuitive (leçon 3.1) en une mesure quantifiée et interprétable, avec des seuils d'alerte calibrables (approfondi au module 4, leçon 4.4).</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Se fier uniquement à une comparaison visuelle ou intuitive de deux distributions ("ça a l'air différent") sans recourir à un test statistique formel qui quantifie objectivement si l'écart observé est significatif ou relève simplement de la variation naturelle attendue d'un échantillon à l'autre.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour une colonne numérique (comme un montant de commande) et une colonne catégorielle (comme un motif de contact), lequel des tests mentionnés ci-dessus serait a priori le plus adapté à chacune ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l3" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 3.3</span>Drift de features vs concept drift</h2>
+
+        <p>Cette leçon distingue deux formes de drift souvent confondues : le <strong>drift de features</strong> (les données d'entrée changent) et le <strong>concept drift</strong> (la relation entre les données et ce qu'elles signifient change) — une distinction directement héritée du vocabulaire du machine learning, appliquée ici au contexte de cette série.</p>
+
+        <div class="ascii">DRIFT DE FEATURES                          CONCEPT DRIFT
+────────────────────────                   ────────────────────────
+Les DONNÉES D'ENTRÉE changent               La RELATION entre les données
+(rappel leçon 2.1 — distribution            et leur SIGNIFICATION change,
+de catégories, longueur, etc.)             même si les données d'entrée
+                                            restent statistiquement stables
+Exemple : les questions posées
+à un agent de support (rappel               Exemple : le MÊME type de
+cours 17-19) évoluent en                    question posée à un agent
+longueur et en vocabulaire                  nécessite maintenant une
+                                            réponse DIFFÉRENTE, car la
+                                            politique de l'entreprise a
+                                            changé (rappel cours 18, sur
+                                            les données statiques qui
+                                            évoluent)</div>
+
+        <p>Cette distinction rejoint directement un principe déjà établi au cours 18 (module 2, sur le cycle de vie des données statiques) : le concept drift correspond essentiellement à une donnée statique qui a changé (une politique, une procédure) sans que la question posée par l'utilisateur n'ait elle-même évolué — un mode de dégradation plus subtil que le simple drift de features, car il ne se détecte pas en observant uniquement la distribution des entrées.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Se concentrer exclusivement sur la détection du drift de features (plus facile à mesurer via une simple comparaison de distribution) en négligeant le concept drift, plus difficile à détecter car les données d'entrée peuvent rester statistiquement stables alors que leur signification correcte a changé — un problème qui nécessite souvent de surveiller la performance en aval (rappel module 2, leçon 2.5) plutôt que la seule distribution des entrées.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un agent de support dont la politique de remboursement a changé (rappel cours 18), pourquoi une surveillance de la seule distribution des questions posées ne détecterait-elle pas ce concept drift ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l4" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 3.4</span>Choisir une fenêtre de comparaison</h2>
+
+        <p>Rappel direct du cours 18 (module 6, leçon 6.4, sur le fenêtrage et l'agrégation temporelle) : mesurer un drift nécessite de définir une <strong>fenêtre temporelle</strong> pour chaque distribution comparée — un choix qui influence directement la sensibilité et la fiabilité de la détection.</p>
+
+        <div class="ascii">Compromis de taille de fenêtre, en écho au cours 18 :
+
+FENÊTRE COURTE (ex : quotidienne)          FENÊTRE LONGUE (ex : mensuelle)
+────────────────────────────────           ────────────────────────────────
+Détecte les changements RAPIDEMENT           Lisse le BRUIT d'échantillonnage
+                                            naturel, donnant une mesure
+Plus SENSIBLE au bruit                      plus STABLE
+d'échantillonnage naturel — un
+faible volume quotidien peut                Détecte les changements PLUS
+produire des variations qui                 LENTEMENT, avec un délai plus
+ressemblent à un drift sans en              important entre le début d'une
+être un réellement                          dégradation réelle et sa
+                                            détection effective</div>
+
+        <p>Ce compromis rejoint directement celui déjà établi au cours 18 (module 6, leçon 6.4) entre granularité fine et agrégation plus large : une fenêtre trop courte génère du bruit statistique qui peut ressembler à tort à un drift, tandis qu'une fenêtre trop longue retarde la détection d'un changement réel — un arbitrage à calibrer selon le volume de données disponible et la vitesse de changement attendue de la source surveillée.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Choisir une fenêtre de comparaison trop courte pour une source à faible volume, produisant des alertes de drift qui ne reflètent en réalité que la variance naturelle d'un échantillon insuffisant — la taille de fenêtre devrait être calibrée en tenant compte du volume de données disponible, pas fixée arbitrairement.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour une source recevant seulement quelques dizaines d'exemples par jour, pourquoi une fenêtre de comparaison quotidienne serait-elle probablement trop instable pour une détection de drift fiable ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l5" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 3.5</span>Pièges de mesure du drift</h2>
+
+        <p>Cette dernière leçon du module recense des pièges spécifiques à la mesure statistique du drift, en complément des principes déjà établis.</p>
+
+        <h3>Piège 1 : mesurer le drift sur trop peu de dimensions</h3>
+        <p>Rappel du module 2 (leçon 2.1 à 2.5) : se concentrer uniquement sur une seule dimension (par exemple, la distribution de catégories) en négligeant les autres types de dégradation déjà identifiés (fraîcheur, schéma, volume, performance en aval) — le drift n'est qu'une des cinq catégories à surveiller.</p>
+
+        <h3>Piège 2 : confondre significativité statistique et significativité métier</h3>
+        <p>Rappel de la leçon 3.2 : un test statistique peut détecter un écart techniquement significatif qui reste, du point de vue métier, totalement négligeable — un piège similaire à celui déjà établi au cours 22 (module 3, leçon 3.5) sur les métriques statistiques qui doivent être interprétées avec nuance, pas comme des preuves absolues.</p>
+
+        <h3>Piège 3 : ignorer la saisonnalité naturelle d'une source</h3>
+        <p>Certaines sources ont des variations cycliques légitimes (un volume plus élevé certains jours de la semaine, certaines périodes de l'année) qui peuvent être confondues à tort avec un drift réel si la fenêtre de comparaison (leçon 3.4) ne tient pas compte de ce cycle naturel.</p>
+
+        <div class="ascii">Ce module clôt la partie "mesure du drift" du cours. Le module
+suivant élargit la perspective au-delà du seul drift statistique :
+comment construire un système complet de métriques de qualité
+suivies dans le temps, couvrant l'ensemble des types de dégradation
+déjà identifiés au module 2.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Déclencher une alerte pour tout écart statistiquement significatif détecté par un test formel (rappel leçon 3.2), sans jamais évaluer si cet écart a une importance réelle du point de vue métier — un écart techniquement significatif peut être totalement anodin en pratique, un piège qui rejoint directement les principes déjà établis pour l'alerting au cours 19.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de synthèse</strong>
+          Pour clore ce module : pour une source avec une saisonnalité hebdomadaire connue (plus de volume le lundi, par exemple), comment adapteriez-vous votre méthode de comparaison pour éviter de confondre cette saisonnalité avec un drift réel ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-4">
+      <span class="module-kicker">MODULE 04 / 08</span>
+      <h1>Construire des métriques de qualité dans le temps</h1>
+      <p class="intro">Ce module élargit la perspective au-delà du seul data drift (module 3) : comment construire un système complet de métriques suivies dans le temps, couvrant l'ensemble des types de dégradation identifiés au module 2.</p>
+
+      <section class="lesson" id="m4-l1" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 4.1</span>Des vérifications ponctuelles aux métriques suivies en continu</h2>
+
+        <p>Rappel direct du cours 23 (module 7, leçon 7.4, sur le suivi de tendance des échecs de validation) : ce cours généralise ce principe déjà entamé — plutôt que de considérer chaque vérification comme un événement isolé, chaque mesure devient un point d'une série temporelle suivie et analysée dans la durée.</p>
+
+        <pre><code class="language-python">def enregistrer_metrique_qualite(nom_metrique: str, valeur: float, horodatage) -> None:
+    """Rappel cours 23, module 7, leçon 7.4 — chaque mesure de
+    qualité (entropie, fraîcheur, volume) devient un POINT
+    d'une série temporelle, stockée pour permettre une analyse
+    de tendance plutôt qu'une simple vérification instantanée."""
+    stocker_point_serie_temporelle(nom_metrique, valeur, horodatage)
+
+def analyser_tendance(nom_metrique: str, periode_jours: int = 30) -> dict:
+    points = recuperer_points_serie_temporelle(nom_metrique, periode_jours)
+    return {
+        "tendance": calculer_pente_regression(points),
+        "valeur_actuelle": points[-1]["valeur"] if points else None,
+        "valeur_min": min(p["valeur"] for p in points) if points else None,
+        "valeur_max": max(p["valeur"] for p in points) if points else None,
+    }
+</code></pre>
+
+        <div class="ascii">Pourquoi cette transformation change fondamentalement
+l'usage d'une même mesure :
+
+VÉRIFICATION PONCTUELLE (cours 23)         SÉRIE TEMPORELLE (ce module)
+────────────────────────────────           ────────────────────────────────
+Répond à "cette mesure est-elle             Répond à "comment cette mesure
+correcte MAINTENANT ?"                      ÉVOLUE-t-elle dans le temps,
+                                           et vers QUOI tend-elle ?"
+Chaque mesure est INDÉPENDANTE
+des précédentes                            Permet de détecter une TENDANCE
+                                           avant même qu'un seuil absolu
+                                           ne soit franchi — un signal
+                                           d'alerte PRÉCOCE</div>
+
+        <p>Cette capacité de détection précoce, avant qu'un seuil ne soit franchi, constitue l'apport principal du monitoring par rapport à la validation ponctuelle : une tendance à la dégradation, même légère, peut être identifiée et investiguée avant qu'elle ne devienne un problème critique — rejoignant directement l'esprit du cours 18 sur la détection anticipée de pannes.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Stocker des mesures de qualité sans jamais les analyser comme une série temporelle continue, se contentant de vérifier chaque nouvelle mesure isolément contre un seuil fixe — cette approche manque la valeur principale du suivi de tendance : détecter une dérive progressive avant qu'elle n'atteigne un seuil critique.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour la métrique de fraîcheur déjà évoquée au module 2 (leçon 2.2), décrivez ce qu'une analyse de tendance sur 30 jours pourrait révéler qu'une simple vérification quotidienne isolée ne montrerait pas.
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l2" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 4.2</span>Choisir les bonnes métriques à suivre</h2>
+
+        <p>Rappel direct du cours 19 (module 5, leçon 5.5, sur les logs qui répondent aux questions qu'on se pose en production) : plutôt que d'instrumenter toutes les mesures techniquement possibles, partir des questions réelles qu'une équipe se poserait face à une source de données suspecte.</p>
+
+        <div class="ascii">Méthode : partir des questions, pas des données disponibles
+(rappel cours 19, module 5, leçon 5.5) :
+
+Question fréquente                          Métrique correspondante
+──────────────────────────────────────      ──────────────────────────
+"Cette source reçoit-elle toujours            Volume par période (rappel
+autant de données qu'avant ?"                module 2, leçon 2.4)
+
+"La répartition des catégories a-t-elle       Entropie de distribution
+changé récemment ?"                          (rappel module 3)
+
+"Les données sont-elles toujours              Âge moyen des données
+aussi fraîches qu'attendu ?"                 reçues (rappel module 2,
+                                            leçon 2.2)
+
+"Le schéma de cette source a-t-il             Taux d'échec de validation
+changé sans qu'on le sache ?"                (rappel cours 23, module 7,
+                                            leçon 7.4)</div>
+
+        <p>Cette méthode, directement héritée du cours 19, évite le piège déjà identifié à la leçon 1.5 (erreur 2) : instrumenter un nombre excessif de métriques sans discernement dilue l'attention sur les signaux réellement importants — un petit nombre de métriques bien choisies, correspondant à des questions concrètes, vaut mieux qu'un tableau de bord surchargé de mesures rarement consultées.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Instrumenter toutes les métriques techniquement calculables pour une source de données, sans les relier explicitement à une question concrète qu'une équipe se poserait réellement en production — cette approche produit un volume de métriques ingérable, où les signaux importants se noient parmi ceux qui ne sont jamais consultés.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un pipeline RAG (cours 9-13), formulez une question que vous vous poseriez probablement face à une dégradation suspectée, et la métrique précise qui y répondrait.
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l3" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 4.3</span>Agréger et visualiser une métrique dans le temps</h2>
+
+        <p>Rappel direct du cours 23 (module 4, leçon 4.4, sur les Data Docs) : au-delà du simple stockage de points de mesure (leçon 4.1), leur visualisation sous forme de graphique dans le temps facilite grandement l'identification visuelle d'une tendance, complémentaire à une analyse statistique formelle.</p>
+
+        <div class="ascii">Ce qu'une visualisation temporelle révèle souvent plus
+rapidement qu'une analyse statistique isolée :
+
+Une TENDANCE PROGRESSIVE (rappel module 3) se repère
+souvent d'un simple coup d'œil sur un graphique, alors
+qu'elle pourrait passer inaperçue dans une liste de valeurs
+numériques consultées une à une
+
+Une VARIATION SAISONNIÈRE (rappel module 3, leçon 3.5)
+devient visuellement évidente sur une période suffisamment
+longue, aidant à la distinguer d'un changement structurel réel
+
+Une RUPTURE BRUTALE (une panne soudaine, rappel module 2,
+leçon 2.4) se distingue clairement d'une dérive progressive
+sur une représentation visuelle dans le temps</div>
+
+        <p>Cette pratique rejoint directement le principe déjà établi au cours 23 (module 4, leçon 4.4) sur la valeur d'une documentation et d'une visualisation accessibles, au-delà des seuls résultats bruts d'une validation — une visualisation bien conçue rend le monitoring exploitable par des parties prenantes non techniques, un thème approfondi au module 7, leçon 7.2.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Stocker des métriques de qualité uniquement sous forme de valeurs numériques consultables individuellement, sans jamais les visualiser sous forme de graphique temporel — cette omission rend beaucoup plus difficile la détection visuelle rapide d'une tendance, d'une saisonnalité, ou d'une rupture brutale.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour la métrique d'entropie de distribution suivie sur plusieurs mois, quel type de graphique (courbe simple, avec bande de confiance, comparaison à une période précédente) choisiriez-vous pour en faciliter l'interprétation visuelle ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l4" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 4.4</span>Baselines et seuils dynamiques vs statiques</h2>
+
+        <p>Rappel direct du cours 19 (module 7, leçon 7.4, sur les seuils calibrés) : un seuil d'alerte peut être <strong>statique</strong> (une valeur fixe définie une fois) ou <strong>dynamique</strong> (ajusté automatiquement selon l'historique récent) — un choix qui influence directement la pertinence des alertes déclenchées, approfondi au module 5.</p>
+
+        <div class="ascii">SEUIL STATIQUE                             SEUIL DYNAMIQUE
+────────────────────────                   ────────────────────────
+Une valeur FIXE définie une fois            Recalculé PÉRIODIQUEMENT à
+("alerter si le volume descend               partir de l'historique récent
+sous 1000 par jour")                        ("alerter si le volume s'écarte
+                                            de plus de 2 écarts-types de la
+Simple à comprendre et à                    moyenne des 30 derniers jours")
+communiquer
+                                            S'ADAPTE à une évolution
+Peut devenir OBSOLÈTE si le                  légitime et progressive du
+comportement normal de la source             comportement normal, sans
+évolue légitimement dans le temps            nécessiter une révision manuelle
+                                            répétée du seuil</div>
+
+        <p>Ce compromis rejoint directement le même principe déjà établi au cours 19 (module 7, leçon 7.4) : un seuil devrait être calibré sur une baseline réelle plutôt que fixé arbitrairement — un seuil dynamique automatise cette calibration continue, au prix d'une complexité de mise en œuvre plus élevée qu'un simple seuil statique, un arbitrage à faire selon la stabilité attendue du comportement normal de la source surveillée.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Utiliser un seuil statique pour une source dont le comportement normal évolue légitimement et progressivement (une croissance d'activité normale, par exemple), produisant des alertes de plus en plus fréquentes et non pertinentes à mesure que le seuil fixe devient obsolète par rapport à la nouvelle normalité.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour une source de données en croissance continue et légitime (nouveaux utilisateurs chaque mois), pourquoi un seuil statique de volume minimal deviendrait-il rapidement inadapté ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l5" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 4.5</span>Pièges de construction de métriques</h2>
+
+        <p>Cette dernière leçon du module recense des pièges spécifiques à la construction de métriques de qualité, en complément des principes déjà établis.</p>
+
+        <h3>Piège 1 : métriques qui mesurent la mauvaise chose</h3>
+        <p>Rappel de la leçon 4.2 : construire une métrique techniquement facile à calculer plutôt qu'une métrique réellement pertinente pour la question posée — une métrique de proxy peut sembler informative tout en ne capturant pas le problème réel qu'on cherche à détecter.</p>
+
+        <h3>Piège 2 : ne jamais réviser les métriques suivies</h3>
+        <p>Rappel du principe de gouvernance déjà établi au cours 23 (module 7, leçon 7.3) : conserver indéfiniment le même ensemble de métriques sans jamais le réviser à mesure que la compréhension de la source évolue, ou que de nouveaux modes de dégradation sont découverts.</p>
+
+        <h3>Piège 3 : métriques calculées mais jamais consultées</h3>
+        <p>Rappel implicite du cours 22 (module 7, leçon 7.5) : instrumenter des métriques qui s'accumulent dans un système sans qu'aucun processus ne prévoie leur consultation régulière — un effort d'instrumentation qui n'apporte aucune valeur réelle sans consultation active.</p>
+
+        <div class="ascii">Ce module clôt la partie "construction de métriques" du cours.
+Le module suivant traite comment réagir automatiquement à ces
+métriques via l'alerting, en s'appuyant directement sur les
+principes déjà établis aux cours 19 et 23.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Construire un système de métriques élaboré sans jamais vérifier, après coup, si ces métriques sont réellement consultées et utilisées par l'équipe censée les surveiller — un tableau de bord sophistiqué mais ignoré n'apporte aucune valeur réelle, indépendamment de sa qualité technique.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de synthèse</strong>
+          Pour clore ce module : parmi les trois pièges listés, lequel vous semble le plus probable dans un projet où le monitoring a été mis en place rapidement, sans recul suffisant sur son usage réel ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-5">
+      <span class="module-kicker">MODULE 05 / 08</span>
+      <h1>Alerting et réaction à la dégradation détectée</h1>
+      <p class="intro">Ce module traite comment réagir automatiquement aux métriques du module 4, en s'appuyant directement sur les principes d'alerting déjà établis au cours 19 (module 7) pour les agents IA et au cours 23 (module 6) pour la validation de données.</p>
+
+      <section class="lesson" id="m5-l1" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 5.1</span>Rappel de l'alerting déjà établi</h2>
+
+        <p>Rappel direct du cours 19 (module 7, leçon 7.4) et du cours 23 (module 6, leçon 6.2) : les principes d'alerting déjà couverts dans cette série — seuils calibrés sur une baseline réelle, différenciation de sévérité, alertes actionnables — s'appliquent directement au monitoring de qualité de données, sans nécessiter de nouveaux principes fondamentaux.</p>
+
+        <div class="ascii">Principes d'alerting déjà établis, réutilisés ici tels quels :
+
+SEUILS CALIBRÉS SUR UNE BASELINE RÉELLE (rappel cours 19,
+module 7, leçon 7.4) — approfondi à la leçon 5.2 de ce module
+
+ALERTES ACTIONNABLES (rappel cours 19, module 7, leçon 7.4)
+— une alerte de dégradation devrait pointer vers une action
+possible (diagnostic, module 6), pas seulement signaler un
+chiffre sans contexte
+
+DIFFÉRENCIATION DE SÉVÉRITÉ (rappel cours 23, module 6,
+leçon 6.2) — toutes les dégradations ne méritent pas la même
+urgence de réaction</div>
+
+        <p>Ce module ne réintroduit donc pas ces principes depuis zéro, mais les applique spécifiquement au contexte de la dégradation progressive : contrairement à une violation de validation ponctuelle (cours 23), une dégradation de tendance (module 4) nécessite souvent une alerte moins immédiate mais tout aussi importante à traiter, un nuancement approfondi aux leçons suivantes.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Réinventer des principes d'alerting spécifiques au monitoring de qualité sans reconnaître qu'ils prolongent directement ceux déjà établis aux cours 19 et 23 — cette duplication d'effort est évitable en appliquant simplement les mêmes principes déjà maîtrisés à ce nouveau contexte de dégradation progressive.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour une alerte de dégradation de tendance (par exemple, une entropie qui diminue progressivement sur plusieurs semaines), en quoi la notion d'urgence diffère-t-elle d'une alerte de violation ponctuelle immédiate (rappel cours 23) ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l2" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 5.2</span>Calibrer les seuils pour éviter la fatigue d'alerte</h2>
+
+        <p>Rappel direct du cours 19 (module 7, leçon 7.4, sur la fatigue d'alerte) : ce risque déjà identifié est particulièrement aigu pour le monitoring de tendance, où un seuil mal calibré peut déclencher des alertes en continu face à des fluctuations normales, érodant rapidement la confiance dans le système.</p>
+
+        <pre><code class="language-python">def calibrer_seuil_sur_historique(nom_metrique: str, periode_historique_jours: int = 90) -> dict:
+    """Rappel cours 19, module 7, leçon 7.4 — même principe de
+    calibration sur une baseline réelle, appliqué ici avec un
+    calcul statistique explicite plutôt qu'un seuil choisi
+    intuitivement."""
+    valeurs_historiques = recuperer_points_serie_temporelle(nom_metrique, periode_historique_jours)
+    moyenne = sum(v["valeur"] for v in valeurs_historiques) / len(valeurs_historiques)
+    ecart_type = calculer_ecart_type([v["valeur"] for v in valeurs_historiques])
+    return {"seuil_alerte_bas": moyenne - 2 * ecart_type, "seuil_alerte_haut": moyenne + 2 * ecart_type}
+</code></pre>
+
+        <div class="ascii">Pourquoi un seuil basé sur l'écart-type historique (comme
+ci-dessus) réduit la fatigue d'alerte :
+
+Un seuil ARBITRAIRE ("alerter si l'entropie descend sous          Un seuil basé sur l'HISTORIQUE
+0.7") ignore la variabilité NATURELLE de cette métrique             RÉEL s'adapte à la variabilité
+spécifique — une métrique naturellement volatile déclenchera        propre de CHAQUE métrique
+des alertes fréquentes même sans dégradation réelle                 spécifique, réduisant les
+                                                                    fausses alertes tout en
+                                                                    restant sensible aux écarts
+                                                                    réellement inhabituels</div>
+
+        <p>Cette calibration statistique rejoint directement le même principe déjà établi au cours 22 (module 5, leçon 5.4, sur la calibration du LLM-as-judge) : plutôt que de choisir un seuil par intuition, une calibration empirique sur des données réelles produit un résultat bien plus fiable et adapté au comportement spécifique de chaque métrique surveillée.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Fixer un seuil d'alerte identique pour toutes les métriques surveillées (par exemple, "alerter si l'écart dépasse 10%"), sans tenir compte de la variabilité naturelle propre à chaque métrique — une métrique naturellement volatile nécessite un seuil plus large qu'une métrique naturellement stable, sous peine de fatigue d'alerte pour la première.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour deux métriques différentes — le volume quotidien (naturellement variable) et l'entropie de distribution (généralement plus stable) — pourquoi le même seuil relatif d'alerte serait-il inadapté aux deux ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l3" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 5.3</span>Escalade et priorisation des alertes de qualité</h2>
+
+        <p>Rappel direct du cours 23 (module 6, leçon 6.2, sur la différenciation de stratégie de réaction) : toutes les dégradations détectées ne devraient pas déclencher la même réaction — une <strong>escalade</strong> progressive, proportionnée à la sévérité et à la persistance d'une dégradation, permet une réponse mieux calibrée.</p>
+
+        <div class="ascii">Exemple de niveaux d'escalade progressifs :
+
+NIVEAU 1 : SIGNAL FAIBLE (rappel module 4, leçon 4.1, sur la
+détection précoce de tendance)
+  Une légère dérive détectée, journalisée pour suivi, sans
+  notification active — similaire au niveau "journaliser
+  seulement" déjà établi au cours 23, module 6, leçon 6.2
+
+NIVEAU 2 : ALERTE STANDARD
+  Une tendance confirmée sur plusieurs mesures successives
+  (pas un seul point isolé) — notification à l'équipe
+  responsable, sans interruption du pipeline
+
+NIVEAU 3 : ALERTE CRITIQUE
+  Une dégradation sévère ou une combinaison de plusieurs
+  signaux (rappel module 6, sur la corrélation de métriques)
+  — notification immédiate et prioritaire, éventuellement
+  accompagnée d'un blocage du pipeline (rappel cours 23,
+  module 6, leçon 6.2)</div>
+
+        <p>Cette escalade progressive évite un piège symétrique à la fatigue d'alerte (leçon 5.2) : traiter chaque signal, même faible, avec la même urgence maximale épuise l'attention de l'équipe response tout aussi sûrement qu'un excès de fausses alertes — une gradation proportionnée à la sévérité réelle permet de réserver l'attention la plus soutenue aux cas qui le justifient vraiment.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Traiter toute dégradation détectée, même un signal faible et isolé, avec le même niveau d'urgence qu'une dégradation confirmée et sévère — cette absence de gradation épuise l'attention de l'équipe responsable, la rendant moins réactive face aux alertes réellement critiques.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour les trois niveaux d'escalade de l'exemple ci-dessus, quel canal de communication (journal silencieux, message d'équipe, appel téléphonique d'urgence) associeriez-vous à chacun ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l4" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 5.4</span>Playbooks de réponse à une dégradation détectée</h2>
+
+        <p>Cette leçon traite une pratique complémentaire à l'alerting lui-même : documenter à l'avance un <strong>playbook</strong> — une procédure de réponse standardisée — pour chaque type de dégradation identifié au module 2, plutôt que d'improviser une réaction au moment de l'incident.</p>
+
+        <div class="ascii">Exemple de playbook pour une dégradation de fraîcheur
+(rappel module 2, leçon 2.2) :
+
+1. VÉRIFIER si le mécanisme de rafraîchissement (rappel
+   cours 18) s'exécute toujours normalement, ou a échoué
+   silencieusement
+
+2. CONSULTER les logs du job de rafraîchissement (rappel
+   cours 19) pour identifier une éventuelle erreur récente
+
+3. SI le job a échoué : le relancer manuellement et
+   investiguer la cause de l'échec initial (module 6, sur
+   le diagnostic)
+
+4. SI le job fonctionne mais la source elle-même a ralenti
+   sa fréquence de mise à jour : contacter le propriétaire
+   de la source externe (rappel cours 23, module 7, leçon
+   7.5, sur l'ownership)
+
+5. DOCUMENTER l'incident et sa résolution pour référence
+   future (rappel cours 24, module 7, leçon 7.5, sur la
+   traçabilité)</div>
+
+        <p>Ce playbook illustre comment ce cours referme la boucle avec l'ensemble de la série : diagnostiquer une dégradation de fraîcheur mobilise directement les connaissances du cours 18 (mécanismes de rafraîchissement), du cours 19 (consultation de logs), et du cours 23 (ownership et gouvernance) — un playbook bien conçu rassemble ces connaissances dispersées en une procédure actionnable immédiatement, sans improvisation sous pression.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Attendre qu'une dégradation survienne réellement pour improviser une procédure de diagnostic et de réponse, plutôt que de documenter à l'avance un playbook pour chaque type de dégradation anticipée — cette improvisation sous pression est plus lente et plus sujette à l'erreur qu'une procédure déjà réfléchie et documentée en amont.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour une dégradation de volume (rappel module 2, leçon 2.4, chute soudaine), esquissez les grandes étapes d'un playbook de réponse similaire à l'exemple ci-dessus.
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l5" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 5.5</span>Pièges de l'alerting de qualité</h2>
+
+        <p>Cette dernière leçon du module recense des pièges spécifiques à l'alerting appliqué au monitoring de qualité, en complément des principes déjà établis.</p>
+
+        <h3>Piège 1 : alertes sans playbook associé</h3>
+        <p>Rappel de la leçon 5.4 : déclencher une alerte sans qu'aucune procédure de réponse ne soit documentée laisse l'équipe démunie face à un signal qu'elle ne sait pas comment traiter, réduisant l'utilité pratique de l'alerte elle-même.</p>
+
+        <h3>Piège 2 : escalade non respectée dans la pratique</h3>
+        <p>Rappel de la leçon 5.3 : concevoir une gradation d'escalade sur le papier, sans jamais vérifier qu'elle est effectivement respectée en pratique — une alerte de niveau 3 traitée avec la même désinvolture qu'un signal de niveau 1 annule l'intérêt de cette gradation.</p>
+
+        <h3>Piège 3 : pas de mécanisme d'accusé de réception</h3>
+        <p>Une alerte envoyée mais jamais confirmée comme reçue et traitée par une personne précise peut rester ignorée indéfiniment, en particulier dans une équipe où la responsabilité n'est pas clairement assignée (rappel approfondi au module 7, leçon 7.5, sur la gouvernance).</p>
+
+        <div class="ascii">Ce module clôt la partie "alerting" du cours. Le module suivant
+traite l'étape qui suit logiquement une alerte : comment diagnostiquer
+précisément la cause d'une dégradation détectée, plutôt que de se
+limiter à sa seule détection.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer qu'un système d'alerting bien configuré suffit en lui-même, sans vérifier que chaque alerte envoyée est effectivement reçue, reconnue, et traitée par une personne responsable — une alerte techniquement bien déclenchée mais jamais consultée n'a pas plus de valeur qu'une absence totale de monitoring.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de synthèse</strong>
+          Pour clore ce module : parmi les trois pièges listés, lequel vous semble le plus susceptible de passer inaperçu lors de la mise en place initiale d'un système d'alerting, avant qu'un incident réel ne le révèle ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-6">
+      <span class="module-kicker">MODULE 06 / 08</span>
+      <h1>Diagnostiquer la cause d'une dégradation</h1>
+      <p class="intro">Ce module traite l'étape qui suit une alerte (module 5) : comment diagnostiquer précisément la cause d'une dégradation détectée, en s'appuyant directement sur les capacités de traçabilité déjà établies aux cours 19, 23 et 24.</p>
+
+      <section class="lesson" id="m6-l1" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 6.1</span>Distinguer changement légitime et dégradation réelle</h2>
+
+        <p>Rappel direct de la leçon 1.5 (erreur 1) et de la leçon 2.1 (sur le data drift) : la toute première question face à une alerte de dégradation n'est pas "comment corriger ce problème ?" mais "s'agit-il réellement d'un problème ?" — une distinction fondamentale, souvent négligée dans la précipitation de traiter une alerte.</p>
+
+        <div class="ascii">Questions à se poser AVANT de traiter une alerte comme un
+problème à corriger :
+
+Cette évolution correspond-elle à un CHANGEMENT MÉTIER connu
+et attendu (rappel module 2, leçon 2.1 — nouveaux produits,
+nouvelle clientèle) ? Consulter les équipes métier AVANT de
+supposer un problème technique
+
+Cette évolution a-t-elle été précédée d'une MODIFICATION
+DÉLIBÉRÉE du pipeline ou de ses sources (rappel cours 24,
+sur le versionnement) ? Un changement de code récent peut
+expliquer une évolution de métrique parfaitement voulue
+
+Cette évolution est-elle COHÉRENTE avec une saisonnalité déjà
+identifiée (rappel module 3, leçon 3.5) plutôt qu'un signal
+réellement nouveau ?</div>
+
+        <p>Cette vérification préalable rejoint directement le principe déjà établi au cours 21 (module 6, leçon 6.4, sur la sur-correction) : agir précipitamment sur un signal qui reflète en réalité un changement légitime peut introduire des corrections inutiles, voire nuisibles, à un système qui fonctionnait correctement selon une nouvelle normalité parfaitement acceptable.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Traiter systématiquement toute alerte de dégradation comme un problème technique à corriger immédiatement, sans d'abord vérifier auprès des équipes métier concernées si le changement observé pourrait résulter d'une évolution légitime et attendue de l'activité, plutôt que d'un dysfonctionnement réel.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour une alerte de drift de catégories (rappel module 2, leçon 2.1) sur une source de support client, quelles trois questions poseriez-vous en priorité avant de conclure à un problème technique réel ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l2" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 6.2</span>Remonter à la source du changement</h2>
+
+        <p>Rappel direct du cours 24 (module 3, leçon 3.3, sur la paire code/données versionnée) : une fois une dégradation confirmée comme réelle (leçon 6.1), identifier précisément QUEL maillon du pipeline a changé nécessite de s'appuyer sur le versionnement déjà établi au cours 24.</p>
+
+        <pre><code class="language-python">def identifier_changements_recents(horodatage_debut_degradation) -> dict:
+    """Rappel cours 24, modules 2-3 — exploite le versionnement
+    de code ET de données déjà établi pour identifier ce qui a
+    CHANGÉ autour du moment où la dégradation a commencé à
+    apparaître, plutôt que de deviner sans méthode."""
+    return {
+        "commits_code": recuperer_commits_git_depuis(horodatage_debut_degradation),
+        "versions_donnees": recuperer_versions_dvc_depuis(horodatage_debut_degradation),
+        "deploiements": recuperer_historique_deploiements_depuis(horodatage_debut_degradation),
+    }
+</code></pre>
+
+        <div class="ascii">Pourquoi le versionnement rigoureux du cours 24 rend ce
+diagnostic possible :
+
+SANS VERSIONNEMENT RIGOUREUX (cours 24)     AVEC VERSIONNEMENT RIGOUREUX
+────────────────────────────────            ────────────────────────────────
+Impossible de savoir avec certitude          Une simple requête sur
+QUAND et QUOI a changé dans le               l'historique de versionnement
+pipeline autour du début de la               révèle précisément les
+dégradation observée                        changements de code, de données,
+                                            ou de déploiement survenus
+Le diagnostic devient une                    autour du moment concerné
+recherche incertaine et manuelle</div>
+
+        <p>Ce module illustre concrètement pourquoi le cours 24 (reproductibilité) constitue un prérequis pratique pour ce cours 25 (monitoring) : sans une traçabilité rigoureuse des versions de code et de données, diagnostiquer la cause d'une dégradation détectée devient une investigation bien plus incertaine et chronophage qu'avec les fondations déjà posées au cours précédent.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Tenter de diagnostiquer la cause d'une dégradation sans disposer d'un historique fiable des changements de code et de données (rappel cours 24) — sans cette traçabilité, le diagnostic repose sur une reconstruction manuelle incertaine plutôt que sur une consultation directe et fiable de l'historique des versions.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour une dégradation détectée le 15 du mois, comment utiliseriez-vous l'historique de versionnement (rappel cours 24) pour identifier les changements survenus dans les jours précédents ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l3" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 6.3</span>Corréler plusieurs métriques pour isoler la cause</h2>
+
+        <p>Rappel direct du module 2 (les cinq types de dégradation) : face à une alerte sur une métrique donnée, examiner si d'autres métriques suivies en parallèle évoluent de façon corrélée peut fortement aider à isoler la cause réelle, plutôt que d'investiguer chaque métrique isolément.</p>
+
+        <div class="ascii">Exemple de corrélation entre métriques pour isoler une cause :
+
+OBSERVATION : le volume de données (module 2, leçon 2.4)
+chute soudainement
+
+HYPOTHÈSES POSSIBLES ET MÉTRIQUES CORRÉLÉES À VÉRIFIER :
+
+Si la fraîcheur (module 2, leçon 2.2) se dégrade EN MÊME
+TEMPS → probablement une PANNE du mécanisme de collecte
+(rappel cours 18, module 7) plutôt qu'un changement de
+comportement des utilisateurs
+
+Si SEUL le volume chute, sans dégradation de fraîcheur ni
+de schéma → possible changement métier légitime (rappel
+leçon 6.1) plutôt qu'un problème technique
+
+Si le taux d'échec de validation (rappel cours 23) augmente
+EN MÊME TEMPS que le volume chute → probable changement de
+SCHÉMA en amont (module 2, leçon 2.3) qui fait rejeter une
+partie des données à l'ingestion</div>
+
+        <p>Cette approche de corrélation rejoint directement le principe déjà établi au cours 21 (module 3, leçon 3.2, sur les corrélations indésirables entre attributs) : croiser plusieurs dimensions de mesure révèle souvent une information que chaque métrique isolée ne pourrait pas fournir seule — un principe déjà maîtrisé dans cette série, appliqué ici au diagnostic plutôt qu'à la détection de biais.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Investiguer chaque métrique en alerte de façon complètement isolée, sans jamais examiner si d'autres métriques suivies en parallèle évoluent de façon corrélée — cette approche cloisonnée manque des indices de diagnostic précieux que seule une vue croisée entre plusieurs métriques peut révéler.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour l'exemple ci-dessus, si le volume chute ET que le taux d'échec de validation augmente simultanément, quelle serait votre première action de diagnostic, en vous appuyant sur les cours 23 et 24 ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l4" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 6.4</span>Étude de cas de diagnostic</h2>
+
+        <h3>Contexte</h3>
+        <p>Reprenant le pipeline RAG des cours 9-13, déjà validé (cours 23) et rendu reproductible (cours 24) : une alerte de niveau 2 (rappel module 5, leçon 5.3) signale une baisse progressive de l'entropie de distribution des catégories de documents ingérés sur les trois dernières semaines.</p>
+
+        <div class="ascii">Démarche de diagnostic appliquée à ce cas :
+
+1. VÉRIFICATION DE LÉGITIMITÉ (module 6, leçon 6.1) :
+   consultation de l'équipe documentaire — aucun changement
+   métier connu qui expliquerait cette évolution
+
+2. CORRÉLATION AVEC D'AUTRES MÉTRIQUES (leçon 6.3) : le
+   volume total reste stable, la fraîcheur reste normale —
+   seule l'entropie de catégories se dégrade, isolant le
+   problème à la COMPOSITION plutôt qu'au VOLUME ou à la
+   FRAÎCHEUR
+
+3. REMONTÉE À LA SOURCE (leçon 6.2) : l'historique de
+   versionnement (rappel cours 24) révèle qu'une source
+   documentaire spécifique (parmi plusieurs alimentant le
+   corpus) a cessé d'être mise à jour depuis trois semaines,
+   précisément le début de la dégradation observée
+
+4. CAUSE IDENTIFIÉE : un job d'ingestion PARTIEL a échoué
+   silencieusement pour cette source spécifique, tandis que
+   les autres sources continuaient de fonctionner normalement
+   — une PANNE PARTIELLE, plus difficile à détecter qu'une
+   panne complète (rappel cours 18, module 7, leçon 7.5, sur
+   les pannes partielles)</div>
+
+        <p>Cette étude de cas illustre comment ce cours mobilise l'ensemble des connaissances déjà établies dans cette série : la détection (modules 3-4) s'appuie sur les techniques du cours 21, l'alerting (module 5) sur celles des cours 19 et 23, et le diagnostic final (ce module) sur la traçabilité du cours 24 — une synthèse complète des pratiques déjà acquises, appliquée à un cas concret de panne partielle silencieuse.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Face à une dégradation touchant une seule dimension (ici, la composition sans impact sur le volume global), conclure trop rapidement à un changement métier légitime sans vérifier explicitement si une source PARTIELLE du pipeline pourrait être en cause — une panne partielle peut passer inaperçue précisément parce que les métriques agrégées globales restent en apparence normales.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour cette étude de cas, au-delà de la correction immédiate (relancer le job d'ingestion défaillant), quelle amélioration du monitoring lui-même proposeriez-vous pour détecter plus tôt ce type de panne partielle à l'avenir ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l5" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 6.5</span>Pièges de diagnostic</h2>
+
+        <p>Cette dernière leçon du module recense des pièges spécifiques au diagnostic de dégradation, en complément des principes déjà établis.</p>
+
+        <h3>Piège 1 : corrélation confondue avec causalité</h3>
+        <p>Rappel implicite du cours 21 (module 3, leçon 3.2) : deux métriques qui évoluent de façon corrélée (leçon 6.3) ne prouvent pas nécessairement un lien de cause à effet direct — une corrélation devrait orienter l'investigation, pas constituer une conclusion définitive sans vérification supplémentaire.</p>
+
+        <h3>Piège 2 : s'arrêter à la première explication plausible</h3>
+        <p>Accepter la première hypothèse qui semble cohérente avec les observations, sans vérifier si elle explique réellement l'ensemble des signaux observés — une explication incomplète peut laisser une cause sous-jacente non résolue, prête à réapparaître.</p>
+
+        <h3>Piège 3 : ne pas documenter le diagnostic pour référence future</h3>
+        <p>Rappel du cours 24 (module 7, leçon 7.5, sur la traçabilité) : résoudre un incident sans documenter la démarche de diagnostic qui a permis d'identifier sa cause, privant les futures investigations similaires d'un précédent utile à consulter.</p>
+
+        <div class="ascii">Ce module clôt la partie "diagnostic" du cours. Le module suivant
+traite comment intégrer l'ensemble de ce cycle — détection, alerting,
+diagnostic — dans l'écosystème plus large d'un projet de données,
+avec ses dimensions de gouvernance et de coût.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Résoudre un incident de dégradation sans documenter la démarche de diagnostic qui a permis d'en identifier la cause — cette omission prive les futures investigations d'un précédent précieux, forçant à reconstruire une démarche similaire depuis zéro si un problème comparable survient à nouveau.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de synthèse</strong>
+          Pour clore ce module : parmi les trois pièges listés, lequel vous semble le plus susceptible de conduire à une résolution incomplète d'un incident, avec un risque de récurrence future ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-7">
+      <span class="module-kicker">MODULE 07 / 08</span>
+      <h1>Intégrer le monitoring dans l'écosystème de données</h1>
+      <p class="intro">Ce module traite comment intégrer l'ensemble du cycle détection-alerting-diagnostic (modules 3-6) dans l'écosystème plus large d'un projet de données, avec ses dimensions de gouvernance, de coût, et de communication déjà esquissées dans les cours précédents de ce bloc.</p>
+
+      <section class="lesson" id="m7-l1" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 7.1</span>Monitoring vs validation vs tests : où s'arrête chacun</h2>
+
+        <p>Cette leçon synthétise, en fin de parcours, la distinction entre les trois pratiques du Bloc 7, pour clarifier définitivement leurs frontières respectives et leur complémentarité.</p>
+
+        <table>
+          <thead><tr><th>Pratique</th><th>Répond à</th><th>Fréquence typique</th></tr></thead>
+          <tbody>
+            <tr><td>Validation (cours 23)</td><td>Ces données, À CET INSTANT, respectent-elles des contraintes explicites ?</td><td>À chaque exécution du pipeline</td></tr>
+            <tr><td>Tests de reproductibilité (cours 24)</td><td>Ce PROCESSUS produit-il le même résultat pour les mêmes entrées ?</td><td>À chaque modification du code (CI)</td></tr>
+            <tr><td>Monitoring de qualité (ce cours)</td><td>Cette source se DÉGRADE-t-elle progressivement dans le temps ?</td><td>En continu, sur des périodes glissantes</td></tr>
+          </tbody>
+        </table>
+
+        <p>Cette synthèse referme la boucle entamée au module 1 (leçon 1.2 et 1.3) : les trois pratiques ne sont jamais substituables l'une à l'autre, chacune répondant à une question temporelle différente — un instant précis (validation), un processus reproductible (tests), une évolution dans la durée (monitoring) — et un pipeline de données mature les combine toutes les trois plutôt que de n'en choisir qu'une seule.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer qu'investir massivement dans l'une des trois pratiques du Bloc 7 (par exemple, une validation très rigoureuse) compense l'absence des deux autres — chacune couvre un mode de défaillance distinct, et aucune combinaison de deux pratiques ne remplace entièrement la troisième.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un pipeline que vous avez étudié dans cette série, évaluez lequel des trois piliers du Bloc 7 (validation, reproductibilité, monitoring) serait le plus urgent à renforcer en priorité.
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l2" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 7.2</span>Dashboards et communication aux parties prenantes</h2>
+
+        <p>Rappel direct du cours 23 (module 4, leçon 4.4, sur les Data Docs) : de la même façon qu'une documentation de validation gagne à être accessible à des parties prenantes non techniques, un dashboard de monitoring de qualité devrait être conçu pour être consulté par des personnes au-delà de la seule équipe technique.</p>
+
+        <div class="ascii">Ce qu'un dashboard de monitoring bien conçu devrait
+présenter, en écho aux Data Docs du cours 23 :
+
+VUE D'ENSEMBLE IMMÉDIATE
+  Un statut global (vert/orange/rouge) par source de données
+  surveillée, compréhensible sans expertise technique
+  approfondie
+
+TENDANCES VISUELLES (rappel module 4, leçon 4.3)
+  Des graphiques temporels plutôt que des tableaux de
+  chiffres bruts, facilitant une lecture rapide
+
+HISTORIQUE DES INCIDENTS ET RÉSOLUTIONS
+  Rappel module 6, leçon 6.5 — un historique consultable des
+  dégradations passées et de leur diagnostic, similaire à
+  l'historique de validations déjà établi au cours 23</div>
+
+        <p>Cette accessibilité à des parties prenantes non techniques rejoint directement l'esprit du data contract déjà établi au cours 23 (module 2, leçon 2.5) : la qualité des données n'est jamais une préoccupation purement technique isolée, mais un enjeu partagé entre les équipes qui produisent, transforment, et consomment ces données — un dashboard accessible en constitue la matérialisation concrète.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Concevoir un dashboard de monitoring exclusivement pour un usage technique interne, avec des métriques brutes difficiles à interpréter sans expertise spécialisée — cette conception limite la valeur du monitoring à une seule équipe, alors qu'un dashboard accessible pourrait informer des décisions métier plus larges.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour le dashboard du pipeline RAG de l'étude de cas du module 6 (leçon 6.4), quelle information présenteriez-vous en priorité pour une personne non technique consultant ce tableau de bord ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l3" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 7.3</span>Monitoring continu vs périodique</h2>
+
+        <p>Rappel direct du cours 18 (module 6, sur le traitement en continu vs en batch) : le même arbitrage déjà établi pour les pipelines de données temps réel s'applique directement au monitoring lui-même — un compromis entre réactivité et complexité d'infrastructure.</p>
+
+        <div class="ascii">MONITORING CONTINU (rappel cours 18,          MONITORING PÉRIODIQUE (rappel
+module 6, leçon 6.3)                          cours 18, module 6, leçon 6.3)
+────────────────────────────────              ────────────────────────────────
+Métriques recalculées en QUASI                Métriques recalculées à
+TEMPS RÉEL, à mesure que de                    INTERVALLE RÉGULIER (quotidien,
+nouvelles données arrivent                     hebdomadaire)
+
+Détection plus RAPIDE d'une                    Détection plus LENTE, mais
+dégradation, mais infrastructure                infrastructure plus SIMPLE à
+plus complexe (rappel principe                  mettre en œuvre et à maintenir
+déjà établi au cours 18)</div>
+
+        <p>Ce choix, comme celui déjà établi au cours 18, ne dépend pas d'une préférence universelle mais de la vitesse à laquelle une dégradation peut réellement se propager et causer un dommage : une source à fort enjeu métier justifie souvent un monitoring plus fréquent, tandis qu'une source moins critique se contente généralement d'une vérification périodique moins coûteuse à maintenir.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Choisir systématiquement un monitoring continu par souci de réactivité maximale, sans évaluer si la vitesse réelle de dégradation possible d'une source justifie cette complexité d'infrastructure supplémentaire — un monitoring périodique quotidien suffit largement pour la plupart des sources dont la dégradation évolue sur des semaines plutôt que des heures.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour les cinq types de dégradation déjà établis au module 2, lesquels justifieraient a priori un monitoring continu plutôt que périodique, et pourquoi ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l4" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 7.4</span>Coût et scalabilité du monitoring</h2>
+
+        <p>Rappel direct du cours 22 (module 5, leçon 5.3, sur la gestion du coût du LLM-as-judge à grande échelle) : instrumenter et suivre un grand nombre de métriques sur de multiples sources de données représente un coût cumulatif, à considérer explicitement à mesure qu'un projet grandit.</p>
+
+        <div class="ascii">Stratégies pour maîtriser ce coût, en écho aux principes
+déjà établis au cours 22 :
+
+PRIORISER LES MÉTRIQUES LES PLUS CRITIQUES (rappel module 4,
+leçon 4.2) plutôt que de tout instrumenter uniformément
+
+ÉCHANTILLONNER PLUTÔT QUE CALCULER SUR L'INTÉGRALITÉ D'UNE
+SOURCE VOLUMINEUSE (rappel cours 20, module 4, leçon 4.4,
+sur l'échantillonnage pour la revue manuelle — un principe
+similaire s'applique au calcul de métriques à grande échelle)
+
+ADAPTER LA FRÉQUENCE DE CALCUL À LA CRITICITÉ DE CHAQUE
+SOURCE (rappel leçon 7.3) plutôt qu'une fréquence uniforme
+pour toutes les sources surveillées</div>
+
+        <p>Cette gestion de coût rejoint directement le même principe déjà établi tout au long de cette série (cours 20, module 1, leçon 1.3 ; cours 22, module 5, leçon 5.3) : un investissement proportionné au besoin réel, plutôt qu'une application maximale et uniforme de chaque technique disponible, indépendamment de la criticité réelle de chaque source surveillée.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Appliquer le même niveau d'instrumentation exhaustive et la même fréquence de calcul à toutes les sources de données d'un projet, indépendamment de leur criticité réelle — cette approche uniforme gaspille des ressources sur des sources peu critiques, au détriment potentiel de l'attention portée aux sources les plus importantes.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un projet avec dix sources de données de criticité très différente, comment prioriseriez-vous l'effort de monitoring entre elles plutôt que de les traiter toutes de façon identique ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l5" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 7.5</span>Gouvernance : qui surveille, qui agit</h2>
+
+        <p>Rappel direct du cours 23 (module 7, leçon 7.5, sur l'ownership et les data contracts) : cette dernière leçon du module referme la boucle de gouvernance déjà entamée dans ce bloc, appliquée spécifiquement à la responsabilité du monitoring dans la durée.</p>
+
+        <div class="ascii">Éléments de gouvernance du monitoring, en écho au cours 23 :
+
+OWNERSHIP DES MÉTRIQUES
+  Qui est responsable de chaque métrique surveillée — qui
+  décide des seuils (module 5), qui reçoit les alertes,
+  qui exécute les playbooks (module 5, leçon 5.4)
+
+PROCESSUS DE RÉVISION PÉRIODIQUE
+  Rappel module 4, leçon 4.5, erreur 2 — un processus
+  explicite pour réviser les métriques suivies et leurs
+  seuils à mesure que la compréhension du système évolue
+
+RESPONSABILITÉ DE DIAGNOSTIC
+  Qui est chargé d'investiguer une alerte (module 6),
+  et jusqu'à quel niveau d'escalade (module 5, leçon 5.3)
+  avant d'impliquer d'autres équipes</div>
+
+        <p>Cette gouvernance referme la boucle complète du Bloc 7 : un data contract (cours 23) définit ce qu'une donnée valide signifie ; un processus de reproductibilité (cours 24) garantit un traitement fiable ; une gouvernance de monitoring (ce module) assure que quelqu'un reste responsable de la surveillance continue de cette qualité dans la durée — sans cette dernière pièce, même le système technique le mieux conçu risque de tomber en désuétude, faute de responsabilité clairement assignée.</p>
+
+        <div class="ascii">Ce module clôt la partie "intégration dans l'écosystème" du cours.
+Le dernier module assemble l'ensemble des concepts vus dans une
+checklist de conception et une étude de cas complète, avant de
+clore le Bloc 7 ET l'ensemble de cette série de 25 cours.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Mettre en place un système de monitoring technique sophistiqué sans jamais assigner clairement une responsabilité humaine de surveillance et de réaction dans la durée — un système sans propriétaire clairement identifié tend à se dégrader lui-même progressivement, par manque d'attention continue, ironiquement le même mode de défaillance que ce cours cherche à détecter.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : dans une petite équipe de données sans rôle dédié au monitoring, comment répartiriez-vous la responsabilité de surveillance entre les membres existants de l'équipe ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-8">
+      <span class="module-kicker">MODULE 08 / 08</span>
+      <h1>Implémentation complète et clôture de la série</h1>
+      <p class="intro">Ce dernier module assemble l'ensemble des notions vues dans ce cours — types de dégradation (module 2), mesure du drift (module 3), métriques dans le temps (module 4), alerting (module 5), diagnostic (module 6), intégration à l'écosystème (module 7) — dans une checklist et une étude de cas, avant de clore le Bloc 7 et l'ensemble de cette série de 25 cours.</p>
+
+      <section class="lesson" id="m8-l1" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 8.1</span>Checklist de mise en place du monitoring</h2>
+
+        <div class="ascii">Checklist de mise en place (à appliquer à une source de
+données déjà validée — cours 23 — et servie par un pipeline
+reproductible — cours 24) :
+
+□ 1. TYPES DE DÉGRADATION pertinents identifiés pour cette
+     source : distribution, fraîcheur, schéma, volume,
+     performance en aval (module 2)
+
+□ 2. MÉTHODE DE MESURE du drift statistique choisie et
+     calibrée (tests statistiques, fenêtre de comparaison
+     adaptée au volume — module 3)
+
+□ 3. MÉTRIQUES PRIORISÉES selon des questions concrètes,
+     pas instrumentées de façon exhaustive et indiscriminée
+     (module 4, leçon 4.2)
+
+□ 4. SEUILS CALIBRÉS empiriquement sur une baseline réelle,
+     statiques ou dynamiques selon la stabilité attendue
+     (module 4, leçon 4.4)
+
+□ 5. ESCALADE PROGRESSIVE définie, avec des playbooks de
+     réponse documentés pour chaque type de dégradation
+     (module 5)
+
+□ 6. CAPACITÉ DE DIAGNOSTIC en place, s'appuyant sur le
+     versionnement déjà établi au cours 24 pour remonter à
+     la source d'un changement (module 6)
+
+□ 7. DASHBOARD accessible aux parties prenantes non
+     techniques, pas seulement à l'équipe technique (module
+     7, leçon 7.2)
+
+□ 8. GOUVERNANCE explicite : qui surveille, qui reçoit les
+     alertes, qui est responsable du diagnostic et de la
+     réaction (module 7, leçon 7.5)</div>
+
+        <p>Cette checklist complète directement celles déjà établies aux cours 23 et 24 : ensemble, les trois checklists de ce bloc couvrent respectivement la validité du contenu à un instant donné, la fiabilité reproductible du processus, et la vigilance continue sur l'évolution de ce contenu dans le temps — l'ensemble complet nécessaire à un pipeline de données réellement industrialisé.</p>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un pipeline que vous avez construit ou étudié au fil de cette série, appliquez cette checklist et identifiez les trois points qui nécessiteraient le plus de travail supplémentaire.
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l2" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 8.2</span>Pipeline complet : des métriques à la correction</h2>
+
+        <div class="ascii">Architecture de référence complète du cours :
+
+SOURCE DE DONNÉES (déjà validée — cours 23 — et servie par
+un pipeline reproductible — cours 24)
+                    │
+                    ▼
+COLLECTE DE MÉTRIQUES DANS LE TEMPS (modules 2-4) : drift,
+fraîcheur, schéma, volume, performance en aval
+                    │
+                    ▼
+COMPARAISON À UNE BASELINE (module 3) et DÉTECTION DE
+TENDANCE (module 4)
+                    │
+        ┌───────────┴───────────┐
+        ▼                       ▼
+   PAS DE SIGNAL               SIGNAL DÉTECTÉ
+   → surveillance                │
+     continue                    ▼
+                          ALERTE SELON ESCALADE (module 5)
+                                  │
+                                  ▼
+                          VÉRIFICATION DE LÉGITIMITÉ
+                          (module 6, leçon 6.1)
+                                  │
+                    ┌─────────────┴─────────────┐
+                    ▼                           ▼
+              CHANGEMENT LÉGITIME         DÉGRADATION RÉELLE
+              → baseline mise à jour            │
+                                                ▼
+                                          DIAGNOSTIC DE CAUSE
+                                          (module 6, leçons 6.2-6.3)
+                                                │
+                                                ▼
+                                          CORRECTION (rappel
+                                          cours 21-24 selon la
+                                          cause identifiée)
+                                                │
+                                                ▼
+                                          DOCUMENTATION ET
+                                          GOUVERNANCE (module 7)</div>
+
+        <p>Cette architecture referme la logique complète de ce cours, et par extension celle du Bloc 7 entier : la qualité d'une source de données n'est jamais acquise une fois pour toutes, mais surveillée, diagnostiquée, et corrigée dans un cycle continu qui s'appuie sur l'ensemble des fondations posées aux cours 23 et 24.</p>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour l'architecture ci-dessus, à quelle étape ajouteriez-vous une notification à l'équipe métier, en complément de l'alerte technique déjà prévue au module 5 ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l3" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 8.3</span>Étude de cas : monitorer un pipeline RAG en production sur plusieurs mois</h2>
+
+        <h3>Contexte</h3>
+        <p>Reprenant le pipeline RAG des cours 9-13, formaté et validé (cours 23), rendu reproductible et testé (cours 24) : une équipe met en place un monitoring complet pour les six premiers mois de production, avant de faire un premier bilan.</p>
+
+        <div class="ascii">Application du cycle complet de ce cours à ce pipeline,
+sur une période de six mois :
+
+MOIS 1-2 : mise en place des métriques prioritaires
+(entropie de distribution documentaire, âge moyen des
+documents indexés, taux de validation du schéma — modules
+2-4), avec des seuils initiaux prudents
+
+MOIS 3 : une alerte de niveau 2 (module 5) signale une
+dégradation de fraîcheur — diagnostic (module 6) révèle une
+panne partielle du job d'ingestion pour une source
+spécifique (rappel étude de cas du module 6, leçon 6.4),
+corrigée en quelques heures grâce à la traçabilité du cours 24
+
+MOIS 4-5 : un data drift de catégories est détecté, mais la
+vérification de légitimité (module 6, leçon 6.1) confirme
+qu'il correspond à l'ajout intentionnel d'une nouvelle
+catégorie de documents — la baseline est mise à jour en
+conséquence, sans correction nécessaire
+
+MOIS 6 : bilan — le monitoring a permis de détecter et
+corriger un incident réel (mois 3) en quelques heures plutôt
+qu'en plusieurs semaines, et d'éviter une fausse alerte
+inutile (mois 4-5) grâce à la vérification de légitimité</div>
+
+        <p>Cette étude de cas illustre la valeur cumulative de l'ensemble du Bloc 7 appliqué à un même pipeline sur la durée : la validation (cours 23) et la reproductibilité (cours 24) avaient déjà rendu ce pipeline fiable à l'instant de sa mise en production, mais c'est le monitoring (ce cours) qui a permis de maintenir cette fiabilité dans la durée, face à des événements — une panne partielle, une évolution légitime — qu'aucune des deux pratiques précédentes ne pouvait anticiper seule.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer qu'un pipeline validé et reproductible au moment de sa mise en production restera fiable indéfiniment sans surveillance continue — cette étude de cas illustre concrètement, sur une période de six mois, à quel point des événements imprévisibles (panne partielle, évolution légitime) nécessitent une vigilance qui dépasse la seule qualité initiale du pipeline.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour cette étude de cas, si la panne partielle du mois 3 n'avait duré non pas quelques heures mais plusieurs semaines avant détection, quel impact cela aurait-il eu sur la qualité des réponses de l'agent RAG en aval (rappel module 2, leçon 2.5, sur la performance en aval) ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l4" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 8.4</span>Exercice final</h2>
+
+        <div class="callout exercise">
+          <strong>Exercice final — à traiter dans l'ordre</strong>
+          <p>1. <strong>Types de dégradation (module 2)</strong> : pour le pipeline RAG de l'étude de cas de la leçon 8.3, listez les cinq métriques (une par type de dégradation) que vous mettriez en place dès le premier mois.</p>
+          <p>2. <strong>Mesure du drift (module 3)</strong> : pour la métrique d'entropie de distribution documentaire, proposez une fenêtre de comparaison adaptée et justifiez votre choix.</p>
+          <p>3. <strong>Alerting (module 5)</strong> : définissez les trois niveaux d'escalade (rappel module 5, leçon 5.3) que vous appliqueriez à ce pipeline, avec un exemple de situation pour chaque niveau.</p>
+          <p>4. <strong>Diagnostic (module 6)</strong> : pour la panne partielle du mois 3 de l'étude de cas, décrivez la séquence exacte d'étapes de diagnostic que vous suivriez, en vous appuyant sur le versionnement du cours 24.</p>
+          <p>5. <strong>Gouvernance (module 7, leçon 7.5)</strong> : proposez une répartition des responsabilités de monitoring pour ce pipeline entre les rôles typiques d'une équipe data (ingénieur data, data scientist, product owner).</p>
+        </div>
+
+        <p>Comme pour les exercices finaux de l'ensemble de cette série, il n'existe pas de réponse unique — l'objectif est de démontrer une application cohérente du cycle complet de monitoring (détection, alerting, diagnostic, gouvernance) à un cas concret, mobilisant l'ensemble des connaissances acquises tout au long de cette formation.</p>
+      </section>
+
+      <section class="lesson" id="m8-l5" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 8.5</span>Synthèse et clôture de la série</h2>
+
+        <h3>Ce que ce cours a couvert</h3>
+        <div class="ascii">Récapitulatif des 8 modules :
+
+1. Fondamentaux — dégradation de source, monitoring vs
+   validation ponctuelle, positionnement dans le Bloc 7
+2. Types de dégradation — distribution, fraîcheur, schéma,
+   volume, performance en aval
+3. Mesure du drift — comparaison de distributions, tests
+   statistiques, concept drift, fenêtres de comparaison
+4. Métriques dans le temps — séries temporelles, priorisation,
+   visualisation, baselines dynamiques
+5. Alerting — seuils calibrés, escalade, playbooks de réponse
+6. Diagnostic — légitimité vs dégradation réelle, remontée
+   à la source, corrélation de métriques
+7. Intégration à l'écosystème — frontières entre pratiques,
+   dashboards, coût, gouvernance
+8. Implémentation complète — checklist, pipeline de
+   référence, étude de cas sur six mois</div>
+
+        <h3>Clôture du Bloc 7 — Outillage et Industrialisation</h3>
+        <p>Ce cours referme le Bloc 7 de cette série, entamé au cours 23. Les trois cours de ce bloc ont couvert, ensemble, les trois dimensions complémentaires d'une fiabilité durable : la validation du contenu à un instant donné (cours 23), la reproductibilité du processus qui le transforme (cours 24), et la vigilance continue sur son évolution dans le temps (ce cours) — un triptyque complet pour transformer un pipeline de données fonctionnel en un système véritablement industrialisé.</p>
+
+        <div class="ascii">Les trois cours du Bloc 7 et ce qu'ils ont construit ensemble :
+
+Cours 23 — Validation                Cours 24 — Reproductibilité
+(QUOI vérifier : contraintes           (COMMENT garantir un processus
+explicites à un instant T)            fiable et testable dans le temps)
+        │                                       │
+        └───────────────┬───────────────────┘
+                        ▼
+              Cours 25 (ce cours) — Monitoring
+              (SURVEILLER dans la durée la
+               dégradation progressive d'une source)</div>
+
+        <h3>Clôture de la série complète — data-for-ai (25 cours)</h3>
+        <p>Ce cours referme également l'ensemble de la série "data-for-ai", entamée sept blocs plus tôt. Cette série a suivi une progression délibérée : des fondations de la donnée (Bloc 1) et du nettoyage classique (Bloc 2), vers des architectures de plus en plus spécialisées — la préparation pour le RAG (Bloc 3), le traitement de données non structurées (Bloc 4), la préparation pour des agents IA complets (Bloc 5), la préparation pour le fine-tuning (Bloc 6) — pour aboutir à ce dernier bloc consacré à l'outillage et à l'industrialisation (Bloc 7), qui transforme l'ensemble des techniques précédentes en pratiques durables et fiables en production.</p>
+
+        <div class="ascii">Vue d'ensemble des sept blocs de la série data-for-ai :
+
+Bloc 1 — Fondations de la donnée
+Bloc 2 — Nettoyage de données classique
+Bloc 3 — Préparation de données pour RAG
+Bloc 4 — Données non structurées
+Bloc 5 — Préparation de données pour agents IA
+Bloc 6 — Préparation de données pour fine-tuning
+Bloc 7 — Outillage et industrialisation (ce bloc, cours 23-25)
+
+→ Chaque bloc s'est appuyé sur les fondations posées par les
+  précédents : le nettoyage (Bloc 2) a rendu possible le RAG
+  (Bloc 3) ; le RAG et les données non structurées (Blocs 3-4)
+  ont nourri les agents IA (Bloc 5) ; les agents IA ont motivé
+  la préparation de données de fine-tuning (Bloc 6) ; et
+  l'ensemble de ces pipelines a enfin été rendu industrialisable
+  grâce à l'outillage de ce dernier bloc (Bloc 7)</div>
+
+        <p>Ce dernier bloc n'est pas une simple addition finale, mais la clé de voûte qui transforme chaque technique déjà apprise — chunking, embeddings, function calling, formatage de datasets — en un système qui reste fiable non pas seulement au moment de sa construction, mais tout au long de sa vie en production : validé (cours 23), reproductible (cours 24), et surveillé dans la durée (ce cours).</p>
+
+        <div class="callout exercise">
+          <strong>Pour conclure cette série</strong>
+          En repensant à l'ensemble des 25 cours de cette formation, formulez en une phrase le principe transverse qui vous semble le plus déterminant pour préparer des données de qualité, quel que soit le contexte d'application — RAG, agent IA, ou fine-tuning.
+        </div>
+      </section>
+    </div>
+
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+  hljs.highlightAll();
+
+  const storageKey = 'monitoring-qualite-donnees-course-progress';
+  const total = 40;
+  const menuToggle = document.getElementById('menuToggle');
+  const sidebar = document.getElementById('sidebar');
+  menuToggle.addEventListener('click', () => sidebar.classList.toggle('open'));
+
+  function getProgress() {
+    try { return JSON.parse(localStorage.getItem(storageKey)) || {}; }
+    catch (e) { return {}; }
+  }
+  function saveProgress(p) { localStorage.setItem(storageKey, JSON.stringify(p)); }
+
+  function updateProgressBar() {
+    const p = getProgress();
+    const done = Object.values(p).filter(Boolean).length;
+    document.getElementById('progressFill').style.width = (done / total * 100) + '%';
+  }
+
+  function markVisible() {
+    const progress = getProgress();
+    const links = document.querySelectorAll('[data-lesson]');
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const id = entry.target.id;
+          links.forEach(l => l.classList.remove('active'));
+          const link = document.querySelector('[data-lesson="' + id + '"]');
+          if (link) link.classList.add('active');
+          if (!progress[id]) {
+            progress[id] = true;
+            saveProgress(progress);
+            updateProgressBar();
+            const check = link ? link.querySelector('.lesson-check') : null;
+            if (check) check.classList.add('done');
+          }
+        }
+      });
+    }, { threshold: 0.4 });
+    document.querySelectorAll('section.lesson').forEach(s => observer.observe(s));
+  }
+
+  function restoreChecks() {
+    const progress = getProgress();
+    Object.keys(progress).forEach(id => {
+      if (progress[id]) {
+        const link = document.querySelector('[data-lesson="' + id + '"]');
+        if (link) {
+          const check = link.querySelector('.lesson-check');
+          if (check) check.classList.add('done');
+        }
+      }
+    });
+    updateProgressBar();
+  }
+
+  restoreChecks();
+  markVisible();
+
+  document.querySelectorAll('.sidebar a').forEach(a => {
+    a.addEventListener('click', () => { sidebar.classList.remove('open'); });
+  });
+</script>
+</body>
+</html>

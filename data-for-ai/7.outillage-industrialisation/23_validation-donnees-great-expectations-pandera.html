@@ -1,0 +1,1882 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Validation de Données Automatisée — Great Expectations et Pandera en Python</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<style>
+  :root {
+    --bg: #f4f6f8; --bg-alt: #e8edf1; --panel: #ffffff; --text: #1f2430; --text-muted: #5b6472;
+    --accent: #0891b2; --accent-dark: #0e7490; --pitfall: #f59e0b; --border: #dbe2e8;
+    --chunk-1: #7c5cff; --chunk-2: #17b8a6; --chunk-3: #ff6b6b; --chunk-4: #ffb020;
+    --font-display: "Space Grotesk", sans-serif; --font-body: "Inter", system-ui, sans-serif; --font-mono: "JetBrains Mono", monospace;
+    --sidebar-width: 300px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font-body); color: var(--text); background: var(--bg); line-height: 1.65; }
+  .layout { display: flex; min-height: 100vh; }
+  .sidebar { width: var(--sidebar-width); flex-shrink: 0; background: var(--panel); border-right: 1px solid var(--border); padding: 1.5rem 1rem 3rem; overflow-y: auto; position: sticky; top: 0; height: 100vh; }
+  .sidebar a.brand { display: block; font-family: var(--font-display); font-weight: 700; font-size: 1rem; margin-bottom: 1.5rem; color: var(--text); text-decoration: none; padding: 0.4rem 0.5rem; }
+  .sidebar a.brand span { color: var(--accent); }
+  .module-group { margin-bottom: 0.35rem; border-radius: 8px; }
+  .module-title { font-family: var(--font-display); font-weight: 600; font-size: 0.88rem; padding: 0.55rem 0.6rem; display: flex; gap: 0.5rem; align-items: baseline; color: var(--text); text-decoration: none; }
+  .module-title .n { font-family: var(--font-mono); font-size: 0.72rem; opacity: 0.7; }
+  .lesson-list { list-style: none; padding-left: 0.6rem; margin-bottom: 0.4rem; }
+  .lesson-list li a { display: flex; align-items: center; gap: 0.5rem; padding: 0.32rem 0.5rem; border-radius: 6px; color: var(--text-muted); text-decoration: none; font-size: 0.83rem; }
+  .lesson-list li a:hover { background: var(--bg-alt); color: var(--text); }
+  .lesson-list li a.active { color: var(--accent-dark); font-weight: 600; background: rgba(8,145,178,0.1); }
+  .lesson-check { width: 12px; height: 12px; flex-shrink: 0; border: 1.5px solid var(--text-muted); border-radius: 3px; }
+  .lesson-check.done { background: var(--chunk-2); border-color: var(--chunk-2); }
+  .progress-bar { height: 4px; background: var(--border); position: sticky; top: 0; z-index: 10; }
+  .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--chunk-1), var(--accent)); width: 0%; transition: width 0.2s ease; }
+  .content { flex: 1; max-width: 760px; margin: 0 auto; padding: 3rem 2rem 6rem; }
+  .module-kicker { font-family: var(--font-mono); font-size: 0.8rem; color: var(--accent-dark); background: rgba(8,145,178,0.08); border: 1px dashed var(--accent); display: inline-block; padding: 0.2rem 0.8rem; border-radius: 999px; margin-bottom: 1rem; }
+  section.lesson { border-top: 2px dashed var(--border); padding-top: 2rem; margin-top: 2rem; position: relative; padding-left: 1.1rem; border-left: 4px solid var(--lesson-color, var(--accent)); }
+  section.lesson h2 { font-family: var(--font-display); font-size: 1.5rem; margin-bottom: 1rem; }
+  section.lesson h2 .tag { font-family: var(--font-mono); font-size: 0.7rem; color: var(--lesson-color, var(--accent)); display: block; margin-bottom: 0.3rem; }
+  section.lesson h3 { font-family: var(--font-display); font-size: 1.1rem; margin: 1.4rem 0 0.6rem; }
+  section.lesson p, section.lesson ul, section.lesson ol { margin-bottom: 1rem; }
+  section.lesson li { margin-left: 1.3rem; margin-bottom: 0.35rem; }
+  pre { border-radius: 8px; padding: 1rem; overflow-x: auto; margin: 1rem 0; font-size: 0.85rem; }
+  code.inline { font-family: var(--font-mono); background: var(--bg-alt); padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.85em; }
+  .ascii { font-family: var(--font-mono); font-size: 0.78rem; background: #1e222b; color: #d7dce2; padding: 1rem 1.2rem; border-radius: 8px; overflow-x: auto; margin: 1rem 0; line-height: 1.5; white-space: pre; }
+  .callout { border-left: 4px solid var(--accent); background: var(--bg-alt); padding: 1rem 1.2rem; border-radius: 0 8px 8px 0; margin: 1.2rem 0; }
+  .callout strong { font-family: var(--font-display); display: block; margin-bottom: 0.3rem; font-size: 0.92rem; }
+  .callout.pitfall { border-left-color: var(--pitfall); }
+  .callout.exercise { border-left-color: var(--chunk-2); }
+  .menu-toggle { display: none; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.88rem; }
+  thead tr { text-align: left; border-bottom: 2px solid var(--border); }
+  th, td { padding: 0.5rem 0.6rem; }
+  tbody tr { border-bottom: 1px solid var(--border); }
+
+  .hero {
+    border-bottom: 2px dashed var(--border);
+    padding: 3rem 0 2.5rem;
+    text-align: center;
+    margin-bottom: 1rem;
+  }
+  .hero .tag {
+    display: inline-block; font-family: var(--font-mono); font-size: 0.8rem;
+    color: var(--accent-dark); background: rgba(8,145,178,0.1);
+    border: 1px dashed var(--accent); border-radius: 999px;
+    padding: 0.25rem 0.9rem; margin-bottom: 1.25rem;
+  }
+  .hero-title {
+    font-family: var(--font-display); font-size: clamp(1.8rem, 5vw, 2.6rem);
+    font-weight: 700; margin: 0 auto 1rem; letter-spacing: -0.01em;
+  }
+  .hero-title span {
+    background: linear-gradient(90deg, var(--chunk-1), var(--accent), var(--chunk-2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .hero-lead { max-width: 620px; margin: 0 auto; color: var(--text-muted); font-size: 1.02rem; }
+  .strip { display: flex; justify-content: center; gap: 0.4rem; margin: 2rem auto 0; max-width: 520px; }
+  .strip .seg { height: 8px; flex: 1; border-radius: 3px; }
+  .strip .seg:nth-child(1) { background: var(--chunk-1); }
+  .strip .seg:nth-child(2) { background: var(--chunk-2); }
+  .strip .seg:nth-child(3) { background: var(--chunk-3); }
+  .strip .seg:nth-child(4) { background: var(--chunk-4); }
+  .strip .seg:nth-child(5) { background: var(--chunk-1); }
+  .strip .seg:nth-child(6) { background: var(--chunk-2); }
+
+  .module-block { border-top: 3px solid var(--border); padding-top: 2.5rem; margin-top: 3rem; }
+  .module-block:first-of-type { border-top: none; margin-top: 0; }
+  .module-block > h1 { font-family: var(--font-display); font-size: 2rem; margin-bottom: 0.5rem; }
+  .module-block > p.intro { color: var(--text-muted); margin-bottom: 2rem; font-size: 1.02rem; }
+
+  .finale {
+    margin-top: 3rem; padding: 1.5rem; border-radius: 10px;
+    background: linear-gradient(135deg, rgba(124,92,255,0.08), rgba(23,184,166,0.08));
+    border: 1px dashed var(--accent);
+    text-align: center;
+  }
+  .finale p { color: var(--text-muted); margin-bottom: 0.8rem; }
+  .finale a {
+    display: inline-block; background: var(--accent); color: white;
+    text-decoration: none; padding: 0.6rem 1.4rem; border-radius: 6px;
+    font-family: var(--font-display); font-weight: 600; font-size: 0.9rem;
+  }
+
+  @media (max-width: 860px) {
+    .sidebar { position: fixed; left: -100%; z-index: 20; transition: left 0.2s ease; box-shadow: 4px 0 12px rgba(0,0,0,0.15); background: var(--panel); }
+    .sidebar.open { left: 0; }
+    .menu-toggle { display: block; position: fixed; top: 1rem; left: 1rem; z-index: 30; background: var(--accent); color: white; border: none; border-radius: 6px; padding: 0.5rem 0.75rem; cursor: pointer; font-size: 1rem; }
+    .content { padding: 4.5rem 1.25rem 3rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-bar-fill" id="progressFill"></div></div>
+<button class="menu-toggle" id="menuToggle">☰</button>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar">
+    <a class="brand" href="#top">Data<span>Validation</span></a>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-1"><span class="n">01</span> Fondamentaux de la validation automatisée</a>
+      <ul class="lesson-list">
+        <li><a href="#m1-l1" data-lesson="m1-l1"><span class="lesson-check"></span>Pourquoi valider les données automatiquement</a></li>
+        <li><a href="#m1-l2" data-lesson="m1-l2"><span class="lesson-check"></span>Validation manuelle vs automatisée</a></li>
+        <li><a href="#m1-l3" data-lesson="m1-l3"><span class="lesson-check"></span>Où la validation s'insère dans un pipeline</a></li>
+        <li><a href="#m1-l4" data-lesson="m1-l4"><span class="lesson-check"></span>Panorama : Great Expectations, Pandera, alternatives</a></li>
+        <li><a href="#m1-l5" data-lesson="m1-l5"><span class="lesson-check"></span>Erreurs courantes à l'introduction</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-2"><span class="n">02</span> Concepts fondamentaux : schémas et attentes</a>
+      <ul class="lesson-list">
+        <li><a href="#m2-l1" data-lesson="m2-l1"><span class="lesson-check"></span>Qu'est-ce qu'un schéma et une "expectation"</a></li>
+        <li><a href="#m2-l2" data-lesson="m2-l2"><span class="lesson-check"></span>Types de contraintes : type, plage, unicité, nullité</a></li>
+        <li><a href="#m2-l3" data-lesson="m2-l3"><span class="lesson-check"></span>Contraintes statistiques et de distribution</a></li>
+        <li><a href="#m2-l4" data-lesson="m2-l4"><span class="lesson-check"></span>Contraintes relationnelles entre colonnes</a></li>
+        <li><a href="#m2-l5" data-lesson="m2-l5"><span class="lesson-check"></span>Documenter un schéma comme un contrat</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-3"><span class="n">03</span> Pandera en profondeur</a>
+      <ul class="lesson-list">
+        <li><a href="#m3-l1" data-lesson="m3-l1"><span class="lesson-check"></span>Premiers pas : DataFrameSchema</a></li>
+        <li><a href="#m3-l2" data-lesson="m3-l2"><span class="lesson-check"></span>Valider des colonnes : types, checks personnalisés</a></li>
+        <li><a href="#m3-l3" data-lesson="m3-l3"><span class="lesson-check"></span>Schémas pour données imbriquées et séries temporelles</a></li>
+        <li><a href="#m3-l4" data-lesson="m3-l4"><span class="lesson-check"></span>Intégration avec pandas et les DataFrames</a></li>
+        <li><a href="#m3-l5" data-lesson="m3-l5"><span class="lesson-check"></span>Pièges courants avec Pandera</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-4"><span class="n">04</span> Great Expectations en profondeur</a>
+      <ul class="lesson-list">
+        <li><a href="#m4-l1" data-lesson="m4-l1"><span class="lesson-check"></span>Concepts clés : Expectation, Suite, Data Context</a></li>
+        <li><a href="#m4-l2" data-lesson="m4-l2"><span class="lesson-check"></span>Créer et exécuter une suite d'attentes</a></li>
+        <li><a href="#m4-l3" data-lesson="m4-l3"><span class="lesson-check"></span>Générer une suite par profilage automatique</a></li>
+        <li><a href="#m4-l4" data-lesson="m4-l4"><span class="lesson-check"></span>Data Docs : documentation et rapports</a></li>
+        <li><a href="#m4-l5" data-lesson="m4-l5"><span class="lesson-check"></span>Pièges courants avec Great Expectations</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-5"><span class="n">05</span> Comparer et choisir entre les deux outils</a>
+      <ul class="lesson-list">
+        <li><a href="#m5-l1" data-lesson="m5-l1"><span class="lesson-check"></span>Philosophie et cas d'usage de chaque outil</a></li>
+        <li><a href="#m5-l2" data-lesson="m5-l2"><span class="lesson-check"></span>Performance et complexité d'intégration</a></li>
+        <li><a href="#m5-l3" data-lesson="m5-l3"><span class="lesson-check"></span>Écosystème et intégration avec d'autres outils</a></li>
+        <li><a href="#m5-l4" data-lesson="m5-l4"><span class="lesson-check"></span>Critères de décision pour un projet donné</a></li>
+        <li><a href="#m5-l5" data-lesson="m5-l5"><span class="lesson-check"></span>Combiner les deux dans un même projet</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-6"><span class="n">06</span> Intégrer la validation dans un pipeline</a>
+      <ul class="lesson-list">
+        <li><a href="#m6-l1" data-lesson="m6-l1"><span class="lesson-check"></span>Valider en entrée vs en sortie</a></li>
+        <li><a href="#m6-l2" data-lesson="m6-l2"><span class="lesson-check"></span>Gérer les échecs : bloquer, alerter, journaliser</a></li>
+        <li><a href="#m6-l3" data-lesson="m6-l3"><span class="lesson-check"></span>Validation en pipeline batch vs en continu</a></li>
+        <li><a href="#m6-l4" data-lesson="m6-l4"><span class="lesson-check"></span>Intégration avec des orchestrateurs</a></li>
+        <li><a href="#m6-l5" data-lesson="m6-l5"><span class="lesson-check"></span>Pièges d'intégration</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-7"><span class="n">07</span> Gouvernance et évolution des schémas</a>
+      <ul class="lesson-list">
+        <li><a href="#m7-l1" data-lesson="m7-l1"><span class="lesson-check"></span>Versionner un schéma de validation</a></li>
+        <li><a href="#m7-l2" data-lesson="m7-l2"><span class="lesson-check"></span>Faire évoluer un schéma sans casser les pipelines</a></li>
+        <li><a href="#m7-l3" data-lesson="m7-l3"><span class="lesson-check"></span>Tester ses propres schémas de validation</a></li>
+        <li><a href="#m7-l4" data-lesson="m7-l4"><span class="lesson-check"></span>Reporting et suivi dans le temps</a></li>
+        <li><a href="#m7-l5" data-lesson="m7-l5"><span class="lesson-check"></span>Documentation et responsabilité</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <a class="module-title" href="#module-8"><span class="n">08</span> Implémentation complète et étude de cas</a>
+      <ul class="lesson-list">
+        <li><a href="#m8-l1" data-lesson="m8-l1"><span class="lesson-check"></span>Checklist de mise en place</a></li>
+        <li><a href="#m8-l2" data-lesson="m8-l2"><span class="lesson-check"></span>Pipeline complet : schéma à reporting</a></li>
+        <li><a href="#m8-l3" data-lesson="m8-l3"><span class="lesson-check"></span>Étude de cas : pipeline d'ingestion RAG</a></li>
+        <li><a href="#m8-l4" data-lesson="m8-l4"><span class="lesson-check"></span>Exercice final</a></li>
+        <li><a href="#m8-l5" data-lesson="m8-l5"><span class="lesson-check"></span>Synthèse et ouverture du Bloc 7</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main class="content">
+    <header class="hero" id="top">
+      <span class="tag">// data-for-ai · 7.outillage-industrialisation · Formation 23</span>
+      <h1 class="hero-title">Validation de Données <span>Automatisée</span></h1>
+      <p class="hero-lead">Great Expectations et Pandera en Python — comment transformer des hypothèses implicites sur vos données en contrôles explicites, automatisés et reproductibles, intégrés directement dans vos pipelines. 8 modules, 40 leçons.</p>
+      <div class="strip" aria-hidden="true">
+        <div class="seg"></div><div class="seg"></div><div class="seg"></div>
+        <div class="seg"></div><div class="seg"></div><div class="seg"></div>
+      </div>
+    </header>
+
+    <div class="module-block" id="module-1">
+      <span class="module-kicker">MODULE 01 / 08</span>
+      <h1>Fondamentaux de la validation automatisée</h1>
+      <p class="intro">Ce cours ouvre le Bloc 7 de la série, consacré à l'outillage et à l'industrialisation des pratiques déjà couvertes dans les blocs précédents. Il traite un sujet transverse à l'ensemble de cette série : comment vérifier automatiquement que des données respectent bien les hypothèses sur lesquelles reposent tous les pipelines déjà construits — RAG (cours 9-13), agents IA (cours 17-19), fine-tuning (cours 20-22).</p>
+
+      <section class="lesson" id="m1-l1" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 1.1</span>Pourquoi valider les données automatiquement</h2>
+
+        <p>Tout au long de cette série, des hypothèses implicites ont soutenu chaque pipeline construit : qu'un champ de date respecte un format donné, qu'un identifiant reste unique, qu'une colonne ne contienne jamais de valeur manquante inattendue. Ces hypothèses, rarement vérifiées explicitement, deviennent une source de défaillance silencieuse dès qu'une source de données évolue sans que personne ne le remarque.</p>
+
+        <div class="ascii">Le problème que la validation automatisée résout :
+
+Pipeline construit en supposant IMPLICITEMENT que :
+  - la colonne "email" contient toujours une adresse valide
+  - la colonne "prix" est toujours positive
+  - la colonne "id_client" ne contient jamais de doublon
+                    │
+                    ▼
+Ces hypothèses ne sont écrites NULLE PART de façon explicite
+— elles vivent uniquement dans la tête de la personne qui a
+construit le pipeline, ou dans du code de traitement qui les
+suppose silencieusement vraies
+                    │
+                    ▼
+Une source de données change (nouvelle intégration, erreur
+amont, migration) et VIOLE une de ces hypothèses
+                    │
+                    ▼
+Sans validation explicite : le pipeline continue de tourner,
+produit un résultat SILENCIEUSEMENT INCORRECT, découvert
+parfois bien plus tard, à un coût de diagnostic élevé</div>
+
+        <p>Ce risque n'est pas nouveau dans cette série : il rejoint directement le principe de péremption silencieuse déjà établi au cours 18 (module 2, leçon 2.4) et celui des logs débogables du cours 19 — une défaillance qui ne "plante" pas techniquement est souvent bien plus coûteuse à détecter qu'une erreur bruyante. La validation automatisée rend ces hypothèses implicites explicites, vérifiables, et déclenchées systématiquement plutôt que découvertes après coup.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer que des tests unitaires sur le CODE d'un pipeline suffisent à garantir sa fiabilité, en oubliant que le code peut être parfaitement correct tout en recevant des DONNÉES qui violent les hypothèses sur lesquelles ce code repose — un problème que seule une validation portant directement sur les données, pas seulement sur la logique de traitement, peut détecter.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un pipeline que vous avez construit ou étudié dans cette série (RAG, fine-tuning, agent), identifiez une hypothèse implicite sur les données qui, si elle était violée, produirait une défaillance silencieuse plutôt qu'une erreur visible.
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l2" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 1.2</span>Validation manuelle vs automatisée : les limites de l'humain</h2>
+
+        <p>Rappel indirect du cours 20 (module 4, leçon 4.4, sur la revue manuelle d'échantillon) : une vérification humaine reste précieuse, mais elle a des limites structurelles que ce cours propose de dépasser par l'automatisation — sans pour autant l'éliminer entièrement.</p>
+
+        <div class="ascii">Limites de la validation MANUELLE                Apports de la validation AUTOMATISÉE
+────────────────────────────────                  ────────────────────────────────
+Ne peut vérifier qu'un ÉCHANTILLON                 Peut vérifier CHAQUE ligne, à
+(rappel cours 20, module 4, leçon 4.4)              CHAQUE exécution du pipeline
+
+Ponctuelle : vérifiée une fois,                     Systématique : s'exécute à CHAQUE
+peut ne jamais être répétée                          nouvelle donnée, sans effort
+                                                   supplémentaire une fois en place
+
+Sujette à la fatigue et à                           Cohérente : applique EXACTEMENT
+l'inattention humaine                                les mêmes règles à chaque exécution,
+                                                   sans variation
+
+Ne peut pas s'exécuter en                           Peut s'exécuter en quelques
+quelques millisecondes à                             millisecondes à chaque ingestion
+chaque ingestion de données                          de données, avant tout traitement
+                                                   en aval</div>
+
+        <p>Cette comparaison ne signifie pas que l'automatisation remplace entièrement le jugement humain : rappel du même principe déjà établi au cours 22 (module 6, leçon 6.4, sur la zone grise) — l'automatisation excelle à vérifier des règles explicites et répétables, tandis que le jugement humain reste nécessaire pour des cas ambigus ou pour concevoir les règles elles-mêmes.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Opposer validation manuelle et automatisée comme des choix mutuellement exclusifs, alors qu'elles se complètent : l'automatisation vérifie systématiquement des règles explicites à grande échelle, tandis que la revue manuelle reste utile pour concevoir ces règles et traiter les cas qu'aucune règle automatisée ne peut encore capturer.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un pipeline de données que vous connaissez, quelle vérification serait la plus urgente à automatiser en priorité, et laquelle resterait pertinente à conserver comme une revue humaine ponctuelle ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l3" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 1.3</span>Où la validation s'insère dans un pipeline de données</h2>
+
+        <p>Cette leçon situe la validation automatisée dans les pipelines déjà construits tout au long de cette série, en identifiant les points d'insertion les plus pertinents.</p>
+
+        <div class="ascii">Points d'insertion de la validation dans des pipelines déjà
+couverts par cette série :
+
+PIPELINE RAG (cours 9-13)
+  Après extraction et nettoyage (cours 11), AVANT chunking
+  et indexation — vérifier que les documents extraits
+  respectent le format attendu avant de les traiter davantage
+
+PIPELINE DE FINE-TUNING (cours 20-22)
+  Après formatage (cours 20), AVANT l'entraînement — vérifier
+  la conformité structurelle du JSONL (rappel cours 20,
+  module 3) de façon systématique et automatisée plutôt
+  qu'avec le script de validation ad hoc déjà illustré
+
+PIPELINE DE DONNÉES TEMPS RÉEL (cours 18)
+  À la réception de chaque nouvelle donnée depuis une source
+  externe — vérifier sa conformité avant de la mettre en cache
+  ou de la transmettre à un agent</div>
+
+        <p>Ce positionnement révèle un principe central de ce cours : les scripts de validation déjà écrits ponctuellement dans cette série (par exemple, la fonction <code class="inline">valider_jsonl</code> du cours 20, module 3, leçon 3.3) peuvent être remplacés ou complétés par des outils dédiés, conçus spécifiquement pour ce problème — plus robustes, plus expressifs, et mieux outillés pour le reporting (approfondi au module 4).</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer que la validation ne concerne qu'une seule étape d'un pipeline (par exemple, uniquement à l'ingestion initiale) alors qu'elle mérite d'être positionnée à chaque frontière significative entre étapes de traitement — une donnée valide en entrée peut devenir invalide après une transformation buguée, un problème que seule une validation à plusieurs points du pipeline peut détecter.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour le pipeline de fine-tuning des cours 20-22, à quelles étapes précises (au-delà de celle mentionnée ci-dessus) une validation automatisée supplémentaire serait-elle pertinente ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l4" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 1.4</span>Panorama : Great Expectations, Pandera, et alternatives</h2>
+
+        <p>Ce cours se concentre sur deux outils Python largement adoptés pour la validation de données, chacun avec une philosophie distincte, approfondis respectivement aux modules 3 et 4.</p>
+
+        <table>
+          <thead><tr><th>Outil</th><th>Philosophie</th><th>Point fort</th></tr></thead>
+          <tbody>
+            <tr><td>Pandera</td><td>Schémas définis directement en code Python, proches des types et de la syntaxe pandas</td><td>Léger, rapide à adopter, s'intègre naturellement dans du code Python existant</td></tr>
+            <tr><td>Great Expectations</td><td>Plateforme complète avec suites d'attentes, documentation générée automatiquement, et gouvernance</td><td>Riche en fonctionnalités de reporting et de documentation (Data Docs, approfondi module 4)</td></tr>
+            <tr><td>Autres (mention)</td><td>Des outils spécialisés existent pour des besoins spécifiques (validation de flux de streaming, contrats d'API)</td><td>Pertinents pour des cas particuliers hors du périmètre principal de ce cours</td></tr>
+          </tbody>
+        </table>
+
+        <p>Ce cours ne présente pas ces deux outils comme des concurrents à départager définitivement, mais comme deux approches complémentaires dont le choix dépend du contexte — une question approfondie explicitement au module 5, après avoir exploré chacun en détail aux modules 3 et 4.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Choisir un outil de validation par simple popularité ou par habitude, sans comprendre sa philosophie sous-jacente ni l'avoir comparé aux alternatives pour le besoin spécifique du projet — un choix d'outil mal adapté peut complexifier inutilement un projet qui aurait pu se contenter d'une solution plus légère, ou inversement manquer des fonctionnalités de gouvernance nécessaires à grande échelle.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          D'après cette première présentation, pour un petit projet personnel de nettoyage de données, lequel des deux outils principaux vous semblerait a priori le plus simple à adopter rapidement ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m1-l5" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 1.5</span>Erreurs courantes à l'introduction de la validation automatisée</h2>
+
+        <p>Cette dernière leçon du module recense les erreurs les plus fréquentes lors de la première mise en place d'une validation automatisée, approfondies dans les modules suivants.</p>
+
+        <h3>Erreur 1 : vouloir tout valider dès le premier jour</h3>
+        <p>Tenter d'écrire un schéma exhaustif couvrant toutes les contraintes imaginables avant même de commencer, plutôt que de démarrer avec quelques règles essentielles et d'itérer — un principe qui rejoint la progressivité déjà recommandée pour d'autres pratiques de cette série.</p>
+
+        <h3>Erreur 2 : ne pas décider à l'avance ce qui doit se passer en cas d'échec</h3>
+        <p>Mettre en place une validation sans avoir défini le comportement attendu en cas de violation détectée (bloquer le pipeline, alerter, journaliser) — approfondi au module 6, leçon 6.2.</p>
+
+        <h3>Erreur 3 : figer un schéma sans jamais le faire évoluer</h3>
+        <p>Traiter un schéma de validation comme définitif une fois écrit, sans processus pour le réviser à mesure que les données ou les besoins évoluent — approfondi au module 7.</p>
+
+        <h3>Erreur 4 : valider sans jamais consulter les résultats</h3>
+        <p>Mettre en place une validation qui s'exécute silencieusement, sans reporting ni suivi dans le temps, rendant l'effort de mise en place largement stérile — approfondi au module 7, leçon 7.4.</p>
+
+        <div class="ascii">Les quatre erreurs à éviter, résumées :
+
+1. TOUT VALIDER DÈS LE DÉPART       →  Effort disproportionné, démarrage lent
+2. ÉCHECS SANS COMPORTEMENT DÉFINI    →  Validation inutile en pratique
+3. SCHÉMA FIGÉ                       →  Dérive entre schéma et réalité
+4. RÉSULTATS JAMAIS CONSULTÉS        →  Effort de mise en place stérile</div>
+
+        <p>Les modules suivants traitent chacune de ces erreurs : les modules 2-4 détaillent la conception progressive de schémas avec Pandera et Great Expectations, le module 6 le comportement face aux échecs, et le module 7 l'évolution et le reporting dans le temps.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer la mise en place d'une validation automatisée comme un projet ponctuel à finaliser une fois pour toutes, plutôt que comme une pratique continue qui évolue avec le pipeline qu'elle protège — un schéma de validation, comme le code qu'il accompagne, nécessite maintenance et évolution dans la durée.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de synthèse</strong>
+          Pour clore ce module : parmi les quatre erreurs listées, laquelle vous semble la plus probable dans un projet que vous avez connu ou pourriez rencontrer — et pourquoi ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-2">
+      <span class="module-kicker">MODULE 02 / 08</span>
+      <h1>Concepts fondamentaux : schémas et attentes</h1>
+      <p class="intro">Avant d'aborder Pandera (module 3) et Great Expectations (module 4), ce module établit un vocabulaire et des concepts communs aux deux outils — indépendants de toute syntaxe spécifique, pour comprendre ce que valider des données signifie concrètement.</p>
+
+      <section class="lesson" id="m2-l1" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 2.1</span>Qu'est-ce qu'un schéma de données et une "expectation"</h2>
+
+        <p>Un <strong>schéma de données</strong> est une description formelle de ce à quoi des données conformes devraient ressembler — les colonnes attendues, leurs types, leurs contraintes. Une <strong>expectation</strong> (attente), terminologie propre à Great Expectations mais dont le concept s'applique aussi à Pandera, désigne une règle individuelle et vérifiable au sein de ce schéma.</p>
+
+        <div class="ascii">Relation entre schéma et expectations :
+
+SCHÉMA (l'ensemble)
+├── EXPECTATION : la colonne "age" doit être un entier
+├── EXPECTATION : la colonne "age" doit être comprise entre 0 et 120
+├── EXPECTATION : la colonne "email" doit respecter un format d'email
+└── EXPECTATION : la colonne "id_client" ne doit jamais être nulle
+
+→ Un SCHÉMA regroupe plusieurs EXPECTATIONS, chacune
+  vérifiable indépendamment, formant ensemble un CONTRAT
+  complet sur la structure et le contenu attendu des données</div>
+
+        <p>Cette notion de contrat rejoint directement un principe déjà esquissé au cours 20 (module 7, leçon 7.5, sur la documentation de dataset) : un schéma de validation formalise explicitement ce qui, jusqu'ici dans cette série, restait souvent implicite dans le code de traitement ou dans la tête de l'équipe qui a construit le pipeline.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Confondre un schéma de validation avec un schéma de base de données classique (qui décrit uniquement la structure — types de colonnes) — un schéma de validation, au sens de ce cours, va plus loin en exprimant aussi des contraintes de contenu et de qualité (plages de valeurs, unicité, cohérence), pas seulement la structure technique.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un jeu de données client (nom, email, âge, date d'inscription), formulez trois expectations distinctes qui, ensemble, constitueraient un début de schéma de validation.
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l2" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 2.2</span>Types de contraintes : type, plage, unicité, nullité</h2>
+
+        <p>Cette leçon détaille les catégories de contraintes les plus fondamentales, communes à la quasi-totalité des outils de validation, y compris ceux étudiés aux modules 3 et 4.</p>
+
+        <div class="ascii">Les quatre catégories de contraintes les plus courantes :
+
+CONTRAINTE DE TYPE
+  La colonne doit contenir des valeurs d'un type précis
+  (entier, texte, date, booléen)
+
+CONTRAINTE DE PLAGE
+  La valeur doit se situer dans un intervalle acceptable
+  (un âge entre 0 et 120, un prix toujours positif)
+
+CONTRAINTE D'UNICITÉ
+  Une valeur ne doit apparaître qu'une seule fois dans la
+  colonne (un identifiant client, par exemple)
+
+CONTRAINTE DE NULLITÉ
+  La colonne peut ou ne peut PAS contenir de valeurs
+  manquantes — une distinction cruciale selon le champ</div>
+
+        <p>Ces quatre catégories, bien que basiques, couvrent déjà une part importante des défaillances silencieuses évoquées à la leçon 1.1 : un champ d'identifiant qui devient soudainement non unique, une colonne numérique qui reçoit une valeur textuelle inattendue, ou une contrainte de nullité violée par une source amont modifiée sans préavis.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Se limiter aux seules contraintes de type, en négligeant les contraintes de plage, d'unicité et de nullité qui capturent souvent des défaillances bien plus fréquentes en pratique — une colonne "âge" de type entier valide techniquement peut malgré tout contenir la valeur -5 ou 300, deux erreurs qu'une simple vérification de type ne détecterait jamais.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour la colonne "date_inscription" d'un jeu de données client, formulez une contrainte pour chacune des quatre catégories de cette leçon.
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l3" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 2.3</span>Contraintes statistiques et de distribution</h2>
+
+        <p>Rappel direct du cours 21 (module 3, sur la mesure du biais) : au-delà des contraintes individuelles de la leçon 2.2, un schéma peut aussi exprimer des attentes sur la distribution globale d'une colonne — une extension naturelle des mêmes principes de mesure statistique déjà appliqués à un contexte différent.</p>
+
+        <div class="ascii">Exemples de contraintes statistiques (au-delà d'une seule ligne) :
+
+MOYENNE ET ÉCART-TYPE ATTENDUS
+  La moyenne de la colonne "montant_commande" devrait rester
+  dans une plage cohérente avec l'historique connu — un
+  écart soudain peut signaler un problème de source, pas
+  seulement une évolution légitime du comportement métier
+
+PROPORTION DE VALEURS MANQUANTES ACCEPTABLE
+  Rappel cours 20, module 6, leçon 6.4 (sur le déséquilibre
+  de label) — une proportion de valeurs nulles qui dépasse
+  un seuil habituel peut signaler une dégradation de la
+  source de collecte
+
+DISTRIBUTION DE CATÉGORIES ATTENDUE
+  Rappel direct cours 21, module 3, leçon 3.1 (entropie de
+  distribution) — le même principe appliqué ici à la
+  validation continue d'un pipeline de données, pas
+  seulement à l'analyse ponctuelle d'un dataset</div>
+
+        <p>Ce type de contrainte est plus délicat à définir que les contraintes individuelles de la leçon 2.2 : une valeur peut être individuellement valide (dans la bonne plage, du bon type) tout en participant à une distribution globale anormale — un problème qui ne devient visible qu'en observant l'ensemble de la colonne, pas une seule ligne isolément.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Se limiter à des contraintes ligne par ligne (leçon 2.2) sans jamais vérifier de contraintes statistiques sur l'ensemble d'une colonne — un déséquilibre de distribution (rappel cours 21) peut passer complètement inaperçu si chaque valeur individuelle reste, prise isolément, parfaitement valide.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour une colonne "pays_livraison" dans un système e-commerce, quelle contrainte de distribution pourrait signaler un problème si elle était soudainement violée (par exemple, un seul pays représentant 99% des commandes) ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l4" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 2.4</span>Contraintes relationnelles entre colonnes</h2>
+
+        <p>Certaines contraintes ne peuvent pas être vérifiées en examinant une seule colonne isolément : elles portent sur la <strong>relation</strong> entre plusieurs colonnes d'un même jeu de données — un niveau de validation plus sophistiqué que les contraintes des leçons précédentes.</p>
+
+        <div class="ascii">Exemples de contraintes relationnelles :
+
+COHÉRENCE TEMPORELLE
+  La colonne "date_livraison" doit toujours être POSTÉRIEURE
+  à la colonne "date_commande" — une contrainte qui ne peut
+  être vérifiée qu'en comparant les deux colonnes ensemble
+
+COHÉRENCE CONDITIONNELLE
+  Si la colonne "statut" vaut "remboursé", alors la colonne
+  "montant_rembourse" ne devrait jamais être nulle ni égale
+  à zéro — une règle qui dépend de la valeur d'une AUTRE colonne
+
+COHÉRENCE D'AGRÉGATION
+  La somme des lignes de détail d'une commande devrait
+  correspondre au total enregistré dans une table récapitulative
+  — une contrainte qui porte sur une relation entre plusieurs
+  ENREGISTREMENTS, pas seulement plusieurs colonnes d'une même ligne</div>
+
+        <p>Ces contraintes relationnelles sont souvent les plus révélatrices de bugs subtils dans un pipeline de données : chaque colonne prise isolément peut être parfaitement valide selon les critères des leçons 2.2-2.3, tout en violant une cohérence logique entre elles — un exemple concret et fréquent d'un problème de qualité invisible sans une vérification spécifiquement relationnelle.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Concevoir un schéma de validation qui ne couvre que des contraintes colonne par colonne, en négligeant les contraintes relationnelles qui capturent souvent les incohérences les plus significatives d'un point de vue métier — une date de livraison antérieure à sa date de commande est un signal d'alerte bien plus clair qu'une simple valeur hors plage.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un jeu de données de commandes e-commerce (colonnes : statut, montant_total, montant_rembourse), formulez une contrainte relationnelle entre ces trois colonnes.
+        </div>
+      </section>
+
+      <section class="lesson" id="m2-l5" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 2.5</span>Documenter un schéma comme un contrat de données</h2>
+
+        <p>Cette dernière leçon du module introduit la notion de <strong>data contract</strong> (contrat de données), approfondie au module 7 : un schéma de validation, correctement documenté, ne sert pas seulement à détecter des erreurs — il devient une référence explicite et partagée sur ce que des données conformes signifient pour une équipe.</p>
+
+        <div class="ascii">Ce qu'un schéma bien documenté apporte, au-delà de la simple
+détection technique d'erreurs :
+
+COMMUNICATION ENTRE ÉQUIPES
+  Une équipe qui produit des données et une équipe qui les
+  consomme peuvent se référer au MÊME schéma explicite,
+  plutôt qu'à des hypothèses informelles et potentiellement
+  divergentes
+
+ONBOARDING FACILITÉ
+  Une nouvelle personne rejoignant un projet peut consulter
+  le schéma pour comprendre rapidement ce qu'une donnée
+  "valide" signifie dans ce contexte précis, plutôt que de
+  devoir déduire ces règles du code de traitement existant
+
+RÉFÉRENCE EN CAS DE LITIGE
+  Si une équipe consommatrice de données rencontre un
+  problème, le schéma sert de référence objective pour
+  déterminer si la donnée reçue respectait ou non le
+  contrat convenu</div>
+
+        <p>Cette notion de contrat rejoint directement le principe de documentation déjà établi tout au long du Bloc 6 (cours 20-22) : un schéma de validation n'est pas seulement un artefact technique, mais un document de référence partagé, qui gagne à être versionné et documenté avec le même sérieux que le code lui-même — un thème approfondi au module 7 de ce cours.</p>
+
+        <div class="ascii">Ce module clôt la partie "concepts fondamentaux" du cours. Les
+modules suivants appliquent concrètement ces concepts avec deux
+outils Python : Pandera (module 3) puis Great Expectations
+(module 4), avant de les comparer au module 5.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer un schéma de validation comme un simple artefact technique interne, sans le documenter ni le partager comme un contrat explicite entre les équipes qui produisent et celles qui consomment les données — cette omission prive le schéma d'une grande partie de sa valeur organisationnelle, au-delà de sa seule fonction de détection technique.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : dans un projet impliquant plusieurs équipes qui échangent des données, qui devrait, selon vous, avoir la responsabilité de définir et de faire évoluer le schéma de validation partagé ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-3">
+      <span class="module-kicker">MODULE 03 / 08</span>
+      <h1>Pandera en profondeur</h1>
+      <p class="intro">Ce module applique concrètement les concepts du module 2 avec Pandera, une bibliothèque Python qui exprime les schémas de validation directement en code, dans un style proche de pandas — le premier des deux outils principaux de ce cours.</p>
+
+      <section class="lesson" id="m3-l1" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 3.1</span>Premiers pas avec Pandera : DataFrameSchema</h2>
+
+        <p>Pandera exprime un schéma de validation (rappel module 2, leçon 2.1) sous la forme d'un objet <code class="inline">DataFrameSchema</code>, listant les colonnes attendues et leurs contraintes — une syntaxe qui rappelle directement la définition d'un DataFrame pandas, ce qui facilite son adoption pour quiconque connaît déjà cet écosystème.</p>
+
+        <pre><code class="language-python">import pandera as pa
+from pandera import Column, Check
+
+schema_clients = pa.DataFrameSchema({
+    "id_client": Column(int, unique=True, nullable=False),
+    "age": Column(int, Check.in_range(0, 120)),
+    "email": Column(str, Check.str_matches(r"^[\w.+-]+@[\w-]+\.[a-z]{2,}$")),
+})
+
+# Valider un DataFrame existant
+df_valide = schema_clients.validate(df_clients)
+</code></pre>
+
+        <div class="ascii">Correspondance directe avec les concepts du module 2 :
+
+Column(int, unique=True, nullable=False)
+  → Rappel module 2, leçon 2.2 : contrainte de TYPE (int),
+    d'UNICITÉ (unique=True), de NULLITÉ (nullable=False)
+
+Check.in_range(0, 120)
+  → Rappel module 2, leçon 2.2 : contrainte de PLAGE
+
+Check.str_matches(...)
+  → Une contrainte de FORMAT, exprimée via une expression
+    régulière — un type de contrainte supplémentaire au-delà
+    des quatre catégories de base du module 2</div>
+
+        <p>L'appel <code class="inline">schema_clients.validate(df_clients)</code> lève une exception si une contrainte est violée, interrompant l'exécution du programme — un comportement à la fois pratique pour un script simple et potentiellement problématique pour un pipeline en production, un compromis approfondi au module 6, leçon 6.2.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Définir un schéma Pandera qui ne couvre que les colonnes jugées les plus importantes, en laissant les autres colonnes du DataFrame totalement non vérifiées — par défaut, Pandera ignore les colonnes non déclarées dans le schéma, ce qui peut laisser passer des problèmes sur des colonnes qu'on pensait implicitement couvertes.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour le schéma ci-dessus, ajoutez une colonne "date_inscription" avec une contrainte de type approprié pour une date.
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l2" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 3.2</span>Valider des colonnes : types, contraintes, checks personnalisés</h2>
+
+        <p>Au-delà des contraintes prédéfinies de la leçon 3.1, Pandera permet de définir des <strong>checks personnalisés</strong> — des fonctions Python arbitraires exprimant une logique de validation propre à un projet, y compris des contraintes relationnelles entre colonnes (rappel module 2, leçon 2.4).</p>
+
+        <pre><code class="language-python">def date_livraison_apres_commande(df) -> bool:
+    """Rappel module 2, leçon 2.4 — contrainte RELATIONNELLE
+    entre deux colonnes, exprimée ici comme un check Pandera
+    appliqué à l'ensemble du DataFrame plutôt qu'à une seule
+    colonne isolément."""
+    return (df["date_livraison"] >= df["date_commande"]).all()
+
+schema_commandes = pa.DataFrameSchema(
+    {
+        "date_commande": Column("datetime64[ns]"),
+        "date_livraison": Column("datetime64[ns]"),
+        "montant": Column(float, Check.greater_than(0)),
+    },
+    checks=Check(date_livraison_apres_commande, error="livraison avant commande"),
+)
+</code></pre>
+
+        <div class="ascii">Deux niveaux de checks dans Pandera :
+
+CHECK SUR UNE COLONNE                     CHECK SUR LE DATAFRAME ENTIER
+(Check.greater_than, Check.in_range...)    (passé au paramètre "checks" du
+────────────────────────────────           DataFrameSchema, comme ci-dessus)
+Vérifie une contrainte PORTANT
+sur les valeurs d'UNE SEULE colonne         Permet d'exprimer des contraintes
+                                          RELATIONNELLES entre PLUSIEURS
+Rappel module 2, leçon 2.2-2.3             colonnes (rappel module 2,
+                                          leçon 2.4)</div>
+
+        <p>Cette capacité à définir des checks personnalisés en Python pur constitue un atout important de Pandera : contrairement à un outil purement déclaratif, la logique de validation peut être aussi riche que n'importe quel code Python, sans limite arbitraire imposée par la syntaxe de l'outil lui-même.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Écrire des checks personnalisés complexes sans message d'erreur explicite associé — un check qui échoue sans préciser clairement quelle règle a été violée oblige à retourner dans le code du schéma pour comprendre le problème, alors qu'un message d'erreur clair (rappel du paramètre <code class="inline">error=</code>) rendrait le diagnostic immédiat.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour le schéma de commandes ci-dessus, écrivez un check supplémentaire vérifiant que le montant ne dépasse jamais une valeur maximale raisonnable (par exemple 100 000).
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l3" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 3.3</span>Schémas pour données imbriquées et séries temporelles</h2>
+
+        <p>Cette leçon traite des cas plus complexes que les DataFrames tabulaires simples des leçons précédentes : des données avec une composante temporelle explicite, ou une structure imbriquée qui nécessite une approche de validation adaptée.</p>
+
+        <pre><code class="language-python">import pandera as pa
+from pandera.typing import Series, DateTime
+
+class SchemaSerieTemporelle(pa.DataFrameModel):
+    """Rappel cours 18 (données temps réel) — un style de
+    déclaration de schéma alternatif, basé sur les classes
+    Python plutôt que sur un dictionnaire de colonnes."""
+    horodatage: Series[DateTime]
+    valeur: Series[float] = pa.Field(nullable=False)
+
+    class Config:
+        # Vérifie que les horodatages sont bien ORDONNÉS
+        # dans le temps, une contrainte fréquente pour ce
+        # type de données (rappel cours 18, module 6, sur
+        # le fenêtrage et l'agrégation temporelle)
+        strict = True
+</code></pre>
+
+        <div class="ascii">Pourquoi les séries temporelles nécessitent une attention
+particulière (rappel cours 18) :
+
+Une série temporelle a une contrainte IMPLICITE souvent
+négligée : l'ORDRE chronologique des enregistrements — une
+donnée techniquement valide ligne par ligne (bon type, bonne
+plage) peut malgré tout être INVALIDE si les horodatages ne
+sont pas correctement ordonnés, un problème qui affecterait
+directement le fenêtrage déjà couvert au cours 18, module 6</div>
+
+        <p>Le style <code class="inline">DataFrameModel</code> illustré ici, basé sur des classes Python plutôt que sur un dictionnaire, offre une syntaxe alternative dans Pandera — un choix de style plutôt qu'une différence fonctionnelle fondamentale, à privilégier selon les préférences de lisibilité de l'équipe.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Valider une série temporelle uniquement sur les contraintes de valeur (type, plage) sans jamais vérifier l'ordre chronologique des enregistrements — une donnée désordonnée dans le temps peut fausser silencieusement tout traitement en aval qui suppose implicitement un ordre chronologique correct (rappel cours 18, sur le fenêtrage).
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour le schéma de série temporelle ci-dessus, quel check ajouteriez-vous pour vérifier explicitement que les horodatages sont bien croissants ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l4" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 3.4</span>Intégration avec pandas et les DataFrames</h2>
+
+        <p>Cette leçon traite comment intégrer Pandera naturellement dans un flux de travail pandas existant, en particulier via les décorateurs qui valident automatiquement les entrées et sorties de fonctions.</p>
+
+        <pre><code class="language-python">from pandera.typing import DataFrame
+
+@pa.check_types
+def calculer_total_commandes(df: DataFrame[SchemaCommandes]) -> DataFrame[SchemaResultat]:
+    """Le décorateur @pa.check_types valide AUTOMATIQUEMENT
+    l'entrée ET la sortie de cette fonction selon les schémas
+    déclarés en annotation de type — la validation devient
+    partie intégrante de la SIGNATURE de la fonction, pas un
+    appel séparé à ajouter manuellement à chaque utilisation."""
+    df["total"] = df["quantite"] * df["prix_unitaire"]
+    return df
+</code></pre>
+
+        <div class="ascii">Avantage de cette intégration par décorateur :
+
+VALIDATION APPELÉE MANUELLEMENT             VALIDATION PAR DÉCORATEUR
+────────────────────────────────            ────────────────────────────────
+Risque d'OUBLI : un développeur              La validation s'exécute
+peut oublier d'appeler                       AUTOMATIQUEMENT à chaque
+schema.validate() avant de traiter            appel de la fonction, sans
+les données                                  effort supplémentaire ni
+                                            risque d'oubli
+
+Validation dispersée dans le                 Validation intégrée à la
+code, difficile à repérer                    SIGNATURE de la fonction,
+d'un coup d'œil                             visible et documentée</div>
+
+        <p>Cette approche par décorateur rejoint un principe déjà établi implicitement au cours 17 (sur les Structured Outputs) : intégrer la validation directement dans la structure du code plutôt que comme une étape séparée et facultative réduit le risque d'oubli et rend la contrainte de validation visible pour quiconque lit le code.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Appeler la validation Pandera de façon manuelle et dispersée à travers le code, plutôt que d'utiliser les décorateurs qui l'intègrent directement à la signature des fonctions — cette dispersion augmente le risque qu'une fonction ajoutée plus tard oublie d'appliquer la validation déjà en place ailleurs dans le projet.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour la fonction ci-dessus, quel avantage pratique offre le fait que le schéma de sortie (<code class="inline">SchemaResultat</code>) soit lui aussi vérifié automatiquement, pas seulement le schéma d'entrée ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m3-l5" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 3.5</span>Pièges courants avec Pandera</h2>
+
+        <p>Cette dernière leçon du module recense des pièges spécifiques à l'usage de Pandera, en complément des principes déjà établis.</p>
+
+        <h3>Piège 1 : negliger le paramètre strict</h3>
+        <p>Rappel de la leçon 3.1 : sans configuration explicite, Pandera peut ignorer silencieusement des colonnes non déclarées dans le schéma — le paramètre <code class="inline">strict=True</code> force une erreur si des colonnes inattendues sont présentes, une vérification souvent souhaitable mais non activée par défaut.</p>
+
+        <h3>Piège 2 : schémas trop rigides pour des données évolutives</h3>
+        <p>Rappel du module 2, leçon 2.5 (schéma comme contrat) : un schéma Pandera trop strict peut bloquer un pipeline dès qu'une colonne légitimement optionnelle est absente d'un lot de données particulier — un compromis à calibrer selon la variabilité réelle attendue des données.</p>
+
+        <h3>Piège 3 : performances sur de très grands DataFrames</h3>
+        <p>Des checks personnalisés complexes (leçon 3.2), appliqués à un DataFrame de plusieurs millions de lignes, peuvent introduire une latence significative — un facteur à considérer dans le choix entre validation exhaustive et validation par échantillonnage, approfondi au module 6.</p>
+
+        <div class="ascii">Ce module clôt la partie "Pandera" du cours. Le module suivant
+explore Great Expectations, un outil de philosophie différente,
+avant de comparer les deux approches au module 5.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Utiliser Pandera avec sa configuration par défaut sans jamais examiner les paramètres disponibles (comme <code class="inline">strict</code>) qui pourraient renforcer significativement la rigueur de la validation pour un cas d'usage donné — les valeurs par défaut d'un outil ne sont pas toujours les plus adaptées à un contexte de production exigeant.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de synthèse</strong>
+          Pour clore ce module : parmi les trois pièges listés, lequel vous semble le plus pertinent pour un pipeline traitant plusieurs millions de lignes par jour ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-4">
+      <span class="module-kicker">MODULE 04 / 08</span>
+      <h1>Great Expectations en profondeur</h1>
+      <p class="intro">Ce module explore Great Expectations, un outil de philosophie différente de Pandera : plutôt que des schémas définis en code Python pur, une plateforme complète organisée autour de suites d'attentes, d'un contexte de données centralisé, et d'une documentation générée automatiquement.</p>
+
+      <section class="lesson" id="m4-l1" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 4.1</span>Concepts clés : Expectation, Suite, Data Context, Checkpoint</h2>
+
+        <p>Great Expectations organise la validation autour de plusieurs concepts structurants, plus riches que la simple structure de schéma déjà vue avec Pandera (module 3).</p>
+
+        <div class="ascii">Les quatre concepts clés de Great Expectations :
+
+EXPECTATION
+  Une règle individuelle vérifiable (rappel module 2, leçon
+  2.1) — par exemple "expect_column_values_to_be_between"
+
+SUITE (Expectation Suite)
+  Un ENSEMBLE nommé d'expectations, l'équivalent d'un schéma
+  complet (rappel module 2, leçon 2.1), mais avec un nom et
+  une identité propres, réutilisable à travers plusieurs
+  jeux de données
+
+DATA CONTEXT
+  Le point d'entrée central du projet — configure où sont
+  stockées les suites, les résultats de validation, et la
+  documentation générée (approfondi leçon 4.4)
+
+CHECKPOINT
+  Un objet qui associe une SUITE à des DONNÉES précises et
+  définit comment exécuter la validation (quand, avec quelles
+  actions en cas d'échec — approfondi module 6, leçon 6.2)</div>
+
+        <p>Cette architecture, plus élaborée que celle de Pandera, reflète une philosophie différente : Great Expectations est conçu comme une plateforme complète de gouvernance de la qualité des données, pas seulement comme une bibliothèque de validation ponctuelle — un compromis entre richesse fonctionnelle et complexité d'adoption, approfondi au module 5.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Aborder Great Expectations en cherchant l'équivalent direct d'un simple schéma Pandera, sans comprendre que son architecture (Data Context, Checkpoint) est pensée pour une utilisation en plateforme complète, pas seulement pour une validation ponctuelle en quelques lignes de code — une attente qui peut rendre la prise en main initiale plus déroutante que prévu.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour les quatre concepts de cette leçon, associez chacun au concept le plus proche déjà rencontré avec Pandera au module 3 (s'il en existe un équivalent).
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l2" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 4.2</span>Créer et exécuter une suite d'attentes</h2>
+
+        <p>Cette leçon illustre la création concrète d'une suite d'expectations et son exécution contre un jeu de données, en reprenant l'exemple du jeu de données clients déjà utilisé avec Pandera (module 3, leçon 3.1), pour faciliter la comparaison.</p>
+
+        <pre><code class="language-python">import great_expectations as gx
+
+contexte = gx.get_context()
+source_donnees = contexte.sources.add_pandas("source_clients")
+actif_donnees = source_donnees.add_dataframe_asset("clients")
+
+lot_donnees = actif_donnees.build_batch_request(dataframe=df_clients)
+validateur = contexte.get_validator(batch_request=lot_donnees)
+
+# Rappel module 2, leçon 2.2 — mêmes catégories de contraintes
+# que celles déjà exprimées avec Pandera au module 3
+validateur.expect_column_values_to_be_unique("id_client")
+validateur.expect_column_values_to_not_be_null("id_client")
+validateur.expect_column_values_to_be_between("age", min_value=0, max_value=120)
+
+resultats = validateur.validate()
+</code></pre>
+
+        <div class="ascii">Comparaison directe avec l'équivalent Pandera (module 3,
+leçon 3.1) :
+
+PANDERA                                    GREAT EXPECTATIONS
+────────────────────────                   ────────────────────────
+Column(int, unique=True,                    validateur.expect_column_
+       nullable=False)                      values_to_be_unique("id_client")
+                                           validateur.expect_column_values_
+                                           to_not_be_null("id_client")
+
+Syntaxe plus CONCISE, intégrée              Syntaxe plus VERBEUSE mais
+directement dans une structure              EXPLICITE — chaque expectation
+de schéma unique                            est un appel de méthode nommé
+                                           et documenté individuellement</div>
+
+        <p>Cette comparaison directe illustre concrètement la différence de philosophie déjà évoquée à la leçon 4.1 : Great Expectations privilégie l'explicite et le nommage clair de chaque règle individuelle, au prix d'une syntaxe plus longue que l'équivalent Pandera pour un même résultat fonctionnel.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Écrire de nombreuses expectations individuelles sans organisation claire au sein d'une suite, rendant difficile de comprendre d'un coup d'œil l'ensemble des règles appliquées à un jeu de données — regrouper les expectations de façon cohérente (par colonne, par type de contrainte) facilite grandement la lecture et la maintenance de la suite.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour le jeu de données clients, ajoutez une expectation vérifiant que la colonne "email" respecte un format valide, en vous inspirant de la syntaxe illustrée ci-dessus.
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l3" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 4.3</span>Générer une suite automatiquement par profilage de données</h2>
+
+        <p>Une fonctionnalité distinctive de Great Expectations : plutôt que d'écrire manuellement chaque expectation (leçon 4.2), un <strong>profileur</strong> peut analyser un jeu de données existant et proposer automatiquement une suite d'attentes basée sur les patterns statistiques observés.</p>
+
+        <pre><code class="language-python">from great_expectations.profile.user_configurable_profiler import UserConfigurableProfiler
+
+profileur = UserConfigurableProfiler(profile_dataset=validateur)
+suite_generee = profileur.build_suite()
+
+# La suite générée contient des expectations DÉDUITES des
+# données observées — par exemple, si la colonne "age" ne
+# contient historiquement que des valeurs entre 18 et 95,
+# le profileur proposera cette plage comme expectation
+</code></pre>
+
+        <div class="ascii">Ce que le profilage automatique apporte, et sa limite
+essentielle :
+
+APPORT                                     LIMITE (rappel cours 20, module
+                                          4, leçon 4.3, sur la vérification
+Démarrage RAPIDE d'un premier              nécessaire du contenu généré)
+jeu d'expectations, sans tout
+écrire manuellement                        Le profileur déduit des règles
+                                          À PARTIR des données OBSERVÉES —
+Utile pour DÉCOUVRIR des patterns          si ces données contenaient DÉJÀ
+existants qu'on n'aurait pas                des anomalies, celles-ci seront
+pensé à vérifier manuellement               reflétées comme "normales" dans
+                                          la suite générée automatiquement</div>
+
+        <p>Cette limite rejoint directement un principe déjà établi au cours 20 (module 4, leçon 4.3, sur la génération synthétique) : un contenu généré automatiquement, qu'il s'agisse d'exemples d'entraînement ou d'expectations de validation, nécessite toujours une revue humaine avant adoption — un profileur peut proposer un excellent point de départ, jamais une suite finale à utiliser sans relecture.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Adopter directement une suite générée par profilage automatique sans la revoir manuellement, en supposant qu'elle capture nécessairement les bonnes règles — un profileur reflète fidèlement les données qu'il a observées, y compris leurs défauts existants, ce qui peut figer des anomalies comme si elles étaient des règles légitimes à préserver.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Si un profileur, appliqué à un historique de commandes contenant déjà quelques valeurs de montant négatives par erreur, générait une expectation acceptant ces valeurs négatives, comment détecteriez-vous et corrigeriez-vous ce problème ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l4" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 4.4</span>Data Docs : documentation et rapports de validation</h2>
+
+        <p>Rappel direct du module 2 (leçon 2.5, sur le schéma comme contrat) : Great Expectations génère automatiquement une documentation web navigable — les <strong>Data Docs</strong> — à partir des suites d'attentes et des résultats de validation, une fonctionnalité qui distingue significativement cet outil de Pandera.</p>
+
+        <div class="ascii">Ce que les Data Docs génèrent automatiquement :
+
+DOCUMENTATION DE CHAQUE SUITE
+  Une page web listant l'ensemble des expectations d'une
+  suite, dans un format lisible par des personnes non
+  techniques — rappel module 2, leçon 2.5, sur le schéma
+  comme contrat partagé entre équipes
+
+HISTORIQUE DES VALIDATIONS
+  Un journal consultable de chaque exécution de validation,
+  avec le détail des succès et des échecs — un point de
+  départ pour le reporting approfondi au module 7, leçon 7.4
+
+VISUALISATION DES ÉCHECS
+  Pour chaque expectation qui échoue, un aperçu concret des
+  valeurs qui ont violé la contrainte, facilitant le
+  diagnostic sans avoir à écrire de requête supplémentaire</div>
+
+        <p>Cette génération automatique de documentation constitue un atout majeur pour la gouvernance de données à l'échelle d'une organisation : elle transforme un schéma technique en une ressource consultable par des parties prenantes non développeuses, rejoignant directement le principe de contrat de données partagé déjà établi au module 2, leçon 2.5 — un atout que Pandera, plus minimaliste, ne propose pas nativement.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Configurer Great Expectations sans jamais consulter ni partager les Data Docs générées, en se limitant à l'exécution programmatique des validations — cette pratique néglige l'un des principaux atouts différenciateurs de l'outil par rapport à des alternatives plus légères comme Pandera.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour une équipe non technique qui consommerait des données validées par ce pipeline, en quoi les Data Docs seraient-elles plus utiles qu'un simple script Pandera exécuté en arrière-plan ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m4-l5" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 4.5</span>Pièges courants avec Great Expectations</h2>
+
+        <p>Cette dernière leçon du module recense des pièges spécifiques à l'usage de Great Expectations, en complément des principes déjà établis.</p>
+
+        <h3>Piège 1 : sous-estimer la complexité de configuration initiale</h3>
+        <p>Rappel de la leçon 4.1 : la richesse architecturale de Great Expectations (Data Context, sources de données, actifs) représente une courbe d'apprentissage plus importante que Pandera pour un premier projet simple — un facteur à peser dans le choix de l'outil, approfondi au module 5.</p>
+
+        <h3>Piège 2 : suites trop volumineuses et difficiles à maintenir</h3>
+        <p>Une suite générée automatiquement (leçon 4.3) sans révision peut accumuler un nombre d'expectations disproportionné par rapport aux règles réellement importantes — une suite devrait rester lisible et intentionnelle, pas simplement exhaustive.</p>
+
+        <h3>Piège 3 : Data Docs jamais régénérées après modification</h3>
+        <p>Rappel de la leçon 4.4 : la documentation générée doit être régénérée après chaque modification de suite ou nouvelle validation pour rester à jour — une documentation figée après une seule génération initiale perd rapidement sa valeur de référence à mesure que le schéma évolue.</p>
+
+        <div class="ascii">Ce module clôt la partie "Great Expectations" du cours. Le
+module suivant compare directement Pandera et Great Expectations
+pour aider à choisir entre les deux selon le contexte d'un projet.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Adopter Great Expectations pour un projet simple à faible enjeu, sans évaluer si sa richesse fonctionnelle (Data Docs, profilage, gouvernance) justifie réellement la complexité de configuration supplémentaire par rapport à une alternative plus légère comme Pandera — un choix d'outil devrait être proportionné au besoin réel du projet.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de synthèse</strong>
+          Pour clore ce module : parmi les trois pièges listés, lequel vous semble le plus susceptible de décourager une équipe lors d'une première adoption de Great Expectations ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-5">
+      <span class="module-kicker">MODULE 05 / 08</span>
+      <h1>Comparer et choisir entre Pandera et Great Expectations</h1>
+      <p class="intro">Après avoir exploré Pandera (module 3) et Great Expectations (module 4) individuellement, ce module les compare directement pour aider à choisir l'outil le plus adapté à un projet donné — ou à envisager de les combiner, une option approfondie à la leçon 5.5.</p>
+
+      <section class="lesson" id="m5-l1" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 5.1</span>Philosophie et cas d'usage de chaque outil</h2>
+
+        <table>
+          <thead><tr><th>Dimension</th><th>Pandera</th><th>Great Expectations</th></tr></thead>
+          <tbody>
+            <tr><td>Philosophie</td><td>Bibliothèque légère, schémas en code Python natif (rappel module 3)</td><td>Plateforme complète de gouvernance de données (rappel module 4)</td></tr>
+            <tr><td>Style d'intégration</td><td>Décorateurs et objets Python (module 3, leçon 3.4)</td><td>Data Context, sources de données, checkpoints (module 4, leçon 4.1)</td></tr>
+            <tr><td>Documentation générée</td><td>Non native — nécessite un outillage supplémentaire</td><td>Data Docs générées automatiquement (module 4, leçon 4.4)</td></tr>
+            <tr><td>Courbe d'apprentissage</td><td>Faible, proche de pandas</td><td>Plus élevée, architecture plus riche (module 4, leçon 4.5)</td></tr>
+          </tbody>
+        </table>
+
+        <p>Cette comparaison ne désigne pas un "gagnant" absolu : rappel du cours 20 (module 5, choix d'architecture), le bon choix dépend systématiquement du contexte — la taille de l'équipe, le besoin de documentation partagée entre parties prenantes non techniques, et la complexité déjà tolérable dans l'infrastructure existante du projet.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Chercher un verdict universel ("lequel est le meilleur outil ?") plutôt que d'évaluer lequel correspond le mieux au contexte spécifique d'un projet donné — les deux outils répondent à des besoins réels mais différents, et leur pertinence relative varie significativement d'un projet à l'autre.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un projet personnel de nettoyage de données ponctuel (rappel bloc 1-2 de cette série), lequel des deux outils choisiriez-vous a priori, et pour quelle raison principale ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l2" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 5.2</span>Performance et complexité d'intégration</h2>
+
+        <p>Au-delà de la philosophie générale (leçon 5.1), cette leçon traite des considérations plus techniques : la vitesse d'exécution et l'effort d'intégration dans un projet existant.</p>
+
+        <div class="ascii">Considérations de performance et d'intégration :
+
+PANDERA                                    GREAT EXPECTATIONS
+────────────────────────                   ────────────────────────
+Overhead RELATIVEMENT FAIBLE,               Overhead plus élevé, en
+la validation s'exécute proche              partie dû à l'infrastructure
+du DataFrame pandas natif                    de Data Context et de
+                                           stockage des résultats
+Intégration RAPIDE dans un
+projet Python existant, peu de              Intégration plus DEMANDANTE :
+configuration préalable                     nécessite de configurer un
+                                           Data Context, des sources de
+Convient bien à des VALIDATIONS             données, potentiellement un
+FRÉQUENTES et RAPIDES (rappel                système de stockage pour les
+cours 18, sur les compromis de              résultats et la documentation
+latence)                                    (rappel module 4, leçon 4.4)</div>
+
+        <p>Ce compromis rejoint directement un principe déjà établi au cours 18 (sur les compromis de latence) : pour une validation exécutée très fréquemment (à chaque ingestion de données en quasi temps réel), l'overhead relatif de chaque outil devient un facteur de décision à ne pas négliger, en particulier si Great Expectations est envisagé pour un pipeline à très haute fréquence.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Choisir Great Expectations pour un pipeline à très haute fréquence de validation sans évaluer l'impact de son overhead architectural sur la latence globale — un choix qui pourrait s'avérer disproportionné par rapport au besoin, quand Pandera offrirait un compromis de performance plus adapté à ce contexte spécifique.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un pipeline de données temps réel (rappel cours 18) qui valide chaque événement individuellement à haute fréquence, quel outil des deux privilégieriez-vous a priori, et pourquoi ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l3" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 5.3</span>Écosystème et intégration avec d'autres outils</h2>
+
+        <p>Cette leçon aborde brièvement l'intégration de ces deux outils avec des composants plus larges d'une infrastructure de données — un sujet approfondi plus en détail au module 6 pour l'intégration dans des pipelines complets.</p>
+
+        <div class="ascii">Écosystème d'intégration typique :
+
+ORCHESTRATEURS DE PIPELINE (mention, approfondi module 6,
+leçon 6.4) — Airflow, Dagster, Prefect
+  Les deux outils peuvent s'intégrer comme une étape d'un
+  DAG (graphe de tâches) orchestré, déclenchant une alerte
+  ou un arrêt du pipeline en cas d'échec
+
+OUTILS DE TRANSFORMATION DE DONNÉES (mention, approfondi
+au cours 24 de ce même bloc) — dbt et équivalents
+  La validation intervient typiquement APRÈS une étape de
+  transformation, pour vérifier son résultat avant la suite
+  du pipeline
+
+SYSTÈMES DE STOCKAGE ET D'OBSERVABILITÉ (rappel cours 19,
+sur les logs et le monitoring)
+  Les résultats de validation, en particulier avec Great
+  Expectations (Data Docs, module 4, leçon 4.4), peuvent
+  alimenter un système de monitoring plus large</div>
+
+        <p>Cette dimension d'écosystème mérite d'être prise en compte dès le choix initial de l'outil : un projet déjà fortement intégré avec des outils spécifiques (par exemple, un orchestrateur particulier ayant un plugin natif pour l'un des deux outils) peut voir ce facteur peser davantage que les considérations de performance pure de la leçon 5.2.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Évaluer un outil de validation uniquement sur ses mérites intrinsèques, sans considérer sa compatibilité avec l'écosystème d'outils déjà en place dans le projet — un outil par ailleurs excellent peut s'avérer un choix coûteux s'il nécessite une intégration ad hoc avec l'infrastructure existante, alors qu'une alternative bénéficierait d'une intégration native.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un projet déjà construit autour d'un orchestrateur de pipeline spécifique, quelle recherche préalable effectueriez-vous avant de choisir entre Pandera et Great Expectations ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l4" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 5.4</span>Critères de décision pour un projet donné</h2>
+
+        <p>Cette leçon synthétise les leçons précédentes de ce module en une grille de décision concrète, applicable à un projet réel.</p>
+
+        <div class="ascii">Grille de décision synthétique :
+
+Le projet nécessite-t-il une DOCUMENTATION PARTAGÉE avec
+des parties prenantes NON TECHNIQUES (rappel module 4,
+leçon 4.4) ?
+   │
+   ├── OUI ──► Great Expectations offre un avantage net
+   │           (Data Docs générées automatiquement)
+   │
+   └── NON ──► La validation doit-elle s'intégrer de façon
+               TRÈS LÉGÈRE dans du code Python existant,
+               avec une latence minimale (rappel leçon 5.2) ?
+                   │
+                   ├── OUI ──► Pandera offre un avantage net
+                   │           (overhead réduit, syntaxe concise)
+                   │
+                   └── NON ──► Les deux outils restent viables ;
+                               le choix peut se faire sur d'autres
+                               critères (écosystème, préférence
+                               d'équipe, courbe d'apprentissage
+                               tolérable — leçon 5.1)</div>
+
+        <p>Cette grille ne prétend pas capturer tous les cas possibles, mais offre un point de départ raisonnable : les deux critères les plus discriminants restant, dans la majorité des projets réels, le besoin de documentation partagée (favorisant Great Expectations) et la contrainte de légèreté d'intégration (favorisant Pandera).</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Appliquer une grille de décision de façon mécanique sans tenir compte des spécificités réelles d'un projet — cette grille offre un point de départ raisonnable, pas une règle absolue à suivre sans discernement face à un contexte particulier qui pourrait justifier une exception.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour le pipeline d'ingestion RAG déjà évoqué à la leçon 1.3 (module 1), appliquez cette grille de décision et déterminez quel outil serait a priori le plus adapté.
+        </div>
+      </section>
+
+      <section class="lesson" id="m5-l5" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 5.5</span>Combiner les deux dans un même projet</h2>
+
+        <p>Cette dernière leçon du module traite une option souvent négligée : plutôt que de choisir un seul outil pour l'ensemble d'un projet, combiner les deux selon les besoins spécifiques de chaque étape d'un pipeline.</p>
+
+        <div class="ascii">Exemple de combinaison au sein d'un même pipeline :
+
+ÉTAPE D'INGESTION RAPIDE (haute fréquence, rappel leçon 5.2)
+  → PANDERA, pour sa légèreté et son intégration native au
+    code Python de traitement
+
+ÉTAPE DE VALIDATION FINALE AVANT MISE À DISPOSITION
+(destinée à être consultée par plusieurs équipes,
+rappel leçon 5.1)
+  → GREAT EXPECTATIONS, pour ses Data Docs partagées et
+    sa gouvernance plus complète</div>
+
+        <p>Cette approche combinée n'est pas une solution de compromis par indécision, mais une reconnaissance explicite que différentes étapes d'un même pipeline peuvent avoir des besoins de validation différents — rappel du principe déjà établi au cours 18 (module 4, sur les architectures hybrides), où combiner deux mécanismes complémentaires répond souvent mieux à un besoin réel qu'un choix exclusif entre les deux.</p>
+
+        <div class="ascii">Ce module clôt la partie "comparaison des outils" du cours. Le
+module suivant traite comment intégrer concrètement la validation
+(avec l'un ou l'autre outil, ou les deux combinés) dans un pipeline
+de données complet, au-delà de l'exécution ponctuelle déjà illustrée.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer qu'un projet doit nécessairement choisir un seul outil de validation pour l'ensemble de son pipeline, par souci de cohérence apparente — combiner les deux outils selon les besoins spécifiques de chaque étape peut offrir un meilleur compromis global que l'application uniforme d'un seul choix à toutes les situations.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : pour le pipeline de fine-tuning des cours 20-22, à quelles étapes chacun des deux outils serait-il le plus pertinent, en combinant les deux selon le principe de cette leçon ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-6">
+      <span class="module-kicker">MODULE 06 / 08</span>
+      <h1>Intégrer la validation dans un pipeline de données</h1>
+      <p class="intro">Ce module dépasse l'exécution ponctuelle de validation déjà illustrée aux modules 3-4 pour traiter son intégration dans un pipeline complet et automatisé — où positionner la validation, comment réagir aux échecs, et comment l'orchestrer à grande échelle.</p>
+
+      <section class="lesson" id="m6-l1" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 6.1</span>Valider en entrée (ingestion) vs en sortie</h2>
+
+        <p>Rappel direct de la leçon 1.3 (module 1) : la validation peut se positionner à différents points d'un pipeline, avec des implications différentes selon qu'elle intervient à l'ingestion (avant tout traitement) ou en sortie (juste avant la consommation par un système en aval).</p>
+
+        <div class="ascii">VALIDATION EN ENTRÉE (à l'ingestion)        VALIDATION EN SORTIE (avant
+────────────────────────────────            consommation en aval)
+Détecte les problèmes AU PLUS TÔT,          ────────────────────────────────
+avant qu'ils ne se propagent dans           Vérifie que le TRAITEMENT
+tout le pipeline de traitement               lui-même n'a pas introduit de
+                                            problème (rappel principe
+Protège contre des données EXTERNES         déjà établi au cours 21,
+déjà défaillantes à la source                module 5, leçon 5.4, sur la
+                                            vérification après correction)
+Ne peut PAS détecter un bug introduit
+PENDANT le traitement lui-même               Détecte les bugs de
+                                            TRANSFORMATION, pas ceux déjà
+                                            présents dans la source brute</div>
+
+        <p>Ces deux positions ne sont pas mutuellement exclusives : rappel du principe déjà établi au cours 20 (module 1, leçon 1.4, sur le pipeline complet), une validation robuste s'applique généralement aux DEUX frontières — à l'entrée pour se protéger des données externes défaillantes, et en sortie pour vérifier que le traitement lui-même n'a rien cassé, complétant ainsi la couverture de bout en bout du pipeline.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Valider uniquement à l'entrée d'un pipeline, en supposant que des données valides en entrée garantissent automatiquement un résultat valide en sortie — un bug dans la logique de transformation elle-même peut corrompre des données pourtant parfaitement valides à l'origine, un problème que seule une validation en sortie peut détecter.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour le pipeline de fine-tuning des cours 20-22, identifiez un exemple concret de bug de transformation qui produirait des données invalides en sortie malgré des données parfaitement valides en entrée.
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l2" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 6.2</span>Gérer les échecs de validation : bloquer, alerter, ou journaliser</h2>
+
+        <p>Rappel direct du cours 19 (module 7, leçon 7.4, sur l'alerting basé sur les logs) : détecter un échec de validation ne dit rien sur ce qui devrait se passer ensuite — trois stratégies principales existent, avec des compromis différents selon la criticité du pipeline concerné.</p>
+
+        <div class="ascii">Trois stratégies de réponse à un échec de validation :
+
+BLOQUER LE PIPELINE (fail-fast)
+  Interrompre immédiatement le traitement dès qu'une
+  violation est détectée — le plus sûr, mais peut arrêter
+  un pipeline entier pour un problème mineur et isolé
+
+ALERTER SANS BLOQUER
+  Rappel cours 19, module 7, leçon 7.4 — notifier une équipe
+  du problème détecté tout en laissant le pipeline continuer,
+  pour les cas où l'interruption complète serait disproportionnée
+
+JOURNALISER SEULEMENT (rappel cours 19, module 1)
+  Enregistrer l'échec pour une analyse ultérieure, sans
+  action immédiate — la stratégie la moins réactive, réservée
+  aux violations mineures et non critiques</div>
+
+        <pre><code class="language-python">def reagir_a_echec_validation(resultat_validation, criticite: str) -> None:
+    """Rappel cours 19, module 7, leçon 7.4 — même principe de
+    différenciation de sévérité déjà établi pour l'alerting
+    d'agents IA, appliqué ici aux échecs de validation de données."""
+    if criticite == "bloquante":
+        raise ValueError(f"Validation critique échouée : {resultat_validation}")
+    elif criticite == "alertante":
+        notifier_equipe(resultat_validation)
+    else:
+        journaliser_echec(resultat_validation)
+</code></pre>
+
+        <p>Le choix entre ces trois stratégies dépend directement de la criticité du champ ou de la contrainte concernée : une violation de la contrainte d'unicité sur un identifiant client mérite probablement un blocage immédiat, tandis qu'une légère dérive statistique sur la distribution d'une colonne (rappel module 2, leçon 2.3) pourrait se contenter d'une alerte à investiguer plus tard.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Appliquer la même stratégie de réaction (généralement le blocage systématique) à toutes les violations détectées, sans distinguer leur criticité réelle — cette uniformité peut soit bloquer inutilement un pipeline pour des problèmes mineurs, soit au contraire laisser passer silencieusement des violations réellement critiques si la stratégie choisie est trop permissive par défaut.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour le schéma clients des modules 3-4, classez les contraintes déjà définies (unicité de l'id, plage d'âge, format d'email) selon la stratégie de réaction que vous jugeriez appropriée pour chacune.
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l3" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 6.3</span>Validation dans un pipeline batch vs en continu</h2>
+
+        <p>Rappel direct du cours 18 (module 6, sur les pipelines de données temps réel) : le mode d'exécution du pipeline global — traitement par lots (batch) ou en flux continu (streaming) — influence directement comment la validation doit être structurée et exécutée.</p>
+
+        <div class="ascii">VALIDATION EN PIPELINE BATCH                VALIDATION EN CONTINU (streaming,
+────────────────────────────────            rappel cours 18, module 6)
+Exécutée sur un LOT COMPLET de              ────────────────────────────────
+données à intervalle régulier                Exécutée sur CHAQUE événement
+(rappel cours 20, module 7, leçon             individuel, au fil de l'eau —
+7.2, sur le traitement en batch)             nécessite une validation LÉGÈRE
+                                            et RAPIDE (rappel leçon 5.2,
+Permet des contraintes STATISTIQUES          sur les compromis de performance)
+sur l'ensemble du lot (rappel
+module 2, leçon 2.3)                         Les contraintes STATISTIQUES
+                                            (module 2, leçon 2.3) nécessitent
+                                            une AGRÉGATION sur une FENÊTRE
+                                            temporelle (rappel cours 18,
+                                            module 6, leçon 6.4)</div>
+
+        <p>Cette distinction rejoint directement le même arbitrage déjà établi au cours 18 (module 6, leçon 6.2) entre traitement en continu et en batch : la validation en continu, plus réactive, sacrifie généralement la possibilité de contraintes statistiques immédiates (qui nécessitent d'observer plusieurs enregistrements), tandis que la validation batch permet une vue d'ensemble plus riche au prix d'une latence de détection plus élevée.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Tenter d'appliquer des contraintes statistiques (rappel module 2, leçon 2.3) à un flux de données en continu événement par événement, sans mécanisme d'agrégation par fenêtre temporelle — une contrainte de distribution ne peut être évaluée que sur un ensemble d'enregistrements, jamais sur un événement isolé pris individuellement.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un flux de données temps réel (rappel cours 18) où l'on souhaite vérifier que la proportion de valeurs manquantes reste sous un seuil acceptable, comment structureriez-vous cette validation statistique dans un contexte de streaming ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l4" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 6.4</span>Intégration avec des orchestrateurs</h2>
+
+        <p>Cette leçon détaille l'intégration mentionnée au module 5 (leçon 5.3) avec des orchestrateurs de pipeline de données, des outils qui planifient et exécutent des séquences de tâches (dont la validation constitue une étape parmi d'autres).</p>
+
+        <div class="ascii">Positionnement de la validation dans un DAG orchestré
+(graphe de tâches) :
+
+TÂCHE 1 : Extraction des données brutes
+                    │
+                    ▼
+TÂCHE 2 : VALIDATION EN ENTRÉE (rappel leçon 6.1)
+   → Si échec BLOQUANT (rappel leçon 6.2) : le DAG s'arrête
+     ici, les tâches suivantes ne s'exécutent PAS
+                    │
+                    ▼ (seulement si validation réussie)
+TÂCHE 3 : Transformation des données
+                    │
+                    ▼
+TÂCHE 4 : VALIDATION EN SORTIE (rappel leçon 6.1)
+                    │
+                    ▼ (seulement si validation réussie)
+TÂCHE 5 : Chargement vers la destination finale</div>
+
+        <p>Cette intégration dans un DAG orchestré illustre concrètement pourquoi la stratégie de réaction aux échecs (leçon 6.2) importe autant que la validation elle-même : un orchestrateur peut automatiquement empêcher l'exécution des tâches suivantes si une tâche de validation échoue de façon bloquante, transformant la validation en un véritable point de contrôle du pipeline plutôt qu'une simple vérification passive.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Intégrer une tâche de validation dans un orchestrateur sans configurer explicitement la dépendance entre cette tâche et les suivantes — sans cette dépendance, un échec de validation pourrait être enregistré sans empêcher l'exécution des tâches en aval, annulant l'intérêt principal de bloquer le pipeline en cas de problème critique.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour le DAG illustré ci-dessus, que devrait-il se passer concrètement si la validation en SORTIE (tâche 4) échoue, alors que la validation en ENTRÉE (tâche 2) avait réussi ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m6-l5" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 6.5</span>Pièges d'intégration</h2>
+
+        <p>Cette dernière leçon du module recense des pièges spécifiques à l'intégration de la validation dans un pipeline complet, en complément des principes déjà établis.</p>
+
+        <h3>Piège 1 : validation ajoutée après coup plutôt que dès la conception</h3>
+        <p>Rappel implicite du cours 20 (module 1, leçon 1.4) : ajouter la validation à un pipeline déjà en production, plutôt que de la concevoir dès le départ, complique son intégration et peut révéler tardivement des problèmes déjà anciens et non détectés.</p>
+
+        <h3>Piège 2 : ne pas tester le comportement de blocage lui-même</h3>
+        <p>Rappel du principe de test déjà évoqué implicitement dans cette série : ne jamais vérifier que le pipeline se comporte réellement comme prévu en cas d'échec de validation (blocage effectif, alerte réellement envoyée) — un comportement de repli non testé peut échouer silencieusement au moment précis où il devrait se déclencher.</p>
+
+        <h3>Piège 3 : validation redondante à plusieurs étapes sans cohérence</h3>
+        <p>Dupliquer des règles de validation similaires à plusieurs endroits du pipeline sans les synchroniser, menant à des incohérences si l'une est mise à jour sans l'autre — un problème qui rejoint la nécessité de gouvernance de schéma approfondie au module 7.</p>
+
+        <div class="ascii">Ce module clôt la partie "intégration dans un pipeline" du cours.
+Le module suivant traite comment gouverner ces schémas de
+validation dans la durée : leur versionnement, leur évolution,
+et leur documentation à long terme.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Ne jamais tester activement le comportement du pipeline face à un échec de validation simulé, en supposant que la logique de blocage ou d'alerte fonctionnera correctement le jour où elle sera réellement nécessaire — un mécanisme de sécurité non testé peut échouer silencieusement précisément quand il devrait se déclencher.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de synthèse</strong>
+          Pour clore ce module : comment testeriez-vous, de façon contrôlée, que votre pipeline bloque effectivement l'exécution des tâches suivantes en cas d'échec de validation critique ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-7">
+      <span class="module-kicker">MODULE 07 / 08</span>
+      <h1>Gouvernance, évolution des schémas et bonnes pratiques</h1>
+      <p class="intro">Ce module traite comment gouverner un schéma de validation dans la durée : le versionner, le faire évoluer sans casser les pipelines existants, le tester lui-même, et en assurer le suivi et la documentation — en s'appuyant directement sur les principes de gouvernance déjà établis aux cours 20-22.</p>
+
+      <section class="lesson" id="m7-l1" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 7.1</span>Versionner un schéma de validation</h2>
+
+        <p>Rappel direct du cours 20 (module 7, leçon 7.5) et du cours 21 (module 7, leçon 7.5) : les schémas de validation, tout comme les datasets déjà couverts dans cette série, méritent un versionnement explicite — un schéma modifié sans traçabilité rend impossible de comprendre après coup pourquoi une validation se comportait différemment à un moment donné.</p>
+
+        <pre><code class="language-python"># schema_clients_v2.py — rappel cours 20, module 7, leçon 7.5,
+# sur le versionnement explicite déjà appliqué aux datasets
+SCHEMA_VERSION = "2.1.0"
+
+schema_clients = pa.DataFrameSchema(
+    {
+        "id_client": Column(int, unique=True, nullable=False),
+        "age": Column(int, Check.in_range(0, 120)),
+        "email": Column(str, Check.str_matches(EMAIL_REGEX)),
+        # Ajouté en v2.1.0 : nouvelle colonne optionnelle
+        "code_pays": Column(str, nullable=True, required=False),
+    },
+    name=f"schema_clients_{SCHEMA_VERSION}",
+)
+</code></pre>
+
+        <div class="ascii">Pourquoi versionner explicitement un schéma, au-delà du simple
+suivi Git du fichier de code :
+
+Un schéma versionné permet de savoir PRÉCISÉMENT quelle
+version était en vigueur au moment d'une validation donnée
+— utile pour diagnostiquer pourquoi une donnée acceptée à un
+moment donné serait rejetée par une version ultérieure du
+même schéma (rappel du même principe déjà établi au cours 20,
+module 7, leçon 7.5, pour les datasets eux-mêmes)</div>
+
+        <p>Ce versionnement rejoint directement la notion de contrat de données déjà établie au module 2 (leçon 2.5) : un contrat qui change sans que personne ne le sache constitue une source de confusion majeure entre les équipes qui produisent et celles qui consomment les données — un numéro de version explicite constitue le minimum de traçabilité attendu pour un contrat partagé.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Se reposer uniquement sur l'historique Git du fichier de schéma comme unique forme de versionnement, sans numéro de version explicite intégré au schéma lui-même — cette approche rend plus difficile, pour une équipe consommatrice de données, de savoir précisément à quelle version du contrat une validation donnée correspond, surtout si le schéma est consulté indépendamment du code source.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour le schéma versionné ci-dessus, quel élément du numéro de version (majeur, mineur, patch) incrémenteriez-vous si vous ajoutiez une nouvelle contrainte plus stricte sur une colonne déjà existante ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l2" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 7.2</span>Faire évoluer un schéma sans casser les pipelines existants</h2>
+
+        <p>Cette leçon traite un défi spécifique à la gouvernance de schémas : comment modifier une contrainte sans provoquer une cascade d'échecs de validation dans des pipelines en aval qui dépendent de l'ancien comportement — un problème de compatibilité ascendante à part entière.</p>
+
+        <div class="ascii">Deux types de changements de schéma, aux implications
+différentes :
+
+CHANGEMENT COMPATIBLE (non cassant)         CHANGEMENT INCOMPATIBLE (cassant)
+────────────────────────────────            ────────────────────────────────
+Ajouter une colonne OPTIONNELLE              Rendre une contrainte PLUS
+(rappel exemple leçon 7.1,                   STRICTE (réduire une plage
+"code_pays" avec required=False)             acceptée, par exemple)
+
+Assouplir une contrainte existante           Supprimer une colonne encore
+(élargir une plage acceptée)                 utilisée en aval
+
+Ajouter une nouvelle expectation             Renommer une colonne sans
+INFORMATIVE (alerte, pas blocage —            période de transition
+rappel module 6, leçon 6.2)</div>
+
+        <p>Pour un changement incompatible, une pratique recommandée consiste à introduire une <strong>période de transition</strong> : faire coexister l'ancienne et la nouvelle contrainte, avec l'ancienne en mode "alerte" plutôt que "blocage" (rappel module 6, leçon 6.2) pendant une durée suffisante pour que les équipes consommatrices adaptent leurs propres traitements avant que la contrainte ne devienne réellement bloquante.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Introduire un changement de schéma incompatible directement en mode bloquant, sans période de transition ni communication préalable aux équipes consommatrices — un tel changement peut interrompre brutalement des pipelines en aval qui n'avaient aucun moyen d'anticiper cette modification.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un changement qui rendrait la colonne "email" obligatoire alors qu'elle était auparavant optionnelle, quelle période de transition et quelle communication proposeriez-vous avant de rendre cette contrainte réellement bloquante ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l3" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 7.3</span>Tester ses propres schémas de validation</h2>
+
+        <p>Un schéma de validation est lui-même du code, sujet à ses propres erreurs — cette leçon traite comment le tester, un sujet qui rejoint directement les pratiques de test approfondies au cours 24 de ce même bloc (pipelines de transformation reproductibles et tests).</p>
+
+        <pre><code class="language-python">def test_schema_rejette_age_negatif():
+    """Un schéma de validation mérite ses PROPRES tests,
+    vérifiant qu'il accepte bien les cas valides ET rejette
+    bien les cas invalides qu'il est censé détecter."""
+    df_invalide = pd.DataFrame({"id_client": [1], "age": [-5], "email": ["a@b.com"]})
+    with pytest.raises(pa.errors.SchemaError):
+        schema_clients.validate(df_invalide)
+
+def test_schema_accepte_donnees_valides():
+    df_valide = pd.DataFrame({"id_client": [1], "age": [30], "email": ["a@b.com"]})
+    resultat = schema_clients.validate(df_valide)
+    assert resultat is not None
+</code></pre>
+
+        <div class="ascii">Pourquoi tester un schéma de validation lui-même :
+
+Un schéma trop PERMISSIF (une contrainte mal écrite qui
+n'attrape pas réellement les cas invalides visés) donne une
+FAUSSE CONFIANCE — la validation "passe" sans réellement
+protéger contre le problème qu'elle était censée détecter
+
+Un schéma trop STRICT (une contrainte mal calibrée qui rejette
+des cas en réalité valides) bloque inutilement un pipeline
+légitime — rappel du même risque déjà évoqué au cours 22,
+module 6, leçon 6.4, sur la sur-correction</div>
+
+        <p>Ces deux types de tests — vérifier qu'un cas invalide est bien rejeté, ET qu'un cas valide est bien accepté — sont tous deux nécessaires : un schéma qui ne serait testé que sur des cas valides pourrait dissimuler une contrainte défaillante qui n'attrape en réalité aucun problème, un risque similaire à celui déjà évoqué pour la calibration du LLM-as-judge au cours 22 (module 5, leçon 5.4).</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Ne tester un schéma de validation que sur des données valides, en vérifiant seulement qu'il ne bloque pas les cas légitimes, sans jamais vérifier qu'il détecte réellement les cas invalides qu'il est censé attraper — un schéma qui ne fait qu'accepter tout sans jamais rejeter n'apporte aucune protection réelle, malgré une apparence de validation en place.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour la contrainte de format d'email du schéma clients, écrivez un cas de test qui vérifierait que le schéma rejette bien une adresse manifestement mal formée.
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l4" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 7.4</span>Reporting et suivi dans le temps des échecs de validation</h2>
+
+        <p>Rappel direct du cours 19 (module 6, sur les métriques et signaux d'amélioration) : au-delà de la réaction immédiate à un échec (module 6, leçon 6.2), un suivi agrégé des échecs de validation dans le temps révèle des tendances qu'une vue ponctuelle ne peut pas capturer.</p>
+
+        <pre><code class="language-python">def calculer_tendance_echecs(historique_validations: list[dict]) -> dict:
+    """Rappel cours 19, module 6, leçon 6.1 — même principe
+    d'agrégation de métriques dans le temps, appliqué ici aux
+    résultats de validation de données plutôt qu'aux traces
+    d'agent IA."""
+    par_semaine = defaultdict(lambda: {"total": 0, "echecs": 0})
+    for validation in historique_validations:
+        semaine = validation["horodatage"].isocalendar()[1]
+        par_semaine[semaine]["total"] += 1
+        if not validation["succes"]:
+            par_semaine[semaine]["echecs"] += 1
+    return {s: v["echecs"] / v["total"] for s, v in par_semaine.items()}
+</code></pre>
+
+        <div class="ascii">Ce qu'un suivi de tendance dans le temps permet de détecter,
+que la vue ponctuelle d'un seul échec ne révèle pas :
+
+Une DÉGRADATION PROGRESSIVE d'une source de données — un
+taux d'échec qui augmente lentement semaine après semaine,
+signalant un problème qui s'aggrave plutôt qu'un incident
+isolé (rappel du même principe de détection précoce déjà
+établi au cours 25, à venir dans ce même bloc, sur le
+monitoring de la dégradation de qualité)
+
+Une CONTRAINTE MAL CALIBRÉE qui échoue systématiquement à
+un taux non négligeable, signalant un problème dans le
+SCHÉMA lui-même plutôt que dans les données (rappel leçon
+7.3, sur les tests de schéma)</div>
+
+        <p>Ce suivi de tendance prépare directement le sujet du cours 25 de ce même bloc, consacré au monitoring de la dégradation de qualité des sources de données dans le temps — un prolongement naturel du reporting de validation déjà entamé ici, à une échelle et avec une sophistication plus poussées.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Se contenter d'une réaction immédiate à chaque échec de validation individuel (rappel module 6, leçon 6.2) sans jamais agréger ces échecs dans le temps pour détecter des tendances — une dégradation progressive et silencieuse peut passer inaperçue si chaque échec est traité isolément, sans vue d'ensemble sur son évolution.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Si le suivi révèle qu'une contrainte spécifique échoue de façon stable à 15% depuis plusieurs mois, sans tendance à la hausse ni à la baisse, quelle hypothèse formuleriez-vous, et comment la vérifieriez-vous ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m7-l5" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 7.5</span>Documentation et responsabilité (data contracts, ownership)</h2>
+
+        <p>Cette dernière leçon du module formalise la notion de <strong>data contract</strong> déjà introduite au module 2 (leçon 2.5) : au-delà du schéma technique lui-même, qui porte la responsabilité de sa définition, de sa maintenance, et de sa communication aux équipes concernées.</p>
+
+        <div class="ascii">Éléments de gouvernance d'un data contract complet
+(au-delà du schéma technique lui-même) :
+
+OWNERSHIP CLAIREMENT DÉFINI
+  Qui est responsable de ce schéma — quelle équipe ou
+  quelle personne approuve les changements (rappel leçon
+  7.2, sur l'évolution sans casser les pipelines)
+
+PROCESSUS DE MODIFICATION EXPLICITE
+  Comment une équipe consommatrice peut proposer un
+  changement, et comment ce changement est validé avant
+  d'être déployé (rappel leçon 7.2, sur la compatibilité)
+
+CANAL DE COMMUNICATION DES CHANGEMENTS
+  Où et comment les changements de schéma sont annoncés
+  aux équipes concernées, pour éviter les surprises déjà
+  évoquées à la leçon 7.2
+
+SLA IMPLICITE OU EXPLICITE
+  Quel niveau de qualité de données peut être attendu, et
+  quel délai de correction en cas de violation détectée</div>
+
+        <p>Cette gouvernance complète referme la boucle de ce cours : un schéma de validation techniquement bien conçu (modules 2-5), correctement intégré dans un pipeline (module 6), n'atteint sa pleine valeur que s'il s'accompagne d'une gouvernance claire sur qui le possède, comment il évolue, et comment les résultats de sa surveillance sont communiqués et suivis dans la durée.</p>
+
+        <div class="ascii">Ce module clôt la partie "gouvernance" du cours. Le dernier
+module assemble l'ensemble des concepts vus (concepts fondamentaux,
+Pandera, Great Expectations, intégration, gouvernance) dans une
+checklist de conception et une étude de cas complète.</div>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Considérer qu'un schéma de validation techniquement solide se suffit à lui-même, sans définir explicitement qui en est responsable ni comment ses évolutions sont communiquées — un excellent schéma sans gouvernance claire dérive rapidement vers l'incohérence dès que plusieurs personnes ou équipes y contribuent sans coordination.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice de réflexion</strong>
+          Pour clore ce module : dans une organisation où plusieurs équipes produisent des données consommées par une équipe centrale de data science, comment répartiriez-vous la responsabilité (ownership) du schéma de validation entre ces équipes ?
+        </div>
+      </section>
+    </div>
+
+    <div class="module-block" id="module-8">
+      <span class="module-kicker">MODULE 08 / 08</span>
+      <h1>Implémentation complète et étude de cas</h1>
+      <p class="intro">Ce dernier module assemble l'ensemble des notions vues — concepts fondamentaux (module 2), Pandera (module 3), Great Expectations (module 4), comparaison (module 5), intégration pipeline (module 6), gouvernance (module 7) — dans une checklist de conception et une étude de cas complète.</p>
+
+      <section class="lesson" id="m8-l1" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 8.1</span>Checklist de mise en place d'une validation de données automatisée</h2>
+
+        <div class="ascii">Checklist de mise en place (à appliquer lors de l'introduction
+de la validation automatisée dans un projet) :
+
+□ 1. HYPOTHÈSES IMPLICITES identifiées et rendues EXPLICITES
+     sous forme d'expectations (module 2, leçon 2.1)
+
+□ 2. CONTRAINTES couvrant les quatre catégories de base
+     (type, plage, unicité, nullité — module 2, leçon 2.2),
+     PLUS des contraintes statistiques et relationnelles si
+     pertinent (module 2, leçons 2.3-2.4)
+
+□ 3. OUTIL CHOISI selon le contexte du projet (Pandera pour
+     la légèreté, Great Expectations pour la gouvernance et
+     la documentation partagée — module 5, leçon 5.4)
+
+□ 4. POSITIONNEMENT dans le pipeline déterminé : entrée,
+     sortie, ou les deux (module 6, leçon 6.1)
+
+□ 5. STRATÉGIE DE RÉACTION AUX ÉCHECS définie explicitement
+     (bloquer, alerter, journaliser — module 6, leçon 6.2),
+     calibrée selon la criticité de chaque contrainte
+
+□ 6. INTÉGRATION avec l'orchestrateur ou le pipeline existant
+     testée, y compris le comportement de blocage lui-même
+     (module 6, leçons 6.4-6.5)
+
+□ 7. SCHÉMA VERSIONNÉ et TESTÉ (ses propres cas valides et
+     invalides — module 7, leçons 7.1 et 7.3)
+
+□ 8. REPORTING ET SUIVI dans le temps mis en place, pas
+     seulement une réaction ponctuelle (module 7, leçon 7.4)
+
+□ 9. OWNERSHIP ET PROCESSUS D'ÉVOLUTION du schéma clairement
+     définis et communiqués (module 7, leçon 7.5)</div>
+
+        <p>Cette checklist, comme celles déjà établies au fil de cette série (cours 20-22), n'est pas un exercice ponctuel : plusieurs de ses points méritent d'être révisés à mesure que le pipeline évolue et que de nouvelles sources de données sont intégrées au projet.</p>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour un pipeline de données que vous avez construit ou envisagez de construire, appliquez cette checklist et identifiez les trois points qui nécessiteraient le plus de travail supplémentaire.
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l2" style="--lesson-color: var(--chunk-1)">
+        <h2><span class="tag">LEÇON 8.2</span>Pipeline complet : du schéma au reporting</h2>
+
+        <div class="ascii">Architecture de référence complète du cours :
+
+DONNÉES BRUTES (source externe ou pipeline en amont)
+                    │
+                    ▼
+VALIDATION EN ENTRÉE (module 6, leçon 6.1)
+Schéma Pandera ou Great Expectations, selon le contexte
+(module 5)
+                    │
+        ┌───────────┴───────────┐
+        ▼                       ▼
+   ÉCHEC DÉTECTÉ              VALIDATION RÉUSSIE
+        │                       │
+        ▼                       ▼
+RÉACTION SELON CRITICITÉ    TRANSFORMATION DES DONNÉES
+(bloquer/alerter/journaliser,
+module 6, leçon 6.2)              │
+                                  ▼
+                          VALIDATION EN SORTIE
+                          (module 6, leçon 6.1)
+                                  │
+                                  ▼
+                          CHARGEMENT VERS LA DESTINATION
+                                  │
+                                  ▼
+                    REPORTING ET SUIVI DE TENDANCE
+                    (module 7, leçon 7.4)
+                                  │
+                                  ▼
+                    GOUVERNANCE : évolution du schéma,
+                    documentation, ownership (module 7,
+                    leçons 7.1, 7.2, 7.5)</div>
+
+        <p>Cette architecture referme la logique complète de ce cours : la validation n'est jamais un simple script isolé, mais un système à part entière qui traverse un pipeline de bout en bout, avec ses propres exigences de gouvernance, de test, et de suivi dans le temps — au même titre que n'importe quel autre composant critique déjà couvert dans cette série.</p>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour l'architecture ci-dessus, à quelle étape ajouteriez-vous la génération de Data Docs (rappel module 4, leçon 4.4), si Great Expectations est l'outil choisi ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l3" style="--lesson-color: var(--chunk-2)">
+        <h2><span class="tag">LEÇON 8.3</span>Étude de cas : valider un pipeline d'ingestion pour un système RAG</h2>
+
+        <h3>Contexte</h3>
+        <p>Reprenant le pipeline RAG déjà construit aux cours 9-13 : une équipe souhaite ajouter une validation automatisée à l'étape d'ingestion de documents, avant leur nettoyage (cours 11) et leur chunking (cours 9), pour détecter les problèmes de source avant qu'ils ne se propagent dans l'ensemble du pipeline.</p>
+
+        <div class="ascii">Application du pipeline de ce cours à ce contexte RAG :
+
+CHOIX D'OUTIL (module 5) : Pandera, choisi pour sa légèreté
+d'intégration dans le code Python existant du pipeline
+d'ingestion, sans besoin de Data Docs partagées à ce stade
+
+SCHÉMA DÉFINI (modules 2-3) :
+  - "identifiant_document" : unique, non nul
+  - "contenu_texte" : non nul, longueur minimale de 50
+    caractères (rappel cours 20, module 5, leçon 5.2, sur
+    la détection de contenu tronqué)
+  - "date_extraction" : type date valide
+  - Contrainte relationnelle (rappel module 2, leçon 2.4) :
+    la date d'extraction ne doit jamais être future
+
+POSITIONNEMENT (module 6, leçon 6.1) : validation en ENTRÉE,
+juste après l'extraction brute (cours 11, 14, 15) et AVANT
+le chunking (cours 9), pour éviter de traiter des documents
+déjà invalides
+
+STRATÉGIE DE RÉACTION (module 6, leçon 6.2) : blocage pour
+l'unicité et la nullité (critiques), alerte pour la longueur
+minimale (peut légitimement varier selon le type de document)</div>
+
+        <p>Cette étude de cas illustre comment ce cours 23 s'articule avec les blocs précédents de la série : la validation ne remplace pas les techniques de nettoyage déjà couvertes (cours 11, 14-15), elle les complète en formalisant explicitement les hypothèses que ces techniques de nettoyage supposaient jusqu'ici implicitement.</p>
+
+        <div class="callout pitfall">
+          <strong>Piège courant</strong>
+          Ajouter une validation à un pipeline RAG déjà en production sans d'abord exécuter cette validation en mode "alerte seulement" (rappel module 6, leçon 6.2) sur les données existantes, pour vérifier qu'elle ne bloquerait pas à tort des documents légitimes déjà intégrés avec succès dans le système.
+        </div>
+
+        <div class="callout exercise">
+          <strong>Exercice</strong>
+          Pour cette étude de cas, quelle contrainte supplémentaire ajouteriez-vous, spécifique aux documents provenant d'une extraction OCR (rappel cours 14), qui pourrait être absente de documents provenant d'une autre source ?
+        </div>
+      </section>
+
+      <section class="lesson" id="m8-l4" style="--lesson-color: var(--chunk-3)">
+        <h2><span class="tag">LEÇON 8.4</span>Exercice final</h2>
+
+        <div class="callout exercise">
+          <strong>Exercice final — à traiter dans l'ordre</strong>
+          <p>1. <strong>Schéma (modules 2-3)</strong> : pour l'étude de cas de la leçon 8.3, écrivez le schéma Pandera complet correspondant aux quatre contraintes décrites (unicité, longueur, date, cohérence temporelle).</p>
+          <p>2. <strong>Choix d'outil (module 5)</strong> : si cette même équipe souhaitait plus tard partager ce schéma avec une équipe produit non technique pour discuter des règles de qualité, quel outil deviendrait plus pertinent, et pourquoi ?</p>
+          <p>3. <strong>Intégration (module 6)</strong> : décrivez comment cette validation s'intégrerait dans un DAG orchestré, avec ses dépendances vis-à-vis des tâches de chunking et d'indexation en aval.</p>
+          <p>4. <strong>Test du schéma (module 7, leçon 7.3)</strong> : écrivez un cas de test qui vérifierait que le schéma rejette bien un document avec une date d'extraction future.</p>
+          <p>5. <strong>Gouvernance (module 7, leçon 7.5)</strong> : proposez qui, dans une équipe typique construisant un pipeline RAG, devrait être responsable (ownership) de ce schéma de validation.</p>
+        </div>
+
+        <p>Comme pour les exercices finaux des cours précédents de cette série, il n'existe pas de réponse unique — l'objectif est de démontrer une application cohérente de l'ensemble du cycle de validation (schéma, outil, intégration, test, gouvernance) à un cas concret.</p>
+      </section>
+
+      <section class="lesson" id="m8-l5" style="--lesson-color: var(--chunk-4)">
+        <h2><span class="tag">LEÇON 8.5</span>Synthèse et ouverture du Bloc 7</h2>
+
+        <h3>Ce que ce cours a couvert</h3>
+        <div class="ascii">Récapitulatif des 8 modules :
+
+1. Fondamentaux — pourquoi automatiser, limites de la
+   validation manuelle, panorama des outils
+2. Concepts fondamentaux — schéma, expectation, catégories
+   de contraintes (type, plage, unicité, nullité, statistique,
+   relationnelle), schéma comme contrat
+3. Pandera — DataFrameSchema, checks personnalisés, séries
+   temporelles, intégration par décorateur
+4. Great Expectations — Expectation, Suite, Data Context,
+   profilage automatique, Data Docs
+5. Comparaison — philosophie, performance, écosystème,
+   critères de décision, combinaison des deux outils
+6. Intégration pipeline — entrée vs sortie, stratégies de
+   réaction, batch vs continu, orchestrateurs
+7. Gouvernance — versionnement, évolution compatible, tests
+   de schéma, reporting de tendance, ownership
+8. Implémentation complète — checklist, pipeline de
+   référence, étude de cas RAG</div>
+
+        <h3>Ouverture du Bloc 7 — Outillage et Industrialisation</h3>
+        <p>Ce cours ouvre le Bloc 7 de cette série, qui se poursuivra avec deux cours complémentaires. Le cours 24 approfondira la reproductibilité des pipelines de transformation de données eux-mêmes (versionnage, tests) — un sujet directement annoncé à la leçon 7.3 de ce cours, qui a montré comment tester un schéma de validation, une pratique qui s'étend au cours 24 à l'ensemble du pipeline de transformation. Le cours 25 traitera le monitoring de la dégradation de qualité d'une source dans le temps — un prolongement direct du reporting de tendance déjà entamé au module 7, leçon 7.4 de ce cours.</p>
+
+        <div class="ascii">Les trois cours du Bloc 7 et leur progression logique :
+
+Cours 23 (ce cours) — Validation             Cours 24 — Pipelines
+automatisée                                  reproductibles et tests
+(QUOI vérifier : contraintes                 (COMMENT construire des
+et schémas de données)                       pipelines fiables et
+        │                                    testables dans leur
+        │                                    ensemble)
+        └───────────────┬───────────────────┘
+                        ▼
+              Cours 25 — Monitoring de qualité
+              (SURVEILLER dans la durée la
+               dégradation d'une source de données)</div>
+
+        <p>Ce bloc s'appuie sur l'ensemble des blocs précédents de la série : chaque pipeline déjà construit (RAG, agents IA, fine-tuning) constitue un candidat direct pour l'application des principes de validation de ce cours, une industrialisation qui referme la boucle entre la construction ponctuelle de pipelines et leur exploitation fiable et durable en production.</p>
+
+        <h3>Pour aller plus loin</h3>
+        <ul>
+          <li>La documentation officielle de Pandera et de Great Expectations, pour les fonctionnalités avancées non couvertes en détail dans ce cours introductif.</li>
+          <li>Les plateformes de catalogue de données et de data contracts plus larges, qui formalisent la gouvernance évoquée au module 7 à l'échelle d'une organisation entière.</li>
+          <li>Le cours 24 de ce même bloc, qui prolonge directement les principes de test de schéma (module 7, leçon 7.3) à l'ensemble d'un pipeline de transformation.</li>
+        </ul>
+
+        <div class="callout exercise">
+          <strong>Pour conclure</strong>
+          En une phrase, formulez le principe de ce cours qui vous semble le plus déterminant pour éviter qu'une hypothèse implicite sur vos données ne devienne une source de défaillance silencieuse dans un pipeline en production.
+        </div>
+      </section>
+    </div>
+
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+  hljs.highlightAll();
+
+  const storageKey = 'validation-donnees-course-progress';
+  const total = 40;
+  const menuToggle = document.getElementById('menuToggle');
+  const sidebar = document.getElementById('sidebar');
+  menuToggle.addEventListener('click', () => sidebar.classList.toggle('open'));
+
+  function getProgress() {
+    try { return JSON.parse(localStorage.getItem(storageKey)) || {}; }
+    catch (e) { return {}; }
+  }
+  function saveProgress(p) { localStorage.setItem(storageKey, JSON.stringify(p)); }
+
+  function updateProgressBar() {
+    const p = getProgress();
+    const done = Object.values(p).filter(Boolean).length;
+    document.getElementById('progressFill').style.width = (done / total * 100) + '%';
+  }
+
+  function markVisible() {
+    const progress = getProgress();
+    const links = document.querySelectorAll('[data-lesson]');
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const id = entry.target.id;
+          links.forEach(l => l.classList.remove('active'));
+          const link = document.querySelector('[data-lesson="' + id + '"]');
+          if (link) link.classList.add('active');
+          if (!progress[id]) {
+            progress[id] = true;
+            saveProgress(progress);
+            updateProgressBar();
+            const check = link ? link.querySelector('.lesson-check') : null;
+            if (check) check.classList.add('done');
+          }
+        }
+      });
+    }, { threshold: 0.4 });
+    document.querySelectorAll('section.lesson').forEach(s => observer.observe(s));
+  }
+
+  function restoreChecks() {
+    const progress = getProgress();
+    Object.keys(progress).forEach(id => {
+      if (progress[id]) {
+        const link = document.querySelector('[data-lesson="' + id + '"]');
+        if (link) {
+          const check = link.querySelector('.lesson-check');
+          if (check) check.classList.add('done');
+        }
+      }
+    });
+    updateProgressBar();
+  }
+
+  restoreChecks();
+  markVisible();
+
+  document.querySelectorAll('.sidebar a').forEach(a => {
+    a.addEventListener('click', () => { sidebar.classList.remove('open'); });
+  });
+</script>
+</body>
+</html>
