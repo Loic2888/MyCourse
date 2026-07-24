@@ -41,6 +41,24 @@ The first theme in this repository. Four courses covering the full stack of buil
 
 ---
 
+### 📊 Data for AI — [`data-for-ai/`](./data-for-ai/)
+
+A 25-course curriculum on preparing data for AI systems, organized into 7 progressive blocks — from foundational SQL/Python/statistics, through classic data cleaning, RAG data prep, unstructured data, agent-ready data, fine-tuning datasets, up to production-grade data tooling.
+
+| Block | Theme |
+|-------|-------|
+| 1 | Data Foundations (prerequisites) |
+| 2 | Classic Data Cleaning |
+| 3 | Data Preparation for RAG |
+| 4 | Unstructured Data |
+| 5 | Data Preparation for AI Agents |
+| 6 | Data Preparation for Fine-Tuning |
+| 7 | Tooling and Industrialization |
+
+→ See [`data-for-ai/README.md`](./data-for-ai/README.md) for the full list of all 25 courses.
+
+---
+
 ## How courses are generated
 
 Each course is produced by a custom `create-course` skill built in Claude Code that:
@@ -57,16 +75,25 @@ To generate a new course, run the `create-course` skill in Claude Code and speci
 
 ```
 MyCourse/
-└── dev-agentique/              ← Theme: Agentic AI Development
+├── dev-agentique/              ← Theme: Agentic AI Development
+│   ├── README.md
+│   ├── frameworks-orchestration-agents/
+│   │   └── index.html
+│   ├── outils-function-calling-mcp/
+│   │   └── index.html
+│   ├── rag-memoire-agents/
+│   │   └── index.html
+│   └── securite-guardrails-agents/
+│       └── index.html
+└── data-for-ai/                 ← Theme: Data for AI (7 blocks, 25 courses)
     ├── README.md
-    ├── frameworks-orchestration-agents/
-    │   └── index.html
-    ├── outils-function-calling-mcp/
-    │   └── index.html
-    ├── rag-memoire-agents/
-    │   └── index.html
-    └── securite-guardrails-agents/
-        └── index.html
+    ├── 1.fondations-data/
+    ├── 2.data-cleaning-classique/
+    ├── 3.prepa-data-pour-RAG/
+    ├── 4.data-non-structurées/
+    ├── 5.prepa-data-for-agent-IA/
+    ├── 6.prepa-data-for-fine-tuning/
+    └── 7.outillage-industrialisation/
 ```
 
-Last updated: **June 2026**
+Last updated: **July 2026**
