@@ -1,0 +1,1363 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bien parler à l'IA — expliqué simplement</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Epilogue:wght@600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --encrier:      #242A63;
+    --encrier-soft: #363E80;
+    --bg:           #F5F5FA;
+    --card:         #FFFFFF;
+    --clair:        #FF9F68;
+    --exemple:      #8B7EF8;
+    --ok:           #2BB673;
+    --ko:           #E05561;
+    --encre:        #1B1F3D;
+    --gris-txt:     #62679B;
+    --border:       #E2E2EF;
+
+    --font-display: "Epilogue", system-ui, sans-serif;
+    --font-body: "DM Sans", system-ui, -apple-system, sans-serif;
+
+    --sidebar-width: 300px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font-body);
+    color: var(--encre);
+    background: var(--bg);
+    line-height: 1.7;
+    font-size: 17px;
+  }
+
+  .layout { display: flex; min-height: 100vh; }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar {
+    width: var(--sidebar-width);
+    flex-shrink: 0;
+    background: var(--encrier);
+    color: #D5D7EC;
+    padding: 1.75rem 1.1rem 3rem;
+    overflow-y: auto;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+  }
+  .brand { display: flex; align-items: center; gap: .6rem; margin-bottom: .25rem; }
+  .brand-bubble {
+    width: 38px; height: 38px; flex-shrink: 0;
+    border-radius: 12px 12px 12px 4px;
+    background: var(--clair);
+    display: grid; place-items: center;
+    font-size: 1.02rem;
+    box-shadow: 0 0 0 4px rgba(255,159,104,.22);
+  }
+  .sidebar h1 {
+    font-family: var(--font-display);
+    font-size: 1.16rem; line-height: 1.2;
+    color: #fff; font-weight: 800;
+  }
+  .brand-sub { font-size: .78rem; color: #8A8DC0; margin-bottom: 1.4rem; padding-left: 3px; }
+
+  .progress-mini {
+    background: var(--encrier-soft);
+    border-radius: 10px; padding: .6rem .75rem; margin-bottom: 1.4rem;
+    font-size: .78rem; color: #B0B3DA;
+  }
+  .progress-mini .track {
+    height: 6px; background: #171B44; border-radius: 99px; margin-top: .45rem; overflow: hidden;
+  }
+  .progress-mini .track span {
+    display: block; height: 100%; width: 0%;
+    background: linear-gradient(90deg, var(--clair), var(--exemple));
+    transition: width .25s ease;
+  }
+
+  .module-group { margin-bottom: .35rem; }
+  .module-title {
+    font-family: var(--font-display); font-weight: 700; font-size: .92rem;
+    color: #fff; padding: .5rem .55rem; border-radius: 8px; cursor: pointer;
+    display: flex; justify-content: space-between; align-items: center; gap: .5rem;
+    user-select: none;
+  }
+  .module-title:hover { background: var(--encrier-soft); }
+  .module-title .chev { font-size: .7rem; color: #7A7EB5; transition: transform .2s ease; }
+  .module-group.collapsed .chev { transform: rotate(-90deg); }
+  .module-group.collapsed .lesson-list { display: none; }
+
+  .lesson-list { list-style: none; padding-left: .5rem; margin-bottom: .4rem; }
+  .lesson-list li a {
+    display: flex; align-items: center; gap: .55rem;
+    padding: .35rem .5rem; border-radius: 7px;
+    color: #B0B3DA; text-decoration: none; font-size: .86rem; line-height: 1.35;
+  }
+  .lesson-list li a:hover { background: var(--encrier-soft); color: #fff; }
+  .lesson-list li a.active { color: #fff; background: var(--encrier-soft); font-weight: 500; }
+
+  /* La pastille de progression : une bulle de dialogue */
+  .lesson-check {
+    width: 14px; height: 11px; flex-shrink: 0; margin-top: 3px;
+    border: 1.5px solid #646AA8; border-radius: 3px 3px 3px 0;
+    position: relative;
+  }
+  .lesson-check::after {
+    content: ""; position: absolute; left: -1.5px; bottom: -4px;
+    border-left: 1.5px solid #646AA8;
+    border-bottom: 3px solid transparent;
+    height: 4px;
+  }
+  .lesson-check.done { background: var(--clair); border-color: var(--clair); }
+  .lesson-check.done::after { border-left-color: var(--clair); }
+
+  /* ---------- Barre de progression ---------- */
+  .progress-bar { height: 4px; position: fixed; top: 0; left: 0; right: 0; z-index: 25; }
+  .progress-bar-fill {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, var(--clair), var(--exemple), var(--ok));
+    transition: width .25s ease;
+  }
+
+  /* ---------- Contenu ---------- */
+  .content { flex: 1; max-width: 820px; margin: 0 auto; padding: 3rem 2.5rem 6rem; }
+
+  .hero {
+    background: var(--encrier); color: #fff;
+    border-radius: 20px; padding: 2.2rem 2rem; margin-bottom: 2.5rem;
+    position: relative; overflow: hidden;
+  }
+  .hero::after {
+    content: ""; position: absolute; right: -50px; top: -55px;
+    width: 205px; height: 205px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,159,104,.35), transparent 70%);
+  }
+  .hero h1 {
+    font-family: var(--font-display); font-size: 2.15rem; line-height: 1.12;
+    margin-bottom: .6rem; font-weight: 800; letter-spacing: -.02em;
+  }
+  .hero p { color: #B6B9DE; font-size: 1.02rem; max-width: 47ch; }
+  .hero .tags { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1.2rem; }
+  .hero .tags span {
+    background: var(--encrier-soft); color: #CFD1EA;
+    padding: .25rem .7rem; border-radius: 99px; font-size: .78rem; font-weight: 500;
+  }
+
+  section { scroll-margin-top: 2rem; margin-bottom: 4.5rem; }
+
+  .lesson-num {
+    display: inline-block;
+    font-family: var(--font-display); font-weight: 700; font-size: .74rem;
+    color: var(--clair); letter-spacing: .08em; text-transform: uppercase;
+    margin-bottom: .2rem;
+  }
+  .content h2 {
+    font-family: var(--font-display); font-size: 1.8rem; line-height: 1.2;
+    font-weight: 800; margin-bottom: 1.1rem; letter-spacing: -.02em;
+  }
+  .content h3 { font-family: var(--font-display); font-size: 1.2rem; margin: 2rem 0 .6rem; font-weight: 700; }
+  .content p { margin-bottom: 1rem; }
+  .content ul, .content ol { margin: 0 0 1rem 1.2rem; }
+  .content li { margin-bottom: .4rem; }
+  .content a { color: var(--exemple); }
+  strong { font-weight: 700; }
+
+  /* ---------- Signature 1 : les deux cartes ---------- */
+  .kid, .grown { border-radius: 16px; padding: 1.2rem 1.3rem; margin: 1.2rem 0 1.5rem; }
+  .kid { background: #FFF3EC; border: 2px dashed var(--clair); font-size: 1.08rem; }
+  .grown { background: #F1EFFE; border-left: 5px solid var(--exemple); }
+  .kid .label, .grown .label {
+    font-family: var(--font-display); font-weight: 700; font-size: .76rem;
+    text-transform: uppercase; letter-spacing: .07em; display: block; margin-bottom: .45rem;
+  }
+  .kid .label { color: #C1601F; }
+  .grown .label { color: #5A48CE; }
+  .kid p:last-child, .grown p:last-child { margin-bottom: 0; }
+
+  /* ---------- Signature 2 : avant / après ---------- */
+  .av-ap { display: grid; grid-template-columns: 1fr 1fr; gap: .9rem; margin: 1.4rem 0; }
+  .av-ap > div {
+    background: var(--card); border-radius: 12px; padding: .95rem 1.05rem;
+    box-shadow: 0 1px 3px rgba(36,42,99,.07); border-top: 4px solid;
+    font-size: .91rem;
+  }
+  .av-ap .avant { border-top-color: var(--ko); }
+  .av-ap .apres { border-top-color: var(--ok); }
+  .av-ap .etiq {
+    font-family: var(--font-display); font-weight: 700; font-size: .73rem;
+    text-transform: uppercase; letter-spacing: .06em; display: block; margin-bottom: .5rem;
+  }
+  .av-ap .avant .etiq { color: var(--ko); }
+  .av-ap .apres .etiq { color: var(--ok); }
+  .av-ap .txt {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: .83rem; line-height: 1.6; white-space: pre-wrap;
+    color: var(--encre);
+  }
+  .av-ap .pourquoi {
+    margin-top: .65rem; padding-top: .55rem; border-top: 1px solid var(--border);
+    font-size: .82rem; color: var(--gris-txt); font-style: italic;
+  }
+  @media (max-width: 760px) { .av-ap { grid-template-columns: 1fr; } }
+
+  /* ---------- Schémas ---------- */
+  .schema {
+    background: var(--encrier); color: #D3D5EC;
+    border-radius: 14px; padding: 1.2rem 1.3rem; margin: 1.3rem 0; overflow-x: auto;
+    border-left: 5px solid var(--clair);
+  }
+  .schema pre {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: .84rem; line-height: 1.55; background: none; padding: 0; color: inherit;
+    white-space: pre;
+  }
+  .schema .cap { display: block; margin-top: .8rem; font-size: .8rem; color: #8A8DC0; font-style: italic; }
+
+  pre { border-radius: 12px; padding: 1rem 1.1rem; overflow-x: auto; margin: 1.1rem 0; font-size: .88rem; }
+  code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+  p code, li code, td code {
+    background: #E9E9F5; color: #363B72; padding: .1rem .38rem;
+    border-radius: 5px; font-size: .87em; font-weight: 500;
+  }
+
+  /* ---------- Callouts ---------- */
+  .callout {
+    border-radius: 0 12px 12px 0; padding: 1rem 1.2rem; margin: 1.3rem 0;
+    background: var(--card); border-left: 5px solid var(--gris-txt);
+    box-shadow: 0 1px 3px rgba(36,42,99,.07);
+  }
+  .callout strong:first-child { font-family: var(--font-display); }
+  .callout.pitfall { border-left-color: var(--clair); background: #FFF4ED; }
+  .callout.exercise { border-left-color: var(--ok); background: var(--card); }
+  .callout.danger { border-left-color: var(--ko); background: #FDEDEE; }
+  .callout p:last-child { margin-bottom: 0; }
+
+  details.quiz {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: .85rem 1.1rem; margin: 1rem 0;
+  }
+  details.quiz summary {
+    cursor: pointer; font-weight: 700; font-family: var(--font-display);
+    color: var(--encrier); list-style: none;
+  }
+  details.quiz summary::before { content: "💡 "; }
+  details.quiz[open] summary { margin-bottom: .7rem; color: var(--clair); }
+  details.quiz p:last-child { margin-bottom: 0; }
+
+  table {
+    width: 100%; border-collapse: collapse; margin: 1.2rem 0;
+    background: var(--card); border-radius: 12px; overflow: hidden;
+    box-shadow: 0 1px 3px rgba(36,42,99,.07); font-size: .93rem;
+  }
+  th, td { padding: .7rem .9rem; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--encrier); color: #fff; font-family: var(--font-display); font-weight: 700; font-size: .87rem; }
+  tr:last-child td { border-bottom: none; }
+
+  .timeline { list-style: none; margin: 1.3rem 0 1.3rem .4rem; padding-left: 1.4rem; border-left: 2px dotted var(--clair); }
+  .timeline li { position: relative; margin-bottom: 1rem; }
+  .timeline li::before {
+    content: ""; position: absolute; left: -1.85rem; top: .55rem;
+    width: 10px; height: 10px; border-radius: 50%; background: var(--clair);
+    box-shadow: 0 0 0 3px var(--bg);
+  }
+  .timeline .t { font-family: var(--font-display); font-weight: 700; color: var(--encrier-soft); }
+
+  .end-card {
+    background: linear-gradient(135deg, var(--encrier), #4A2E6B);
+    color: #fff; border-radius: 20px; padding: 2rem; margin-top: 3rem;
+  }
+  .end-card h3 { color: #fff; margin-top: 0; }
+  .end-card p, .end-card li { color: #C7C9E4; }
+
+  .menu-toggle { display: none; }
+
+  @media (max-width: 900px) {
+    body { font-size: 16px; }
+    .sidebar {
+      position: fixed; left: -100%; top: 0;
+      transition: left .22s ease; z-index: 30;
+      box-shadow: 6px 0 24px rgba(36,42,99,.32);
+    }
+    .sidebar.open { left: 0; }
+    .menu-toggle {
+      display: block; position: fixed; top: .85rem; left: .85rem; z-index: 40;
+      background: var(--clair); color: var(--encrier); border: none;
+      border-radius: 10px; padding: .5rem .8rem; cursor: pointer; font-size: 1rem;
+      font-weight: 700;
+      box-shadow: 0 2px 8px rgba(36,42,99,.28);
+    }
+    .content { padding: 4.2rem 1.15rem 4rem; }
+    .hero { padding: 1.6rem 1.3rem; }
+    .hero h1 { font-size: 1.68rem; }
+    .schema pre { font-size: .72rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-bar-fill" id="progressFill"></div></div>
+<button class="menu-toggle" id="menuToggle">☰</button>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-bubble">💬</div>
+      <h1>Bien parler à l'IA<br>expliqué simplement</h1>
+    </div>
+    <div class="brand-sub">12 leçons · ~45 min de lecture</div>
+
+    <div class="progress-mini">
+      <span id="progressText">0 / 12 leçons vues</span>
+      <div class="track"><span id="progressMini"></span></div>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title">Module 1 — C'est quoi ? <span class="chev">▼</span></div>
+      <ul class="lesson-list">
+        <li><a href="#m1-l1" data-lesson="m1-l1"><span class="lesson-check"></span> 1. Le stagiaire qui débarque</a></li>
+        <li><a href="#m1-l2" data-lesson="m1-l2"><span class="lesson-check"></span> 2. Les 4 ingrédients</a></li>
+        <li><a href="#m1-l3" data-lesson="m1-l3"><span class="lesson-check"></span> 3. Les formules magiques</a></li>
+        <li><a href="#m1-l4" data-lesson="m1-l4"><span class="lesson-check"></span> 4. Le vocabulaire en 6 mots</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title">Module 2 — Comment bien faire <span class="chev">▼</span></div>
+      <ul class="lesson-list">
+        <li><a href="#m2-l5" data-lesson="m2-l5"><span class="lesson-check"></span> 5. Donner le matériau</a></li>
+        <li><a href="#m2-l6" data-lesson="m2-l6"><span class="lesson-check"></span> 6. Montrer plutôt que décrire</a></li>
+        <li><a href="#m2-l7" data-lesson="m2-l7"><span class="lesson-check"></span> 7. Dire le format qu'on veut</a></li>
+        <li><a href="#m2-l8" data-lesson="m2-l8"><span class="lesson-check"></span> 8. Itérer</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title">Module 3 — En pratique <span class="chev">▼</span></div>
+      <ul class="lesson-list">
+        <li><a href="#m3-l9" data-lesson="m3-l9"><span class="lesson-check"></span> 9. 8 situations courantes</a></li>
+        <li><a href="#m3-l10" data-lesson="m3-l10"><span class="lesson-check"></span> 10. Quand ce n'est pas le prompt</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title">Module 4 — Deux histoires <span class="chev">▼</span></div>
+      <ul class="lesson-list">
+        <li><a href="#m4-l11" data-lesson="m4-l11"><span class="lesson-check"></span> 11. Les offres de Camille</a></li>
+        <li><a href="#m4-l12" data-lesson="m4-l12"><span class="lesson-check"></span> 12. Le rapport de Théo</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main class="content">
+
+    <div class="hero">
+      <h1>Bien parler à l'IA,<br>expliqué comme à un enfant de 5 ans</h1>
+      <p>Ce n'est pas une question de formule magique. C'est une question de ce que tu lui donnes — et la plupart des mauvaises réponses viennent d'une chose que tu as oublié de dire.</p>
+      <div class="tags"><span>💬 Zéro jargon</span><span>✍️ Avant / après</span><span>⏱ ~45 minutes</span></div>
+    </div>
+
+    <!-- ══════════════ MODULE 1 ══════════════ -->
+
+    <section id="m1-l1">
+      <span class="lesson-num">Module 1 · Leçon 1</span>
+      <h2>Le stagiaire qui débarque</h2>
+
+      <div class="kid">
+        <span class="label">💬 Version 5 ans</span>
+        <p>Imagine qu'un stagiaire arrive dans ton bureau. Il est <strong>très intelligent</strong>, il travaille <strong>très vite</strong>, il a lu énormément de choses.</p>
+        <p>Mais c'est son <strong>premier jour</strong>. Il ne sait pas ce que fait ton entreprise. Il ne connaît pas tes clients. Il n'a jamais vu tes documents. Il ne sait pas à qui tu écris ni pourquoi.</p>
+        <p>Si tu lui dis juste <em>« fais-moi un résumé »</em>, il va faire un résumé. Un vrai résumé, bien écrit. Mais pas celui que tu voulais — parce que tu ne lui as jamais dit ce que tu voulais.</p>
+        <p>👉 <strong>Ce n'est pas lui qui a mal compris. C'est toi qui n'as pas dit.</strong></p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>Un <strong>prompt</strong>, c'est ce que tu écris à l'IA. Et l'erreur de départ de presque tout le monde, c'est de le traiter comme une <em>recherche Google</em> — quelques mots-clés — alors que c'est un <strong>brief</strong>.</p>
+        <p>La différence : un moteur de recherche trouve des documents existants à partir de mots-clés. Une IA <strong>fabrique</strong> une réponse à partir de ce que tu lui donnes. Si tu lui donnes peu, elle comble les trous — et elle les comble avec ce qui est le plus courant en général, pas avec ta situation à toi.</p>
+      </div>
+
+      <div class="schema">
+<pre>
+  CE QUE TU ÉCRIS              CE QU'IL COMPREND
+
+  « fais-moi un résumé »   →   un résumé
+                               │
+                               ├─ de quelle longueur ?  → il choisit
+                               ├─ pour qui ?            → il choisit
+                               ├─ qu'est-ce qui         → il choisit
+                               │   compte dedans ?
+                               └─ sous quelle forme ?   → il choisit
+
+  Quatre décisions prises à ta place.
+  Tu n'es pas déçu par la qualité : tu es déçu par les choix.
+</pre>
+        <span class="cap">Chaque chose que tu ne précises pas est une décision que quelqu'un d'autre prend.</span>
+      </div>
+
+      <h3>Pourquoi l'image du stagiaire est la bonne</h3>
+      <p>Elle prédit très bien les deux comportements qui surprennent les débutants :</p>
+      <ul>
+        <li><strong>Il ne pose pas de questions</strong> — sauf si tu l'y invites. Un vrai stagiaire prudent demanderait « pour quel client ? ». L'IA, elle, préfère produire quelque chose plutôt que rien. On verra en leçon 8 comment l'inviter à demander.</li>
+        <li><strong>Il ne dit pas quand il ne sait pas.</strong> Devant un trou, il le comble. C'est exactement ce qu'explique le cours sur l'IA : il n'a aucun signal interne d'ignorance. Tu dois lui donner explicitement le droit de dire « je ne sais pas ».</li>
+      </ul>
+
+      <h3>Ce que l'analogie rate — et c'est une bonne nouvelle</h3>
+      <p>Un stagiaire humain se vexe, se fatigue, et n'aime pas qu'on lui fasse refaire dix fois. L'IA, non.</p>
+      <p>Tu peux lui dire « non, recommence, c'est trop long », quinze fois de suite, sans aucun coût social. <strong>C'est ce qui rend l'itération si puissante ici</strong>, alors qu'elle est coûteuse avec un humain. La leçon 8 en fait tout un sujet.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Écrire comme on tape dans un moteur de recherche. « email client mécontent retard livraison » donnera quelque chose de générique et inutilisable. <strong>Écris comme tu parlerais à quelqu'un</strong> : en phrases, avec le contexte. C'est le changement le plus simple et le plus rentable de tout ce cours.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Prends la dernière demande que tu as faite à une IA. Relis-la en te demandant : <strong>si je donnais ça à quelqu'un qui débarque, aurait-il assez d'informations pour faire le travail ?</strong> Liste ce qui manque. <em>(La plupart du temps, il manque trois choses : pour qui c'est, à quoi ça sert, et à quoi ressemble un bon résultat.)</em>
+      </div>
+    </section>
+
+    <section id="m1-l2">
+      <span class="lesson-num">Module 1 · Leçon 2</span>
+      <h2>Les 4 ingrédients</h2>
+
+      <div class="kid">
+        <span class="label">💬 Version 5 ans</span>
+        <p>Pour que le stagiaire fasse du bon travail, il lui faut quatre choses. Pas dix. Quatre.</p>
+        <p><strong>① De quoi il s'agit</strong> — la situation, les gens concernés, le document.<br>
+        <strong>② Ce qu'il doit faire</strong> — précisément, avec un verbe.<br>
+        <strong>③ À quoi ça doit ressembler</strong> — la longueur, la forme, le ton.<br>
+        <strong>④ Un exemple</strong>, si tu en as un. C'est le plus puissant des quatre.</p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p><strong>Contexte, tâche, format, exemples.</strong> Ce sont les quatre leviers, et ils ne se valent pas : le contexte est de très loin le plus déterminant, les exemples sont les plus sous-utilisés.</p>
+        <p>Tout le reste — le ton, les « astuces », la politesse — est du détail par rapport à ces quatre-là.</p>
+      </div>
+
+      <h3>Les quatre, appliqués à une même demande</h3>
+
+      <div class="av-ap">
+        <div class="avant">
+          <span class="etiq">✗ Ce qu'on écrit</span>
+          <div class="txt">Écris un email pour dire à un client qu'on a du retard.</div>
+          <div class="pourquoi">Quel client ? Quel retard ? Combien de temps ? Est-ce notre faute ? Quel ton ? Quelle longueur ? Six décisions laissées au hasard.</div>
+        </div>
+        <div class="apres">
+          <span class="etiq">✓ Ce qu'il faudrait écrire</span>
+          <div class="txt">Contexte : je suis responsable logistique dans une PME de matériel médical. Notre client Durand Santé attend une livraison prévue mardi. Elle aura 9 jours de retard à cause d'un fournisseur défaillant. C'est notre 3e retard avec eux cette année. Ils sont importants pour nous.
+
+Tâche : écris l'email qui les prévient.
+
+Format : 150 mots maximum, ton direct et professionnel, pas d'excuses à rallonge. Annonce le retard dès la première phrase. Propose une compensation concrète à la fin.</div>
+          <div class="pourquoi">Trois fois plus long à écrire. Dix fois plus utilisable — et surtout, réutilisable : le squelette resservira.</div>
+        </div>
+      </div>
+
+      <h3>① Le contexte — le levier n°1</h3>
+      <p>C'est ce qui manque dans neuf mauvais prompts sur dix. Le contexte, c'est tout ce que <em>toi</em> tu sais et qu'il ignore : qui tu es, à qui tu t'adresses, ce qui s'est passé avant, ce qui est en jeu.</p>
+      <p>Une bonne question à te poser : <strong>« qu'est-ce que je sais que lui ne sait pas ? »</strong> Tout ce qui sort de cette question doit être dans le prompt.</p>
+
+      <h3>② La tâche — avec un verbe précis</h3>
+      <p>« Regarde ce texte » ne dit rien. <strong>Résume, compare, reformule, traduis, classe, critique, liste, extrais, corrige</strong> — chacun de ces verbes donne un travail différent. Et si tu veux plusieurs choses, dis-le explicitement et numérote : « ① fais la liste des points, ② pour chacun, dis s'il est bloquant ».</p>
+
+      <h3>③ Le format — plus important qu'il n'y paraît</h3>
+      <p>La longueur, la structure, le ton, la langue. C'est ce qui évite le « mur de texte avec des titres partout » qui frustre tout le monde. Et c'est gratuit : quatre mots (« en 5 puces maximum ») changent complètement le résultat. Leçon 7.</p>
+
+      <h3>④ Les exemples — le plus fort, et le plus oublié</h3>
+      <p>Si tu as un texte qui te plaît, <strong>colle-le</strong>. « Voici deux emails que j'ai écrits par le passé, garde ce ton. » C'est plus efficace que dix adjectifs pour décrire un style. Leçon 6.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Croire qu'un prompt long est forcément meilleur. Ce qui compte, c'est ce qu'il <strong>apporte d'information</strong>. Trois cents mots de règles vagues et contradictoires (« sois concis mais complet, créatif mais rigoureux ») valent moins que quarante mots de contexte réel. <strong>Densité, pas longueur.</strong>
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Reprends une demande que tu fais souvent et réécris-la avec les quatre ingrédients, en commençant par : <em>« qu'est-ce que je sais que lui ne sait pas ? »</em> Garde-la : la leçon 11 montre quoi en faire.
+      </div>
+    </section>
+
+    <section id="m1-l3">
+      <span class="lesson-num">Module 1 · Leçon 3</span>
+      <h2>Les formules magiques</h2>
+
+      <div class="kid">
+        <span class="label">💬 Version 5 ans</span>
+        <p>Tu as sûrement lu quelque part qu'il existe des <strong>phrases secrètes</strong> pour que l'IA soit meilleure. « Tu es le meilleur expert mondial. » « Je te donnerai 200 euros. » « C'est très important pour ma carrière. »</p>
+        <p>Ces phrases ne servent presque à rien.</p>
+        <p>Ce qui change tout, ce n'est pas la formule — c'est <strong>l'information que tu donnes</strong>. Dire au stagiaire « tu es un génie » ne l'aide pas. Lui donner le dossier, si.</p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>Je place cette leçon en troisième position volontairement : il faut déblayer le folklore avant d'apprendre ce qui marche. Une quantité impressionnante de conseils qui circulent relèvent de la superstition — ils ont parfois fonctionné sur des modèles anciens, et ont survécu à leur utilité.</p>
+      </div>
+
+      <h3>Ce qui ne marche pas (ou très peu)</h3>
+      <table>
+        <thead><tr><th>La croyance</th><th>Ce qu'il en est</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>« Tu es un expert mondial de… »</strong></td>
+            <td>Effet réel mais faible, et pas celui qu'on croit : ça oriente surtout le <strong>vocabulaire et le ton</strong>, pas la compétence. Le modèle n'a pas de mode « expert » caché qu'on déverrouillerait. « Écris pour un public de juristes » donne le même bénéfice, en plus honnête.</td>
+          </tr>
+          <tr>
+            <td><strong>Les promesses et les menaces</strong><br>(« je te donnerai un pourboire », « sinon je perds mon emploi »)</td>
+            <td>Aucun effet fiable. Ces astuces ont circulé à partir d'observations sur des modèles anciens et ne tiennent pas. Il n'y a ni motivation ni enjeu de l'autre côté.</td>
+          </tr>
+          <tr>
+            <td><strong>La politesse améliore les réponses</strong></td>
+            <td>Non. Sois poli si ça te fait plaisir — c'est sans effet mesurable sur la qualité. En revanche, les <em>phrases de politesse</em> allongent inutilement ce que tu écris.</td>
+          </tr>
+          <tr>
+            <td><strong>« Sois créatif »</strong></td>
+            <td>Trop vague pour changer quoi que ce soit. <strong>Des contraintes produisent de la créativité</strong>, pas des adjectifs : « propose 5 angles, dont au moins un qui prend le contrepied » donne un vrai résultat.</td>
+          </tr>
+          <tr>
+            <td><strong>« Ne fais pas d'erreur », « sois exact »</strong></td>
+            <td>Sans effet — il ne sait pas qu'il se trompe. Ce qui marche, c'est de lui <em>donner</em> la source, ou de l'autoriser à dire qu'il ne sait pas.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout danger">
+        <strong>⚠ La règle qui remplace toutes les astuces</strong> — <strong>Un prompt n'améliore pas le modèle. Il améliore ce que le modèle a sous les yeux.</strong><br><br>
+        Aucune formulation ne lui apprend quelque chose qu'il ignore, ne lui donne une calculatrice, ou ne lui fait dire qu'il se trompe. Tout ce qu'un prompt peut faire, c'est <strong>ajouter de l'information</strong> et <strong>cadrer la sortie</strong>. Juge chaque conseil de prompt à cette aune : est-ce qu'il ajoute de l'information ou est-ce qu'il incante ?
+      </div>
+
+      <h3>Ce qui marche vraiment — la liste courte</h3>
+      <ol>
+        <li><strong>Lui donner le document.</strong> De très loin le premier levier. Leçon 5.</li>
+        <li><strong>Donner des exemples</strong> de ce que tu veux. Leçon 6.</li>
+        <li><strong>Préciser le format</strong> et la longueur. Leçon 7.</li>
+        <li><strong>Le laisser réfléchir avant de conclure</strong> — « raisonne étape par étape, puis donne ta réponse ». Celui-ci marche réellement, et pour une raison mécanique : le modèle écrit sa conclusion en ayant son propre raisonnement sous les yeux.</li>
+        <li><strong>Lui donner le droit de ne pas savoir</strong>, avec la phrase exacte à utiliser.</li>
+        <li><strong>L'inviter à poser des questions</strong> avant de répondre. Leçon 8.</li>
+        <li><strong>Dire pour qui c'est.</strong> « Pour un enfant de 10 ans » ou « pour mon directeur financier » change tout, et c'est du contexte, pas une incantation.</li>
+      </ol>
+      <p>Sept points. Aucun n'est un secret, et tous consistent à <strong>donner plus, pas à formuler mieux</strong>.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Collectionner des « prompts magiques » trouvés en ligne et les réutiliser tels quels. Ils sont écrits pour la situation de quelqu'un d'autre — donc leur partie la plus précieuse, le contexte, est <strong>fausse pour toi</strong>. Prends-en la structure, jette le contenu, remets le tien.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Prends un « prompt magique » qui circule. Barre tout ce qui est incantation (« tu es un expert de rang mondial », « ta réponse est cruciale »). Que reste-t-il ? <em>(Souvent : une structure de tâche correcte et un format bien défini — ce qui est effectivement utile. Le reste était de la décoration.)</em>
+      </div>
+    </section>
+
+    <section id="m1-l4">
+      <span class="lesson-num">Module 1 · Leçon 4</span>
+      <h2>Le vocabulaire en 6 mots</h2>
+
+      <div class="kid">
+        <span class="label">💬 Version 5 ans</span>
+        <p>Six mots : <strong>ce que tu écris</strong>, <strong>les règles permanentes</strong>, <strong>ce que tu racontes de ta situation</strong>, <strong>les modèles que tu montres</strong>, <strong>le fait de recommencer</strong>, et <strong>la fiche que tu réutilises</strong>.</p>
+      </div>
+
+      <table>
+        <thead><tr><th>Le mot</th><th>Ce que ça veut dire</th><th>Avec le stagiaire</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Prompt</strong></td><td>Ce que tu écris à l'IA. Le mot anglais s'est imposé ; « consigne » ou « demande » vont très bien aussi.</td><td>Ta demande</td></tr>
+          <tr><td><strong>Prompt système</strong></td><td>Des règles permanentes qui valent pour toute une conversation ou tout un outil. Souvent invisible pour l'utilisateur final.</td><td>La fiche de poste, affichée au mur</td></tr>
+          <tr><td><strong>Contexte</strong></td><td>Tout ce que tu lui donnes autour de ta question : la situation, les documents, l'historique.</td><td>Le dossier que tu poses sur son bureau</td></tr>
+          <tr><td><strong>Exemples</strong> (<em>few-shot</em>)</td><td>Montrer une ou plusieurs fois le résultat attendu, au lieu de le décrire.</td><td>« Tiens, regarde ce que j'avais fait la dernière fois »</td></tr>
+          <tr><td><strong>Itération</strong></td><td>Réagir à la réponse obtenue plutôt que de tout réécrire depuis le début.</td><td>« C'est bien, mais raccourcis le troisième paragraphe »</td></tr>
+          <tr><td><strong>Gabarit</strong> (<em>template</em>)</td><td>Un prompt qu'on a mis au point une fois et qu'on réutilise en changeant juste les parties variables.</td><td>Un formulaire à trous</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Deux mots de plus qu'on croise</h3>
+      <p><strong>Zero-shot / few-shot</strong> — sans exemple / avec quelques exemples. C'est tout ce que veulent dire ces termes qui ont l'air savants.</p>
+      <p><strong>Chaîne de pensée</strong> (<em>chain of thought</em>) — le fait de demander au modèle de dérouler son raisonnement avant de conclure. C'est le point 4 de la leçon 3, et son nom savant.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Croire qu'il existe un métier mystérieux appelé « prompt engineering » avec des secrets réservés aux initiés. Il y a bien un vrai savoir-faire quand on construit des systèmes — écrire un prompt système qui tient sur des milliers d'utilisateurs est un travail sérieux. Mais pour ton usage quotidien, <strong>ce cours entier tient en une phrase : donne-lui ce qu'il lui manque.</strong>
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Parmi les six mots, lesquels utilises-tu déjà sans le savoir ? <em>(Presque tout le monde fait de l'itération sans l'appeler ainsi — et presque personne ne fait d'exemples ni de gabarit, qui sont pourtant les deux plus rentables.)</em>
+      </div>
+
+      <details class="quiz">
+        <summary>Mini-quiz : vrai ou faux ?</summary>
+        <p><strong>« Un bon prompt permet d'obtenir une information que l'IA n'a pas. »</strong></p>
+        <p><strong>Faux</strong>, et c'est la limite à garder en tête tout au long du cours. Un prompt organise, cadre et fournit — il ne <em>crée</em> rien. Si l'information n'est ni dans le modèle ni dans ce que tu lui donnes, aucune formulation ne la fera apparaître : elle sera <strong>inventée</strong>. C'est exactement l'histoire de la leçon 12.</p>
+      </details>
+    </section>
+
+    <!-- ══════════════ MODULE 2 ══════════════ -->
+
+    <section id="m2-l5">
+      <span class="lesson-num">Module 2 · Leçon 5</span>
+      <h2>Donner le matériau</h2>
+
+      <div class="kid">
+        <span class="label">💬 Version 5 ans</span>
+        <p>C'est le geste le plus important de tout le cours, et c'est le plus simple.</p>
+        <p>Ne demande pas au stagiaire de <strong>se souvenir</strong> de quelque chose. <strong>Donne-lui le papier.</strong></p>
+        <p>« Qu'est-ce que dit notre contrat sur les délais ? » → il va inventer.<br>
+        « Voici notre contrat. Que dit-il sur les délais ? » → il va lire, et bien répondre.</p>
+        <p>La question est presque la même. Le résultat n'a rien à voir.</p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>C'est la distinction <strong>rappel contre transformation</strong> du cours sur l'IA, appliquée à ta façon d'écrire. Une question de rappel puise dans les paramètres du modèle — où l'information est compressée, dégradée, parfois absente. Une question de transformation travaille sur un texte que tu fournis, où l'information est là, intacte.</p>
+        <p>Même modèle. Même sujet. Deux fiabilités qui n'ont rien de comparable.</p>
+      </div>
+
+      <div class="av-ap">
+        <div class="avant">
+          <span class="etiq">✗ Rappel — fragile</span>
+          <div class="txt">Quelles sont les conditions de résiliation dans un contrat de prestation type ?</div>
+          <div class="pourquoi">Il va décrire des conditions générales plausibles. Peut-être proches des tiennes. Peut-être pas. Et tu n'auras aucun moyen de faire la différence.</div>
+        </div>
+        <div class="apres">
+          <span class="etiq">✓ Transformation — solide</span>
+          <div class="txt">Voici notre contrat de prestation :
+
+"""
+[le texte du contrat]
+"""
+
+Résume les conditions de résiliation, en citant les articles concernés. Si un point n'est pas traité dans ce contrat, dis-le au lieu de le deviner.</div>
+          <div class="pourquoi">Il lit, il cite, tu vérifies en trois secondes. Et la dernière phrase lui donne le droit de ne pas savoir.</div>
+        </div>
+      </div>
+
+      <h3>Presque tout se convertit</h3>
+      <p>C'est l'usage pratique de la distinction : la plupart des questions fragiles ont une version solide, à condition d'aller chercher le matériau avant.</p>
+
+      <div class="schema">
+<pre>
+  ✗ CE QU'ON DEMANDE              →  ✓ CE QU'IL FAUT FAIRE AVANT
+
+  « Quelles sont les nouveautés      Coller les notes de version,
+    de cette version ? »             puis demander le résumé
+
+  « Résume-moi l'actualité du        Coller trois articles,
+    secteur »                        puis demander la synthèse
+
+  « Que dit la loi sur… ? »          Trouver le texte, le coller,
+                                     puis demander l'explication
+
+  « Combien ça fait ? »              Demander le calcul écrit,
+                                     ou le faire ailleurs
+
+  « Cite-moi des études sur… »       Trouver les études,
+                                     les coller, demander la comparaison
+</pre>
+        <span class="cap">Le travail supplémentaire est réel — et c'est exactement celui qui rend la réponse utilisable.</span>
+      </div>
+
+      <h3>Comment coller proprement</h3>
+      <p>Trois habitudes qui évitent des malentendus :</p>
+      <ul>
+        <li><strong>Sépare visiblement</strong> le document de ta consigne. Des guillemets triples, des tirets, une balise — n'importe quoi de net. Sans ça, le modèle peut confondre une phrase du document avec une instruction que tu lui donnes.</li>
+        <li><strong>Dis ce que c'est.</strong> « Voici le compte rendu de la réunion du 12 mars » vaut mieux qu'un texte brut posé là. Ça lui dit comment le lire.</li>
+        <li><strong>Ne colle pas tout.</strong> Si tu as 200 pages et que ta question porte sur un chapitre, colle le chapitre. C'est la leçon du cours sur les tokens : plus tu entasses, moins l'information utile ressort — surtout quand elle se retrouve au milieu.</li>
+      </ul>
+
+      <h3>Le cas particulier : quand tu ne peux pas coller</h3>
+      <p>Documents trop nombreux, trop volumineux, ou qui changent tout le temps. C'est précisément le problème que résout un <strong>RAG</strong> — un système qui va chercher automatiquement les bons passages et les colle à ta place. Le cours dédié explique comment.</p>
+      <p>Mais avant d'en arriver là : <strong>vérifie que tu ne peux vraiment pas coller.</strong> Beaucoup de gens construisent des systèmes compliqués pour des documents qui tiendraient largement dans une conversation.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Poser une question de rappel sur ses <em>propres</em> données. « Quel est notre délai de livraison ? », « combien de clients avons-nous ? », « que dit notre politique de congés ? » — l'IA ne peut pas le savoir, elle n'a jamais vu tes documents. Et elle répondra quand même, avec assurance, quelque chose de vraisemblable. <strong>C'est le mode d'échec le plus fréquent en entreprise</strong>, et l'histoire de la leçon 12.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Pose une question de rappel sur un sujet que tu connais parfaitement. Note la réponse. Puis colle le vrai document et repose exactement la même question. Compare. <em>(Fais-le une fois : c'est l'expérience qui change durablement la façon dont on écrit ses demandes.)</em>
+      </div>
+    </section>
+
+    <section id="m2-l6">
+      <span class="lesson-num">Module 2 · Leçon 6</span>
+      <h2>Montrer plutôt que décrire</h2>
+
+      <div class="kid">
+        <span class="label">💬 Version 5 ans</span>
+        <p>Essaie d'expliquer avec des mots comment tu veux qu'on plie une serviette. C'est long, c'est compliqué, et ça ne marche pas.</p>
+        <p>Maintenant, <strong>plie-en une devant la personne</strong>. Elle a compris en trois secondes.</p>
+        <p>C'est pareil ici. Dix adjectifs pour décrire un style (« professionnel mais chaleureux, concis mais complet ») valent moins qu'<strong>un seul exemple</strong> de ce que tu veux.</p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>On appelle ça donner des <strong>exemples</strong> (ou <em>few-shot</em>). C'est le levier le plus efficace après le contexte, et de très loin le moins utilisé — probablement parce qu'il demande de fournir quelque chose plutôt que de formuler une instruction.</p>
+        <p>Et ça marche particulièrement bien pour tout ce qui est difficile à décrire : un ton, un niveau de détail, une convention de nommage, une façon de trancher les cas ambigus.</p>
+      </div>
+
+      <div class="av-ap">
+        <div class="avant">
+          <span class="etiq">✗ Décrire</span>
+          <div class="txt">Reformule ces retours clients en phrases courtes, professionnelles mais pas froides, factuelles, sans jargon, avec un ton positif mais honnête.</div>
+          <div class="pourquoi">Six adjectifs qui veulent dire des choses différentes pour toi et pour lui. Le résultat sera « moyen » au sens le plus littéral : la moyenne de ce que ces mots évoquent.</div>
+        </div>
+        <div class="apres">
+          <span class="etiq">✓ Montrer</span>
+          <div class="txt">Reformule ces retours clients. Voici deux exemples de ce que j'attends :
+
+Brut : "franchement le truc marche pas, j'ai perdu 2h"
+→ "Dysfonctionnement signalé, avec une perte de temps estimée à 2 h."
+
+Brut : "super sympa le gars du support, rien à dire"
+→ "Retour positif sur la qualité de l'accompagnement du support."
+
+À toi :
+[les retours]</div>
+          <div class="pourquoi">Deux exemples, et le registre, la longueur, le niveau de formalisme et la façon de traiter le familier sont tous transmis d'un coup.</div>
+        </div>
+      </div>
+
+      <h3>Combien d'exemples ?</h3>
+      <p>Moins qu'on ne croit. <strong>Un seul exemple</strong> transmet déjà l'essentiel de la forme. <strong>Deux ou trois</strong> valent mieux, à une condition : qu'ils soient <em>différents entre eux</em>. Trois exemples du même cas facile n'apprennent rien de plus qu'un seul.</p>
+      <p>Le vrai savoir-faire, c'est de choisir des exemples qui couvrent les <strong>cas limites</strong> : celui qui est ambigu, celui qui est vide, celui qui ne rentre pas dans les cases. C'est là que tu transmets tes vraies règles — celles que tu n'aurais pas su formuler.</p>
+
+      <div class="schema">
+<pre>
+  TROIS EXEMPLES BIEN CHOISIS
+
+  ① le cas normal        → la forme attendue
+  ② le cas ambigu        → comment trancher quand c'est flou
+  ③ le cas qui ne rentre → quoi faire quand ça ne s'applique pas
+     pas dans les cases     (« mettre : à vérifier »)
+
+  ③ est le plus précieux des trois, et celui que
+  personne ne pense à donner. C'est lui qui évite
+  que le modèle force un cas particulier dans le
+  moule le plus proche.
+</pre>
+        <span class="cap">Tes exemples sont tes règles. Ils disent ce que ta description ne sait pas dire.</span>
+      </div>
+
+      <h3>L'exemple à l'envers : montrer ce qu'on ne veut pas</h3>
+      <p>Technique simple et efficace quand un défaut revient sans arrêt : donne un contre-exemple.</p>
+      <p><em>« Évite ce genre de formulation : "Dans le cadre de notre démarche d'amélioration continue, nous nous permettons de revenir vers vous…" — va droit au but. »</em></p>
+      <p>Un contre-exemple concret fait plus qu'une consigne abstraite (« pas de langue de bois »), pour exactement la même raison : il est précis là où la consigne est interprétable.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Donner des exemples <strong>incohérents entre eux</strong>. Si ton exemple 1 fait deux lignes et ton exemple 2 en fait dix, tu viens de dire « la longueur n'a pas d'importance ». Le modèle apprend de ce que tes exemples ont en commun : <strong>relis-les en te demandant quelle règle ils énoncent réellement</strong>, pas quelle règle tu croyais énoncer.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Prends une tâche répétitive que tu fais à la main. Retrouve trois résultats passés dont tu es satisfait, en choisissant un cas normal, un cas ambigu et un cas bizarre. Colle-les comme exemples. <em>(C'est la base du gabarit de Camille, en leçon 11.)</em>
+      </div>
+    </section>
+
+    <section id="m2-l7">
+      <span class="lesson-num">Module 2 · Leçon 7</span>
+      <h2>Dire le format qu'on veut</h2>
+
+      <div class="kid">
+        <span class="label">💬 Version 5 ans</span>
+        <p>Tu demandes une réponse, et tu reçois <strong>trois pages</strong> avec des titres, des sous-titres, des listes à puces partout et une conclusion qui répète l'introduction.</p>
+        <p>Ce n'est pas de sa faute : tu n'as jamais dit combien tu en voulais, ni sous quelle forme.</p>
+        <p>Quatre mots suffisent à tout changer : <strong>« en trois phrases maximum »</strong>.</p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>Le format est le levier le plus rapide à actionner et le plus négligé. Il coûte quelques mots, il ne demande aucun travail préparatoire, et il agit sur ce qui frustre le plus : la verbosité, la structure imposée, le registre.</p>
+        <p>Bonus non négligeable si tu utilises une API : la sortie est ce qui coûte le plus cher. Des réponses courtes, c'est aussi une facture divisée.</p>
+      </div>
+
+      <h3>Les cinq dimensions à préciser</h3>
+      <table>
+        <thead><tr><th>Dimension</th><th>Ce qu'on écrit</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Longueur</strong></td><td>« en 3 phrases », « 150 mots max », « une page », « un paragraphe »</td></tr>
+          <tr><td><strong>Structure</strong></td><td>« en 5 puces », « un tableau avec ces colonnes : … », « du texte suivi, sans titres ni puces »</td></tr>
+          <tr><td><strong>Ton et registre</strong></td><td>« direct », « pour un public non technique », « comme à un collègue », « sans jargon »</td></tr>
+          <tr><td><strong>Ce qu'on ne veut pas</strong></td><td>« pas d'introduction ni de conclusion », « ne répète pas ma question », « ne propose pas d'aide supplémentaire à la fin »</td></tr>
+          <tr><td><strong>Le destinataire</strong></td><td>« pour mon directeur financier », « pour un client mécontent », « pour un enfant de 10 ans »</td></tr>
+        </tbody>
+      </table>
+
+      <p>La dernière ligne est la plus puissante des cinq. <strong>Dire pour qui c'est règle en une fois le ton, le vocabulaire, le niveau de détail et ce qu'il faut expliquer ou non.</strong> C'est du contexte déguisé en format.</p>
+
+      <div class="av-ap">
+        <div class="avant">
+          <span class="etiq">✗ Sans format</span>
+          <div class="txt">Explique-moi ce qu'est une facture d'acompte.</div>
+          <div class="pourquoi">Tu recevras probablement 600 mots avec des titres, une définition, un cadre légal, des exemples et une conclusion. Utile, illisible.</div>
+        </div>
+        <div class="apres">
+          <span class="etiq">✓ Avec format</span>
+          <div class="txt">Explique-moi ce qu'est une facture d'acompte.
+
+En 4 phrases maximum, pour quelqu'un qui monte sa première entreprise et n'a aucune notion de comptabilité. Pas de titres, pas de puces, pas de conclusion.</div>
+          <div class="pourquoi">Tu obtiens exactement ce que tu peux lire tout de suite. Et si tu en veux plus, tu demandes — c'est la leçon 8.</div>
+        </div>
+      </div>
+
+      <h3>La technique du gabarit rempli</h3>
+      <p>Quand tu veux une structure précise, ne la décris pas : <strong>donne-la vide, à remplir.</strong> C'est la leçon 6 appliquée au format.</p>
+      <pre><code class="language-text">Analyse ce compte rendu et remplis exactement ce cadre :
+
+DÉCISIONS PRISES
+- (une ligne par décision, avec qui décide)
+
+POINTS EN SUSPENS
+- (une ligne, avec qui doit trancher et pour quand)
+
+RISQUES SIGNALÉS
+- (une ligne, ou « aucun »)
+
+Ne rajoute aucune autre section.</code></pre>
+      <p>C'est beaucoup plus fiable que « fais-moi une synthèse structurée », et ça a un effet secondaire précieux : <strong>les résultats sont comparables entre eux</strong>, ce qui te permet de traiter dix comptes rendus et de les lire en tableau.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Se plaindre de la verbosité sans jamais demander la concision. C'est la frustration n°1 des utilisateurs, et elle se règle en quatre mots. Les assistants sont réglés pour être complets et prudents par défaut, parce que c'est ce qui satisfait le plus de monde en moyenne. <strong>Si tu ne dis rien, tu obtiens la moyenne.</strong>
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Reprends ta dernière demande et ajoute une seule ligne de format à la fin. Compare les deux réponses. <em>(Le rapport effort / résultat de ce geste est probablement le meilleur de tout le cours.)</em>
+      </div>
+    </section>
+
+    <section id="m2-l8">
+      <span class="lesson-num">Module 2 · Leçon 8</span>
+      <h2>Itérer</h2>
+
+      <div class="kid">
+        <span class="label">💬 Version 5 ans</span>
+        <p>Le stagiaire te rend son travail. Ce n'est pas tout à fait ça.</p>
+        <p>La plupart des gens font alors une erreur : ils <strong>recommencent tout depuis le début</strong>, en reformulant leur demande autrement, comme si la première n'avait jamais existé.</p>
+        <p>Alors qu'il suffit de dire : <em>« C'est bien, mais garde seulement les trois premiers points, et développe le deuxième. »</em></p>
+        <p>Il a déjà fait le travail. <strong>Ne le jette pas. Corrige-le.</strong></p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>C'est le réflexe qui sépare les gens qui trouvent l'IA « moyennement utile » de ceux qui en tirent quelque chose. Et il a une justification mécanique : dans une conversation, <strong>le modèle a sa réponse précédente sous les yeux</strong>. Il peut donc la corriger précisément, ce qu'il ne peut pas faire si tu repars de zéro.</p>
+        <p>Repartir à zéro, c'est jeter tout ce contexte et espérer que la loterie tombe mieux.</p>
+      </div>
+
+      <div class="schema">
+<pre>
+  ✗ CE QUE FONT LES GENS           ✓ CE QU'IL FAUT FAIRE
+
+  Demande v1 → réponse moyenne      Demande v1 → réponse moyenne
+  (nouvelle conversation)                 │
+  Demande v2 → réponse moyenne      « trop long, et le point 3
+  (nouvelle conversation)             est hors sujet. Garde 1 et 2,
+  Demande v3 → réponse moyenne        développe 2 avec un exemple. »
+         │                                │
+         └─ chaque essai repart      Réponse v2 → presque bon
+            de rien, et rien ne            │
+            s'accumule                « parfait. Maintenant
+                                        réécris le tout pour un
+                                        public non technique. »
+                                            │
+                                        Réponse v3 → exactement ça
+</pre>
+        <span class="cap">À droite, chaque tour part du résultat précédent. C'est une conversation, pas une série de tentatives.</span>
+      </div>
+
+      <h3>Comment bien corriger</h3>
+      <p>Une règle simple : <strong>dis ce qui ne va pas et ce que tu veux à la place</strong>, pas seulement que ce n'est pas bon.</p>
+      <table>
+        <thead><tr><th>✗ Peu efficace</th><th>✓ Efficace</th></tr></thead>
+        <tbody>
+          <tr><td>« Ce n'est pas ça »</td><td>« Le ton est trop formel. Écris comme à un collègue que je tutoie. »</td></tr>
+          <tr><td>« Fais mieux »</td><td>« Garde la structure, mais chaque point doit tenir en une phrase. »</td></tr>
+          <tr><td>« Recommence »</td><td>« Reprends uniquement le paragraphe 2 — le reste me convient. »</td></tr>
+          <tr><td>« Trop long »</td><td>« Coupe de moitié en supprimant les exemples, pas les idées. »</td></tr>
+        </tbody>
+      </table>
+
+      <h3>La technique que presque personne n'utilise</h3>
+      <p>Celle-ci vaut à elle seule la leçon. Avant de le laisser répondre, demande-lui <strong>ce qui lui manque</strong> :</p>
+      <div class="av-ap">
+        <div class="avant">
+          <span class="etiq">✗ L'approche habituelle</span>
+          <div class="txt">Aide-moi à préparer l'entretien annuel d'un membre de mon équipe.</div>
+          <div class="pourquoi">Tu obtiens des conseils génériques sur les entretiens annuels. Corrects, inutilisables, et applicables à n'importe qui.</div>
+        </div>
+        <div class="apres">
+          <span class="etiq">✓ Le faire demander</span>
+          <div class="txt">Aide-moi à préparer l'entretien annuel d'un membre de mon équipe.
+
+Avant de répondre, pose-moi les 5 questions dont tu as le plus besoin pour que ta réponse soit vraiment utile à ma situation. Attends mes réponses.</div>
+          <div class="pourquoi">Il te demandera le poste, la relation, ce qui s'est passé cette année, les points difficiles, l'objectif de l'entretien. Tu viens de lui donner le contexte de la leçon 2 — sans avoir eu à deviner lequel manquait.</div>
+        </div>
+      </div>
+      <p>Cette technique résout le problème central du débutant : <strong>on ne sait pas ce qu'on a oublié de dire.</strong> Alors on le fait demander. Elle est particulièrement efficace sur les tâches où tu n'as pas l'habitude.</p>
+
+      <h3>Quand il faut quand même repartir de zéro</h3>
+      <p>Un cas, et un seul : quand la conversation est <strong>partie dans une mauvaise direction et s'y enfonce</strong>. Comme le modèle lit tout l'historique, une réponse mal orientée influence les suivantes — il a tendance à rester cohérent avec ce qu'il a déjà écrit.</p>
+      <p>Le signe : tu corriges trois fois et il revient au même défaut. Là, oui : nouvelle conversation, et cette fois avec tout ce que tu as appris de la première.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Dire « non, c'est faux » sans donner le bon élément. Le modèle va s'excuser et produire une <em>autre</em> version, qui peut être tout aussi fausse — il ne dispose d'aucun moyen de vérifier. <strong>Une correction factuelle doit apporter le fait correct</strong>, pas seulement signaler l'erreur.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Sur ta prochaine tâche un peu complexe, commence par « avant de répondre, pose-moi les 5 questions dont tu as le plus besoin ». Regarde ce qu'il demande. <em>(Ses questions sont souvent une meilleure liste de ce qui manque à ton prompt que tout ce que tu aurais pu produire toi-même.)</em>
+      </div>
+    </section>
+
+    <!-- ══════════════ MODULE 3 ══════════════ -->
+
+    <section id="m3-l9">
+      <span class="lesson-num">Module 3 · Leçon 9</span>
+      <h2>8 situations courantes</h2>
+
+      <div class="kid">
+        <span class="label">💬 Version 5 ans</span>
+        <p>Voilà huit choses que les gens demandent tous les jours, et ce qu'il faut écrire pour que ça marche vraiment. Tu peux copier et changer ce qui te concerne.</p>
+      </div>
+
+      <h3>1. Résumer un document</h3>
+      <div class="av-ap">
+        <div class="avant"><span class="etiq">✗</span><div class="txt">Résume ce document.</div></div>
+        <div class="apres"><span class="etiq">✓</span><div class="txt">Voici le compte rendu du comité de pilotage.
+
+Résume-le pour quelqu'un qui n'était pas présent et qui doit agir : 5 puces maximum. Pour chaque point : la décision, qui est concerné, et l'échéance si elle est mentionnée. Ignore les échanges sans conclusion.</div></div>
+      </div>
+      <p>La clé : dire <strong>pour qui</strong> et <strong>pour quoi faire</strong>. Un résumé « pour décider » et un résumé « pour archiver » n'ont rien à voir.</p>
+
+      <h3>2. Écrire un email difficile</h3>
+      <div class="av-ap">
+        <div class="avant"><span class="etiq">✗</span><div class="txt">Écris un email pour refuser poliment.</div></div>
+        <div class="apres"><span class="etiq">✓</span><div class="txt">Contexte : un prestataire avec qui on travaille depuis 3 ans nous propose une hausse de tarif de 18 %. On ne peut pas suivre, mais on veut le garder.
+
+Écris l'email de réponse. 120 mots max, ton direct et cordial, pas de formules creuses. Refuse clairement la hausse, propose une contrepartie (volume ou engagement sur la durée), laisse la porte ouverte.</div></div>
+      </div>
+      <p>La clé : dire <strong>ce qui est en jeu</strong> et <strong>ce que tu veux obtenir</strong>. Un email n'a pas pour but d'être poli, il a pour but d'obtenir quelque chose.</p>
+
+      <h3>3. Comprendre un sujet qu'on ne connaît pas</h3>
+      <div class="av-ap">
+        <div class="avant"><span class="etiq">✗</span><div class="txt">Explique-moi le crédit-bail.</div></div>
+        <div class="apres"><span class="etiq">✓</span><div class="txt">Explique-moi le crédit-bail. Je dirige une petite entreprise de menuiserie et j'envisage d'acheter une machine à 40 000 €.
+
+Commence par une explication en 5 phrases sans jargon. Puis dis-moi les 3 questions que je devrais poser à mon banquier. Ne me fais pas un cours général.</div></div>
+      </div>
+      <p>La clé : donner <strong>ta situation</strong>. Une explication ancrée dans ton cas est incomparablement plus utile qu'une définition.</p>
+
+      <h3>4. Mettre de l'ordre dans du désordre</h3>
+      <p>C'est l'usage le plus sous-estimé, et l'un des plus fiables — c'est de la transformation pure.</p>
+      <div class="av-ap">
+        <div class="avant"><span class="etiq">✗</span><div class="txt">Range ces notes.</div></div>
+        <div class="apres"><span class="etiq">✓</span><div class="txt">Voici mes notes de réunion, prises à la volée et en désordre.
+
+Transforme-les en tableau avec 3 colonnes : Action | Responsable | Échéance.
+Une ligne par action. Si le responsable ou l'échéance n'apparaît pas, écris « à préciser » — ne devine pas.</div></div>
+      </div>
+
+      <h3>5. Relire et corriger</h3>
+      <div class="av-ap">
+        <div class="avant"><span class="etiq">✗</span><div class="txt">Corrige ce texte.</div></div>
+        <div class="apres"><span class="etiq">✓</span><div class="txt">Relis ce texte. Corrige uniquement l'orthographe, la grammaire et les tournures lourdes. Ne change pas mon style, ne reformule pas les idées, ne raccourcis pas.
+
+Puis, séparément, liste les 3 passages qui te semblent ambigus pour un lecteur — sans les corriger, juste les signaler.</div></div>
+      </div>
+      <p>La clé : dire ce qu'il ne doit <strong>pas</strong> toucher. Sans ça, il réécrit tout et tu perds ta voix.</p>
+
+      <h3>6. Chercher des idées</h3>
+      <div class="av-ap">
+        <div class="avant"><span class="etiq">✗</span><div class="txt">Donne-moi des idées pour fidéliser mes clients. Sois créatif.</div></div>
+        <div class="apres"><span class="etiq">✓</span><div class="txt">Contexte : salon de coiffure, 3 employés, quartier résidentiel, clientèle plutôt âgée. Problème : les clients viennent une fois puis ne reviennent pas.
+
+Propose 8 idées de fidélisation. Contraintes : moins de 300 € de budget chacune, réalisables sans compétences techniques. Inclus au moins 2 idées qui prennent le contrepied de ce qui se fait habituellement dans ce secteur.</div></div>
+      </div>
+      <p>La clé : <strong>des contraintes produisent de la créativité, pas l'adjectif « créatif »</strong>. Le budget, le secteur et l'obligation de contrepied font tout le travail.</p>
+
+      <h3>7. Comparer et décider</h3>
+      <div class="av-ap">
+        <div class="avant"><span class="etiq">✗</span><div class="txt">Quelle est la meilleure option entre A et B ?</div></div>
+        <div class="apres"><span class="etiq">✓</span><div class="txt">Voici les deux devis [collés ci-dessous].
+
+Compare-les dans un tableau selon ces critères : prix total, délai, garantie, ce qui n'est pas inclus.
+Puis dis-moi les 2 questions que je devrais poser à chaque prestataire avant de choisir.
+Ne me dis pas lequel choisir — je déciderai.</div></div>
+      </div>
+      <p>La clé : lui faire faire l'<strong>analyse</strong>, pas le <strong>choix</strong>. Il n'a pas tes contraintes ni tes préférences.</p>
+
+      <h3>8. Traduire ou changer de registre</h3>
+      <div class="av-ap">
+        <div class="avant"><span class="etiq">✗</span><div class="txt">Traduis ça en anglais.</div></div>
+        <div class="apres"><span class="etiq">✓</span><div class="txt">Traduis ce message en anglais. Destinataire : un client britannique, relation commerciale formelle.
+
+Garde le sens exact, adapte les formules de politesse aux usages britanniques plutôt que de les traduire littéralement. Signale-moi entre crochets tout passage dont la traduction te semble ambiguë.</div></div>
+      </div>
+
+      <h3>Ce que ces huit ont en commun</h3>
+      <p>Relis les colonnes de droite. Aucune ne contient de formule magique. Toutes font exactement trois choses :</p>
+      <ol>
+        <li><strong>Elles donnent le matériau</strong> ou la situation (leçon 5).</li>
+        <li><strong>Elles disent pour qui et pour quoi faire</strong> — c'est ce qui permet de trancher tous les arbitrages.</li>
+        <li><strong>Elles bornent le résultat</strong> : longueur, forme, et souvent ce qu'il ne faut <em>pas</em> faire (leçon 7).</li>
+      </ol>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Copier ces exemples tels quels. Leur partie utile, c'est le contexte — et il est faux pour toi. <strong>Garde la structure, remplace le contenu.</strong> C'est exactement ce qu'on disait des « prompts magiques » en leçon 3.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Choisis la situation de cette liste qui revient le plus souvent chez toi, et écris ta version. Puis garde-la quelque part : tu viens de faire ton premier gabarit.
+      </div>
+    </section>
+
+    <section id="m3-l10">
+      <span class="lesson-num">Module 3 · Leçon 10</span>
+      <h2>Quand ce n'est pas le prompt</h2>
+
+      <div class="kid">
+        <span class="label">💬 Version 5 ans</span>
+        <p>Parfois, tu as beau très bien demander, ça ne marche pas. Et tu reformules. Et tu reformules encore.</p>
+        <p>C'est comme demander à quelqu'un de te dire ce qu'il y a dans une boîte fermée. Tu peux poser la question de mille façons, <strong>il ne verra jamais à l'intérieur</strong>. Il faut ouvrir la boîte.</p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>C'est la leçon la moins agréable de ce cours, et la plus utile : <strong>reformuler ne résout que les problèmes de formulation.</strong> Il existe quatre situations où le prompt n'est pas en cause — et où continuer d'itérer est une perte de temps pure.</p>
+      </div>
+
+      <h3>① L'information n'existe pas de son côté</h3>
+      <p>Tes documents internes, les chiffres de ton entreprise, ce qui s'est passé la semaine dernière, un produit trop confidentiel ou trop récent. <strong>Aucune formulation ne fera apparaître une information qu'il n'a pas</strong> — elle sera inventée, avec assurance.</p>
+      <p><strong>La solution :</strong> lui donner le document (leçon 5), ou lui brancher un outil de recherche. Pas reformuler.</p>
+
+      <h3>② La tâche demande un calcul ou un décompte exact</h3>
+      <p>Additionner une colonne de 200 nombres, compter les occurrences d'un mot, vérifier qu'un total tombe juste. Il <em>imite</em> le calcul, il ne le fait pas. Le cours sur l'IA explique pourquoi : il n'y a pas de calculatrice à l'intérieur, et les nombres sont découpés de façon arbitraire.</p>
+      <p><strong>La solution :</strong> lui demander d'écrire le calcul ou le petit programme qui le fait — ou utiliser un tableur. Un outil qui calcule vraiment bat n'importe quel prompt.</p>
+
+      <h3>③ Tu ne sais pas toi-même ce que tu veux</h3>
+      <p>C'est le cas le plus fréquent, et le plus difficile à admettre. Si tu ne peux pas décrire à quoi ressemblerait un bon résultat, aucun prompt ne t'y mènera — parce que le problème n'est pas de transmettre ton intention, c'est que tu n'en as pas encore.</p>
+      <p><strong>La solution :</strong> utilise-le pour <em>explorer</em> plutôt que pour produire. « Propose-moi 5 façons différentes d'aborder ça, en une phrase chacune » te fera avancer bien plus qu'une dixième reformulation.</p>
+
+      <h3>④ La tâche demande un jugement qui t'appartient</h3>
+      <p>« Est-ce que je dois licencier cette personne ? », « quelle stratégie adopter ? », « ce contrat est-il acceptable ? ». Il produira une réponse argumentée et plausible — sans connaître tes contraintes, ton historique, ton risque, ni ce que tu es prêt à perdre.</p>
+      <p><strong>La solution :</strong> lui faire préparer la décision, pas la prendre. « Liste les arguments pour et contre », « quelles questions devrais-je me poser », « qu'est-ce que j'oublie ? ». C'est la leçon 9, situation 7.</p>
+
+      <div class="callout danger">
+        <strong>⚠ Le signal d'alerte</strong> — <strong>Si tu en es à ta troisième reformulation et que le résultat ne s'améliore pas, arrête d'écrire et pose-toi la question : est-ce que je lui demande quelque chose qu'il ne peut structurellement pas faire ?</strong><br><br>
+        Dans les quatre cas ci-dessus, la dixième version de ton prompt sera aussi mauvaise que la première — mais tu y auras passé une heure. Et elle sera peut-être plus <em>confiante</em>, ce qui est pire. C'est l'histoire de la leçon 12.
+      </div>
+
+      <h3>Le test en trois questions</h3>
+      <div class="schema">
+<pre>
+  Ça ne marche pas. Avant de reformuler :
+
+  ① « Est-ce qu'il a l'information ? »
+       non → donne-lui le document. Ce n'est pas le prompt.
+
+  ② « Est-ce que la réponse demande un calcul exact,
+      un décompte, ou une source vérifiable ? »
+       oui → il lui faut un outil. Ce n'est pas le prompt.
+
+  ③ « Est-ce que je saurais dire, moi, à quoi ressemble
+      une bonne réponse ? »
+       non → explore d'abord. Ce n'est pas le prompt.
+
+  Trois fois « c'est bon » ?
+  → là, oui, c'est le prompt. Reprends les 4 ingrédients.
+</pre>
+        <span class="cap">Trente secondes de diagnostic contre une heure de reformulations.</span>
+      </div>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Ajouter des règles à chaque échec. « Sois précis. » « N'invente rien. » « Vérifie tes sources. » Le prompt gonfle, devient contradictoire, et le résultat ne s'améliore pas — parce qu'aucune de ces phrases ne lui donne ce qui lui manque. <strong>Un prompt qui grossit à chaque itération est le symptôme qu'on s'attaque au mauvais problème.</strong>
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Repense à une fois où tu as reformulé plusieurs fois sans résultat. Applique le test en trois questions à cette situation. Laquelle des trois bloquait ? <em>(Dans la grande majorité des cas, c'est la première — et il suffisait de coller un document.)</em>
+      </div>
+
+      <details class="quiz">
+        <summary>Mini-quiz : le bon réflexe</summary>
+        <p><strong>Une IA te donne une réponse fausse sur ton entreprise. Que fais-tu ?</strong></p>
+        <p><strong>Tu lui donnes le document.</strong> Pas « sois plus précis », pas « n'invente pas », pas une reformulation. Elle n'a jamais eu accès à tes données : elle ne peut que produire du plausible. La seule action qui change quelque chose est de mettre l'information sous ses yeux — tu transformes alors une question de mémoire, où elle est mauvaise, en question de lecture, où elle est excellente.</p>
+      </details>
+    </section>
+
+    <!-- ══════════════ MODULE 4 ══════════════ -->
+
+    <section id="m4-l11">
+      <span class="lesson-num">Module 4 · Leçon 11</span>
+      <h2>📋 Les offres de Camille</h2>
+
+      <div class="kid">
+        <span class="label">💬 Version 5 ans</span>
+        <p>Camille écrit des annonces pour embaucher des gens. Elle en fait deux ou trois par semaine, et ça lui prend chaque fois une heure et demie.</p>
+        <p>Au lieu de redemander à l'IA à chaque fois en espérant que ça tombe bien, elle a fabriqué <strong>une fiche à trous</strong>. Elle la remplit en cinq minutes, et le résultat est toujours bon.</p>
+        <p>Elle n'a pas trouvé de formule magique. Elle a juste écrit une seule fois ce qu'elle redisait mal à chaque fois.</p>
+      </div>
+
+      <h3>La situation</h3>
+      <p>Camille est responsable recrutement dans une entreprise fictive de 180 salariés, spécialisée dans l'équipement de laboratoire. Elle publie <strong>une centaine d'offres par an</strong>, sur des postes très variés : commerciaux, techniciens de maintenance, qualiticiens, développeurs.</p>
+      <p>Sa première tentative avec une IA a été décevante. Elle tapait « écris une offre d'emploi pour un technicien de maintenance » et recevait quelque chose de générique, truffé de formules creuses, qui ne ressemblait pas du tout à ce que son entreprise publie.</p>
+
+      <h3>Ce qu'elle a compris</h3>
+      <p>Le problème n'était pas la qualité du modèle. C'était que <strong>tout ce qui rend une offre spécifique était dans sa tête et nulle part ailleurs</strong> : le ton de la maison, les avantages réels, ce qui attire vraiment sur ce type de poste, et surtout ce qu'ils refusent d'écrire.</p>
+
+      <div class="av-ap">
+        <div class="avant">
+          <span class="etiq">✗ Sa v1</span>
+          <div class="txt">Écris une offre d'emploi pour un technicien de maintenance itinérant.</div>
+          <div class="pourquoi">Résultat : « Rejoignez une entreprise dynamique et innovante… », des puces génériques, et la mention « esprit d'équipe » trois fois. Inutilisable.</div>
+        </div>
+        <div class="apres">
+          <span class="etiq">✓ Son gabarit</span>
+          <div class="txt">Tu m'aides à rédiger des offres d'emploi pour [entreprise], PME de 180 personnes, équipement de laboratoire, basée à Nantes.
+
+RÈGLES DE TON — jamais de :
+"entreprise dynamique", "défis passionnants",
+"esprit d'équipe", "vous serez force de proposition".
+On écrit simple et concret. On parle du travail réel.
+
+VOICI DEUX OFFRES QU'ON A PUBLIÉES ET QUI ONT BIEN MARCHÉ :
+[offre A — commercial]
+[offre B — qualiticienne]
+
+STRUCTURE À SUIVRE :
+1. Le poste en 2 phrases (ce qu'on fait vraiment au quotidien)
+2. Une journée type (5 puces)
+3. Ce qu'il faut savoir faire (3 puces max, pas de liste de courses)
+4. Ce qu'on offre (concret : salaire, véhicule, formation, horaires)
+5. Comment postuler
+
+LE POSTE DU JOUR :
+- Intitulé : ...
+- Ce qu'il fait vraiment : ...
+- Contraintes (déplacements, astreintes…) : ...
+- Salaire : ...
+- Ce qui rend ce poste intéressant : ...
+- Ce qui est difficile dedans : ...</div>
+          <div class="pourquoi">Écrit une fois, en 40 minutes. Réutilisé une centaine de fois par an.</div>
+        </div>
+      </div>
+
+      <h3>Les quatre ingrédients, visibles à l'œil nu</h3>
+      <table>
+        <thead><tr><th>Ingrédient</th><th>Où il est dans son gabarit</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Contexte</strong> (leçon 2)</td><td>L'entreprise, sa taille, son secteur, sa ville — et les règles de ton, qui sont du contexte culturel</td></tr>
+          <tr><td><strong>Exemples</strong> (leçon 6)</td><td>Deux offres réelles qui ont fonctionné. C'est la partie la plus efficace, et celle qu'elle a ajoutée en dernier</td></tr>
+          <tr><td><strong>Format</strong> (leçon 7)</td><td>La structure en 5 sections, donnée comme un cadre à remplir</td></tr>
+          <tr><td><strong>Tâche</strong></td><td>La fiche du poste du jour, qu'elle remplit en 5 minutes</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Les deux trouvailles qui ont tout changé</h3>
+      <p><strong>① La liste de ce qu'on n'écrit pas.</strong> C'est le contre-exemple de la leçon 6, et c'est ce qui a eu le plus d'effet. Camille n'arrivait pas à décrire son ton — mais elle savait parfaitement énumérer les formules qui la faisaient grincer des dents. <strong>Il est souvent plus facile de dire ce qu'on ne veut pas.</strong></p>
+
+      <p><strong>② Le champ « ce qui est difficile dedans ».</strong> Celui-là est arrivé par accident. Camille l'avait ajouté pour elle, comme pense-bête. Résultat inattendu : les offres générées se sont mises à mentionner honnêtement les contraintes — les astreintes, les 15 000 km par an, le travail en autonomie complète.</p>
+      <p>Et <strong>le taux de candidatures pertinentes a augmenté</strong>. Les gens que ça rebutait ne postulaient plus ; ceux que ça n'effrayait pas arrivaient en connaissance de cause. Une ligne dans un gabarit, un effet sur le recrutement.</p>
+
+      <h3>Comment elle l'a mis au point</h3>
+      <ul class="timeline">
+        <li><span class="t">Version 1</span> — Une phrase. Résultat générique. Elle a failli abandonner.</li>
+        <li><span class="t">Version 2</span> — Elle ajoute le contexte de l'entreprise et la structure en 5 sections. <strong>Net progrès</strong>, mais le ton reste « offre d'emploi standard ».</li>
+        <li><span class="t">Version 3</span> — Elle colle deux vraies offres en exemple. <strong>C'est le saut le plus important.</strong> Le ton devient méconnaissable du précédent — il ressemble à ce qu'ils écrivent vraiment.</li>
+        <li><span class="t">Version 4</span> — Elle ajoute la liste des formules interdites, après avoir vu « entreprise dynamique » revenir malgré les exemples. Le défaut disparaît.</li>
+        <li><span class="t">Version 5</span> — Les champs « ce qui est difficile » et « ce qui rend ce poste intéressant ». Elle arrête là.</li>
+        <li><span class="t">Depuis</span> — Elle ne modifie plus le gabarit. Elle remplit la fiche du poste, obtient un premier jet, et passe <strong>15 minutes à le retravailler</strong> au lieu d'une heure et demie à partir de zéro.</li>
+      </ul>
+
+      <h3>Ce qu'elle n'a pas délégué</h3>
+      <p>La liste compte autant que le reste : le salaire (elle le décide), le choix de ce qu'on met en avant (elle connaît le marché local), et la relecture finale. <strong>L'IA produit le premier jet, jamais la version publiée.</strong></p>
+      <p>Et une chose qu'elle a arrêté de demander : « est-ce que cette offre est conforme au droit du travail ? ». Question de rappel sur un sujet où une erreur coûte cher — exactement le cas ③ de la leçon 10. Elle a un cabinet pour ça.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Réécrire son prompt depuis zéro à chaque fois, pour une tâche qu'on refait chaque semaine. <strong>Dès qu'une demande revient plus de trois fois, elle mérite un gabarit.</strong> Le temps de mise au point est payé au bout de deux ou trois utilisations — et surtout, la qualité devient constante au lieu de dépendre de ton inspiration du jour.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Identifie une demande que tu refais souvent. Écris-en un gabarit avec les quatre ingrédients, puis améliore-le comme Camille : d'abord le contexte, puis la structure, puis <strong>de vrais exemples</strong>, puis la liste de ce que tu ne veux pas voir. <em>(Teste après chaque ajout : tu verras très nettement lequel apporte le plus.)</em>
+      </div>
+    </section>
+
+    <section id="m4-l12">
+      <span class="lesson-num">Module 4 · Leçon 12</span>
+      <h2>🔁 Le rapport de Théo (14 reformulations)</h2>
+
+      <div class="kid">
+        <span class="label">💬 Version 5 ans</span>
+        <p>Théo a demandé au stagiaire de résumer <strong>la politique de télétravail de son entreprise</strong>.</p>
+        <p>Le stagiaire a répondu quelque chose de très bien écrit. Sauf que c'était faux — il ne connaît pas cette entreprise, il ne l'a jamais vue.</p>
+        <p>Alors Théo a reformulé. Puis reformulé encore. Il a ajouté « sois précis », puis « n'invente rien », puis « c'est très important ». Quatorze fois.</p>
+        <p>À chaque fois, la réponse était <strong>mieux écrite</strong>, <strong>plus détaillée</strong>, <strong>plus sûre d'elle</strong>. Et toujours aussi fausse.</p>
+        <p>Parce qu'il n'avait jamais donné le document.</p>
+      </div>
+
+      <h3>La situation</h3>
+      <p>Théo est chargé de mission RH dans une collectivité fictive de 400 agents. On lui demande une note de synthèse sur la politique de télétravail en vigueur, pour le comité social du mois suivant.</p>
+      <p>Le document de référence existe : un règlement de 11 pages, voté il y a deux ans, stocké sur l'intranet. Théo ne l'a pas ouvert depuis longtemps. Il commence par demander à une IA.</p>
+
+      <h3>Les 14 versions</h3>
+      <ul class="timeline">
+        <li><span class="t">v1</span> — <em>« Résume la politique de télétravail de ma collectivité. »</em><br>Réponse : 2 jours par semaine, demande à l'employeur, validation du supérieur hiérarchique, indemnité forfaitaire. <strong>Parfaitement plausible</strong> : c'est ce qui est le plus courant dans le secteur public. Théo trouve ça « à peu près ça », mais quelques détails lui semblent faux.</li>
+        <li><span class="t">v2 à v4</span> — Il reformule. « Sois plus précis. » « Donne-moi les modalités exactes. » « Détaille les conditions d'éligibilité. »<br>Les réponses deviennent <strong>plus longues et plus détaillées</strong>. Des articles numérotés apparaissent. Un délai de prévenance de 48 heures surgit de nulle part.</li>
+        <li><span class="t">v5 à v8</span> — Il ajoute des règles. « N'invente rien. » « Base-toi uniquement sur les textes en vigueur. » « Si tu n'es pas sûr, dis-le. »<br><strong>Aucun effet.</strong> Le modèle n'a toujours pas le document ; il ne dispose d'aucun moyen de savoir que ce qu'il produit ne correspond pas à cette collectivité-là. Son prompt fait maintenant 400 mots.</li>
+        <li><span class="t">v9 à v12</span> — Il essaie d'autres angles. « Fais comme si tu étais juriste en droit public. » « C'est pour un document officiel, sois rigoureux. »<br>Le vocabulaire devient plus juridique. La réponse <strong>gagne en autorité apparente</strong> et perd tout lien avec la réalité. Elle cite maintenant un « article 7 » qui n'existe pas.</li>
+        <li><span class="t">v13-v14</span> — Excédé, il demande une réponse « courte et sûre ». Il obtient six lignes affirmatives et nettes. Il les utilise.</li>
+        <li><span class="t">Trois semaines plus tard</span> — En comité social, une représentante du personnel signale que le nombre de jours indiqué est faux, et que le délai de prévenance de 48 heures n'existe pas dans leur règlement. Il est de 7 jours.</li>
+      </ul>
+
+      <div class="schema">
+<pre>
+  CE QUI A AUGMENTÉ AU FIL DES 14 VERSIONS
+
+  Longueur du prompt      ▁▂▃▄▅▆▇█  25 mots → 400 mots
+  Assurance de la réponse ▁▂▃▄▅▆▇█  « généralement » → « l'article 7 dispose »
+  Niveau de détail        ▁▂▃▄▅▆▇█  vague → chiffres précis, délais, articles
+
+  CE QUI N'A PAS BOUGÉ
+
+  Accès au document       ▁▁▁▁▁▁▁▁  néant, du début à la fin
+  Exactitude              ▁▁▁▁▁▁▁▁  fausse à chaque version
+
+  ┌──────────────────────────────────────────────────────┐
+  │  Chaque reformulation a rendu la réponse PLUS         │
+  │  CRÉDIBLE sans la rendre PLUS VRAIE.                  │
+  │  C'est ce qui rend l'échec si difficile à voir.       │
+  └──────────────────────────────────────────────────────┘
+</pre>
+        <span class="cap">Il n'a pas amélioré sa réponse. Il a amélioré sa capacité à y croire.</span>
+      </div>
+
+      <h3>Le diagnostic</h3>
+      <p>Théo a passé <strong>50 minutes</strong> sur ses reformulations. Le test en trois questions de la leçon 10 lui aurait pris trente secondes, et il aurait bloqué dès la première :</p>
+      <p><em>« Est-ce qu'il a l'information ? »</em> — Non. Le règlement est un document interne, voté localement, qui n'a jamais été public. Le modèle ne peut pas le connaître. <strong>Fin du diagnostic : ce n'était pas un problème de prompt.</strong></p>
+      <p>Et un mécanisme aggravant, qui est le vrai enseignement de cette histoire : <strong>en demandant plus de précision, Théo a activement poussé le modèle à inventer davantage.</strong> Chaque « sois plus précis » est une invitation à ajouter des détails — et comme il n'y avait pas de détails réels à ajouter, les détails produits ont tous été fabriqués.</p>
+
+      <div class="callout danger">
+        <strong>⚠ Ce qu'il faut retenir de cette histoire</strong> — <strong>Demander plus de précision à un modèle qui n'a pas l'information ne produit pas plus de vérité : ça produit des inventions plus détaillées, donc plus crédibles.</strong><br><br>
+        La précision et l'assurance d'une réponse ne sont pas des indices de fiabilité. Sur une question de rappel, ce sont plutôt des <em>symptômes</em> — le signe que le modèle a rempli un cadre au lieu de lire une source.
+      </div>
+
+      <h3>La version qui marche</h3>
+      <div class="av-ap">
+        <div class="avant">
+          <span class="etiq">✗ 50 minutes, 14 versions, 400 mots</span>
+          <div class="txt">Résume la politique de télétravail de ma collectivité. Sois précis. N'invente rien. Base-toi uniquement sur les textes en vigueur. Tu es juriste en droit public. C'est pour un document officiel...</div>
+        </div>
+        <div class="apres">
+          <span class="etiq">✓ 4 minutes, 1 version</span>
+          <div class="txt">Voici le règlement de télétravail de ma collectivité (11 pages) :
+
+"""
+[le texte complet]
+"""
+
+Fais-en une note de synthèse pour le comité social : 1 page, avec les modalités (nombre de jours, éligibilité, procédure de demande, délais, indemnisation).
+
+Cite le numéro d'article pour chaque point.
+Si un point n'est pas traité dans ce règlement, écris « non prévu » — ne le complète pas avec des usages généraux.</div>
+          <div class="pourquoi">Les 4 minutes ont été passées à retrouver le PDF sur l'intranet. C'était tout le travail à faire.</div>
+        </div>
+      </div>
+
+      <p>Note les deux phrases finales. <strong>« Cite le numéro d'article »</strong> rend chaque affirmation vérifiable en un coup d'œil. <strong>« Écris non prévu »</strong> lui donne une issue de secours explicite — sans quoi il comblerait le trou avec ce qui est le plus courant, comme en v1.</p>
+
+      <h3>Ce que Théo a changé</h3>
+      <ol>
+        <li><strong>Le réflexe du document.</strong> Avant toute question sur quelque chose d'interne : retrouver le fichier. Ce n'est pas un travail en plus, c'est <em>le</em> travail.</li>
+        <li><strong>La règle des trois essais.</strong> Si trois reformulations n'améliorent rien, il arrête et applique le test de la leçon 10. Il n'a plus jamais dépassé quatre versions.</li>
+        <li><strong>La méfiance envers ce qui s'améliore trop bien.</strong> Quand une réponse devient plus précise après un « sois plus précis », il vérifie — au lieu de s'en réjouir.</li>
+        <li><strong>La citation obligatoire</strong> dès qu'il travaille sur un texte de référence. Numéro d'article, page, ou passage exact.</li>
+      </ol>
+
+      <div class="callout exercise">
+        <strong>Exercice final</strong> — Repense à ta dernière séance de reformulations successives. Combien de versions ? Est-ce que la réponse est devenue plus <em>juste</em>, ou seulement plus <em>convaincante</em> ? <em>(Et la question qui suit : le document existait-il quelque part, à portée de copier-coller ?)</em>
+      </div>
+
+      <div class="end-card">
+        <h3>🎓 Ton résumé, à réciter à un enfant de 5 ans</h3>
+        <p><strong>1.</strong> L'IA, c'est un stagiaire très doué qui arrive le premier jour : il ne sait rien de ta situation. Tout ce que tu ne lui dis pas, il l'invente.</p>
+        <p><strong>2.</strong> Il n'y a pas de formule magique. Ce qui marche, c'est de lui <strong>donner</strong> ce qui lui manque : le document, un exemple, et la forme que tu veux.</p>
+        <p><strong>3.</strong> Et si tu reformules trois fois sans progrès, arrête : ce n'est plus une question de formulation. Il te manque quelque chose à lui donner.</p>
+
+        <h3 style="margin-top:1.8rem">✅ La checklist avant d'envoyer</h3>
+        <ul>
+          <li>Je me suis demandé : <strong>qu'est-ce que je sais qu'il ne sait pas ?</strong> — et je l'ai écrit.</li>
+          <li>J'ai <strong>collé le document</strong> plutôt que de compter sur sa mémoire.</li>
+          <li>Ma tâche commence par un <strong>verbe précis</strong> : résume, compare, extrais, reformule.</li>
+          <li>J'ai dit <strong>pour qui</strong> c'est — c'est ce qui règle le ton, le niveau et le détail d'un coup.</li>
+          <li>J'ai donné la <strong>longueur</strong> et la <strong>forme</strong>, et dit ce que je ne veux <em>pas</em>.</li>
+          <li>Si j'ai un bon exemple sous la main, je l'ai <strong>collé</strong> plutôt que décrit.</li>
+          <li>Je lui ai donné le <strong>droit de ne pas savoir</strong>, avec la formule exacte à employer.</li>
+          <li>Pour une tâche inhabituelle, je lui ai demandé de <strong>me poser ses questions avant</strong> de répondre.</li>
+          <li>Quand la réponse n'est pas bonne, je <strong>corrige</strong> au lieu de tout réécrire.</li>
+          <li>Après trois essais sans progrès, j'applique le <strong>test en trois questions</strong> au lieu d'insister.</li>
+          <li>Une demande qui revient plus de trois fois est devenue un <strong>gabarit</strong>.</li>
+        </ul>
+
+        <h3 style="margin-top:1.8rem">🔗 Où ça se raccroche au reste</h3>
+        <p>Ce cours est la <strong>mise en pratique</strong> du cours sur l'IA. Celui-là explique <em>pourquoi</em> le modèle invente et pourquoi il est bon en transformation et mauvais en rappel ; celui-ci en tire ce qu'il faut écrire. Et il mène naturellement aux suivants : quand tu ne peux plus coller tes documents à la main, c'est le <strong>RAG</strong> ; quand il lui faut une vraie calculatrice ou un vrai accès à tes outils, c'est le <strong>MCP</strong> ; et quand la tâche demande plusieurs allers-retours que tu ne veux plus piloter toi-même, c'est un <strong>agent</strong>.</p>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+  hljs.highlightAll();
+
+  const sidebar = document.getElementById('sidebar');
+  document.getElementById('menuToggle').addEventListener('click', () => {
+    sidebar.classList.toggle('open');
+  });
+
+  document.querySelectorAll('.module-title').forEach(t => {
+    t.addEventListener('click', () => t.parentElement.classList.toggle('collapsed'));
+  });
+
+  const lessonLinks = document.querySelectorAll('[data-lesson]');
+  const storageKey = 'course-progress-prompt';
+  const done = JSON.parse(localStorage.getItem(storageKey) || '{}');
+  const fill = document.getElementById('progressFill');
+  const mini = document.getElementById('progressMini');
+  const text = document.getElementById('progressText');
+
+  function marquer(id) {
+    if (done[id]) return;
+    done[id] = true;
+    localStorage.setItem(storageKey, JSON.stringify(done));
+    const lien = document.querySelector('[data-lesson="' + id + '"]');
+    if (lien) lien.querySelector('.lesson-check').classList.add('done');
+    majBarre();
+  }
+
+  function majBarre() {
+    const total = lessonLinks.length;
+    const faites = Object.values(done).filter(Boolean).length;
+    const pct = total ? (faites / total * 100) : 0;
+    fill.style.width = pct + '%';
+    mini.style.width = pct + '%';
+    text.textContent = faites + ' / ' + total + ' leçons vues';
+  }
+
+  lessonLinks.forEach(link => {
+    if (done[link.dataset.lesson]) link.querySelector('.lesson-check').classList.add('done');
+    link.addEventListener('click', () => {
+      marquer(link.dataset.lesson);
+      sidebar.classList.remove('open');
+    });
+  });
+
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (!e.isIntersecting) return;
+      const id = e.target.id;
+      document.querySelectorAll('[data-lesson]').forEach(a =>
+        a.classList.toggle('active', a.dataset.lesson === id));
+      marquer(id);
+    });
+  }, { rootMargin: '-45% 0px -45% 0px' });
+
+  document.querySelectorAll('main section[id]').forEach(s => observer.observe(s));
+
+  majBarre();
+</script>
+</body>
+</html>

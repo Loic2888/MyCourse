@@ -1,0 +1,1267 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Le RAG expliqué simplement</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Karla:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --archive:      #14302E;
+    --archive-soft: #1F4643;
+    --bg:           #F5F8F6;
+    --card:         #FFFFFF;
+    --lampe:        #F5A623;
+    --jade:         #2E9E8F;
+    --marque:       #D95D5D;
+    --encre:        #1C2926;
+    --gris:         #5F7370;
+    --border:       #DFE8E4;
+
+    --font-display: "Sora", system-ui, sans-serif;
+    --font-body: "Karla", system-ui, -apple-system, sans-serif;
+
+    --sidebar-width: 300px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font-body);
+    color: var(--encre);
+    background: var(--bg);
+    line-height: 1.7;
+    font-size: 17px;
+  }
+
+  .layout { display: flex; min-height: 100vh; }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar {
+    width: var(--sidebar-width);
+    flex-shrink: 0;
+    background: var(--archive);
+    color: #D3E2DE;
+    padding: 1.75rem 1.1rem 3rem;
+    overflow-y: auto;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+  }
+  .brand { display: flex; align-items: center; gap: .6rem; margin-bottom: .25rem; }
+  .brand-lamp {
+    width: 38px; height: 38px; flex-shrink: 0;
+    border-radius: 50% 50% 46% 46%;
+    background: var(--lampe);
+    display: grid; place-items: center;
+    font-size: 1.05rem;
+    box-shadow: 0 0 0 4px rgba(245,166,35,.2);
+  }
+  .sidebar h1 {
+    font-family: var(--font-display);
+    font-size: 1.22rem; line-height: 1.2;
+    color: #fff; font-weight: 700;
+  }
+  .brand-sub { font-size: .78rem; color: #7E9995; margin-bottom: 1.4rem; padding-left: 3px; }
+
+  .progress-mini {
+    background: var(--archive-soft);
+    border-radius: 10px; padding: .6rem .75rem; margin-bottom: 1.4rem;
+    font-size: .78rem; color: #A5BCB8;
+  }
+  .progress-mini .track {
+    height: 6px; background: #0B1F1D; border-radius: 99px; margin-top: .45rem; overflow: hidden;
+  }
+  .progress-mini .track span {
+    display: block; height: 100%; width: 0%;
+    background: linear-gradient(90deg, var(--jade), var(--lampe));
+    transition: width .25s ease;
+  }
+
+  .module-group { margin-bottom: .35rem; }
+  .module-title {
+    font-family: var(--font-display); font-weight: 600; font-size: .93rem;
+    color: #fff; padding: .5rem .55rem; border-radius: 8px; cursor: pointer;
+    display: flex; justify-content: space-between; align-items: center; gap: .5rem;
+    user-select: none;
+  }
+  .module-title:hover { background: var(--archive-soft); }
+  .module-title .chev { font-size: .7rem; color: #6F8B87; transition: transform .2s ease; }
+  .module-group.collapsed .chev { transform: rotate(-90deg); }
+  .module-group.collapsed .lesson-list { display: none; }
+
+  .lesson-list { list-style: none; padding-left: .5rem; margin-bottom: .4rem; }
+  .lesson-list li a {
+    display: flex; align-items: center; gap: .55rem;
+    padding: .35rem .5rem; border-radius: 7px;
+    color: #A5BCB8; text-decoration: none; font-size: .86rem; line-height: 1.35;
+  }
+  .lesson-list li a:hover { background: var(--archive-soft); color: #fff; }
+  .lesson-list li a.active { color: #fff; background: var(--archive-soft); font-weight: 600; }
+
+  /* La pastille de progression : une tranche de livre */
+  .lesson-check {
+    width: 10px; height: 15px; flex-shrink: 0;
+    border: 1.5px solid #4C6864; border-radius: 2px 3px 3px 2px;
+    position: relative;
+  }
+  .lesson-check::after {
+    content: ""; position: absolute; left: 2px; right: 2px; top: 3px;
+    height: 1.5px; background: #4C6864;
+  }
+  .lesson-check.done { background: var(--lampe); border-color: var(--lampe); }
+  .lesson-check.done::after { background: var(--archive); }
+
+  /* ---------- Barre de progression ---------- */
+  .progress-bar { height: 4px; position: fixed; top: 0; left: 0; right: 0; z-index: 25; }
+  .progress-bar-fill {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, var(--jade), var(--lampe), var(--marque));
+    transition: width .25s ease;
+  }
+
+  /* ---------- Contenu ---------- */
+  .content { flex: 1; max-width: 820px; margin: 0 auto; padding: 3rem 2.5rem 6rem; }
+
+  .hero {
+    background: var(--archive); color: #fff;
+    border-radius: 20px; padding: 2.2rem 2rem; margin-bottom: 2.5rem;
+    position: relative; overflow: hidden;
+  }
+  .hero::after {
+    content: ""; position: absolute; right: -40px; top: -60px;
+    width: 210px; height: 210px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(245,166,35,.35), transparent 70%);
+  }
+  .hero h1 {
+    font-family: var(--font-display); font-size: 2.2rem; line-height: 1.12;
+    margin-bottom: .6rem; font-weight: 800; letter-spacing: -.02em;
+  }
+  .hero p { color: #AFC6C2; font-size: 1.02rem; max-width: 46ch; }
+  .hero .tags { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1.2rem; }
+  .hero .tags span {
+    background: var(--archive-soft); color: #C6D8D4;
+    padding: .25rem .7rem; border-radius: 99px; font-size: .78rem; font-weight: 600;
+  }
+
+  section { scroll-margin-top: 2rem; margin-bottom: 4.5rem; }
+
+  .lesson-num {
+    display: inline-block;
+    font-family: var(--font-display); font-weight: 600; font-size: .74rem;
+    color: var(--jade); letter-spacing: .08em; text-transform: uppercase;
+    margin-bottom: .2rem;
+  }
+  .content h2 {
+    font-family: var(--font-display); font-size: 1.8rem; line-height: 1.2;
+    font-weight: 700; margin-bottom: 1.1rem; letter-spacing: -.02em;
+  }
+  .content h3 { font-family: var(--font-display); font-size: 1.2rem; margin: 2rem 0 .6rem; font-weight: 600; }
+  .content p { margin-bottom: 1rem; }
+  .content ul, .content ol { margin: 0 0 1rem 1.2rem; }
+  .content li { margin-bottom: .4rem; }
+  .content a { color: var(--jade); }
+  strong { font-weight: 700; }
+
+  /* ---------- Signature : les deux cartes ---------- */
+  .kid, .grown { border-radius: 16px; padding: 1.2rem 1.3rem; margin: 1.2rem 0 1.5rem; }
+  .kid { background: #FFF5E1; border: 2px dashed var(--lampe); font-size: 1.08rem; }
+  .grown { background: #EAF6F4; border-left: 5px solid var(--jade); }
+  .kid .label, .grown .label {
+    font-family: var(--font-display); font-weight: 700; font-size: .76rem;
+    text-transform: uppercase; letter-spacing: .07em; display: block; margin-bottom: .45rem;
+  }
+  .kid .label { color: #9A6608; }
+  .grown .label { color: #1C6D62; }
+  .kid p:last-child, .grown p:last-child { margin-bottom: 0; }
+
+  /* ---------- Schémas : des fiches d'index ---------- */
+  .schema {
+    background: var(--archive); color: #D3E2DE;
+    border-radius: 14px; padding: 1.2rem 1.3rem; margin: 1.3rem 0; overflow-x: auto;
+    border-left: 5px solid var(--lampe);
+  }
+  .schema pre {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: .84rem; line-height: 1.55; background: none; padding: 0; color: inherit;
+    white-space: pre;
+  }
+  .schema .cap { display: block; margin-top: .8rem; font-size: .8rem; color: #7E9995; font-style: italic; }
+
+  pre { border-radius: 12px; padding: 1rem 1.1rem; overflow-x: auto; margin: 1.1rem 0; font-size: .88rem; }
+  code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+  p code, li code, td code {
+    background: #E4EEEB; color: #21504A; padding: .1rem .38rem;
+    border-radius: 5px; font-size: .87em; font-weight: 600;
+  }
+
+  /* ---------- Callouts ---------- */
+  .callout {
+    border-radius: 0 12px 12px 0; padding: 1rem 1.2rem; margin: 1.3rem 0;
+    background: var(--card); border-left: 5px solid var(--gris);
+    box-shadow: 0 1px 3px rgba(20,48,46,.07);
+  }
+  .callout strong:first-child { font-family: var(--font-display); }
+  .callout.pitfall { border-left-color: var(--lampe); background: #FEF6E7; }
+  .callout.exercise { border-left-color: var(--jade); background: var(--card); }
+  .callout.danger { border-left-color: var(--marque); background: #FCEEEE; }
+  .callout p:last-child { margin-bottom: 0; }
+
+  details.quiz {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: .85rem 1.1rem; margin: 1rem 0;
+  }
+  details.quiz summary {
+    cursor: pointer; font-weight: 700; font-family: var(--font-display);
+    color: var(--archive); list-style: none;
+  }
+  details.quiz summary::before { content: "💡 "; }
+  details.quiz[open] summary { margin-bottom: .7rem; color: var(--jade); }
+  details.quiz p:last-child { margin-bottom: 0; }
+
+  table {
+    width: 100%; border-collapse: collapse; margin: 1.2rem 0;
+    background: var(--card); border-radius: 12px; overflow: hidden;
+    box-shadow: 0 1px 3px rgba(20,48,46,.07); font-size: .93rem;
+  }
+  th, td { padding: .7rem .9rem; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--archive); color: #fff; font-family: var(--font-display); font-weight: 600; font-size: .87rem; }
+  tr:last-child td { border-bottom: none; }
+
+  .timeline { list-style: none; margin: 1.3rem 0 1.3rem .4rem; padding-left: 1.4rem; border-left: 2px dotted var(--jade); }
+  .timeline li { position: relative; margin-bottom: 1rem; }
+  .timeline li::before {
+    content: ""; position: absolute; left: -1.85rem; top: .55rem;
+    width: 10px; height: 10px; border-radius: 50%; background: var(--jade);
+    box-shadow: 0 0 0 3px var(--bg);
+  }
+  .timeline .t { font-family: var(--font-display); font-weight: 600; color: var(--archive-soft); }
+
+  .end-card {
+    background: linear-gradient(135deg, var(--archive), #1B4A3C);
+    color: #fff; border-radius: 20px; padding: 2rem; margin-top: 3rem;
+  }
+  .end-card h3 { color: #fff; margin-top: 0; }
+  .end-card p, .end-card li { color: #C2D6D2; }
+
+  .menu-toggle { display: none; }
+
+  @media (max-width: 900px) {
+    body { font-size: 16px; }
+    .sidebar {
+      position: fixed; left: -100%; top: 0;
+      transition: left .22s ease; z-index: 30;
+      box-shadow: 6px 0 24px rgba(20,48,46,.3);
+    }
+    .sidebar.open { left: 0; }
+    .menu-toggle {
+      display: block; position: fixed; top: .85rem; left: .85rem; z-index: 40;
+      background: var(--lampe); color: var(--archive); border: none;
+      border-radius: 10px; padding: .5rem .8rem; cursor: pointer; font-size: 1rem;
+      font-weight: 700;
+      box-shadow: 0 2px 8px rgba(20,48,46,.28);
+    }
+    .content { padding: 4.2rem 1.15rem 4rem; }
+    .hero { padding: 1.6rem 1.3rem; }
+    .hero h1 { font-size: 1.75rem; }
+    .schema pre { font-size: .72rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-bar-fill" id="progressFill"></div></div>
+<button class="menu-toggle" id="menuToggle">☰</button>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-lamp">🔎</div>
+      <h1>Le RAG<br>expliqué simplement</h1>
+    </div>
+    <div class="brand-sub">12 leçons · ~45 min de lecture</div>
+
+    <div class="progress-mini">
+      <span id="progressText">0 / 12 leçons vues</span>
+      <div class="track"><span id="progressMini"></span></div>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title">Module 1 — C'est quoi ? <span class="chev">▼</span></div>
+      <ul class="lesson-list">
+        <li><a href="#m1-l1" data-lesson="m1-l1"><span class="lesson-check"></span> 1. L'IA ne connaît pas tes affaires</a></li>
+        <li><a href="#m1-l2" data-lesson="m1-l2"><span class="lesson-check"></span> 2. « Cherche d'abord, réponds ensuite »</a></li>
+        <li><a href="#m1-l3" data-lesson="m1-l3"><span class="lesson-check"></span> 3. Les deux temps du RAG</a></li>
+        <li><a href="#m1-l4" data-lesson="m1-l4"><span class="lesson-check"></span> 4. Le vocabulaire en 6 mots</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title">Module 2 — Comment ça marche <span class="chev">▼</span></div>
+      <ul class="lesson-list">
+        <li><a href="#m2-l5" data-lesson="m2-l5"><span class="lesson-check"></span> 5. Couper en morceaux</a></li>
+        <li><a href="#m2-l6" data-lesson="m2-l6"><span class="lesson-check"></span> 6. Le sens transformé en nombres</a></li>
+        <li><a href="#m2-l7" data-lesson="m2-l7"><span class="lesson-check"></span> 7. Retrouver le bon morceau</a></li>
+        <li><a href="#m2-l8" data-lesson="m2-l8"><span class="lesson-check"></span> 8. Fabriquer la réponse</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title">Module 3 — À quoi ça sert <span class="chev">▼</span></div>
+      <ul class="lesson-list">
+        <li><a href="#m3-l9" data-lesson="m3-l9"><span class="lesson-check"></span> 9. 8 usages concrets</a></li>
+        <li><a href="#m3-l10" data-lesson="m3-l10"><span class="lesson-check"></span> 10. Quand ça rate, quand s'en passer</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title">Module 4 — Deux histoires <span class="chev">▼</span></div>
+      <ul class="lesson-list">
+        <li><a href="#m4-l11" data-lesson="m4-l11"><span class="lesson-check"></span> 11. Le service client de Léa</a></li>
+        <li><a href="#m4-l12" data-lesson="m4-l12"><span class="lesson-check"></span> 12. L'école de Malik</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main class="content">
+
+    <div class="hero">
+      <h1>Le RAG,<br>expliqué comme à un enfant de 5 ans</h1>
+      <p>Le RAG, c'est une IA à qui on apprend à faire une seule chose : <strong>aller regarder dans le cahier avant de répondre</strong>. Ce cours part de cette image et ne la lâche plus.</p>
+      <div class="tags"><span>🔎 Zéro jargon</span><span>📚 Cas concrets</span><span>⏱ ~45 minutes</span></div>
+    </div>
+
+    <!-- ══════════════ MODULE 1 ══════════════ -->
+
+    <section id="m1-l1">
+      <span class="lesson-num">Module 1 · Leçon 1</span>
+      <h2>L'IA ne connaît pas tes affaires</h2>
+
+      <div class="kid">
+        <span class="label">🔎 Version 5 ans</span>
+        <p>Imagine un monsieur qui a lu <strong>tous les livres du monde</strong>… mais il y a deux ans. Et depuis, il est enfermé dans une pièce sans fenêtre.</p>
+        <p>Tu lui demandes : « quel temps fait-il dehors ? » Il ne sait pas. Mais le problème, c'est qu'il ne dit pas « je ne sais pas ». Il <strong>invente une réponse qui a l'air vraie</strong>, avec une voix très sûre d'elle. « Il fait 18 degrés et il y a des nuages. »</p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>Un modèle de langage a appris sur une énorme quantité de textes, figée à une date donnée. Cette connaissance est <strong>dans ses paramètres</strong>, comme un souvenir flou — pas comme une base de données consultable.</p>
+        <p>D'où trois limites, qui sont toujours les mêmes :</p>
+      </div>
+
+      <h3>Limite ① : il ne connaît pas TES documents</h3>
+      <p>Le contrat de ton client, la procédure interne de ton entreprise, les notes de la réunion de mardi : rien de tout ça n'était sur Internet quand le modèle a appris. Il ne peut pas les connaître, et aucune formulation astucieuse de ta question n'y changera quoi que ce soit.</p>
+
+      <h3>Limite ② : sa connaissance est datée</h3>
+      <p>Tout ce qui s'est passé après sa date d'apprentissage lui échappe. Nouveau tarif, nouvelle loi, nouvelle version d'un logiciel : il répondra avec l'ancienne information, sans savoir qu'elle est périmée.</p>
+
+      <h3>Limite ③ : il invente avec aplomb</h3>
+      <p>C'est la plus embêtante, et c'est important de comprendre <em>pourquoi</em> ça arrive. Un modèle de langage produit le mot suivant le plus plausible. Quand il ne sait pas, il ne rencontre aucun mur : il continue de produire du texte plausible. Le résultat a la <strong>forme</strong> d'une bonne réponse — la bonne grammaire, le bon ton, des chiffres précis — sans en avoir le fond.</p>
+      <p>On appelle ça une <strong>hallucination</strong>. Et le vrai danger n'est pas qu'elle existe : c'est qu'<strong>elle est indiscernable d'une bonne réponse</strong> pour qui ne connaît pas déjà le sujet.</p>
+
+      <div class="schema">
+<pre>
+  QUESTION : « Quel est notre délai de remboursement ? »
+
+  ┌─ Sans RAG ──────────────────────────────────────────┐
+  │  Le modèle n'a jamais vu ta politique interne.       │
+  │  Il répond ce qui est le plus courant dans le monde :│
+  │                                                      │
+  │     « Le délai est généralement de 14 jours. »       │
+  │                                                      │
+  │  Chez toi, c'est 30 jours. La réponse est fausse,    │
+  │  bien écrite, et impossible à distinguer du vrai.    │
+  └──────────────────────────────────────────────────────┘
+</pre>
+        <span class="cap">Le modèle n'a pas menti : il a comblé un trou. C'est exactement ce pour quoi il a été entraîné.</span>
+      </div>
+
+      <h3>Les fausses bonnes solutions</h3>
+      <p>Avant d'arriver au RAG, deux réflexes que tout le monde a — et pourquoi ils ne suffisent pas :</p>
+      <ul>
+        <li><strong>« Je vais tout coller dans la question. »</strong> Ça marche pour trois pages. Pas pour 4 000 documents : ça ne rentre pas, ça coûte cher à chaque question, et la précision se dégrade quand on noie l'information utile au milieu de tout le reste.</li>
+        <li><strong>« Je vais réentraîner le modèle sur mes documents. »</strong> C'est le <em>fine-tuning</em>. Il est excellent pour enseigner un <strong>style</strong> ou un <strong>format</strong> de réponse, mais c'est un mauvais outil pour mémoriser des faits : c'est coûteux, il faut recommencer à chaque changement, et le modèle continue d'inventer — simplement avec plus d'assurance. On y revient en leçon 10.</li>
+      </ul>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Croire qu'une hallucination est un bug qu'on va corriger un jour. Ce n'en est pas un : c'est la conséquence directe du fonctionnement d'un modèle de langage. On ne la supprime pas, on la <strong>contourne</strong> — en donnant au modèle le texte exact sous les yeux au lieu de compter sur sa mémoire. C'est tout le projet du RAG.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Pose à une IA une question très précise sur ton entreprise ou ton quartier, dont tu connais la réponse. Observe : est-ce qu'elle dit « je ne sais pas », ou est-ce qu'elle produit quelque chose de plausible et faux ? Note la différence de ton entre les deux.
+      </div>
+    </section>
+
+    <section id="m1-l2">
+      <span class="lesson-num">Module 1 · Leçon 2</span>
+      <h2>« Cherche d'abord, réponds ensuite »</h2>
+
+      <div class="kid">
+        <span class="label">🔎 Version 5 ans</span>
+        <p>Alors on change la règle du jeu. Avant que le monsieur réponde, on lui met <strong>la bonne page sous les yeux</strong>.</p>
+        <p>On ne lui donne pas toute la bibliothèque : juste les trois pages qui parlent de ce qu'on lui demande. Et on lui dit : <em>« réponds en te servant UNIQUEMENT de ces pages. Si ce n'est pas écrit dedans, dis que tu ne sais pas. »</em></p>
+        <p>👉 <strong>C'est ça, le RAG.</strong> Rien de plus.</p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p><strong>RAG</strong> veut dire <em>Retrieval-Augmented Generation</em> : « génération augmentée par la récupération ». Le nom dit exactement ce que ça fait, dans l'ordre :</p>
+        <ul>
+          <li><strong>Retrieval</strong> — on va <em>chercher</em> les passages pertinents dans tes documents.</li>
+          <li><strong>Augmented</strong> — on <em>ajoute</em> ces passages à la question.</li>
+          <li><strong>Generation</strong> — le modèle <em>rédige</em> la réponse à partir de ce qu'on lui a donné.</li>
+        </ul>
+      </div>
+
+      <div class="schema">
+<pre>
+  TA QUESTION
+  « Quel est notre délai de remboursement ? »
+        │
+        ▼
+  ① ON CHERCHE          dans tes 4 000 documents,
+        │               on retient les 3 passages qui parlent de ça
+        ▼
+  ② ON ASSEMBLE         « Voici 3 extraits de la documentation :
+        │                  [extrait 1] [extrait 2] [extrait 3]
+        │                  En te basant UNIQUEMENT sur ces extraits,
+        │                  réponds à : quel est notre délai ? »
+        ▼
+  ③ LE MODÈLE RÉPOND    « 30 jours à compter de la réception
+                           du colis (source : CGV, article 7). »
+</pre>
+        <span class="cap">Le modèle n'a rien mémorisé. Il a lu, puis reformulé. C'est précisément ce qu'on lui demande de savoir faire.</span>
+      </div>
+
+      <h3>Le changement de métier</h3>
+      <p>Ce qu'il faut vraiment saisir, c'est que le RAG <strong>change le travail demandé au modèle</strong>. Sans RAG, on lui demande « <em>souviens-toi et réponds</em> » — un exercice de mémoire, où il est médiocre et menteur. Avec RAG, on lui demande « <em>lis ça et réponds</em> » — un exercice de compréhension, où il est excellent.</p>
+      <p>On n'a pas rendu le modèle plus intelligent. On lui a confié une tâche pour laquelle il est bon.</p>
+
+      <h3>Les trois bénéfices, dans l'ordre d'importance</h3>
+      <ol>
+        <li><strong>Il peut citer ses sources.</strong> Comme la réponse vient d'un passage précis, on peut afficher ce passage. L'utilisateur vérifie en un coup d'œil. C'est souvent la raison n°1 d'adopter un RAG en entreprise — plus que la justesse elle-même, c'est la <em>vérifiabilité</em> qui compte.</li>
+        <li><strong>La mise à jour est immédiate.</strong> Tu changes un document, tu le réindexes, et la réponse change. Pas de réentraînement, pas d'attente.</li>
+        <li><strong>Il hallucine beaucoup moins.</strong> « Beaucoup moins », pas « plus du tout » — la leçon 12 raconte précisément ce qui se passe quand ça déraille quand même.</li>
+      </ol>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Croire que le RAG empêche les hallucinations. Il les <strong>réduit fortement</strong>, à deux conditions : que la recherche ait ramené les bons passages, et que la consigne interdise explicitement d'aller au-delà. Si la recherche ramène les mauvais passages, le modèle répondra sur cette base — avec une jolie citation à l'appui. <strong>Une source affichée n'est pas une preuve que la réponse est juste.</strong>
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Reformule le RAG en une phrase, sans employer les mots « vecteur », « embedding » ni « base ». <em>(Une réponse possible : « on cherche les bons passages dans les documents, on les colle à la question, et on demande au modèle de répondre uniquement avec ça. »)</em>
+      </div>
+    </section>
+
+    <section id="m1-l3">
+      <span class="lesson-num">Module 1 · Leçon 3</span>
+      <h2>Les deux temps du RAG</h2>
+
+      <div class="kid">
+        <span class="label">🔎 Version 5 ans</span>
+        <p>Il y a deux moments complètement différents, et on les confond tout le temps.</p>
+        <p><strong>Le premier moment : on range la bibliothèque.</strong> On prend tous les livres, on les découpe en fiches, on écrit sur chaque fiche un petit code qui dit de quoi elle parle, et on range tout dans de grands tiroirs. C'est long, on le fait <strong>une fois</strong>, tranquillement, quand personne ne regarde.</p>
+        <p><strong>Le deuxième moment : quelqu'un pose une question.</strong> Là, il faut être rapide. On court aux tiroirs, on sort les trois bonnes fiches, on les donne au monsieur, il répond. Deux secondes, montre en main.</p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>On les appelle l'<strong>indexation</strong> (hors ligne) et la <strong>requête</strong> (en ligne). Ils n'ont ni les mêmes contraintes, ni les mêmes coûts, ni les mêmes causes de panne — et c'est pour ça qu'il faut absolument les distinguer dans sa tête.</p>
+      </div>
+
+      <div class="schema">
+<pre>
+  ═══ TEMPS 1 : L'INDEXATION (une fois, hors ligne) ═══════════════
+
+    📄 Tes documents
+         │  ① on découpe en morceaux           (leçon 5)
+         ▼
+    ✂  morceaux de texte
+         │  ② on calcule le « code du sens »   (leçon 6)
+         ▼
+    🔢 vecteurs
+         │  ③ on range dans la base
+         ▼
+    🗄  BASE VECTORIELLE   ◄────────────┐
+                                        │
+  ═══ TEMPS 2 : LA REQUÊTE (à chaque question) ═══════╪═══════════
+
+    ❓ Question de l'utilisateur          │
+         │  ① on calcule son « code du sens »│
+         ▼                                 │
+    🔢 vecteur de la question ──── on compare ─┘
+         │  ② on sort les k morceaux les plus proches (leçon 7)
+         ▼
+    📋 3 à 10 extraits
+         │  ③ on les colle à la question
+         ▼
+    🤖 Le modèle rédige la réponse        (leçon 8)
+</pre>
+        <span class="cap">Le même calcul (« le code du sens ») sert dans les deux temps. C'est ce qui permet de comparer.</span>
+      </div>
+
+      <h3>Pourquoi cette séparation compte autant</h3>
+      <table>
+        <thead><tr><th></th><th>Indexation</th><th>Requête</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Quand</strong></td><td>Une fois, puis à chaque changement de document</td><td>À chaque question posée</td></tr>
+          <tr><td><strong>Durée acceptable</strong></td><td>Des minutes, des heures</td><td>Moins de 2 secondes</td></tr>
+          <tr><td><strong>Coût</strong></td><td>Payé une fois</td><td>Payé à chaque fois, multiplié par le nombre d'utilisateurs</td></tr>
+          <tr><td><strong>Si ça rate</strong></td><td>Tout est cassé, pour tout le monde, silencieusement</td><td>Une réponse est mauvaise, on le voit</td></tr>
+        </tbody>
+      </table>
+
+      <p>Retiens surtout la dernière ligne. <strong>La grande majorité des RAG qui « répondent mal » ont un problème d'indexation, pas de modèle.</strong> Un découpage maladroit, un document mal converti, un tableau devenu illisible — et aucun modèle au monde ne rattrapera ça, parce que la bonne information n'a jamais atteint la base.</p>
+
+      <h3>Le réflexe de diagnostic</h3>
+      <p>Quand une réponse est mauvaise, une seule question à se poser, et dans cet ordre : <strong>« est-ce que le bon passage était dans les extraits fournis ? »</strong></p>
+      <ul>
+        <li><strong>Non</strong> → le problème est dans la recherche ou l'indexation. Inutile de toucher au prompt ou de changer de modèle.</li>
+        <li><strong>Oui, mais la réponse est quand même fausse</strong> → là seulement, le problème est dans la génération : la consigne, le modèle, ou trop de bruit autour du bon passage.</li>
+      </ul>
+      <p>Ce réflexe fait gagner des journées entières. La plupart des gens commencent par changer de modèle, ce qui est presque toujours l'action la moins utile.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Oublier de réindexer. Tu modifies un document, tu reposes la question, et la vieille réponse revient. Le RAG ne lit pas tes fichiers en direct : il lit la <strong>copie</strong> qu'il a rangée dans sa base. Tant que tu n'as pas réindexé, ton document mis à jour n'existe pas pour lui.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Ton RAG répond « je ne trouve pas l'information » sur une question dont tu sais que la réponse est dans le document n°12. Cite trois causes possibles, une par étape de l'indexation. <em>(Pistes : le document n'a jamais été indexé ; il a été découpé en coupant la phrase clé en deux ; sa conversion en texte a échoué — un PDF scanné, par exemple, ne contient aucun texte.)</em>
+      </div>
+    </section>
+
+    <section id="m1-l4">
+      <span class="lesson-num">Module 1 · Leçon 4</span>
+      <h2>Le vocabulaire en 6 mots</h2>
+
+      <div class="kid">
+        <span class="label">🔎 Version 5 ans</span>
+        <p>Six mots suffisent pour tout raconter : <strong>les fiches</strong>, <strong>le code du sens</strong>, <strong>les tiroirs</strong>, <strong>la recherche</strong>, <strong>combien on en sort</strong>, et <strong>la consigne</strong> qu'on donne au monsieur.</p>
+      </div>
+
+      <table>
+        <thead><tr><th>Le mot technique</th><th>Ce que ça veut dire</th><th>Dans la bibliothèque</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Chunk</strong><br>(morceau)</td><td>Un bout de document, typiquement un ou deux paragraphes. C'est l'unité qu'on range et qu'on retrouve.</td><td>Une fiche</td></tr>
+          <tr><td><strong>Embedding</strong><br>(vecteur)</td><td>Une liste de nombres qui représente le <strong>sens</strong> d'un texte. Deux textes qui parlent de la même chose ont des listes proches.</td><td>Le code écrit sur la fiche</td></tr>
+          <tr><td><strong>Base vectorielle</strong></td><td>La base de données qui range ces vecteurs et sait retrouver les plus proches très vite.</td><td>Les grands tiroirs</td></tr>
+          <tr><td><strong>Retrieval</strong><br>(récupération)</td><td>L'étape de recherche : on compare le vecteur de la question à tous ceux de la base.</td><td>Courir aux tiroirs</td></tr>
+          <tr><td><strong>Top-k</strong></td><td>Le nombre d'extraits qu'on remonte. Souvent entre 3 et 10. Trop peu : on rate. Trop : on noie.</td><td>Combien de fiches on sort</td></tr>
+          <tr><td><strong>Prompt système</strong></td><td>La consigne qui encadre la réponse : « réponds uniquement avec les extraits, cite tes sources, dis que tu ne sais pas sinon ».</td><td>La règle du jeu</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Trois mots de plus qu'on croise sans arrêt</h3>
+      <p><strong>Recherche hybride</strong> — chercher en même temps par le sens (vecteurs) et par les mots exacts (comme un moteur de recherche classique), puis fusionner les deux listes. C'est aujourd'hui le réglage par défaut de tout système sérieux, et la leçon 7 explique pourquoi.</p>
+      <p><strong>Reranking</strong> — un deuxième tri, plus fin et plus lent, appliqué seulement aux 30 ou 50 premiers résultats pour n'en garder que 5. Presque toujours le meilleur rapport effort/gain d'un RAG.</p>
+      <p><strong>Métadonnées</strong> — tout ce qui accompagne un morceau sans être son texte : le nom du fichier, la date, le service, la langue, le niveau de confidentialité. C'est ce qui permet de filtrer <em>avant</em> de chercher (« uniquement dans les documents RH de 2026 »), et c'est très sous-utilisé.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Confondre <strong>base vectorielle</strong> et <strong>RAG</strong>. Une base vectorielle est un outil de rangement, rien d'autre. Le RAG est l'enchaînement complet : découper, indexer, chercher, assembler, générer. On peut d'ailleurs faire du RAG sans base vectorielle du tout — une bonne recherche par mots-clés suffit pour beaucoup de cas, et c'est souvent la bonne façon de commencer.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Remets ces six mots dans l'ordre où ils interviennent : <em>top-k, chunk, prompt système, embedding, retrieval, base vectorielle</em>. <em>(Réponse : chunk → embedding → base vectorielle, puis retrieval → top-k → prompt système.)</em>
+      </div>
+
+      <details class="quiz">
+        <summary>Mini-quiz : vrai ou faux ?</summary>
+        <p><strong>« Avec un RAG, le modèle apprend mes documents. »</strong></p>
+        <p><strong>Faux</strong>, et c'est le contresens le plus fréquent. Le modèle n'apprend absolument rien : il ne garde aucun souvenir d'une question à l'autre. À chaque question, on lui remet les extraits sous les yeux, il lit, il répond, il oublie tout. C'est justement ce qui rend la mise à jour instantanée — et ce qui fait qu'un document retiré de la base disparaît immédiatement des réponses.</p>
+      </details>
+    </section>
+
+    <!-- ══════════════ MODULE 2 ══════════════ -->
+
+    <section id="m2-l5">
+      <span class="lesson-num">Module 2 · Leçon 5</span>
+      <h2>Couper en morceaux</h2>
+
+      <div class="kid">
+        <span class="label">🔎 Version 5 ans</span>
+        <p>Tu ne peux pas ranger un livre entier dans un tiroir à fiches. Il faut le <strong>découper</strong>.</p>
+        <p>Mais attention à l'endroit où tu coupes ! Si tu coupes au milieu d'une phrase, tu obtiens deux fiches qui ne veulent rien dire :</p>
+        <p><em>Fiche 12 : « Le délai de remboursement est de »</em> — et voilà, la réponse est perdue.</p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>Le <strong>chunking</strong> est l'étape la plus déterminante de tout le RAG, et paradoxalement celle à laquelle on consacre le moins de temps. Un morceau est l'unité atomique : c'est ce qu'on range, ce qu'on retrouve, et ce qu'on donne au modèle. Sa qualité plafonne celle de tout le reste.</p>
+      </div>
+
+      <h3>Le dilemme, en une image</h3>
+      <div class="schema">
+<pre>
+  MORCEAUX TROP PETITS (100 caractères)
+  ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐
+  │ « Le délai de    │ │ « ...30 jours à  │ │ « ...réception   │
+  │ remboursement    │ │ compter de la... │ │ du colis. »      │
+  │ est de... »      │ │                  │ │                  │
+  └──────────────────┘ └──────────────────┘ └──────────────────┘
+  ✗ Chaque morceau est précis mais incomplet : aucun ne répond.
+
+  MORCEAUX TROP GROS (10 000 caractères)
+  ┌────────────────────────────────────────────────────────────┐
+  │ Tout le chapitre « Conditions générales » : livraison,     │
+  │ garantie, remboursement, litiges, données personnelles...  │
+  └────────────────────────────────────────────────────────────┘
+  ✗ La réponse est dedans, noyée dans 40 sujets différents.
+    Le « code du sens » devient flou : il parle un peu de tout.
+
+  JUSTE BIEN (~800 caractères, sur une frontière naturelle)
+  ┌────────────────────────────────────────────────────────────┐
+  │ ## Article 7 — Remboursement                               │
+  │ Le délai de remboursement est de 30 jours à compter de la  │
+  │ réception du colis retourné. Le remboursement s'effectue   │
+  │ sur le moyen de paiement d'origine.                        │
+  └────────────────────────────────────────────────────────────┘
+  ✓ Un sujet, complet, avec son titre.
+</pre>
+        <span class="cap">La bonne taille n'est pas un nombre magique : c'est « une idée complète, et une seule ».</span>
+      </div>
+
+      <h3>Les quatre façons de découper</h3>
+      <ol>
+        <li><strong>À la taille fixe</strong> — « tous les 1 000 caractères ». Simple, rapide, et brutal : ça coupe au milieu des phrases. À réserver aux prototypes.</li>
+        <li><strong>Par séparateurs, en cascade</strong> — on essaie de couper aux doubles sauts de ligne ; si le morceau est encore trop gros, aux sauts de ligne ; puis aux points. C'est le comportement par défaut de la plupart des outils, et un bon compromis.</li>
+        <li><strong>Par structure du document</strong> — on suit les titres et sous-titres : chaque section devient un morceau. <strong>C'est de loin le meilleur choix</strong> quand tes documents sont structurés (Markdown, HTML, documentation technique), parce que l'auteur a déjà fait le travail de regrouper les idées.</li>
+        <li><strong>Par le sens</strong> (<em>semantic chunking</em>) — on calcule la proximité entre phrases successives et on coupe là où le sujet change. Élégant, coûteux, et rarement supérieur à un bon découpage par structure. À garder pour plus tard.</li>
+      </ol>
+
+      <h3>Le chevauchement : la ceinture de sécurité</h3>
+      <p>Une astuce simple et très efficace : faire en sorte que chaque morceau <strong>reprenne les dernières lignes du précédent</strong>. Typiquement 10 à 15 % de recouvrement.</p>
+      <pre><code class="language-text">Morceau 1 : [......................................]
+Morceau 2 :                        [......................................]
+                                   └── chevauchement ──┘</code></pre>
+      <p>Comme ça, une phrase qui tombe pile sur une frontière se retrouve entière dans au moins un des deux morceaux. Ça coûte un peu de stockage, et ça évite une catégorie entière d'échecs silencieux.</p>
+
+      <h3>L'astuce qui change tout : le contexte dans le morceau</h3>
+      <p>Voici un problème que presque tous les RAG débutants ont, sans le savoir. Prends ce morceau, isolé dans la base :</p>
+      <pre><code class="language-text">« Le délai est de 30 jours à compter de la réception. »</code></pre>
+      <p>Le délai de quoi ? Dans quel document ? Pour quel pays ? Pour quelle année tarifaire ? Le morceau, tout seul, est ambigu — et son « code du sens » l'est aussi, donc il sera mal retrouvé.</p>
+      <p>La parade est de <strong>préfixer chaque morceau de son contexte</strong> au moment de l'indexation :</p>
+      <pre><code class="language-text">« Document : CGV 2026 — France | Section : Article 7, Remboursement
+
+Le délai est de 30 jours à compter de la réception. »</code></pre>
+      <p>C'est deux lignes de code, et c'est souvent la plus grosse amélioration qu'on puisse apporter à un RAG médiocre. Le morceau devient autonome : il se suffit à lui-même, aussi bien pour la recherche que pour le modèle qui le lira.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Les tableaux et les PDF. Un tableau converti en texte brut devient une bouillie de chiffres sans en-têtes, découpée n'importe où. Et un PDF scanné ne contient <strong>aucun texte</strong> — juste une image ; sans reconnaissance optique, tu indexes des pages vides sans qu'aucune erreur ne s'affiche. Avant de soupçonner ton modèle, va toujours regarder à quoi ressemblent réellement tes morceaux dans la base. C'est déprimant, et c'est instructif.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Prends une page de documentation que tu connais et découpe-la à la main, en morceaux d'environ 800 caractères. Combien de fois as-tu hésité sur l'endroit où couper ? Y a-t-il une phrase qui perd son sens une fois séparée de ce qui la précède ?
+      </div>
+    </section>
+
+    <section id="m2-l6">
+      <span class="lesson-num">Module 2 · Leçon 6</span>
+      <h2>Le sens transformé en nombres</h2>
+
+      <div class="kid">
+        <span class="label">🔎 Version 5 ans</span>
+        <p>Imagine une <strong>carte géante</strong>, comme une carte de pays. Sauf qu'au lieu de villes, on y pose des mots.</p>
+        <p>Sur cette carte, <strong>« chat » est posé tout près de « chaton » et de « félin »</strong>. Et très loin de « tracteur ».</p>
+        <p>Pour dire où se trouve quelque chose sur une carte, on donne des coordonnées : « 3 pas à droite, 7 pas en haut ». Eh bien voilà — le « code du sens » d'un texte, c'est juste ses coordonnées sur cette carte. Sauf qu'au lieu de 2 nombres, il y en a mille.</p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>Un <strong>embedding</strong> est une liste de nombres (typiquement 384, 768 ou 1 536) produite par un petit modèle spécialisé. Sa propriété fondamentale : <strong>deux textes de sens voisin produisent des listes voisines</strong>, même s'ils n'ont aucun mot en commun.</p>
+      </div>
+
+      <pre><code class="language-python">"Le chat dort sur le canapé"
+  → [0.21, -0.44, 0.78, 0.02, ..., -0.31]     # 1536 nombres
+
+"Un félin fait la sieste sur le sofa"
+  → [0.19, -0.41, 0.81, 0.05, ..., -0.28]     # très proche ! ✓
+
+"Le PIB de la Norvège a augmenté"
+  → [-0.67, 0.12, -0.09, 0.88, ..., 0.44]     # très loin ✗</code></pre>
+
+      <p>Regarde bien les deux premières phrases : <strong>elles n'ont pas un seul mot en commun</strong> (« chat »/« félin », « dort »/« sieste », « canapé »/« sofa »). Une recherche par mots-clés classique ne les rapprocherait jamais. Leurs vecteurs, eux, sont presque identiques.</p>
+      <p>C'est <em>toute</em> la magie du RAG moderne : on peut retrouver un passage <strong>sans connaître les mots exacts qu'il emploie</strong>. L'utilisateur demande « comment je me fais rembourser ? », le document dit « procédure de restitution des fonds » — et ça marche.</p>
+
+      <h3>Comment on mesure la proximité</h3>
+      <p>On compare deux vecteurs avec une opération appelée <strong>similarité cosinus</strong>. Intuitivement : au lieu de regarder la distance entre deux points, on regarde <strong>s'ils pointent dans la même direction</strong> depuis le centre de la carte.</p>
+      <div class="schema">
+<pre>
+            « félin »
+                 ╱
+                ╱ petit angle  →  score proche de 1  ✓
+        « chat »
+       ╱
+      ╱
+   CENTRE ──────────────────────► « tracteur »
+             grand angle  →  score proche de 0  ✗
+
+  Score de 1  = même direction, donc même sens
+  Score de 0  = sans rapport
+</pre>
+        <span class="cap">On regarde la direction, pas la longueur — un texte long et un texte court sur le même sujet restent proches.</span>
+      </div>
+
+      <h3>Trois choses à savoir avant de choisir un modèle d'embedding</h3>
+      <ul>
+        <li><strong>Les deux côtés doivent utiliser le même modèle.</strong> Les coordonnées d'un modèle n'ont aucun sens pour un autre : c'est comme comparer une adresse parisienne à une latitude. Si tu changes de modèle d'embedding, <strong>tu dois tout réindexer</strong>. Sans exception.</li>
+        <li><strong>La langue compte.</strong> Un modèle entraîné surtout sur de l'anglais donnera des résultats médiocres sur des documents français. Vérifie qu'il est multilingue, ou prends-en un entraîné sur ta langue.</li>
+        <li><strong>Plus de dimensions n'est pas mieux.</strong> 1 536 nombres au lieu de 384, c'est quatre fois plus de stockage et de calcul, pour un gain souvent marginal sur des documents ordinaires. Commence petit.</li>
+      </ul>
+
+      <h3>Ce que les embeddings ne savent PAS faire</h3>
+      <p>C'est le point que les tutoriels passent sous silence, et il explique la moitié des déceptions. Un embedding capture le <em>thème général</em>, pas le <em>détail exact</em>. Concrètement, il est mauvais sur :</p>
+      <ul>
+        <li><strong>Les références précises</strong> — « article L.121-21 », « référence produit XK-4421 », un numéro de facture. Deux références qui ne diffèrent que d'un chiffre ont des vecteurs quasi identiques.</li>
+        <li><strong>Les noms propres rares</strong> — un nom de client, un nom de projet interne, un acronyme maison. Le modèle ne les a jamais vus à l'entraînement.</li>
+        <li><strong>La négation</strong> — « le remboursement est possible » et « le remboursement n'est pas possible » sont très proches sur la carte. Ils parlent du même sujet. C'est toute la difficulté.</li>
+      </ul>
+      <p>Voilà pourquoi la recherche par vecteurs seule ne suffit jamais — et pourquoi la leçon suivante existe.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Changer de modèle d'embedding sans réindexer. Le système ne plante pas : il continue de tourner en renvoyant des résultats parfaitement aléatoires, avec des scores qui ont l'air normaux. C'est l'une des pannes les plus déroutantes du RAG, parce que rien n'indique qu'il y a un problème.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Classe ces textes du plus proche au plus éloigné de « <em>comment annuler ma commande</em> » : <strong>(a)</strong> « procédure de résiliation d'un achat » ; <strong>(b)</strong> « commande passée le 12 mars » ; <strong>(c)</strong> « il est impossible d'annuler une commande expédiée » ; <strong>(d)</strong> « recette de la tarte aux pommes ». <em>(Le piège est (c) : très proche sur la carte, alors qu'il dit le contraire de ce qu'on cherche. C'est exactement la faiblesse de la négation.)</em>
+      </div>
+    </section>
+
+    <section id="m2-l7">
+      <span class="lesson-num">Module 2 · Leçon 7</span>
+      <h2>Retrouver le bon morceau</h2>
+
+      <div class="kid">
+        <span class="label">🔎 Version 5 ans</span>
+        <p>Il y a deux façons de chercher une fiche dans les tiroirs, et les bonnes bibliothécaires font <strong>les deux en même temps</strong> :</p>
+        <p><strong>Par le sens :</strong> « je cherche des fiches qui parlent de la même chose ». Ça marche même si les mots sont différents.</p>
+        <p><strong>Par les mots exacts :</strong> « je cherche la fiche où il y a écrit <em>XK-4421</em> ». Ça marche quand on connaît le mot précis.</p>
+        <p>Chacune rate ce que l'autre trouve. Alors on lance les deux, et on mélange les résultats.</p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>C'est la <strong>recherche hybride</strong>, et c'est aujourd'hui le standard de fait. On combine la recherche vectorielle (le sens) avec une recherche lexicale de type <strong>BM25</strong> (les mots exacts, la même famille d'algorithmes qui fait tourner les moteurs de recherche classiques depuis trente ans).</p>
+      </div>
+
+      <table>
+        <thead><tr><th></th><th>🧭 Recherche vectorielle</th><th>🔤 Recherche par mots (BM25)</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Trouve</strong></td><td>Les textes de sens proche</td><td>Les textes contenant les mots</td></tr>
+          <tr><td><strong>Excellente pour</strong></td><td>« comment me faire rembourser » → « procédure de restitution »</td><td>« XK-4421 », « article L.121-21 », un nom propre</td></tr>
+          <tr><td><strong>Mauvaise pour</strong></td><td>Les références, les acronymes, la négation</td><td>Les synonymes, les reformulations</td></tr>
+          <tr><td><strong>Coût</strong></td><td>Il faut calculer un embedding par requête</td><td>Très rapide, très peu cher</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Comment on mélange les deux listes</h3>
+      <p>Les deux méthodes rendent des scores qui ne sont pas comparables (l'un va de 0 à 1, l'autre est une valeur sans borne). On ne peut donc pas les additionner. La technique standard s'appelle la <strong>fusion par rang réciproque</strong> (RRF), et l'idée est plus simple que son nom :</p>
+      <p>On ignore les scores, et on ne regarde que <strong>la position</strong> dans chaque liste. Un document classé 1<sup>er</sup> rapporte beaucoup de points, le 2<sup>e</sup> un peu moins, etc. On additionne les points obtenus dans les deux listes, et on reclasse.</p>
+      <div class="schema">
+<pre>
+  Liste vectorielle       Liste par mots         Fusion
+  ─────────────────       ──────────────         ──────
+  1. doc_A                1. doc_C               1. doc_A  (1er + 3e)
+  2. doc_B                2. doc_D               2. doc_C  (5e + 1er)
+  3. doc_A ◄──────────────┘                      3. doc_B
+  4. doc_E                3. doc_A ◄──────┐      4. doc_D
+  5. doc_C ───────────────────────────────┘
+            ▲
+            └─ doc_A est bien classé dans LES DEUX listes.
+               Il remonte premier : les deux méthodes sont d'accord.
+</pre>
+        <span class="cap">Un document trouvé par les deux méthodes est presque toujours le bon. C'est l'intuition derrière la fusion.</span>
+      </div>
+
+      <h3>Le deuxième tri : le reranking</h3>
+      <p>Après la fusion, on a une liste de, disons, 30 candidats plausibles. On pourrait s'arrêter là. Mais il existe une étape qui est presque toujours le meilleur investissement d'un RAG : le <strong>reranking</strong>.</p>
+      <p>Un modèle de reranking lit <strong>la question et un extrait ensemble</strong>, et note leur pertinence réelle. C'est beaucoup plus juste qu'une comparaison de vecteurs — parce que les vecteurs ont été calculés séparément, sans jamais se « voir ». Mais c'est aussi bien plus lent : impossible de le faire sur 100 000 morceaux.</p>
+      <p>D'où l'architecture en entonnoir, qui est le schéma standard de tout RAG sérieux :</p>
+      <div class="schema">
+<pre>
+  100 000 morceaux dans la base
+        │
+        │  ① recherche hybride (rapide, approximative)
+        ▼
+     30 candidats
+        │
+        │  ② reranking (lent, précis) sur 30 seulement
+        ▼
+      5 extraits  ──────►  le modèle
+</pre>
+        <span class="cap">Rapide et approximatif d'abord, lent et précis ensuite, sur peu de candidats. C'est un entonnoir.</span>
+      </div>
+
+      <h3>Les filtres par métadonnées : le gain gratuit</h3>
+      <p>Avant même de chercher, on peut <strong>éliminer</strong>. « Uniquement les documents RH », « uniquement l'année en cours », « uniquement ceux que cet utilisateur a le droit de voir ». C'est rapide, c'est exact, et c'est le seul moyen correct de gérer les droits d'accès : <strong>on filtre à la recherche, jamais en demandant au modèle d'ignorer ce qu'il a sous les yeux</strong>. Une consigne du type « ne parle pas du document confidentiel » n'est pas une mesure de sécurité.</p>
+
+      <h3>Combien d'extraits remonter ?</h3>
+      <p>Le réglage du <code>top-k</code>. Trop bas (1 ou 2), tu rates la réponse dès qu'elle est répartie sur plusieurs passages. Trop haut (20+), tu noies le bon extrait dans du bruit — et les modèles ont une fâcheuse tendance à moins bien exploiter ce qui se trouve au milieu d'un long contexte. <strong>Entre 3 et 8 après reranking</strong> est un bon point de départ pour la plupart des cas.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Se fier au score de similarité comme à un indicateur de justesse. Un score de 0,82 ne veut pas dire « 82 % de chances d'être la bonne réponse » : il veut dire « c'est ce que j'ai trouvé de moins éloigné ». <strong>Une base qui ne contient pas du tout la réponse renverra quand même ses cinq meilleurs résultats, avec des scores d'apparence honorable.</strong> C'est le mécanisme exact de l'histoire de la leçon 12.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Pour chaque question, dis quelle méthode va gagner : <strong>(a)</strong> « quelle est la garantie sur la référence XK-4421 ? » ; <strong>(b)</strong> « est-ce que je peux rendre un article qui ne me plaît pas ? » ; <strong>(c)</strong> « que dit l'article 7 ? ». <em>(Réponses : a et c → la recherche par mots ; b → la recherche vectorielle, parce qu'aucun des mots de la question n'est probablement dans le document.)</em>
+      </div>
+    </section>
+
+    <section id="m2-l8">
+      <span class="lesson-num">Module 2 · Leçon 8</span>
+      <h2>Fabriquer la réponse</h2>
+
+      <div class="kid">
+        <span class="label">🔎 Version 5 ans</span>
+        <p>Dernière étape. On a les trois bonnes fiches. Maintenant on les donne au monsieur — <strong>avec une règle très claire</strong> :</p>
+        <p><em>« Réponds en utilisant SEULEMENT ces fiches. Dis d'où vient chaque information. Et si la réponse n'est pas écrite dessus, tu as le droit de dire : je ne sais pas. »</em></p>
+        <p>Cette dernière phrase est la plus importante de toutes. Sans elle, il inventera pour te faire plaisir.</p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>On assemble un prompt final qui contient trois choses : la <strong>consigne</strong>, les <strong>extraits</strong>, et la <strong>question</strong>. C'est l'étape la plus simple techniquement, et pourtant celle où de petits détails de rédaction changent radicalement la qualité.</p>
+      </div>
+
+      <h3>Un prompt de RAG qui fonctionne</h3>
+      <pre><code class="language-text">Tu réponds aux questions en te basant UNIQUEMENT sur les extraits
+fournis ci-dessous.
+
+Règles :
+- Si les extraits ne contiennent pas la réponse, dis exactement :
+  « Je ne trouve pas cette information dans la documentation. »
+  N'utilise jamais tes connaissances générales pour combler un manque.
+- Cite la source de chaque affirmation sous la forme [source: nom_du_doc].
+- Si les extraits se contredisent, signale-le au lieu de choisir.
+
+EXTRAITS :
+[1] (CGV_2026.md — Article 7) Le délai de remboursement est de 30 jours
+    à compter de la réception du colis retourné.
+[2] (FAQ_client.md — Retours) Les retours sont acceptés sous 14 jours.
+[3] (CGV_2026.md — Article 6) Les frais de retour sont à la charge...
+
+QUESTION : Quel est le délai pour être remboursé ?</code></pre>
+
+      <p>Quatre détails de ce prompt méritent d'être remarqués, parce que chacun règle un problème précis :</p>
+      <ul>
+        <li><strong>« UNIQUEMENT »</strong>, en majuscules, et répété dans les règles. Sans cette contrainte, le modèle mélange allègrement les extraits et ses souvenirs — et tu ne peux plus faire la différence.</li>
+        <li><strong>La phrase d'échec est fournie mot pour mot.</strong> C'est beaucoup plus efficace que « dis que tu ne sais pas » : on donne une issue de secours concrète et facile à produire. Un modèle sans porte de sortie en fabrique une.</li>
+        <li><strong>Les extraits sont numérotés et étiquetés</strong> avec leur source. C'est ce qui rend la citation possible. Sans étiquette, le modèle invente des références — et elles ont l'air parfaitement crédibles.</li>
+        <li><strong>Le cas de la contradiction est prévu.</strong> Ici, [1] dit 30 jours et [2] dit 14 jours (ils ne parlent pas de la même chose : l'un du remboursement, l'autre du retour). Sans consigne, le modèle en choisit un au hasard. Avec, il signale l'ambiguïté — ce qui est la bonne réponse.</li>
+      </ul>
+
+      <h3>L'ordre des extraits compte</h3>
+      <p>Ce n'est pas une légende : les modèles exploitent mieux ce qui se trouve au <strong>début</strong> et à la <strong>fin</strong> d'un long contexte que ce qui se trouve au milieu. Conséquence pratique : place l'extrait le mieux classé en premier — et, si tu en as beaucoup, mets le deuxième meilleur en dernier plutôt qu'en deuxième position.</p>
+
+      <h3>Les citations : la vraie valeur ajoutée</h3>
+      <p>C'est souvent ce qui décide de l'adoption d'un RAG en entreprise, plus que la justesse elle-même. Une réponse sans source oblige l'utilisateur à faire confiance ; une réponse avec un lien cliquable vers le paragraphe exact lui permet de <strong>vérifier en trois secondes</strong>.</p>
+      <p>Ça change complètement le rapport à l'outil : l'utilisateur n'a plus besoin de croire le système, il a besoin de pouvoir le contrôler. Un RAG qui se trompe parfois mais qui montre ses sources reste utilisable. Un RAG juste à 95 % mais opaque ne sera jamais adopté pour les décisions qui comptent.</p>
+
+      <h3>L'enchaînement complet, en une page de code</h3>
+      <pre><code class="language-python">def repondre(question: str) -> str:
+    # ① chercher (leçon 7)
+    candidats = base.recherche_hybride(question, k=30)
+    extraits  = reranker.trier(question, candidats)[:5]
+
+    # ② assembler
+    contexte = "\n\n".join(
+        f"[{i+1}] ({e.source} — {e.section}) {e.texte}"
+        for i, e in enumerate(extraits)
+    )
+
+    # ③ générer
+    return modele.completer(
+        systeme=CONSIGNE_RAG,
+        message=f"EXTRAITS :\n{contexte}\n\nQUESTION : {question}",
+    )</code></pre>
+      <p>Voilà. Tout le RAG tient là-dedans : chercher, assembler, générer. Toute la difficulté du métier se trouve dans la qualité des deux premières lignes, pas dans la troisième.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Oublier d'autoriser l'échec. Un RAG à qui on n'a jamais dit « tu peux répondre que tu ne sais pas » <strong>répondra toujours quelque chose</strong>, quels que soient les extraits qu'on lui donne. Teste-le : pose-lui une question dont la réponse n'est nulle part dans ta base. S'il répond au lieu de dire qu'il ne trouve pas, ton prompt est incomplet — et tu viens de découvrir ton plus gros risque.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Dans le prompt ci-dessus, les extraits [1] et [2] semblent se contredire. Quelle est la bonne réponse du modèle ? <em>(Il devrait distinguer les deux délais : 14 jours pour renvoyer l'article, 30 jours pour être remboursé une fois le colis reçu. Ils ne se contredisent pas — ils répondent à deux questions différentes. Un modèle qui répond « 14 jours » tout court a mal lu ; un modèle qui signale l'ambiguïté a bien travaillé.)</em>
+      </div>
+    </section>
+
+    <!-- ══════════════ MODULE 3 ══════════════ -->
+
+    <section id="m3-l9">
+      <span class="lesson-num">Module 3 · Leçon 9</span>
+      <h2>8 usages concrets</h2>
+
+      <div class="kid">
+        <span class="label">🔎 Version 5 ans</span>
+        <p>Dès qu'il y a <strong>beaucoup de papiers</strong> et <strong>quelqu'un qui pose des questions dessus</strong>, le RAG sert. Voici les huit endroits où on le croise le plus souvent.</p>
+      </div>
+
+      <h3>1. Le support client</h3>
+      <p>L'usage numéro un, et de loin. La documentation produit, la FAQ, les CGV, l'historique des tickets résolus. Deux variantes : un assistant en libre-service pour le client, ou — beaucoup plus facile à réussir — un assistant <strong>pour les agents</strong>, qui leur suggère la réponse et la source. Dans le second cas, un humain valide toujours : le risque d'erreur est absorbé.</p>
+
+      <h3>2. La base de connaissance interne</h3>
+      <p>« Comment je pose mes congés ? », « quelle est la procédure d'onboarding ? », « qui valide les notes de frais ? ». Les réponses existent, éparpillées sur un intranet, un Notion et trois vieux PDF. Le RAG remplace la recherche par mots-clés qui ne marche jamais.</p>
+
+      <h3>3. Le juridique et la conformité</h3>
+      <p>Contrats, réglementations, normes. Ici la <strong>citation est obligatoire</strong>, pas décorative : personne n'agira sur une réponse sans pouvoir remonter à l'article exact. C'est le domaine où l'exigence de vérifiabilité est la plus forte.</p>
+
+      <h3>4. La documentation technique</h3>
+      <p>Ta doc d'API, ton code, tes runbooks d'incident. C'est le terrain où le RAG marche le mieux du premier coup, pour une raison simple : la documentation technique est <strong>déjà bien structurée</strong> en sections et sous-sections — le découpage de la leçon 5 se fait presque tout seul.</p>
+
+      <h3>5. La recherche et la veille</h3>
+      <p>Articles scientifiques, rapports de marché, notes d'analystes. « Qu'est-ce qui a été publié sur ce sujet, et que disent les sources ? » Le RAG ne remplace pas la lecture : il dit <em>quoi</em> lire, et pourquoi.</p>
+
+      <h3>6. L'analyse de documents ponctuels</h3>
+      <p>Un appel d'offres de 300 pages, un rapport annuel, un dossier médical. Ici le RAG est <strong>temporaire</strong> : on indexe pour une session de travail, on interroge, on jette. Beaucoup plus simple à monter qu'un RAG permanent — pas de mise à jour, pas de droits d'accès à gérer.</p>
+
+      <h3>7. Le e-commerce</h3>
+      <p>Un catalogue de 50 000 produits avec leurs fiches, avis et caractéristiques. « Je cherche une veste imperméable pour la randonnée, pas trop chaude. » Aucun mot-clé ne répond à ça — la recherche par le sens, si.</p>
+
+      <h3>8. Donner de la mémoire à un agent</h3>
+      <p>Un agent conversationnel qui doit se souvenir des échanges passés : on indexe les conversations précédentes et on récupère les passages pertinents au bon moment. C'est du RAG, appliqué à l'historique plutôt qu'à des documents.</p>
+
+      <h3>Le point commun de tous ces cas</h3>
+      <p>Ils réunissent trois conditions. Si l'une manque, le RAG n'est probablement pas la bonne réponse :</p>
+      <ul>
+        <li><strong>Beaucoup de documents</strong> — trop pour tenir dans une seule question.</li>
+        <li><strong>Des questions imprévisibles</strong> — si les questions sont toujours les mêmes, un bon vieux moteur de recherche ou une FAQ coûtent cent fois moins cher.</li>
+        <li><strong>Un besoin de citer</strong> — si personne ne vérifiera jamais la réponse, demande-toi à quoi elle sert.</li>
+      </ul>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Se lancer sur le cas le plus visible plutôt que le plus facile. Un assistant client public, c'est le pire terrain pour un premier RAG : questions ouvertes, aucune indulgence, et une erreur devient une capture d'écran sur les réseaux. Commence par un <strong>outil interne, avec un humain dans la boucle</strong> : tu apprends sur tes vrais documents, avec des utilisateurs qui te signalent les erreurs au lieu de les publier.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Prends un usage de ton quotidien professionnel et vérifie les trois conditions ci-dessus. Si l'une manque, quelle solution plus simple ferait le travail ?
+      </div>
+    </section>
+
+    <section id="m3-l10">
+      <span class="lesson-num">Module 3 · Leçon 10</span>
+      <h2>Quand ça rate, quand s'en passer</h2>
+
+      <div class="kid">
+        <span class="label">🔎 Version 5 ans</span>
+        <p>Parfois la bibliothécaire revient avec les mauvaises fiches. Ou avec les bonnes, mais le monsieur lit mal. Ou alors… il n'y avait pas besoin de bibliothèque du tout, parce qu'il n'y a que dix pages en tout et qu'on pouvait les lui donner toutes.</p>
+      </div>
+
+      <h3>Les cinq façons de rater, et où regarder</h3>
+      <table>
+        <thead><tr><th>Le symptôme</th><th>La cause réelle</th><th>Où corriger</th></tr></thead>
+        <tbody>
+          <tr><td>« Je ne trouve pas » alors que l'info existe</td><td>Le document n'est pas indexé, ou son texte n'a jamais été extrait (PDF scanné)</td><td>Indexation (leçon 5)</td></tr>
+          <tr><td>Réponse à côté du sujet</td><td>La recherche a ramené les mauvais extraits</td><td>Recherche hybride, reranking (leçon 7)</td></tr>
+          <tr><td>Réponse incomplète</td><td>L'information est répartie sur plusieurs morceaux et un seul a été remonté</td><td>Augmenter le top-k, revoir le découpage</td></tr>
+          <tr><td>Réponse inventée malgré les extraits</td><td>La consigne n'interdit pas assez clairement de sortir du contexte</td><td>Le prompt (leçon 8)</td></tr>
+          <tr><td>Réponse périmée</td><td>L'ancienne version du document est encore dans la base à côté de la nouvelle</td><td>Le cycle de réindexation</td></tr>
+        </tbody>
+      </table>
+
+      <p>Remarque que <strong>quatre lignes sur cinq ne concernent pas le modèle de langage</strong>. C'est la statistique la plus utile de ce cours : quand un RAG déçoit, changer de modèle est presque toujours la dernière chose à essayer, pas la première.</p>
+
+      <h3>Le mode d'échec le plus dangereux</h3>
+      <div class="callout danger">
+        <strong>⚠ La réponse confiante et fausse</strong> — Il n'y a rien dans ta base sur la question posée. La recherche remonte quand même ses cinq meilleurs résultats — <em>elle remonte toujours quelque chose</em>. Le modèle reçoit cinq extraits hors sujet, mais plausibles, et construit une réponse cohérente à partir d'eux. Avec des citations. <strong>Aucune erreur n'apparaît nulle part.</strong> C'est précisément l'histoire de la leçon 12.
+      </div>
+      <p>La parade tient en deux gestes, et les deux sont nécessaires : <strong>un seuil de score minimum</strong> en dessous duquel on refuse de répondre, et <strong>une consigne d'échec explicite</strong> dans le prompt. Ni l'un ni l'autre ne suffit seul.</p>
+
+      <h3>Trois cas où le RAG n'est PAS la bonne réponse</h3>
+
+      <p><strong>① Tes documents tiennent dans le contexte.</strong> Les modèles actuels avalent des centaines de milliers de mots d'un coup. Si toute ta documentation fait 50 pages, <strong>colle-la entièrement</strong> et arrête-toi là : zéro infrastructure, zéro découpage, zéro risque de mal chercher. C'est moins élégant et c'est souvent meilleur. Le RAG devient utile quand ça ne rentre plus, quand ça coûte trop cher à chaque question, ou quand la précision se dégrade parce qu'on noie l'essentiel.</p>
+
+      <p><strong>② Tu veux changer le comportement, pas les connaissances.</strong> Si ton besoin est « qu'il réponde dans notre ton », « qu'il produise toujours ce format exact », « qu'il maîtrise notre jargon métier », le RAG ne t'aidera pas : c'est du <strong>fine-tuning</strong>. La règle qui sert de repère : <em>le RAG apporte des faits, le fine-tuning apporte un comportement.</em> Beaucoup de systèmes sérieux font les deux.</p>
+
+      <p><strong>③ La question demande de calculer, pas de retrouver.</strong> « Combien de commandes en mars ? », « quel est le client avec le plus gros panier moyen ? ». Aucun extrait de document ne contient ces réponses : il faut interroger une base de données. La bonne solution est un outil qui écrit une requête SQL — ce qu'un RAG classique ne fait pas. Confondre les deux est une source de déception très fréquente.</p>
+
+      <h3>Où va le RAG aujourd'hui</h3>
+      <p>Trois évolutions se sont imposées, et c'est utile de les connaître de nom :</p>
+      <ul>
+        <li><strong>Le RAG agentique.</strong> Au lieu d'une recherche unique, le modèle <em>décide</em> quoi chercher, lit, constate qu'il lui manque quelque chose, et relance une recherche. Il peut décomposer une question complexe en plusieurs sous-questions. C'est le schéma dominant pour les usages exigeants — et c'est aussi plus lent et plus cher.</li>
+        <li><strong>Le RAG auto-correctif.</strong> Le système évalue ses propres extraits avant de répondre : s'ils sont faibles, il recherche autrement ou refuse. C'est la réponse directe au mode d'échec dangereux ci-dessus.</li>
+        <li><strong>La récupération hybride au sens large.</strong> Selon la question, on va chercher dans une base vectorielle, dans une base de données relationnelle, ou dans un graphe de connaissances. Le « tout-vectoriel » a fait son temps.</li>
+      </ul>
+      <p>Mais attention : ces trois évolutions se construisent <strong>par-dessus</strong> les bases de ce cours, elles ne les remplacent pas. Un RAG agentique dont le découpage est raté est un RAG raté, simplement plus cher.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Commencer par l'architecture sophistiquée. RAG agentique, graphe de connaissances, reranking maison : tout ça est séduisant sur un schéma. Commence par le RAG le plus bête possible — découpage par sections, recherche hybride, top-5, un bon prompt — <strong>mesure ce qui rate</strong>, et ajoute la complexité seulement là où tu as constaté un manque. La plupart des équipes qui commencent compliqué ne savent jamais ce qui, dans leur système, apporte réellement quelque chose.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — RAG, fine-tuning, gros contexte, ou base de données ? <strong>(a)</strong> répondre sur 12 000 pages de documentation ; <strong>(b)</strong> répondre toujours au format « constat / cause / action » ; <strong>(c)</strong> répondre sur un contrat de 40 pages ; <strong>(d)</strong> « quel est mon chiffre d'affaires du trimestre ? ». <em>(Réponses : a → RAG ; b → fine-tuning ; c → gros contexte, tout coller ; d → base de données, pas de RAG du tout.)</em>
+      </div>
+
+      <details class="quiz">
+        <summary>Mini-quiz : le bon réflexe de diagnostic</summary>
+        <p><strong>Ton RAG répond mal. Quelle est la PREMIÈRE chose à regarder ?</strong></p>
+        <p><strong>Les extraits qui ont été remontés.</strong> Affiche-les. Si le bon passage n'y est pas, tout problème de modèle ou de prompt est hors sujet — c'est la recherche ou l'indexation qu'il faut réparer. Si le bon passage y était et que la réponse est quand même fausse, alors seulement tu regardes le prompt et le modèle. Ce réflexe fait gagner des journées entières.</p>
+      </details>
+    </section>
+
+    <!-- ══════════════ MODULE 4 ══════════════ -->
+
+    <section id="m4-l11">
+      <span class="lesson-num">Module 4 · Leçon 11</span>
+      <h2>🎧 Le service client de Léa</h2>
+
+      <div class="kid">
+        <span class="label">🔎 Version 5 ans</span>
+        <p>Léa vend des chaussures sur Internet. Tous les jours, des gens lui posent les mêmes questions, et elle doit chercher les réponses dans des dizaines de papiers rangés partout.</p>
+        <p>Alors elle a construit une bibliothèque bien rangée, avec une bibliothécaire très rapide. Maintenant, quand une question arrive, la bonne fiche est trouvée en deux secondes.</p>
+      </div>
+
+      <h3>La situation</h3>
+      <p><em>Chaussures Léa</em> est une boutique en ligne fictive de douze personnes. Quatre agents traitent environ 200 demandes par jour. Leur documentation est éparpillée :</p>
+      <ul>
+        <li>Les CGV (32 pages, en PDF)</li>
+        <li>La FAQ du site (environ 80 questions, en HTML)</li>
+        <li>Un guide interne des procédures (un document de 60 pages)</li>
+        <li>2 400 tickets passés, déjà résolus, avec leur réponse validée</li>
+      </ul>
+      <p>Le problème n'est pas que les réponses n'existent pas : c'est que les trouver prend trois minutes, et qu'un agent qui débute ne sait même pas où chercher. Léa met en place un RAG — <strong>pour ses agents, pas pour ses clients</strong>. C'est un choix délibéré : un humain valide toujours avant l'envoi, donc une mauvaise suggestion coûte quelques secondes, pas un client.</p>
+
+      <h3>Comment elle a indexé</h3>
+      <table>
+        <thead><tr><th>Source</th><th>Découpage</th><th>Métadonnées ajoutées</th></tr></thead>
+        <tbody>
+          <tr><td>CGV (PDF)</td><td>Par article (les titres d'articles servent de frontières)</td><td><code>type: cgv</code>, <code>article: 7</code>, <code>version: 2026</code></td></tr>
+          <tr><td>FAQ (HTML)</td><td>Une question-réponse = un morceau (ils sont déjà courts et autonomes)</td><td><code>type: faq</code>, <code>categorie: retours</code></td></tr>
+          <tr><td>Guide interne</td><td>Par section, avec le titre de section préfixé dans le morceau</td><td><code>type: interne</code>, <code>confidentiel: true</code></td></tr>
+          <tr><td>Tickets résolus</td><td>Un ticket = un morceau (question + réponse validée)</td><td><code>type: ticket</code>, <code>date</code>, <code>satisfaction</code></td></tr>
+        </tbody>
+      </table>
+
+      <p>Trois décisions dans ce tableau méritent d'être notées, parce que ce sont elles qui font la différence :</p>
+      <ul>
+        <li><strong>Chaque source a son propre découpage.</strong> Appliquer la même règle à un PDF juridique et à une FAQ aurait tout abîmé. La FAQ était déjà découpée par son auteur — il suffisait de respecter cette structure.</li>
+        <li><strong>Le champ <code>confidentiel</code> sur le guide interne.</strong> Il sert de filtre : si Léa ouvre un jour le RAG aux clients, ces morceaux seront exclus <em>à la recherche</em>, pas par une consigne au modèle (leçon 7).</li>
+        <li><strong>Les tickets résolus sont indexés.</strong> C'est l'idée la plus rentable de tout le projet : 2 400 vraies questions de clients, avec leur vraie réponse validée. Formulées exactement comme les clients parlent, et pas comme les CGV écrivent.</li>
+      </ul>
+
+      <h3>Un mardi après-midi</h3>
+      <ul class="timeline">
+        <li><span class="t">14:22 — Un client écrit.</span> « Bonjour, j'ai reçu mes baskets mais elles taillent trop petit, comment je fais pour les échanger ? »</li>
+        <li><span class="t">14:22:01 — La recherche part.</span> Vectorielle <em>et</em> par mots-clés. La partie vectorielle trouve les passages sur l'échange et le retour, <strong>alors que le mot « échanger » n'apparaît pas dans les CGV</strong>, qui parlent de « substitution d'article ». La partie lexicale, elle, attrape « baskets » et remonte trois tickets du même modèle.</li>
+        <li><span class="t">14:22:01 — Fusion et reranking.</span> 30 candidats, ramenés à 5 par le reranker. En tête : un ticket résolu quasi identique, d'il y a trois semaines, avec une satisfaction de 5/5.</li>
+        <li><span class="t">14:22:02 — La suggestion s'affiche</span> devant l'agent, avec les cinq extraits sur le côté et leurs sources cliquables : deux articles des CGV, deux entrées de FAQ, un ticket passé.</li>
+        <li><span class="t">14:22:40 — L'agent lit, vérifie l'article 7, ajuste une phrase</span> pour le cas particulier de ce client, et envoie. <strong>Trois minutes sont devenues quarante secondes</strong>, et l'agent a appris où se trouve la règle.</li>
+        <li><span class="t">14:31 — Un cas limite.</span> « Est-ce que vous livrez en Guadeloupe ? » Aucun document ne parle des DOM-TOM. Le meilleur score de similarité plafonne à 0,41 — sous le seuil que Léa a fixé à 0,55. Le système affiche : <em>« Je ne trouve pas cette information dans la documentation. »</em> et propose les trois extraits les plus proches à titre indicatif.<br><strong>C'est un succès, pas un échec.</strong> L'agent sait immédiatement qu'il doit se renseigner, au lieu de faire confiance à une réponse inventée.</li>
+      </ul>
+
+      <h3>Le cœur du système</h3>
+      <pre><code class="language-python">SEUIL = 0.55
+
+def suggerer(question: str, client_externe: bool = False) -> dict:
+    # ① filtrer AVANT de chercher (les droits ne se négocient pas
+    #    avec le modèle — voir leçon 7)
+    filtres = {"confidentiel": False} if client_externe else {}
+
+    # ② recherche hybride puis reranking
+    candidats = base.recherche_hybride(question, k=30, filtres=filtres)
+    extraits  = reranker.trier(question, candidats)
+
+    # ③ le garde-fou : si rien n'est assez proche, on refuse
+    if not extraits or extraits[0].score < SEUIL:
+        return {"reponse": None, "pistes": extraits[:3]}
+
+    top5 = extraits[:5]
+    return {
+        "reponse": modele.completer(systeme=CONSIGNE_RAG,
+                                    message=assembler(top5, question)),
+        "sources": [e.source for e in top5],
+    }</code></pre>
+
+      <h3>Ce que Léa a vraiment gagné</h3>
+      <p>Le gain de temps est réel, mais ce n'est pas le principal. Deux effets qu'elle n'avait pas anticipés :</p>
+      <p><strong>La formation des nouveaux.</strong> Un agent qui arrive voit, à chaque question, <em>où</em> se trouve la réponse dans la documentation. En trois semaines il connaît la structure des CGV sans l'avoir jamais lue d'un bout à l'autre. Le RAG est devenu un outil d'apprentissage autant qu'un outil de réponse.</p>
+      <p><strong>La détection des trous.</strong> Léa regarde chaque semaine la liste des questions où le système est passé sous le seuil. Ce sont exactement les questions que sa documentation ne couvre pas. En deux mois, elle a comblé trente manques qu'elle ignorait — et le RAG s'est amélioré tout seul, sans une ligne de code.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Ne pas indexer les tickets passés. C'est la source la plus précieuse et la plus souvent oubliée, parce qu'elle ne ressemble pas à de la « documentation ». Or elle a une qualité unique : elle est écrite <strong>dans les mots des clients</strong>, pas dans ceux des juristes. C'est ce qui permet à la recherche de faire le pont entre « elles taillent petit » et « article 7 — substitution ».
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Léa veut ouvrir le système directement aux clients, sans agent. Quels sont les trois risques nouveaux, et quelle protection du code ci-dessus devient alors absolument critique ? <em>(Pistes : plus personne ne relit ; les questions deviennent bien plus variées ; et une erreur devient publique. Le filtre <code>confidentiel</code> et le seuil deviennent tous deux non négociables.)</em>
+      </div>
+    </section>
+
+    <section id="m4-l12">
+      <span class="lesson-num">Module 4 · Leçon 12</span>
+      <h2>🏫 L'école de Malik (et le jour où ça a répondu n'importe quoi)</h2>
+
+      <div class="kid">
+        <span class="label">🔎 Version 5 ans</span>
+        <p>Malik a construit une bibliothèque pour son école. Un jour, un parent a demandé quelque chose qui n'était écrit <strong>nulle part</strong> dans les livres.</p>
+        <p>La bibliothécaire est quand même revenue avec cinq fiches — parce qu'elle revient <strong>toujours</strong> avec cinq fiches, c'est son travail. Les fiches parlaient d'autre chose. Et le monsieur, qui lit très bien, a fabriqué une réponse magnifique à partir des mauvaises fiches.</p>
+        <p>Personne ne s'est rendu compte de rien. Pendant trois semaines.</p>
+      </div>
+
+      <h3>La situation</h3>
+      <p><em>L'école Saint-Marc</em> est un établissement fictif de 600 élèves. Malik, responsable informatique, a monté un assistant pour les parents : règlement intérieur, calendrier scolaire, menus de la cantine, circulaires, tarifs. 340 documents indexés. Il tourne depuis deux mois et tout le monde en est content.</p>
+
+      <h3>Le 14 mars, 8:47 — l'incident</h3>
+      <ul class="timeline">
+        <li><span class="t">8:47</span> — Une mère de famille demande : « Est-ce que l'école accueille les enfants pendant les vacances de février ? »</li>
+        <li><span class="t">8:47:01</span> — <strong>Aucun document ne parle de ça.</strong> L'école n'a pas de service de garde pendant les vacances, et ça n'est écrit nulle part — puisque ça n'existe pas. Un manque, pas une erreur.</li>
+        <li><span class="t">8:47:01</span> — La recherche remonte quand même ses cinq meilleurs résultats. Elle remonte <em>toujours</em> cinq résultats. Scores : 0,58 / 0,55 / 0,52 / 0,49 / 0,47. Des valeurs qui n'ont rien d'alarmant.</li>
+        <li><span class="t">8:47:01</span> — Ce que contiennent ces extraits : le calendrier scolaire (qui mentionne les dates des vacances de février), une circulaire sur <strong>l'accueil périscolaire du soir</strong>, les tarifs de la garderie, le règlement sur les horaires d'ouverture, et un menu de cantine.</li>
+        <li><span class="t">8:47:03</span> — Le modèle reçoit ces cinq extraits. Ils parlent tous d'accueil, d'horaires, de tarifs et de vacances. Il en fabrique une synthèse cohérente :<br><em>« Oui, l'école propose un accueil pendant les vacances de février (du 14 au 28 février), de 7h30 à 18h30. Le tarif est de 4,50 € par demi-journée. [sources : calendrier_scolaire.pdf, circulaire_accueil.pdf, tarifs_2026.pdf] »</em></li>
+        <li><span class="t">8:47:03</span> — <strong>Chaque élément est vrai séparément.</strong> Les dates viennent du vrai calendrier. Les horaires sont les vrais horaires du périscolaire. Le tarif est le vrai tarif de la garderie du soir. Les trois sources citées existent réellement et sont cliquables.<br>Seule la <strong>combinaison</strong> est fausse. Et c'est ce qui la rend indétectable.</li>
+        <li><span class="t">Pendant trois semaines</span> — Environ quarante parents posent une question similaire et reçoivent une variante de cette réponse. Personne ne signale rien : la réponse est précise, sourcée, et plausible.</li>
+        <li><span class="t">4 avril, 7:30</span> — Neuf familles déposent leurs enfants devant une école fermée.</li>
+      </ul>
+
+      <div class="schema">
+<pre>
+  QUESTION : « accueil pendant les vacances de février ? »
+       │
+       ▼
+  ┌─ LA BASE ────────────────────────────────────────────┐
+  │  Contient : calendrier, périscolaire du SOIR,        │
+  │             tarifs garderie, horaires, menus          │
+  │  Ne contient PAS : accueil pendant les vacances       │
+  └──────────────────────────────────────────────────────┘
+       │
+       │  la recherche remonte TOUJOURS 5 résultats
+       ▼
+  [0.58] [0.55] [0.52] [0.49] [0.47]   ← rien d'alarmant
+       │
+       ▼
+  ┌─ LE MODÈLE ──────────────────────────────────────────┐
+  │  Cinq extraits qui parlent d'accueil, d'horaires,    │
+  │  de tarifs et de vacances. Il assemble.              │
+  │                                                      │
+  │  → Réponse cohérente. Sourcée. Fausse.               │
+  └──────────────────────────────────────────────────────┘
+
+  Aucune erreur. Aucun score anormal. Aucune alerte.
+</pre>
+        <span class="cap">Le système a parfaitement fonctionné. C'est le problème : il n'avait aucun moyen de dire « il n'y a rien ».</span>
+      </div>
+
+      <h3>Le diagnostic</h3>
+      <p>Malik remonte la trace en rejouant la question et en affichant les extraits — le réflexe de la leçon 3. Le verdict tombe en trente secondes : <strong>le bon passage n'était pas dans les extraits, parce qu'il n'existe pas</strong>. Ce n'est ni un problème de modèle, ni de prompt, ni de découpage.</p>
+      <p>Trois manques se sont additionnés :</p>
+      <ol>
+        <li><strong>Aucun seuil de score.</strong> Le système répondait quel que soit le niveau de pertinence. 0,58 ou 0,95, il traitait les deux pareil.</li>
+        <li><strong>Aucune consigne d'échec.</strong> Le prompt disait « réponds à partir des extraits ». Il ne disait <em>pas</em> « si les extraits ne répondent pas, dis-le ». Le modèle n'avait donc aucune porte de sortie — et il a fait ce pour quoi il est doué : produire un texte cohérent.</li>
+        <li><strong>Aucune boucle de retour.</strong> Rien ne permettait à un parent de signaler une réponse douteuse, et Malik ne regardait jamais les questions posées. Trois semaines de silence n'étaient pas un signe de bon fonctionnement — juste un silence.</li>
+      </ol>
+
+      <h3>Les corrections</h3>
+      <p><strong>① Un seuil, et un refus assumé.</strong> En dessous de 0,60, le système ne répond plus : il affiche « Je ne trouve pas cette information » et donne le numéro du secrétariat. Malik a calibré le seuil en rejouant 200 vraies questions et en regardant où tombait la frontière entre les bonnes et les mauvaises réponses — pas en choisissant un chiffre au hasard.</p>
+
+      <p><strong>② Une consigne d'échec explicite</strong>, avec la phrase fournie mot pour mot (leçon 8) :</p>
+      <pre><code class="language-text">Si les extraits ne contiennent pas explicitement la réponse, réponds
+EXACTEMENT : « Je ne trouve pas cette information dans les documents
+de l'école. Contactez le secrétariat au 01 23 45 67 89. »
+
+Ne combine JAMAIS des informations qui viennent de contextes différents
+pour fabriquer une réponse. Si un extrait parle de l'accueil du soir,
+il ne dit rien sur les vacances scolaires.</code></pre>
+      <p>La deuxième phrase est celle qui vise directement l'incident : elle interdit l'assemblage entre contextes, qui est le mécanisme exact de la panne.</p>
+
+      <p><strong>③ Un bouton « cette réponse me semble fausse »</strong> sous chaque réponse, et un rapport hebdomadaire des questions passées sous le seuil. Ce sont devenus les deux indicateurs que Malik regarde en premier.</p>
+
+      <p><strong>④ Documenter ce qui n'existe pas.</strong> La correction la moins technique, et peut-être la plus efficace. Malik a ajouté à la base une page « Ce que l'école ne propose pas », qui dit noir sur blanc qu'il n'y a pas d'accueil pendant les vacances. Le trou est devenu un document. Désormais, la question trouve une vraie réponse — négative, mais juste.</p>
+
+      <div class="callout danger">
+        <strong>⚠ Ce qu'il faut retenir de cette histoire</strong> — Un RAG ne sait pas nativement dire « il n'y a rien ». Il rapporte toujours ce qu'il a trouvé de moins éloigné, et un modèle rédige toujours quelque chose. <strong>La capacité à refuser de répondre ne vient pas toute seule : il faut la construire</strong>, avec un seuil et une consigne. C'est le premier réglage à mettre en place, pas le dernier.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice final</strong> — Malik veut vérifier qu'il n'a pas d'autres trous du même genre. Comment t'y prendrais-tu, sans attendre qu'un parent se plaigne ? <em>(Pistes : rejouer l'historique des questions et repérer celles dont le meilleur score est bas ; poser volontairement des questions sur des services qui n'existent pas et vérifier que le système refuse ; et surtout — constituer une liste de questions dont tu connais la réponse, et la rejouer après chaque modification. C'est le point de départ d'une évaluation.)</em>
+      </div>
+
+      <div class="end-card">
+        <h3>🎓 Ton résumé, à réciter à un enfant de 5 ans</h3>
+        <p><strong>1.</strong> L'IA a tout lu il y a longtemps, mais elle ne connaît pas tes papiers à toi — et quand elle ne sait pas, elle invente au lieu de le dire.</p>
+        <p><strong>2.</strong> Alors avant qu'elle réponde, on va chercher les bonnes pages dans tes papiers et on les lui met sous les yeux, avec la consigne de n'utiliser que ça.</p>
+        <p><strong>3.</strong> Et il faut lui donner le droit de dire « je ne trouve pas » — sinon elle fabriquera toujours une réponse, même quand il n'y a rien à trouver.</p>
+
+        <h3 style="margin-top:1.8rem">✅ La checklist avant de mettre un RAG en production</h3>
+        <ul>
+          <li>Je suis allé <strong>regarder mes morceaux</strong> dans la base — pas seulement mes documents d'origine.</li>
+          <li>Chaque morceau est autonome : il porte son titre de section et son document d'origine.</li>
+          <li>Ma recherche est <strong>hybride</strong> (sens + mots exacts), pas seulement vectorielle.</li>
+          <li>J'ai un <strong>seuil de score</strong> en dessous duquel le système refuse de répondre.</li>
+          <li>Mon prompt contient une <strong>phrase d'échec</strong> fournie mot pour mot.</li>
+          <li>Mon prompt interdit de combiner des extraits venant de contextes différents.</li>
+          <li>J'affiche les <strong>sources</strong>, et elles sont vérifiables en un clic.</li>
+          <li>Les droits d'accès sont appliqués <strong>en filtrant à la recherche</strong>, jamais par une consigne au modèle.</li>
+          <li>J'ai une liste de questions-tests dont je connais les réponses, et je la rejoue après chaque changement.</li>
+          <li>Je regarde chaque semaine les questions où le système a refusé de répondre : ce sont les trous de ma documentation.</li>
+        </ul>
+
+        <h3 style="margin-top:1.8rem">📌 Les repères techniques du cours</h3>
+        <p>Deux temps : <strong>indexation</strong> (hors ligne) et <strong>requête</strong> (en ligne) · Chaîne complète : découper → vectoriser → indexer, puis chercher → trier → assembler → générer · Découpage par <strong>structure</strong> du document, avec chevauchement et contexte préfixé · Recherche <strong>hybride</strong> (vectorielle + BM25) fusionnée par rang réciproque, puis <strong>reranking</strong> en entonnoir · <strong>Top-k</strong> entre 3 et 8 · Filtres par <strong>métadonnées</strong> appliqués avant la recherche · Évolutions actuelles : RAG <strong>agentique</strong>, RAG <strong>auto-correctif</strong>, récupération hybride multi-sources.</p>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+  hljs.highlightAll();
+
+  const sidebar = document.getElementById('sidebar');
+  document.getElementById('menuToggle').addEventListener('click', () => {
+    sidebar.classList.toggle('open');
+  });
+
+  document.querySelectorAll('.module-title').forEach(t => {
+    t.addEventListener('click', () => t.parentElement.classList.toggle('collapsed'));
+  });
+
+  const lessonLinks = document.querySelectorAll('[data-lesson]');
+  const storageKey = 'course-progress-rag';
+  const done = JSON.parse(localStorage.getItem(storageKey) || '{}');
+  const fill = document.getElementById('progressFill');
+  const mini = document.getElementById('progressMini');
+  const text = document.getElementById('progressText');
+
+  function marquer(id) {
+    if (done[id]) return;
+    done[id] = true;
+    localStorage.setItem(storageKey, JSON.stringify(done));
+    const lien = document.querySelector('[data-lesson="' + id + '"]');
+    if (lien) lien.querySelector('.lesson-check').classList.add('done');
+    majBarre();
+  }
+
+  function majBarre() {
+    const total = lessonLinks.length;
+    const faites = Object.values(done).filter(Boolean).length;
+    const pct = total ? (faites / total * 100) : 0;
+    fill.style.width = pct + '%';
+    mini.style.width = pct + '%';
+    text.textContent = faites + ' / ' + total + ' leçons vues';
+  }
+
+  lessonLinks.forEach(link => {
+    if (done[link.dataset.lesson]) link.querySelector('.lesson-check').classList.add('done');
+    link.addEventListener('click', () => {
+      marquer(link.dataset.lesson);
+      sidebar.classList.remove('open');
+    });
+  });
+
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (!e.isIntersecting) return;
+      const id = e.target.id;
+      document.querySelectorAll('[data-lesson]').forEach(a =>
+        a.classList.toggle('active', a.dataset.lesson === id));
+      marquer(id);
+    });
+  }, { rootMargin: '-45% 0px -45% 0px' });
+
+  document.querySelectorAll('main section[id]').forEach(s => observer.observe(s));
+
+  majBarre();
+</script>
+</body>
+</html>

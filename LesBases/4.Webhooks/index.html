@@ -1,0 +1,1315 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Les Webhooks expliqués simplement</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --nuit:      #151A3A;
+    --nuit-soft: #222A55;
+    --bg:        #F6F8FC;
+    --card:      #FFFFFF;
+    --sonnette:  #FF6B35;
+    --turquoise: #17BEBB;
+    --enveloppe: #FFC94A;
+    --encre:     #232838;
+    --gris:      #6B7391;
+    --border:    #E2E7F2;
+
+    --font-display: "Baloo 2", "Trebuchet MS", system-ui, sans-serif;
+    --font-body: "Nunito", system-ui, -apple-system, sans-serif;
+
+    --sidebar-width: 300px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font-body);
+    color: var(--encre);
+    background: var(--bg);
+    line-height: 1.7;
+    font-size: 17px;
+  }
+
+  .layout { display: flex; min-height: 100vh; }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar {
+    width: var(--sidebar-width);
+    flex-shrink: 0;
+    background: var(--nuit);
+    color: #DDE3F5;
+    padding: 1.75rem 1.1rem 3rem;
+    overflow-y: auto;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+  }
+  .brand {
+    display: flex; align-items: center; gap: .6rem;
+    margin-bottom: .25rem;
+  }
+  .brand-bell {
+    width: 38px; height: 38px; flex-shrink: 0;
+    border-radius: 50%;
+    background: var(--sonnette);
+    display: grid; place-items: center;
+    font-size: 1.1rem;
+    box-shadow: 0 0 0 4px rgba(255,107,53,.22);
+  }
+  .sidebar h1 {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    line-height: 1.2;
+    color: #fff;
+    font-weight: 800;
+  }
+  .brand-sub {
+    font-size: .78rem; color: #8F9AC4; margin-bottom: 1.4rem; padding-left: 3px;
+  }
+
+  .progress-mini {
+    background: var(--nuit-soft);
+    border-radius: 10px;
+    padding: .6rem .75rem;
+    margin-bottom: 1.4rem;
+    font-size: .78rem;
+    color: #A9B3D8;
+  }
+  .progress-mini .track {
+    height: 6px; background: #0E1229; border-radius: 99px; margin-top: .45rem; overflow: hidden;
+  }
+  .progress-mini .track span {
+    display: block; height: 100%; width: 0%;
+    background: linear-gradient(90deg, var(--turquoise), var(--enveloppe));
+    transition: width .25s ease;
+  }
+
+  .module-group { margin-bottom: .35rem; }
+  .module-title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: .95rem;
+    color: #fff;
+    padding: .5rem .55rem;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex; justify-content: space-between; align-items: center; gap: .5rem;
+    user-select: none;
+  }
+  .module-title:hover { background: var(--nuit-soft); }
+  .module-title .chev { font-size: .7rem; color: #7C87B5; transition: transform .2s ease; }
+  .module-group.collapsed .chev { transform: rotate(-90deg); }
+  .module-group.collapsed .lesson-list { display: none; }
+
+  .lesson-list { list-style: none; padding-left: .5rem; margin-bottom: .4rem; }
+  .lesson-list li a {
+    display: flex; align-items: center; gap: .55rem;
+    padding: .35rem .5rem;
+    border-radius: 7px;
+    color: #A9B3D8;
+    text-decoration: none;
+    font-size: .86rem;
+    line-height: 1.35;
+  }
+  .lesson-list li a:hover { background: var(--nuit-soft); color: #fff; }
+  .lesson-list li a.active { color: #fff; background: var(--nuit-soft); font-weight: 700; }
+
+  .lesson-check {
+    width: 15px; height: 15px; flex-shrink: 0;
+    border: 1.5px solid #59639A; border-radius: 50%;
+    position: relative;
+  }
+  .lesson-check.done { background: var(--turquoise); border-color: var(--turquoise); }
+  .lesson-check.done::after {
+    content: "✓"; position: absolute; inset: 0;
+    font-size: 10px; color: var(--nuit); display: grid; place-items: center; font-weight: 700;
+  }
+
+  /* ---------- Barre de progression haute ---------- */
+  .progress-bar {
+    height: 4px; background: transparent;
+    position: fixed; top: 0; left: 0; right: 0; z-index: 25;
+  }
+  .progress-bar-fill {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, var(--sonnette), var(--enveloppe), var(--turquoise));
+    transition: width .25s ease;
+  }
+
+  /* ---------- Contenu ---------- */
+  .content { flex: 1; max-width: 820px; margin: 0 auto; padding: 3rem 2.5rem 6rem; }
+
+  .hero {
+    background: var(--nuit);
+    color: #fff;
+    border-radius: 20px;
+    padding: 2.2rem 2rem;
+    margin-bottom: 2.5rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::after {
+    content: ""; position: absolute; right: -40px; top: -40px;
+    width: 180px; height: 180px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,107,53,.35), transparent 70%);
+  }
+  .hero h1 {
+    font-family: var(--font-display); font-size: 2.3rem; line-height: 1.1;
+    margin-bottom: .6rem; font-weight: 800;
+  }
+  .hero p { color: #B9C2E4; font-size: 1.02rem; max-width: 46ch; }
+  .hero .tags { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1.2rem; }
+  .hero .tags span {
+    background: var(--nuit-soft); color: #CBD3F0;
+    padding: .25rem .7rem; border-radius: 99px; font-size: .78rem; font-weight: 600;
+  }
+
+  section { scroll-margin-top: 2rem; margin-bottom: 4.5rem; }
+
+  .lesson-num {
+    display: inline-block;
+    font-family: var(--font-display); font-weight: 700; font-size: .75rem;
+    color: var(--sonnette); letter-spacing: .08em; text-transform: uppercase;
+    margin-bottom: .2rem;
+  }
+  .content h2 {
+    font-family: var(--font-display); font-size: 1.85rem; line-height: 1.2;
+    font-weight: 800; margin-bottom: 1.1rem;
+  }
+  .content h3 {
+    font-family: var(--font-display); font-size: 1.22rem;
+    margin: 2rem 0 .6rem; font-weight: 700;
+  }
+  .content p { margin-bottom: 1rem; }
+  .content ul, .content ol { margin: 0 0 1rem 1.2rem; }
+  .content li { margin-bottom: .4rem; }
+  .content a { color: var(--sonnette); }
+  strong { font-weight: 700; }
+
+  /* ---------- Signature : les deux cartes ---------- */
+  .kid, .grown {
+    border-radius: 16px;
+    padding: 1.2rem 1.3rem;
+    margin: 1.2rem 0 1.5rem;
+    position: relative;
+  }
+  .kid {
+    background: #FFF6DF;
+    border: 2px dashed var(--enveloppe);
+    font-size: 1.08rem;
+  }
+  .grown {
+    background: #EAFAFA;
+    border-left: 5px solid var(--turquoise);
+  }
+  .kid .label, .grown .label {
+    font-family: var(--font-display); font-weight: 700; font-size: .78rem;
+    text-transform: uppercase; letter-spacing: .07em;
+    display: block; margin-bottom: .45rem;
+  }
+  .kid .label { color: #A9761A; }
+  .grown .label { color: #0C7A78; }
+  .kid p:last-child, .grown p:last-child { margin-bottom: 0; }
+
+  /* ---------- Schémas ---------- */
+  .schema {
+    background: var(--nuit);
+    color: #D5DCF5;
+    border-radius: 14px;
+    padding: 1.2rem 1.3rem;
+    margin: 1.3rem 0;
+    overflow-x: auto;
+  }
+  .schema pre {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: .84rem; line-height: 1.55; background: none; padding: 0; color: inherit;
+    white-space: pre;
+  }
+  .schema .cap {
+    display: block; margin-top: .8rem; font-size: .8rem; color: #8F9AC4; font-style: italic;
+  }
+
+  pre { border-radius: 12px; padding: 1rem 1.1rem; overflow-x: auto; margin: 1.1rem 0; font-size: .88rem; }
+  code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+  p code, li code, td code {
+    background: #E8ECF7; color: #2B3157; padding: .1rem .38rem;
+    border-radius: 5px; font-size: .87em; font-weight: 600;
+  }
+
+  /* ---------- Callouts ---------- */
+  .callout {
+    border-radius: 0 12px 12px 0;
+    padding: 1rem 1.2rem;
+    margin: 1.3rem 0;
+    background: var(--card);
+    border-left: 5px solid var(--gris);
+    box-shadow: 0 1px 3px rgba(21,26,58,.06);
+  }
+  .callout strong:first-child { font-family: var(--font-display); }
+  .callout.pitfall { border-left-color: var(--sonnette); background: #FFF2ED; }
+  .callout.exercise { border-left-color: var(--turquoise); background: var(--card); }
+  .callout p:last-child { margin-bottom: 0; }
+
+  details.quiz {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: .85rem 1.1rem; margin: 1rem 0;
+  }
+  details.quiz summary {
+    cursor: pointer; font-weight: 700; font-family: var(--font-display);
+    color: var(--nuit); list-style: none;
+  }
+  details.quiz summary::before { content: "💡 "; }
+  details.quiz[open] summary { margin-bottom: .7rem; color: var(--sonnette); }
+  details.quiz p:last-child { margin-bottom: 0; }
+
+  /* ---------- Tableaux ---------- */
+  table {
+    width: 100%; border-collapse: collapse; margin: 1.2rem 0;
+    background: var(--card); border-radius: 12px; overflow: hidden;
+    box-shadow: 0 1px 3px rgba(21,26,58,.06); font-size: .93rem;
+  }
+  th, td { padding: .7rem .9rem; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--nuit); color: #fff; font-family: var(--font-display); font-weight: 700; font-size: .88rem; }
+  tr:last-child td { border-bottom: none; }
+
+  .timeline { list-style: none; margin: 1.3rem 0 1.3rem .4rem; padding-left: 1.4rem; border-left: 2px dotted var(--sonnette); }
+  .timeline li { position: relative; margin-bottom: 1rem; }
+  .timeline li::before {
+    content: ""; position: absolute; left: -1.85rem; top: .55rem;
+    width: 10px; height: 10px; border-radius: 50%; background: var(--sonnette);
+    box-shadow: 0 0 0 3px var(--bg);
+  }
+  .timeline .t { font-family: var(--font-display); font-weight: 700; color: var(--nuit-soft); }
+
+  .end-card {
+    background: linear-gradient(135deg, var(--nuit), #2C1F4A);
+    color: #fff; border-radius: 20px; padding: 2rem; margin-top: 3rem;
+  }
+  .end-card h3 { color: #fff; margin-top: 0; }
+  .end-card p, .end-card li { color: #C7CEEC; }
+
+  .menu-toggle { display: none; }
+
+  @media (max-width: 900px) {
+    body { font-size: 16px; }
+    .sidebar {
+      position: fixed; left: -100%; top: 0;
+      transition: left .22s ease; z-index: 30;
+      box-shadow: 6px 0 24px rgba(21,26,58,.28);
+    }
+    .sidebar.open { left: 0; }
+    .menu-toggle {
+      display: block; position: fixed; top: .85rem; left: .85rem; z-index: 40;
+      background: var(--sonnette); color: #fff; border: none;
+      border-radius: 10px; padding: .5rem .8rem; cursor: pointer; font-size: 1rem;
+      box-shadow: 0 2px 8px rgba(21,26,58,.25);
+    }
+    .content { padding: 4.2rem 1.15rem 4rem; }
+    .hero { padding: 1.6rem 1.3rem; }
+    .hero h1 { font-size: 1.8rem; }
+    .schema pre { font-size: .72rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-bar-fill" id="progressFill"></div></div>
+<button class="menu-toggle" id="menuToggle">☰</button>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-bell">🔔</div>
+      <h1>Les Webhooks<br>expliqués simplement</h1>
+    </div>
+    <div class="brand-sub">12 leçons · ~45 min de lecture</div>
+
+    <div class="progress-mini">
+      <span id="progressText">0 / 12 leçons vues</span>
+      <div class="track"><span id="progressMini"></span></div>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title">Module 1 — C'est quoi ? <span class="chev">▼</span></div>
+      <ul class="lesson-list">
+        <li><a href="#m1-l1" data-lesson="m1-l1"><span class="lesson-check"></span> 1. La sonnette et le facteur</a></li>
+        <li><a href="#m1-l2" data-lesson="m1-l2"><span class="lesson-check"></span> 2. « C'est prêt ? C'est prêt ? »</a></li>
+        <li><a href="#m1-l3" data-lesson="m1-l3"><span class="lesson-check"></span> 3. « Préviens-moi quand »</a></li>
+        <li><a href="#m1-l4" data-lesson="m1-l4"><span class="lesson-check"></span> 4. Le vocabulaire en 6 mots</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title">Module 2 — Comment ça marche <span class="chev">▼</span></div>
+      <ul class="lesson-list">
+        <li><a href="#m2-l5" data-lesson="m2-l5"><span class="lesson-check"></span> 5. Les 5 étapes, du début à la fin</a></li>
+        <li><a href="#m2-l6" data-lesson="m2-l6"><span class="lesson-check"></span> 6. Ce qu'il y a dans l'enveloppe</a></li>
+        <li><a href="#m2-l7" data-lesson="m2-l7"><span class="lesson-check"></span> 7. Dire « bien reçu ! »</a></li>
+        <li><a href="#m2-l8" data-lesson="m2-l8"><span class="lesson-check"></span> 8. Quand ça rate (et les doublons)</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title">Module 3 — À quoi ça sert <span class="chev">▼</span></div>
+      <ul class="lesson-list">
+        <li><a href="#m3-l9" data-lesson="m3-l9"><span class="lesson-check"></span> 9. 8 usages du quotidien</a></li>
+        <li><a href="#m3-l10" data-lesson="m3-l10"><span class="lesson-check"></span> 10. Webhook ou API : qui appelle qui ?</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title">Module 4 — Deux histoires <span class="chev">▼</span></div>
+      <ul class="lesson-list">
+        <li><a href="#m4-l11" data-lesson="m4-l11"><span class="lesson-check"></span> 11. La pizzeria de Léo</a></li>
+        <li><a href="#m4-l12" data-lesson="m4-l12"><span class="lesson-check"></span> 12. Le magasin de bonbons de Mia</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main class="content">
+
+    <div class="hero">
+      <h1>Les webhooks,<br>expliqués comme à un enfant de 5 ans</h1>
+      <p>Un webhook, c'est juste une sonnette entre deux programmes. Ce cours part de cette image, et ne la lâche plus jusqu'à ce que tu saches vraiment ce qui se passe derrière.</p>
+      <div class="tags"><span>🔔 Zéro jargon</span><span>🍕 Cas concrets</span><span>⏱ ~45 minutes</span></div>
+    </div>
+
+    <!-- ══════════════ MODULE 1 ══════════════ -->
+
+    <section id="m1-l1">
+      <span class="lesson-num">Module 1 · Leçon 1</span>
+      <h2>La sonnette et le facteur</h2>
+
+      <div class="kid">
+        <span class="label">🧸 Version 5 ans</span>
+        <p>Tu attends un colis. Tu as deux solutions.</p>
+        <p><strong>Solution 1 :</strong> tu vas ouvrir la porte toutes les deux minutes pour regarder si le facteur est là. Tu te fatigues, et 99 fois sur 100 il n'y a personne.</p>
+        <p><strong>Solution 2 :</strong> tu restes tranquillement jouer, et <strong>le facteur sonne</strong> quand il arrive. Tu ne bouges que quand il y a vraiment quelque chose.</p>
+        <p>👉 <strong>Un webhook, c'est la sonnette.</strong></p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>Un webhook est une <strong>URL que tu donnes à un autre service</strong>, en lui disant : « quand tel événement se produit chez toi, envoie-moi un message à cette adresse ».</p>
+        <p>Techniquement, ce « message » est une simple <strong>requête HTTP POST</strong> : exactement le même genre de requête que quand tu remplis un formulaire sur un site. La seule différence, c'est le sens : ce n'est pas toi qui demandes, c'est l'autre qui t'envoie.</p>
+      </div>
+
+      <h3>Pourquoi ce mot bizarre, « webhook » ?</h3>
+      <p><em>Hook</em> veut dire « crochet » en anglais. Tu accroches ton programme à un événement qui se passe ailleurs. Quand l'événement arrive, le crochet tire sur ta ficelle, et ton programme se réveille. On dit aussi parfois « HTTP callback » (rappel HTTP) ou « notification web » : ce sont les mêmes choses.</p>
+
+      <div class="schema">
+<pre>
+   AILLEURS (Stripe, GitHub, ta banque…)        CHEZ TOI
+  ┌───────────────────────────────┐        ┌──────────────────┐
+  │  Il se passe quelque chose 🎉 │        │   Ton programme  │
+  │                               │        │   (il dort 😴)   │
+  │        « Je le préviens ! »   │        │                  │
+  └──────────────┬────────────────┘        └────────▲─────────┘
+                 │                                  │
+                 └───── 🔔 DRING ! (HTTP POST) ─────┘
+</pre>
+        <span class="cap">Le webhook part toujours de celui chez qui l'événement se produit, vers toi.</span>
+      </div>
+
+      <h3>Une image encore plus précise</h3>
+      <p>Imagine que tu donnes à la maîtresse d'école un papier avec ton numéro de téléphone dessus : « si mon enfant est malade, appelez ce numéro ». Dans cette histoire :</p>
+      <ul>
+        <li>Le <strong>numéro de téléphone</strong> = ton URL de webhook.</li>
+        <li><strong>« si mon enfant est malade »</strong> = l'événement auquel tu t'abonnes.</li>
+        <li>Le <strong>coup de fil</strong> = la requête HTTP que tu reçois.</li>
+        <li>Ce que la maîtresse te dit au téléphone = le contenu du message (on verra ça en leçon 6).</li>
+      </ul>
+      <p>Et remarque un détail important : <strong>il faut que ton téléphone soit allumé et joignable</strong>. Un webhook qui arrive pendant que ton serveur est éteint, c'est un coup de fil dans le vide. On verra en leçon 8 ce qui se passe dans ce cas.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Beaucoup de gens croient qu'un webhook est « une technologie compliquée ». Non : il n'y a <strong>rien de nouveau à apprendre techniquement</strong>. C'est une requête HTTP tout à fait ordinaire. Ce qui change, c'est uniquement <em>le sens du trafic</em> : d'habitude c'est toi qui demandes à un serveur, ici c'est le serveur qui vient te parler.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Trouve trois « sonnettes » dans ta vraie vie : des choses qui te préviennent au lieu que tu ailles vérifier. (Indices : ton réveil, le minuteur du four, la notification de ton téléphone.) Pour chacune, demande-toi : qu'est-ce que tu ferais sans elle ?
+      </div>
+
+      <details class="quiz">
+        <summary>Mini-quiz : qui sonne chez qui ?</summary>
+        <p>Tu t'abonnes aux webhooks de ta banque pour être prévenu à chaque virement reçu. Quand un virement arrive, qui envoie la requête HTTP ?</p>
+        <p><strong>Réponse :</strong> la <strong>banque</strong> envoie la requête, et c'est <strong>ton serveur qui la reçoit</strong>. C'est l'inverse de d'habitude. Ton serveur joue ici le rôle de « serveur qui écoute », et la banque celui de « client qui appelle ».</p>
+      </details>
+    </section>
+
+    <section id="m1-l2">
+      <span class="lesson-num">Module 1 · Leçon 2</span>
+      <h2>« C'est prêt ? C'est prêt ? C'est prêt ? »</h2>
+
+      <div class="kid">
+        <span class="label">🧸 Version 5 ans</span>
+        <p>Tu as mis un gâteau au four. Tu ne sais pas quand il sera cuit. Alors toutes les deux minutes, tu demandes à papa : <em>« C'est prêt ? »</em>. Et papa répond : <em>« Non. »</em> … <em>« C'est prêt ? »</em> … <em>« Non. »</em> … quarante fois de suite.</p>
+        <p>À la quarante-et-unième fois, il répond enfin <em>« Oui ! »</em>. Tu as posé 41 questions pour n'avoir qu'une seule bonne réponse. Et papa en a marre.</p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>Cette façon de faire porte un nom : le <strong>polling</strong> (de l'anglais <em>to poll</em>, « sonder »). Ton programme appelle l'API de l'autre service à intervalle régulier pour demander « du nouveau ? ».</p>
+        <p>Ça marche. Mais ça a trois défauts sérieux, et ce sont exactement ces trois défauts que les webhooks corrigent.</p>
+      </div>
+
+      <h3>Défaut n°1 : c'est du gaspillage</h3>
+      <p>Faisons le calcul, il est parlant. Tu vérifies toutes les 30 secondes s'il y a une nouvelle commande :</p>
+      <ul>
+        <li>2 appels par minute × 60 minutes × 24 heures = <strong>2 880 appels par jour</strong>.</li>
+        <li>Si tu reçois 20 commandes par jour, <strong>2 860 de ces appels n'ont servi à rien</strong>. Soit 99,3 % de déchet.</li>
+      </ul>
+      <p>Chacun de ces appels coûte quelque chose : du réseau, du calcul chez toi, du calcul chez l'autre, et parfois de l'argent réel si le service facture à l'appel.</p>
+
+      <h3>Défaut n°2 : tu es toujours en retard</h3>
+      <p>Si tu vérifies toutes les 30 secondes, et que l'événement se produit juste après ta vérification, tu l'apprendras 29 secondes plus tard. <strong>En moyenne, tu es en retard de la moitié de ton intervalle.</strong> Pour un gâteau ce n'est pas grave ; pour « le paiement du client a été accepté, on peut lancer la livraison », 15 secondes de retard multipliées par mille clients, ça devient un vrai problème d'expérience utilisateur.</p>
+      <p>Et tu ne peux pas simplement « vérifier plus souvent » pour régler ça : plus tu réduis l'intervalle, plus tu aggraves le défaut n°1.</p>
+
+      <h3>Défaut n°3 : on va te dire d'arrêter</h3>
+      <p>Tous les services sérieux imposent des <strong>limites de débit</strong> (<em>rate limits</em>) : par exemple 100 appels par minute maximum. Si ton polling est trop agressif, tu te fais bloquer temporairement — et là, ironie du sort, tu rates vraiment les événements.</p>
+
+      <div class="schema">
+<pre>
+  POLLING (demander)                WEBHOOK (être prévenu)
+  ─────────────────────             ──────────────────────
+  10:00:00  « du nouveau ? » non
+  10:00:30  « du nouveau ? » non
+  10:01:00  « du nouveau ? » non
+  10:01:30  « du nouveau ? » non     10:01:42  🔔 « Commande #48 ! »
+  10:02:00  « du nouveau ? » non
+  10:02:30  « du nouveau ? » OUI ←── 48 secondes de retard
+            ▲
+            └─ 6 appels pour 1 info      1 seul message, instantané
+</pre>
+        <span class="cap">Même événement, deux stratégies. À droite : moins de trafic, et une info plus fraîche.</span>
+      </div>
+
+      <h3>Mais alors, le polling c'est nul ?</h3>
+      <p>Non, et c'est important de le savoir. Le polling reste le bon choix dans trois situations :</p>
+      <ul>
+        <li><strong>Tu n'as pas d'adresse publique.</strong> Un script qui tourne sur ton ordinateur portable ne peut pas recevoir de webhook : personne sur Internet ne sait le joindre. Le polling, lui, marche toujours.</li>
+        <li><strong>Le service ne propose pas de webhooks.</strong> Ça arrive souvent avec les vieilles API.</li>
+        <li><strong>En filet de sécurité.</strong> Les gros systèmes font souvent les deux : les webhooks pour la réactivité, plus un polling lent (toutes les heures) pour rattraper les messages éventuellement perdus. On appelle ça la <em>réconciliation</em>.</li>
+      </ul>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Croire que « webhook = toujours mieux que polling ». La vraie règle : le webhook est meilleur <strong>quand l'événement est rare et que la réactivité compte</strong>. Si tu dois traiter un flux continu de milliers d'événements par seconde, recevoir des milliers de requêtes HTTP séparées devient contre-productif — là, on passe à une file de messages (Kafka, RabbitMQ, SQS), qui est un autre outil.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Un service t'autorise 60 appels API par minute. Tu veux surveiller 40 boutiques différentes. Combien de fois par minute peux-tu vérifier chaque boutique ? Et quel retard moyen ça donne ? <em>(Réponse : 1,5 vérification par minute et par boutique, donc environ 20 secondes de retard moyen — et ça, uniquement si rien d'autre ne consomme ton quota.)</em>
+      </div>
+    </section>
+
+    <section id="m1-l3">
+      <span class="lesson-num">Module 1 · Leçon 3</span>
+      <h2>« Préviens-moi quand ça arrive »</h2>
+
+      <div class="kid">
+        <span class="label">🧸 Version 5 ans</span>
+        <p>Tu dis à papa : <em>« Quand le gâteau est prêt, viens me chercher dans ma chambre. »</em></p>
+        <p>Et hop. Tu arrêtes de demander. Tu vas jouer. Papa viendra. C'est <strong>lui</strong> qui fait le déplacement, pas toi.</p>
+        <p>Pour que ça marche, il faut juste deux choses : que papa sache <strong>où est ta chambre</strong>, et que tu sois <strong>dedans</strong> quand il arrive.</p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>C'est le renversement complet de la relation. On appelle parfois ça le « principe d'Hollywood » : <em>« ne nous appelez pas, c'est nous qui vous appellerons »</em>.</p>
+        <p>Et les deux conditions sont exactement les mêmes que pour papa : le service doit <strong>connaître ton adresse</strong> (l'URL), et ton serveur doit être <strong>joignable et allumé</strong> au moment où le message part.</p>
+      </div>
+
+      <h3>Concrètement, comment on met ça en place ?</h3>
+      <p>Dans presque tous les services, la procédure est la même, en trois gestes :</p>
+
+      <ol>
+        <li><strong>Tu crées une adresse chez toi.</strong> Par exemple <code>https://ma-boutique.fr/webhooks/paiement</code>. C'est juste une page de ton site, sauf qu'elle n'est pas faite pour être lue par un humain : elle est faite pour recevoir des messages de machine.</li>
+        <li><strong>Tu déclares cette adresse chez le service.</strong> Dans leur interface, il y a presque toujours un écran « Webhooks » où tu colles ton URL.</li>
+        <li><strong>Tu choisis les événements qui t'intéressent.</strong> Tu ne veux pas tout recevoir ! Tu coches par exemple <code>paiement.reussi</code> et <code>paiement.echoue</code>, et tu laisses de côté les cinquante autres types d'événements.</li>
+      </ol>
+
+      <div class="schema">
+<pre>
+  ┌─ Écran de configuration chez le service ──────────────┐
+  │                                                       │
+  │  URL de destination                                   │
+  │  ┌─────────────────────────────────────────────────┐  │
+  │  │ https://ma-boutique.fr/webhooks/paiement         │  │
+  │  └─────────────────────────────────────────────────┘  │
+  │                                                       │
+  │  Événements à envoyer                                 │
+  │   [x] paiement.reussi                                 │
+  │   [x] paiement.echoue                                 │
+  │   [ ] client.cree                                     │
+  │   [ ] abonnement.annule                               │
+  │                                                       │
+  │  Clé secrète : whsec_8f3a...  (voir leçon 8 🔒)       │
+  └───────────────────────────────────────────────────────┘
+</pre>
+        <span class="cap">L'écran change de nom selon les services, mais on retrouve toujours ces trois éléments.</span>
+      </div>
+
+      <h3>Le problème de la chambre introuvable</h3>
+      <p>Voici l'obstacle numéro un quand on débute : tu développes sur ton ordinateur, ton serveur tourne sur <code>http://localhost:3000</code>… et <strong>ça ne peut pas marcher</strong>. « localhost » veut dire « chez moi » — et depuis Internet, ce « chez moi » ne désigne rien du tout. C'est comme donner comme adresse « la deuxième porte à droite » : c'est vrai chez toi, ça n'aide personne d'autre.</p>
+      <p>La solution s'appelle un <strong>tunnel</strong>. Des outils comme <code>ngrok</code>, <code>cloudflared</code> ou <code>localtunnel</code> te fabriquent une vraie adresse publique temporaire qui redirige vers ta machine :</p>
+
+      <pre><code class="language-bash">ngrok http 3000
+
+# Forwarding  https://a1b2-89-12-34-56.ngrok-free.app -> http://localhost:3000
+#             └─────────── voilà l'adresse à coller chez le service ──────────┘</code></pre>
+
+      <p>Beaucoup de services proposent aussi leur propre outil (par exemple <code>stripe listen</code>), qui fait la même chose sans ouvrir ton ordinateur sur Internet.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Oublier que ton URL de webhook est <strong>publique</strong>. N'importe qui sur Internet peut la découvrir et t'envoyer un faux message : « le paiement de 500 € est validé, expédie la commande ». C'est pour ça qu'il existe des signatures — on y arrive en leçon 8. Ne mets jamais en production un webhook qui fait confiance à tout ce qu'il reçoit.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Ton serveur de production tombe en panne pendant deux heures. Pendant ce temps, le service envoie douze webhooks. À ton avis, que deviennent ces douze messages ? Note ta réponse, et vérifie-la en leçon 8.
+      </div>
+    </section>
+
+    <section id="m1-l4">
+      <span class="lesson-num">Module 1 · Leçon 4</span>
+      <h2>Le vocabulaire en 6 mots</h2>
+
+      <div class="kid">
+        <span class="label">🧸 Version 5 ans</span>
+        <p>Pour raconter l'histoire du facteur, il faut six mots : <strong>ce qui arrive</strong>, <strong>celui qui prévient</strong>, <strong>celui qui écoute</strong>, <strong>l'adresse</strong>, <strong>le mot écrit sur le papier</strong>, et <strong>le « merci, bien reçu ! »</strong>.</p>
+        <p>C'est tout. Il n'y a pas de septième mot.</p>
+      </div>
+
+      <table>
+        <thead>
+          <tr><th>Le mot technique</th><th>Ce que ça veut dire</th><th>Dans l'histoire du facteur</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>Événement</strong><br>(<em>event</em>)</td><td>La chose qui vient de se produire. Elle est <strong>déjà arrivée</strong> : un webhook raconte le passé, il ne demande rien.</td><td>Le colis est arrivé</td></tr>
+          <tr><td><strong>Émetteur</strong><br>(<em>producer, sender</em>)</td><td>Le service chez qui l'événement se produit, et qui envoie le message.</td><td>Le facteur</td></tr>
+          <tr><td><strong>Récepteur</strong><br>(<em>consumer, receiver</em>)</td><td>Ton serveur, celui qui attend et qui réagit.</td><td>Toi, dans la maison</td></tr>
+          <tr><td><strong>Endpoint</strong><br>(le « point d'arrivée »)</td><td>L'URL précise où le message doit être livré.</td><td>Ton adresse postale</td></tr>
+          <tr><td><strong>Payload</strong><br>(la « charge utile »)</td><td>Le contenu du message : les informations sur ce qui s'est passé. Presque toujours du JSON.</td><td>Le mot écrit sur le papier</td></tr>
+          <tr><td><strong>Réponse 200</strong><br>(<em>acknowledgement</em>)</td><td>Ce que ton serveur répond pour dire « bien reçu ». Sans ça, l'émetteur croit que ça a raté.</td><td>Ta signature sur le carnet du facteur</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Deux mots de plus qui reviennent tout le temps</h3>
+      <p><strong>Le « type d'événement »</strong> : c'est l'étiquette qui dit de quoi il s'agit. Les services utilisent presque tous la même convention, <code>objet.verbe_au_passé</code> : <code>payment.succeeded</code>, <code>order.shipped</code>, <code>user.deleted</code>. Le passé n'est pas un hasard : encore une fois, un webhook raconte quelque chose de déjà fait.</p>
+      <p><strong>L'« abonnement » (<em>subscription</em>)</strong> : c'est le lien que tu as créé entre un endpoint et une liste d'événements. Tu peux avoir plusieurs abonnements : un endpoint pour les paiements, un autre pour les livraisons, chacun recevant seulement ce qui le concerne.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Confondre <strong>l'événement</strong> et <strong>le message</strong>. L'événement, c'est le fait réel (le paiement a été accepté). Le message, c'est le papier qui le raconte. Si le papier se perd, l'événement, lui, a quand même eu lieu — et c'est précisément pour ça qu'on ne doit jamais considérer un webhook comme la seule source de vérité : la vérité est chez l'émetteur, ton webhook n'en est qu'une copie.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Relis cette phrase et nomme les six éléments : <em>« Quand un client annule son abonnement, Stripe envoie un JSON contenant l'id du client à l'adresse https://monsite.fr/hooks/stripe, et mon serveur Node répond 200. »</em>
+      </div>
+
+      <details class="quiz">
+        <summary>Mini-quiz : vrai ou faux ?</summary>
+        <p><strong>« Un webhook peut demander quelque chose à mon serveur, comme une question. »</strong></p>
+        <p><strong>Faux.</strong> Un webhook <em>annonce</em>, il ne <em>demande</em> pas. Il dit « voilà ce qui vient de se passer », et attend juste un « bien reçu ». Si tu veux poser une question en retour (par exemple « donne-moi tous les détails de cette commande »), c'est toi qui appelles leur API — et c'est un tout autre trajet. On compare les deux en leçon 10.</p>
+      </details>
+    </section>
+
+    <!-- ══════════════ MODULE 2 ══════════════ -->
+
+    <section id="m2-l5">
+      <span class="lesson-num">Module 2 · Leçon 5</span>
+      <h2>Les 5 étapes, du début à la fin</h2>
+
+      <div class="kid">
+        <span class="label">🧸 Version 5 ans</span>
+        <p>① Le colis arrive à la poste. ② Le facteur écrit un petit mot : « ton colis est là ». ③ Il vient <strong>sonner</strong> chez toi et te donne le mot. ④ Tu dis « merci, bien reçu ! » et il repart. ⑤ <strong>Ensuite</strong>, tranquillement, tu ouvres le colis et tu joues avec.</p>
+        <p>L'ordre est très important : tu dis merci <strong>avant</strong> de jouer. Sinon le facteur reste planté devant ta porte pendant une heure à attendre.</p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>Ces cinq étapes sont <em>toujours</em> les mêmes, quel que soit le service. Les connaître par cœur, c'est comprendre 80 % des webhooks.</p>
+      </div>
+
+      <div class="schema">
+<pre>
+  ①  ÉVÉNEMENT              Chez l'émetteur, quelque chose se produit.
+      │                     « Le paiement de Marie a été accepté. »
+      ▼
+  ②  FABRICATION            Il construit un message décrivant le fait.
+      │                     { "type": "paiement.reussi", "montant": 2400 }
+      ▼
+  ③  ENVOI                  POST https://ma-boutique.fr/webhooks/paiement
+      │                     ────────────────────────────────► ton serveur
+      ▼
+  ④  ACCUSÉ DE RÉCEPTION    ◄──────── 200 OK ──────────────── (en < 1 s !)
+      │                     L'émetteur peut oublier ce message.
+      ▼
+  ⑤  TRAITEMENT             Maintenant seulement : envoyer l'email,
+                            mettre à jour le stock, prévenir le livreur…
+</pre>
+        <span class="cap">Les étapes ④ et ⑤ sont séparées. C'est le point que les débutants ratent le plus souvent.</span>
+      </div>
+
+      <h3>Pourquoi répondre AVANT de travailler ?</h3>
+      <p>Parce que l'émetteur ne t'attend pas longtemps. La plupart des services coupent la connexion au bout de <strong>5 à 10 secondes</strong> et considèrent alors que la livraison a échoué. Imagine la scène :</p>
+      <ul>
+        <li>Tu reçois le webhook « paiement réussi ».</li>
+        <li>Tu lances la génération de la facture PDF, l'envoi de l'email, la mise à jour du stock… <strong>12 secondes</strong> de travail.</li>
+        <li>Au bout de 10 secondes, l'émetteur abandonne, note « échec », et <strong>renverra le même message plus tard</strong>.</li>
+        <li>Toi, pendant ce temps, tu as très bien fini ton travail. Mais tu vas tout refaire une deuxième fois. Ton client reçoit deux factures.</li>
+      </ul>
+      <p>La règle est donc : <strong>répondre tout de suite, travailler ensuite</strong>. Concrètement, on enregistre le message quelque part (une ligne en base de données, une file d'attente), on répond 200, et un autre bout de programme fait le vrai travail à son rythme.</p>
+
+      <pre><code class="language-javascript">// ❌ À NE PAS FAIRE : tout le travail avant de répondre
+app.post('/webhooks/paiement', async (req, res) => {
+  await genererFacturePDF(req.body);   // 4 s
+  await envoyerEmail(req.body);        // 3 s
+  await mettreAJourStock(req.body);    // 5 s
+  res.sendStatus(200);                 // ← trop tard, il est parti
+});
+
+// ✅ À FAIRE : ranger, répondre, puis travailler
+app.post('/webhooks/paiement', async (req, res) => {
+  await file.ajouter(req.body);        // 20 ms : on range le message
+  res.sendStatus(200);                 // ← « bien reçu », immédiatement
+});
+// Et ailleurs, un worker dépile la file tranquillement.</code></pre>
+
+      <h3>Le « quelque part » où on range le message</h3>
+      <p>Ça peut être très simple. Une table <code>webhooks_recus</code> dans ta base de données suffit pour commencer :</p>
+      <ul>
+        <li>une colonne pour l'identifiant du message,</li>
+        <li>une colonne pour le contenu brut,</li>
+        <li>une colonne <code>traite</code> (oui/non),</li>
+        <li>une colonne pour la date de réception.</li>
+      </ul>
+      <p>Avantage énorme : si ton traitement plante, <strong>le message est toujours là</strong>. Tu peux le rejouer sans rien demander à personne. C'est ce qu'on appelle un <em>store-and-forward</em>, et c'est la base de tout système de messages fiable.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Répondre 200 <em>puis</em> faire le travail dans la même fonction sans file d'attente (<code>res.sendStatus(200); await travail();</code>). Ça a l'air malin, mais si ton serveur redémarre pendant le travail, le message est perdu pour toujours : l'émetteur croit que tout va bien, et personne ne repassera. Il faut que le message soit <strong>écrit quelque part de durable</strong> avant le 200.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Dessine sur un papier les 5 étapes pour ce cas : « quelqu'un poste un commentaire sur ton blog, et tu veux recevoir une notification sur Slack ». Qui est l'émetteur ? Qui est le récepteur ? Et où se trouve exactement le travail lent ?
+      </div>
+    </section>
+
+    <section id="m2-l6">
+      <span class="lesson-num">Module 2 · Leçon 6</span>
+      <h2>Ce qu'il y a dans l'enveloppe</h2>
+
+      <div class="kid">
+        <span class="label">🧸 Version 5 ans</span>
+        <p>Le facteur ne dit pas juste « DRING ! » et puis rien. Il te donne un petit mot. Et sur ce mot, il y a des étiquettes :</p>
+        <p><em>Quoi :</em> un colis · <em>Pour qui :</em> Marie · <em>Quand :</em> lundi 10h · <em>Combien ça pèse :</em> 2 kilos.</p>
+        <p>Chaque étiquette a un <strong>nom</strong> et une <strong>réponse</strong>. C'est tout ce qu'est le JSON : une pile d'étiquettes.</p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>Le <strong>payload</strong> est le corps de la requête HTTP, quasi toujours au format <strong>JSON</strong> (<code>Content-Type: application/json</code>). Il décrit l'événement de façon structurée, pour qu'un programme puisse le lire sans ambiguïté.</p>
+      </div>
+
+      <h3>Un vrai message, décortiqué</h3>
+      <pre><code class="language-json">{
+  "id": "evt_1P9xKa2eZvKY",
+  "type": "commande.payee",
+  "date_creation": "2026-09-13T14:32:07Z",
+  "donnees": {
+    "commande_id": "cmd_8842",
+    "montant_centimes": 2400,
+    "devise": "EUR",
+    "client": {
+      "id": "cli_501",
+      "email": "marie@exemple.fr"
+    },
+    "articles": [
+      { "nom": "Pizza Reine", "quantite": 1, "prix_centimes": 1400 },
+      { "nom": "Tiramisu",    "quantite": 2, "prix_centimes":  500 }
+    ]
+  }
+}</code></pre>
+
+      <p>Lis-le comme une liste d'étiquettes :</p>
+      <ul>
+        <li><code>id</code> — le numéro unique <strong>de ce message-là</strong>. Retiens-le : il sauve la vie en leçon 8.</li>
+        <li><code>type</code> — de quoi on parle. C'est la première chose que ton code doit regarder, pour savoir quoi faire.</li>
+        <li><code>date_creation</code> — quand l'événement s'est produit. Attention, ce n'est pas quand tu le reçois : il peut y avoir des heures d'écart si le message a été renvoyé.</li>
+        <li><code>donnees</code> — les détails. Une étiquette peut contenir d'autres étiquettes (<code>client</code>), ou une liste (<code>articles</code>) : c'est ce qui fait la puissance du JSON.</li>
+      </ul>
+
+      <h3>Le détail qui piège tout le monde : les montants</h3>
+      <p>Remarque <code>"montant_centimes": 2400</code>. Ça ne veut pas dire 2400 €, mais <strong>24,00 €</strong>. Presque tous les services financiers envoient les montants en <em>plus petite unité</em> (centimes, cents), parce que les nombres à virgule font des erreurs d'arrondi en informatique. Lire ce champ comme des euros, c'est facturer ton client cent fois trop cher.</p>
+
+      <h3>Ce qui est écrit SUR l'enveloppe : les en-têtes</h3>
+      <p>En plus du contenu, la requête porte des <strong>en-têtes HTTP</strong> (<em>headers</em>). C'est l'équivalent de ce qui est écrit sur l'enveloppe plutôt que sur la lettre :</p>
+      <pre><code class="language-http">POST /webhooks/paiement HTTP/1.1
+Host: ma-boutique.fr
+Content-Type: application/json
+User-Agent: MonService-Webhooks/1.0
+X-Webhook-Id: evt_1P9xKa2eZvKY
+X-Webhook-Signature: t=1757766727,v1=5257a869e7b...
+X-Webhook-Attempt: 3</code></pre>
+      <p>Trois en-têtes valent le coup d'œil : l'<strong>id</strong> (le même que dans le JSON, bien pratique), la <strong>signature</strong> (leçon 8), et le <strong>numéro de tentative</strong> — ici, <code>3</code> signifie que c'est la troisième fois qu'on essaie de te livrer ce message. Une info précieuse pour déboguer.</p>
+
+      <h3>Deux écoles : le message maigre et le message gras</h3>
+      <p>Les services ne mettent pas tous la même quantité d'informations dans le payload, et c'est un choix délibéré :</p>
+      <table>
+        <thead><tr><th></th><th>Message « gras » (<em>fat event</em>)</th><th>Message « maigre » (<em>thin event</em>)</th></tr></thead>
+        <tbody>
+          <tr><td>Contenu</td><td>Tous les détails de la commande</td><td>Juste <code>{ "type": "...", "id": "cmd_8842" }</code></td></tr>
+          <tr><td>Avantage</td><td>Tu n'as rien d'autre à faire, tout est là</td><td>Message petit, et tu obtiens toujours la donnée <strong>à jour</strong></td></tr>
+          <tr><td>Inconvénient</td><td>L'info peut être périmée si le message a été renvoyé 2 h plus tard</td><td>Tu dois appeler leur API derrière pour avoir les détails</td></tr>
+        </tbody>
+      </table>
+      <p>Beaucoup de services font un mélange : assez d'infos pour décider quoi faire, et un identifiant pour aller chercher le reste si besoin.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Écrire du code qui suppose qu'un champ sera <strong>toujours</strong> présent. Les émetteurs ajoutent des champs avec le temps (ça, c'est sans danger), mais certains champs sont optionnels dès le départ : un client sans email, une commande sans code promo. <code>payload.donnees.client.email.toLowerCase()</code> fait planter tout ton webhook le jour où un client n'a pas d'email. Vérifie avant de lire, et ignore poliment les champs que tu ne connais pas.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Dans le JSON ci-dessus, quel est le montant total en euros ? Et combien d'articles la commande contient-elle <em>réellement</em> ? <em>(Réponses : 24,00 € ; et 3 articles — une pizza et deux tiramisus, même s'il n'y a que 2 lignes dans la liste. La quantité compte, pas le nombre de lignes.)</em>
+      </div>
+    </section>
+
+    <section id="m2-l7">
+      <span class="lesson-num">Module 2 · Leçon 7</span>
+      <h2>Dire « bien reçu ! »</h2>
+
+      <div class="kid">
+        <span class="label">🧸 Version 5 ans</span>
+        <p>Quand le facteur te donne le colis, il te demande de <strong>signer</strong> sur son petit carnet. Cette signature veut dire : « c'est bon, je l'ai, tu peux partir ».</p>
+        <p>Si tu ne signes pas, le facteur croit que tu n'étais pas là. Et il reviendra demain. Avec le même colis.</p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>La signature, c'est le <strong>code de statut HTTP</strong> que ton serveur renvoie. Un code entre 200 et 299 veut dire « reçu et accepté ». Tout le reste veut dire « raté, réessaie ».</p>
+      </div>
+
+      <table>
+        <thead><tr><th>Tu réponds…</th><th>L'émetteur comprend…</th><th>Ce qu'il fait</th></tr></thead>
+        <tbody>
+          <tr><td><code>200 OK</code> / <code>202 Accepted</code></td><td>« C'est bon, je l'ai »</td><td>Il oublie ce message, terminé ✅</td></tr>
+          <tr><td><code>500</code>, <code>502</code>, <code>503</code></td><td>« Il est cassé en ce moment »</td><td>Il réessaiera plus tard 🔁</td></tr>
+          <tr><td><code>429 Too Many Requests</code></td><td>« Il est débordé »</td><td>Il ralentit et réessaie 🐢</td></tr>
+          <tr><td><code>400 Bad Request</code></td><td>« Il n'a pas compris mon message »</td><td>Souvent : il abandonne ❌</td></tr>
+          <tr><td><code>401</code> / <code>403</code></td><td>« Il me refuse l'entrée »</td><td>Il abandonne, et désactive parfois l'endpoint ⛔</td></tr>
+          <tr><td><em>rien du tout</em> (timeout)</td><td>« Personne ne répond »</td><td>Il réessaiera plus tard 🔁</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Le webhook le plus simple du monde</h3>
+      <p>En Node.js avec Express :</p>
+      <pre><code class="language-javascript">const express = require('express');
+const app = express();
+
+app.post('/webhooks/paiement', express.json(), (req, res) => {
+  console.log('Reçu :', req.body.type);
+  res.sendStatus(200);          // « bien reçu ! »
+});
+
+app.listen(3000);</code></pre>
+
+      <p>Et en Python avec Flask, exactement la même idée :</p>
+      <pre><code class="language-python">from flask import Flask, request
+
+app = Flask(__name__)
+
+@app.post("/webhooks/paiement")
+def recevoir():
+    print("Reçu :", request.json["type"])
+    return "", 200          # « bien reçu ! »</code></pre>
+
+      <p>C'est tout. Un webhook qui fonctionne tient en cinq lignes. Tout le reste du métier — la file d'attente, la signature, les doublons — sert à le rendre <em>fiable</em>, pas à le faire <em>marcher</em>.</p>
+
+      <h3>La question qui fâche : 200 ou pas 200 ?</h3>
+      <p>C'est la décision la plus subtile de tout le sujet. Réponds à une seule question : <strong>est-ce que réessayer plus tard pourrait marcher ?</strong></p>
+      <ul>
+        <li><strong>Oui, réessayer pourrait marcher</strong> → renvoie une erreur (<code>500</code>). Exemples : ta base de données est momentanément injoignable, une API externe est en panne, tu es surchargé.</li>
+        <li><strong>Non, ça échouera toujours</strong> → renvoie <code>200</code> quand même, et enregistre le problème de ton côté. Exemples : le message concerne un client qui n'existe pas chez toi, le type d'événement ne t'intéresse pas, le JSON est malformé. Renvoyer 500 dans ces cas déclenche des dizaines de nouvelles tentatives qui échoueront toutes de la même façon — et peut finir par faire désactiver ton endpoint.</li>
+      </ul>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Le <code>try / catch</code> trop gentil :
+        <pre><code class="language-javascript">try { await traiter(req.body); }
+catch (e) { /* on ignore */ }
+res.sendStatus(200);   // ← on dit « tout va bien » alors que rien n'a marché</code></pre>
+        Ici, chaque erreur disparaît en silence. L'émetteur est content, toi tu as perdu la donnée, et tu ne le sauras jamais. Si tu attrapes une erreur, au minimum : <strong>trace-la</strong> et décide consciemment du code de retour.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Pour chacun de ces cas, dis si tu réponds 200 ou 500 : <strong>(a)</strong> ta base de données est en cours de redémarrage ; <strong>(b)</strong> tu reçois un événement <code>abonnement.renouvele</code> dont tu n'as rien à faire ; <strong>(c)</strong> le champ <code>montant</code> est absent du message. <em>(Réponses : a → 500, ça remarchera ; b → 200, c'est normal ; c → 200 + alerte, ça ne remarchera jamais.)</em>
+      </div>
+    </section>
+
+    <section id="m2-l8">
+      <span class="lesson-num">Module 2 · Leçon 8</span>
+      <h2>Quand ça rate (et les doublons)</h2>
+
+      <div class="kid">
+        <span class="label">🧸 Version 5 ans</span>
+        <p>Tu n'étais pas à la maison quand le facteur a sonné. Il ne jette pas le colis à la poubelle ! Il <strong>revient demain</strong>. Et après-demain. Et encore après.</p>
+        <p>Mais attention : il peut arriver que tu aies déjà reçu le colis, et qu'il revienne quand même parce qu'il n'a pas vu ta signature. Tu te retrouves avec <strong>deux colis identiques</strong>. Il ne faut surtout pas payer deux fois !</p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>C'est le cœur du sujet, et ce qui sépare un webhook « qui marche sur ma machine » d'un webhook de production. Deux notions à retenir : les <strong>retries</strong> (nouvelles tentatives) et l'<strong>idempotence</strong> (« même si je le fais deux fois, le résultat est le même »).</p>
+      </div>
+
+      <h3>Les nouvelles tentatives, et pourquoi elles s'espacent</h3>
+      <p>Quand tu ne réponds pas 200, l'émetteur réessaie — mais pas n'importe comment. Il attend de plus en plus longtemps entre chaque essai. On appelle ça le <strong>backoff exponentiel</strong> :</p>
+
+      <div class="schema">
+<pre>
+  Essai 1  ─ 14:32:07  ✗ (timeout)
+  Essai 2  ─ 14:33:07  ✗      +1 min
+  Essai 3  ─ 14:38:07  ✗      +5 min
+  Essai 4  ─ 15:08:07  ✗      +30 min
+  Essai 5  ─ 17:08:07  ✗      +2 h
+  Essai 6  ─ 01:08:07  ✓ 200  +8 h   ← ton serveur est revenu !
+                                        Le message n'est pas perdu.
+</pre>
+        <span class="cap">Espacement typique. Après 24 à 72 h d'échecs, la plupart des services abandonnent et t'envoient un email d'alerte.</span>
+      </div>
+
+      <p>Pourquoi espacer ? Parce que si ton serveur est tombé parce qu'il est surchargé, le bombarder de tentatives l'empêcherait de se relever. On laisse le temps de respirer. C'est aussi pour ça que la réponse à l'exercice de la leçon 3 est : <strong>les douze messages ne sont pas perdus</strong>, ils arriveront quand ton serveur reviendra.</p>
+
+      <h3>Le vrai danger : recevoir deux fois la même chose</h3>
+      <p>Les retries créent un effet de bord inévitable. Imagine : tu reçois le message, tu traites tout correctement… et ta réponse 200 se perd dans le réseau. L'émetteur, lui, n'a rien vu venir : pour lui c'est un échec, donc il renvoie. Tu reçois <strong>deux fois le même événement</strong>, et rien ne te l'indique dans le contenu.</p>
+      <p>Conséquences typiques quand on n'a rien prévu : deux emails de confirmation, deux lignes de stock décrémentées, deux remboursements envoyés. Le dernier fait mal.</p>
+      <p>On dit que la livraison des webhooks est <strong>« au moins une fois » (at-least-once)</strong> : tu es à peu près sûr de recevoir le message, mais pas sûr de ne le recevoir qu'une fois. Ce n'est pas un bug, c'est un choix : perdre un message serait bien pire que d'en envoyer un en double.</p>
+
+      <h3>La parade : le carnet des messages déjà vus</h3>
+      <p>La solution tient en une phrase : <strong>note l'identifiant de chaque message traité, et ignore ceux que tu as déjà vus.</strong></p>
+      <pre><code class="language-javascript">app.post('/webhooks/paiement', express.json(), async (req, res) => {
+  const id = req.body.id;                      // "evt_1P9xKa2eZvKY"
+
+  // Déjà vu ? On dit « bien reçu » et on ne refait rien.
+  if (await dejaTraite(id)) return res.sendStatus(200);
+
+  await marquerCommeTraite(id);                // avant le travail !
+  await file.ajouter(req.body);
+  res.sendStatus(200);
+});</code></pre>
+      <p>En base de données, la façon la plus solide de faire ça est une <strong>contrainte d'unicité</strong> sur la colonne de l'identifiant : même si deux copies du message arrivent exactement en même temps sur deux serveurs différents, la base en refusera une. Une simple vérification « si pas présent, alors insérer » peut être prise de vitesse ; la contrainte, non.</p>
+
+      <h3>Et l'ordre d'arrivée ?</h3>
+      <p>Autre surprise : <strong>rien ne garantit que les messages arrivent dans l'ordre</strong>. Si le message « commande créée » a échoué une fois et que « commande payée » est passé du premier coup, tu peux très bien apprendre qu'une commande est payée avant de savoir qu'elle existe. C'est pour ça que les payloads contiennent une <code>date_creation</code> : si tu reçois une information plus vieille que celle que tu as déjà, tu l'ignores.</p>
+
+      <h3>🔒 Et si quelqu'un se fait passer pour le facteur ?</h3>
+      <p>Ton URL est publique. N'importe qui peut y envoyer un faux message « le paiement de 500 € est validé ». Comment distinguer le vrai facteur d'un imposteur déguisé ?</p>
+      <p><strong>Version 5 ans :</strong> toi et le facteur, vous avez choisi un mot de passe secret que personne d'autre ne connaît. À chaque livraison, il écrit sur l'enveloppe un gribouillis calculé à partir du mot secret <em>et</em> du contenu de la lettre. Toi, tu refais le même calcul de ton côté. Si les deux gribouillis sont identiques, c'est bien lui — et en plus, tu sais que personne n'a modifié la lettre en chemin.</p>
+      <p><strong>Version grande personne :</strong> ce gribouillis s'appelle une <strong>signature HMAC</strong>. L'émetteur te donne une clé secrète au moment de créer le webhook, et signe chaque envoi avec.</p>
+      <pre><code class="language-javascript">const crypto = require('crypto');
+
+function signatureValide(corpsBrut, signatureRecue, cleSecrete) {
+  const attendue = crypto
+    .createHmac('sha256', cleSecrete)
+    .update(corpsBrut)              // le corps BRUT, pas le JSON re-sérialisé !
+    .digest('hex');
+
+  // Comparaison à temps constant : jamais avec === sur des signatures
+  return crypto.timingSafeEqual(Buffer.from(attendue), Buffer.from(signatureRecue));
+}</code></pre>
+      <p>Trois règles pour que ça serve vraiment à quelque chose :</p>
+      <ul>
+        <li><strong>Signer le corps brut.</strong> Si ton framework transforme le JSON en objet puis que tu le re-transformes en texte, un espace ou un ordre de clés différent suffit à casser la signature. Il faut le texte exact reçu.</li>
+        <li><strong>Vérifier l'horodatage.</strong> La signature seule n'empêche pas qu'on rejoue un vrai message d'il y a trois mois. Les signatures incluent un timestamp : rejette ce qui a plus de quelques minutes.</li>
+        <li><strong>Comparer en temps constant.</strong> Une comparaison classique s'arrête au premier caractère différent, ce qui laisse fuiter de l'information exploitable. Utilise la fonction dédiée de ta librairie.</li>
+      </ul>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Croire que « HTTPS + une URL secrète avec un long identifiant aléatoire » suffit. Une URL fuite facilement : dans les logs d'un proxy, dans l'historique d'un navigateur, dans un ticket de support, dans une capture d'écran. La signature, elle, ne fuite pas, parce que la clé secrète ne circule jamais sur le réseau.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Ton serveur a reçu deux fois l'événement <code>evt_77</code> : une fois à 14:00, une fois à 14:05. Entre les deux, un humain a modifié la commande à la main dans ton back-office. Que se passe-t-il si ton traitement n'est pas idempotent ? Et si ton traitement écrase les données au lieu de les fusionner ?
+      </div>
+
+      <details class="quiz">
+        <summary>Mini-quiz : le récapitulatif du module 2</summary>
+        <p><strong>Cite les trois garanties d'un système de webhooks.</strong></p>
+        <p><strong>Réponse :</strong> ① la livraison est <em>au moins une fois</em> (donc prévoir les doublons) ; ② l'ordre n'est <em>pas</em> garanti (donc se fier à l'horodatage) ; ③ un message non acquitté est <em>réessayé</em> pendant un certain temps, puis abandonné (donc surveiller les échecs).</p>
+      </details>
+    </section>
+
+    <!-- ══════════════ MODULE 3 ══════════════ -->
+
+    <section id="m3-l9">
+      <span class="lesson-num">Module 3 · Leçon 9</span>
+      <h2>8 usages du quotidien</h2>
+
+      <div class="kid">
+        <span class="label">🧸 Version 5 ans</span>
+        <p>Les sonnettes, il y en a partout dans la maison : le minuteur du four, la sonnette de la porte, le réveil, le téléphone qui sonne. Chacune prévient de quelque chose de différent, mais elles font toutes le même métier : <strong>te dire qu'un truc vient d'arriver</strong>.</p>
+      </div>
+
+      <p>Voici les huit endroits où tu croiseras des webhooks, du plus courant au plus inattendu. Pour chacun : qui sonne, et pourquoi c'est utile.</p>
+
+      <h3>1. Les paiements</h3>
+      <p>C'est <em>l'</em>usage emblématique. Stripe, PayPal, Adyen envoient <code>payment_intent.succeeded</code> quand un paiement aboutit. Pourquoi c'est indispensable : le client peut fermer son navigateur juste après avoir payé, ou le paiement peut être validé 2 jours plus tard par la banque (virement, prélèvement). Tu ne peux donc <strong>pas</strong> te fier au retour dans le navigateur — seul le webhook dit la vérité.</p>
+
+      <h3>2. Le code et les déploiements</h3>
+      <p>GitHub ou GitLab envoient un webhook à chaque <code>push</code>, chaque <em>pull request</em>, chaque commentaire. C'est littéralement comme ça que fonctionne l'intégration continue : tu pousses du code, GitHub sonne chez votre serveur de build, et les tests démarrent. Sans webhook, il faudrait que le serveur de build demande « du nouveau code ? » toutes les dix secondes à tous les dépôts.</p>
+
+      <h3>3. Les notifications d'équipe</h3>
+      <p>Le webhook « entrant » de Slack, Discord ou Teams : une URL à laquelle tu envoies un JSON, et le message apparaît dans le salon. C'est l'usage le plus simple pour débuter, car ici <strong>tu es l'émetteur</strong> — pas besoin de serveur qui écoute.</p>
+      <pre><code class="language-bash">curl -X POST https://hooks.slack.com/services/T00/B00/XXXX \
+  -H 'Content-Type: application/json' \
+  -d '{"text":"🚀 Déploiement terminé en production"}'</code></pre>
+
+      <h3>4. Les formulaires et les rendez-vous</h3>
+      <p>Typeform, Calendly, Tally : quelqu'un remplit un formulaire ou réserve un créneau, et un webhook part vers ton CRM, ta base Notion, ou ton système de facturation. Le lead est enregistré dans la seconde, sans intervention humaine.</p>
+
+      <h3>5. La livraison et la logistique</h3>
+      <p>Colissimo, DHL, Shippo envoient un webhook à chaque changement d'état d'un colis. C'est ce qui permet à une boutique de t'envoyer un SMS « ton colis est en cours de livraison » sans avoir à interroger le transporteur toutes les minutes pour chacune de ses 4 000 commandes en cours.</p>
+
+      <h3>6. Les emails</h3>
+      <p>SendGrid, Postmark, Brevo te préviennent quand un email est <em>ouvert</em>, <em>cliqué</em>, ou surtout <em>rejeté</em> (<em>bounce</em>). Ce dernier est crucial : si tu continues d'envoyer des emails à une adresse qui n'existe plus, ta réputation d'expéditeur s'effondre et tes emails finissent en spam. Le webhook de bounce te permet de désactiver l'adresse automatiquement.</p>
+
+      <h3>7. La surveillance et les alertes</h3>
+      <p>Un serveur tombe, un seuil est dépassé, une erreur explose en production : Datadog, Sentry, UptimeRobot envoient un webhook. Ce webhook peut déclencher bien plus qu'une notification — créer un ticket, réveiller quelqu'un via PagerDuty, ou même lancer un redémarrage automatique.</p>
+
+      <h3>8. L'automatisation sans code, et les agents IA</h3>
+      <p>Zapier, Make et n8n sont construits <em>autour</em> des webhooks : chaque « quand ceci arrive, fais cela » est un webhook déguisé derrière une jolie interface. Plus récemment, c'est aussi comme ça qu'on déclenche un agent IA : un webhook arrive (un nouveau ticket support), l'agent le lit, le classe, rédige une réponse. Le webhook est le <em>déclencheur</em>, l'agent est le <em>traitement</em> — exactement le schéma de la leçon 5.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Confondre les deux sens du mot. Un webhook <strong>entrant</strong> (Slack, Discord) est une URL <em>qu'on te donne</em> pour que tu envoies des messages : c'est facile, tu n'as rien à héberger. Un webhook <strong>sortant</strong> (Stripe, GitHub) est une URL <em>que tu fournis</em> pour recevoir : là, il te faut un serveur joignable, une signature, une file d'attente. Quand quelqu'un dit « j'ai mis en place un webhook », demande toujours dans quel sens.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Pour chacun des 8 usages, dis si <em>toi</em> tu es l'émetteur ou le récepteur. <em>(Indice : il n'y en a qu'un seul où tu es l'émetteur.)</em>
+      </div>
+    </section>
+
+    <section id="m3-l10">
+      <span class="lesson-num">Module 3 · Leçon 10</span>
+      <h2>Webhook ou API : qui appelle qui ?</h2>
+
+      <div class="kid">
+        <span class="label">🧸 Version 5 ans</span>
+        <p>Il y a deux façons de parler à quelqu'un.</p>
+        <p><strong>L'API :</strong> tu appelles ta mamie au téléphone et tu demandes « qu'est-ce qu'il y a pour le goûter ? ». C'est <strong>toi</strong> qui composes le numéro, et tu as la réponse tout de suite.</p>
+        <p><strong>Le webhook :</strong> mamie t'appelle pour dire « le goûter est prêt ! ». C'est <strong>elle</strong> qui compose le numéro, et toi tu ne savais pas quand ça allait sonner.</p>
+      </div>
+
+      <table>
+        <thead><tr><th></th><th>Appel d'API (tu demandes)</th><th>Webhook (on te prévient)</th></tr></thead>
+        <tbody>
+          <tr><td>Qui déclenche ?</td><td>Toi</td><td>L'autre service</td></tr>
+          <tr><td>Qui héberge un serveur joignable ?</td><td>Eux</td><td><strong>Toi</strong></td></tr>
+          <tr><td>Quand ça se produit ?</td><td>Quand tu veux</td><td>Quand l'événement arrive</td></tr>
+          <tr><td>Y a-t-il une réponse utile ?</td><td>Oui : les données demandées</td><td>Non : juste « bien reçu »</td></tr>
+          <tr><td>Fraîcheur de l'info</td><td>Parfaite (à l'instant T)</td><td>Instantanée à l'émission, potentiellement périmée si rejouée</td></tr>
+          <tr><td>Coût quand il ne se passe rien</td><td>Élevé (tu appelles pour rien)</td><td>Nul (rien n'est envoyé)</td></tr>
+        </tbody>
+      </table>
+
+      <h3>La bonne nouvelle : ce n'est pas un choix</h3>
+      <p>Dans la vraie vie, on utilise <strong>les deux ensemble</strong>, et c'est même le schéma recommandé. Le webhook sert de <em>signal</em> (« quelque chose a bougé sur la commande cmd_8842 »), et l'appel d'API sert à obtenir <em>l'état à jour</em> (« donne-moi tous les détails actuels de cmd_8842 »).</p>
+
+      <div class="schema">
+<pre>
+   Stripe                                  Ton serveur
+     │                                          │
+     │──── 🔔 webhook : « cmd_8842 a bougé » ──►│
+     │                                          │
+     │◄─── 📞 GET /commandes/cmd_8842 ──────────│   (appel d'API)
+     │                                          │
+     │──── 📋 état complet et à jour ──────────►│
+     │                                          │
+</pre>
+        <span class="cap">Le webhook réveille, l'API informe. Cette combinaison élimine le risque de travailler sur une donnée périmée.</span>
+      </div>
+
+      <h3>Et les autres façons d'être prévenu ?</h3>
+      <p>Le webhook n'est pas la seule technique « temps réel ». Trois cousins à connaître, en une phrase chacun :</p>
+      <ul>
+        <li><strong>WebSocket</strong> — un tuyau ouvert en permanence dans les deux sens. Idéal pour un chat ou un jeu, où les messages partent dans les deux sens plusieurs fois par seconde. Lourd pour un événement qui arrive trois fois par jour.</li>
+        <li><strong>SSE (Server-Sent Events)</strong> — un tuyau ouvert dans un seul sens, du serveur vers le navigateur. Parfait pour afficher une réponse d'IA qui s'écrit mot à mot, mais ça vit dans le navigateur, pas entre deux serveurs.</li>
+        <li><strong>File de messages</strong> (Kafka, RabbitMQ, SQS) — la version industrielle : garanties d'ordre, de rejeu, débit énorme. Mais il faut que les deux parties partagent la même infrastructure, ce qui est impossible entre deux entreprises différentes.</li>
+      </ul>
+      <p>Et c'est exactement là que se trouve la force du webhook : c'est la <strong>seule</strong> de ces techniques qui ne demande rien d'autre que HTTP. Deux entreprises qui ne se connaissent pas, avec des langages et des infrastructures totalement différents, peuvent se brancher l'une à l'autre en dix minutes. C'est laid, c'est simple, et c'est pour ça que ça a gagné.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Utiliser un webhook pour poser une question. Quelqu'un finit toujours par vouloir que le webhook « renvoie des données dans sa réponse » pour éviter un appel d'API. Techniquement possible chez quelques rares services, mais c'est une impasse : la plupart ignorent purement et simplement le corps de ta réponse, et tu allonges un traitement qui doit rester sous la seconde.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Tu construis un tableau de bord qui doit afficher en direct les ventes du jour à tes commerciaux. De quoi as-tu besoin, et dans quel ordre ? <em>(Indice : il y a probablement un webhook <strong>et</strong> un WebSocket dans la réponse — le webhook entre Stripe et ton serveur, le WebSocket entre ton serveur et le navigateur.)</em>
+      </div>
+    </section>
+
+    <!-- ══════════════ MODULE 4 ══════════════ -->
+
+    <section id="m4-l11">
+      <span class="lesson-num">Module 4 · Leçon 11</span>
+      <h2>🍕 La pizzeria de Léo</h2>
+
+      <div class="kid">
+        <span class="label">🧸 Version 5 ans</span>
+        <p>Léo fait des pizzas. Avant, il criait dans la salle : <em>« La pizza de la table 4 est prête ! »</em> et il espérait que quelqu'un l'entende. Maintenant, chaque fois qu'une pizza est prête, une sonnette prévient <strong>tout le monde en même temps</strong> : le livreur, le client, et le grand tableau du restaurant.</p>
+      </div>
+
+      <h3>La situation</h3>
+      <p><em>Pizza di Léo</em> est une petite pizzeria fictive. Léo a un site de commande en ligne, et trois problèmes qui lui coûtent cher :</p>
+      <ul>
+        <li>Les clients appellent sans arrêt pour demander où en est leur commande.</li>
+        <li>Les livreurs traînent en cuisine à attendre qu'une pizza sorte du four.</li>
+        <li>Le tableau d'affichage en salle est mis à jour à la main, donc jamais à jour.</li>
+      </ul>
+      <p>Le système de caisse de Léo propose des webhooks. Il crée un endpoint <code>https://pizza-di-leo.fr/hooks/caisse</code> et s'abonne à quatre événements : <code>commande.payee</code>, <code>commande.en_preparation</code>, <code>commande.prete</code>, <code>commande.livree</code>.</p>
+
+      <h3>Une soirée, minute par minute</h3>
+      <ul class="timeline">
+        <li><span class="t">19:02:14 — Marie commande.</span> Elle paie 24 € sur le site. La caisse envoie <code>commande.payee</code>.<br>Le serveur de Léo répond <code>200</code> en 40 ms, range le message, puis : il imprime le ticket en cuisine, envoie un email de confirmation à Marie, et affiche la commande sur le tableau de salle en « reçue ».</li>
+        <li><span class="t">19:04:31 — Antonio prend la commande.</span> Il tape sur la tablette en cuisine. <code>commande.en_preparation</code> part.<br>Le site de Marie affiche maintenant « En préparation 👨‍🍳 ». Marie n'appelle pas la pizzeria.</li>
+        <li><span class="t">19:19:50 — La pizza sort du four.</span> <code>commande.prete</code>.<br>Trois choses se déclenchent d'un coup : un SMS part vers Marie, le livreur le plus proche reçoit une notification sur son téléphone, et le tableau passe la ligne en vert.</li>
+        <li><span class="t">19:20:02 — Échec.</span> Le service de SMS répond une erreur : quota dépassé.<br>Le serveur de Léo avait déjà répondu <code>200</code> à la caisse (bien joué), et le message est dans la file. Le worker réessaiera l'envoi du SMS tout seul dans 30 secondes. La caisse, elle, n'est au courant de rien — et c'est très bien ainsi : <strong>son problème à elle, c'était de livrer le message ; le reste, c'est le problème de Léo.</strong></li>
+        <li><span class="t">19:34:07 — Livraison.</span> Le livreur appuie sur « livré ». <code>commande.livree</code> part, la commande disparaît du tableau et Marie reçoit une demande d'avis.</li>
+      </ul>
+
+      <h3>Le message que Léo reçoit</h3>
+      <pre><code class="language-json">{
+  "id": "evt_soir_00412",
+  "type": "commande.prete",
+  "date_creation": "2026-09-13T19:19:50Z",
+  "donnees": {
+    "commande_id": "cmd_8842",
+    "table": null,
+    "mode": "livraison",
+    "client": { "prenom": "Marie", "telephone": "+336XXXXXXXX" },
+    "adresse": "12 rue des Lilas, 75020 Paris",
+    "preparee_par": "antonio"
+  }
+}</code></pre>
+
+      <h3>Le code, en entier</h3>
+      <pre><code class="language-javascript">app.post('/hooks/caisse', express.raw({ type: 'application/json' }), async (req, res) => {
+  // 1. Est-ce bien la caisse qui parle ? (leçon 8)
+  if (!signatureValide(req.body, req.get('X-Signature'), process.env.CLE_CAISSE)) {
+    return res.sendStatus(401);
+  }
+
+  const evenement = JSON.parse(req.body);
+
+  // 2. Déjà vu ? (leçon 8)
+  if (await dejaTraite(evenement.id)) return res.sendStatus(200);
+  await marquerCommeTraite(evenement.id);
+
+  // 3. Ranger et répondre tout de suite (leçon 5)
+  await file.ajouter(evenement);
+  res.sendStatus(200);
+});
+
+// Ailleurs, le worker fait le vrai travail, à son rythme :
+async function traiter(evenement) {
+  switch (evenement.type) {
+    case 'commande.payee':          return imprimerTicket(evenement), confirmerParEmail(evenement);
+    case 'commande.en_preparation': return majTableau(evenement, 'preparation');
+    case 'commande.prete':          return smsAuClient(evenement), notifierLivreur(evenement);
+    case 'commande.livree':         return majTableau(evenement, 'termine'), demanderAvis(evenement);
+    default:                        return; // un type inconnu ? on ignore poliment
+  }
+}</code></pre>
+
+      <h3>Ce que Léo a vraiment gagné</h3>
+      <p>Le point important n'est pas technique. C'est que <strong>la caisse ne sait rien de tout ça</strong>. Elle ne connaît ni le service de SMS, ni le tableau de salle, ni l'application du livreur. Elle crie une fois « la commande est prête », et chacun en fait ce qu'il veut.</p>
+      <p>Résultat : le jour où Léo veut ajouter un affichage sur l'écran de la vitrine, il n'a <strong>rien à modifier</strong> dans la caisse, ni dans le SMS, ni dans le tableau. Il branche un nouvel abonné à l'événement. C'est ça, la vraie valeur des webhooks : ils <em>découplent</em>. Celui qui annonce n'a pas besoin de savoir qui écoute.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Le <code>default</code> dans le <code>switch</code> n'est pas décoratif. Le jour où la caisse ajoute un événement <code>commande.annulee</code> auquel Léo n'est pas abonné mais qui arrive quand même (ça se produit), un code sans cas par défaut plante, renvoie 500, et déclenche une cascade de retries inutiles. <strong>Ignore poliment ce que tu ne connais pas.</strong>
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — À 19:19:50, le serveur de Léo était en train de redémarrer et n'a pas reçu <code>commande.prete</code>. La caisse réessaie à 19:20:50 et ça passe. Qu'est-ce que Marie a vécu concrètement ? Et à quel moment ce retard aurait-il été <em>vraiment</em> grave ?
+      </div>
+    </section>
+
+    <section id="m4-l12">
+      <span class="lesson-num">Module 4 · Leçon 12</span>
+      <h2>🍬 Le magasin de bonbons de Mia (et le jour où ça a buggé)</h2>
+
+      <div class="kid">
+        <span class="label">🧸 Version 5 ans</span>
+        <p>Mia vend des bonbons sur Internet. Un jour, un client a payé une fois… mais Mia a cru qu'il avait payé <strong>deux</strong> fois. Elle lui a envoyé deux paquets de bonbons, et elle a enlevé deux fois les bonbons de son grand bocal. Le soir, il manquait des bonbons dans le bocal, et Mia ne comprenait pas pourquoi.</p>
+        <p>Voici comment elle a trouvé le coupable.</p>
+      </div>
+
+      <h3>Le système de Mia</h3>
+      <p><em>Bonbons de Mia</em> vend des sachets en ligne. Son architecture est simple : une boutique, un prestataire de paiement fictif appelé <strong>PayFictif</strong>, un stock, et un transporteur. Un seul endpoint reçoit les webhooks de paiement : <code>https://bonbons-de-mia.fr/hooks/payfictif</code>.</p>
+      <p>À la réception d'un <code>paiement.reussi</code>, son code fait trois choses : décrémenter le stock, créer une étiquette de livraison, envoyer l'email « merci pour ta commande ».</p>
+
+      <h3>Mardi, 15:41 — l'incident</h3>
+      <ul class="timeline">
+        <li><span class="t">15:41:03</span> — Paul achète 3 sachets de fraises Tagada. PayFictif envoie <code>paiement.reussi</code>, id <code>evt_5521</code>.</li>
+        <li><span class="t">15:41:04</span> — Le serveur de Mia reçoit le message et commence à travailler : stock ➖3, étiquette créée, email envoyé. Tout se passe bien. <strong>7,5 secondes</strong> au total, parce que l'API du transporteur était lente ce jour-là.</li>
+        <li><span class="t">15:41:09</span> — Au bout de <strong>5 secondes</strong> d'attente, PayFictif coupe la connexion et note « échec de livraison ». Le serveur de Mia, lui, continue de travailler sans le savoir.</li>
+        <li><span class="t">15:42:09</span> — Nouvelle tentative de PayFictif : même message, même id <code>evt_5521</code>.</li>
+        <li><span class="t">15:42:10</span> — Le serveur recommence tout : stock ➖3 <strong>une deuxième fois</strong>, deuxième étiquette de livraison, deuxième email à Paul.</li>
+        <li><span class="t">15:42:16</span> — Cette fois ça tient dans les temps, le serveur répond <code>200</code>. PayFictif est content. Mia ne voit aucune erreur nulle part.</li>
+        <li><span class="t">18:30</span> — Mia compte son stock : il manque 3 sachets. Paul, lui, appelle : il a reçu deux colis et deux emails.</li>
+      </ul>
+
+      <div class="schema">
+<pre>
+  PayFictif                          Serveur de Mia
+      │                                     │
+      │── evt_5521 ────────────────────────►│ stock -3, étiquette, email
+      │                                     │ ██████████ 7,5 s
+      │   ⏱ timeout à 5 s                   │
+      │   ✗ « échec »                       │
+      │                                     │ ✓ terminé (mais trop tard)
+      │                                     │
+      │── evt_5521 (RETRY, même id) ───────►│ stock -3, étiquette, email
+      │◄───────────────── 200 OK ───────────│ ██████ 6 s     ▲
+      │   ✓ « livré »                       │                │
+                                                    ┌────────┴────────┐
+                                                    │ MÊME ID, refait │
+                                                    │  = le bug       │
+                                                    └─────────────────┘
+</pre>
+        <span class="cap">Aucune erreur n'est apparue nulle part. C'est ce qui rend ce bug si difficile à repérer.</span>
+      </div>
+
+      <h3>Le diagnostic</h3>
+      <p>Mia va dans le tableau de bord de PayFictif, section « Webhooks ». Elle y voit la liste des envois, et tout devient limpide : deux tentatives pour <code>evt_5521</code>, la première marquée <em>timeout</em>. <strong>Le même identifiant d'événement a été livré deux fois.</strong> Ce n'est pas un bug de PayFictif : c'est exactement le comportement documenté (livraison <em>au moins une fois</em>, leçon 8). Le bug est chez Mia, qui n'avait rien prévu pour ça.</p>
+
+      <h3>Les trois corrections</h3>
+      <p><strong>① Répondre avant de travailler.</strong> C'est ce qui a causé le timeout. La cause racine, c'est que 7,5 secondes de travail se déroulaient <em>avant</em> le <code>200</code>.</p>
+      <p><strong>② Refuser les doublons.</strong> Même avec la correction ①, un doublon peut arriver (une réponse 200 qui se perd sur le réseau). Il faut donc aussi une table des identifiants déjà traités.</p>
+      <p><strong>③ Rendre le traitement idempotent.</strong> C'est la ceinture <em>et</em> les bretelles : au lieu de « enlève 3 au stock » (qui donne un résultat différent à chaque exécution), on écrit « la commande cmd_9001 a consommé 3 sachets » — une information qui, notée deux fois, donne le même résultat qu'une fois.</p>
+
+      <pre><code class="language-javascript">app.post('/hooks/payfictif', express.raw({ type: 'application/json' }), async (req, res) => {
+  if (!signatureValide(req.body, req.get('X-PayFictif-Signature'), process.env.CLE)) {
+    return res.sendStatus(401);
+  }
+  const evt = JSON.parse(req.body);
+
+  try {
+    // La contrainte UNIQUE sur evenement_id fait le travail à notre place :
+    // si le message est déjà passé, l'insertion échoue.
+    await db.query(
+      'INSERT INTO webhooks_recus (evenement_id, contenu) VALUES ($1, $2)',
+      [evt.id, req.body]
+    );
+  } catch (e) {
+    if (e.code === '23505') return res.sendStatus(200);  // doublon : déjà vu, tout va bien
+    throw e;                                             // vraie panne : on laisse le 500
+  }
+
+  res.sendStatus(200);   // ← moins de 100 ms, toujours
+  // Le worker, lui, lira la table webhooks_recus et fera le travail.
+});</code></pre>
+
+      <h3>Ce que Mia a ajouté ensuite</h3>
+      <p>Une fois le bug réglé, elle a mis en place trois garde-fous qui lui ont évité les incidents suivants :</p>
+      <ul>
+        <li><strong>Une alerte sur les échecs.</strong> PayFictif envoie un email quand un endpoint échoue plusieurs fois de suite. Mia l'a branché sur son Slack. Le silence, ce n'est pas une preuve que tout va bien.</li>
+        <li><strong>Une réconciliation nocturne.</strong> Chaque nuit à 3 h, un script appelle l'API de PayFictif pour lister tous les paiements du jour, et les compare à ses commandes. S'il en manque un, il le rattrape. C'est le filet de sécurité évoqué en leçon 2 — la seule protection contre un webhook définitivement abandonné après 72 h.</li>
+        <li><strong>Un bouton « rejouer ».</strong> Comme chaque message brut est conservé dans <code>webhooks_recus</code>, Mia peut relancer le traitement d'un message sans rien demander à PayFictif. Le jour où elle a eu un bug dans son calcul de TVA, elle a rejoué trois semaines d'événements en une commande.</li>
+      </ul>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Tester ses webhooks uniquement avec le bouton « envoyer un événement de test ». Ces tests arrivent toujours seuls, jamais en double, jamais dans le désordre, jamais pendant un redémarrage. Ils ne prouvent qu'une chose : que ton URL répond. Pour être tranquille, envoie volontairement <strong>deux fois le même message</strong> et vérifie qu'il ne se passe rien la deuxième fois.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice final</strong> — Mia veut maintenant offrir un bonbon gratuit à chaque 100<sup>e</sup> commande. Elle écrit : <em>« à chaque webhook paiement.reussi, j'ajoute 1 à un compteur ; si le compteur est un multiple de 100, j'offre un bonbon »</em>. Pourquoi ce code est-il dangereux, et comment le réécrirais-tu ? <em>(Indice : que vaut le compteur si un message arrive deux fois ? Et s'il arrive dans le désordre ? La bonne piste est de compter les commandes distinctes plutôt que les messages reçus.)</em>
+      </div>
+
+      <div class="end-card">
+        <h3>🎓 Ton résumé, à réciter à un enfant de 5 ans</h3>
+        <p><strong>1.</strong> Un webhook, c'est une sonnette : au lieu d'aller voir tout le temps si quelque chose est arrivé, on te prévient quand ça arrive.</p>
+        <p><strong>2.</strong> Celui qui prévient envoie un petit mot à ton adresse, et toi tu réponds « bien reçu ! » très vite — avant de faire ton travail.</p>
+        <p><strong>3.</strong> Comme le facteur peut sonner deux fois pour le même colis, tu notes les numéros des mots déjà reçus, pour ne jamais faire le travail deux fois.</p>
+
+        <h3 style="margin-top:1.8rem">✅ La checklist avant de mettre en production</h3>
+        <ul>
+          <li>Je vérifie la signature, avec le corps <strong>brut</strong> de la requête.</li>
+          <li>Je réponds <code>200</code> en moins d'une seconde, avant tout traitement lent.</li>
+          <li>Je stocke le message de façon durable avant de répondre.</li>
+          <li>J'ignore les messages dont j'ai déjà vu l'identifiant (contrainte d'unicité en base).</li>
+          <li>Mon traitement donne le même résultat s'il tourne deux fois.</li>
+          <li>Je ne me fie pas à l'ordre d'arrivée : je regarde l'horodatage.</li>
+          <li>J'ignore poliment les types d'événements inconnus.</li>
+          <li>Je suis alerté quand des livraisons échouent, et j'ai une réconciliation de secours.</li>
+        </ul>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+  hljs.highlightAll();
+
+  const sidebar = document.getElementById('sidebar');
+  document.getElementById('menuToggle').addEventListener('click', () => {
+    sidebar.classList.toggle('open');
+  });
+
+  // Replier / déplier les modules
+  document.querySelectorAll('.module-title').forEach(t => {
+    t.addEventListener('click', () => t.parentElement.classList.toggle('collapsed'));
+  });
+
+  // Progression (localStorage)
+  const lessonLinks = document.querySelectorAll('[data-lesson]');
+  const storageKey = 'course-progress-webhooks';
+  const done = JSON.parse(localStorage.getItem(storageKey) || '{}');
+  const fill = document.getElementById('progressFill');
+  const mini = document.getElementById('progressMini');
+  const text = document.getElementById('progressText');
+
+  function marquer(id) {
+    if (done[id]) return;
+    done[id] = true;
+    localStorage.setItem(storageKey, JSON.stringify(done));
+    const lien = document.querySelector('[data-lesson="' + id + '"]');
+    if (lien) lien.querySelector('.lesson-check').classList.add('done');
+    majBarre();
+  }
+
+  function majBarre() {
+    const total = lessonLinks.length;
+    const faites = Object.values(done).filter(Boolean).length;
+    const pct = total ? (faites / total * 100) : 0;
+    fill.style.width = pct + '%';
+    mini.style.width = pct + '%';
+    text.textContent = faites + ' / ' + total + ' leçons vues';
+  }
+
+  lessonLinks.forEach(link => {
+    if (done[link.dataset.lesson]) link.querySelector('.lesson-check').classList.add('done');
+    link.addEventListener('click', () => {
+      marquer(link.dataset.lesson);
+      sidebar.classList.remove('open');
+    });
+  });
+
+  // Leçon marquée comme vue dès qu'elle est réellement lue, et lien actif dans la sidebar
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (!e.isIntersecting) return;
+      const id = e.target.id;
+      document.querySelectorAll('[data-lesson]').forEach(a =>
+        a.classList.toggle('active', a.dataset.lesson === id));
+      marquer(id);
+    });
+  }, { rootMargin: '-45% 0px -45% 0px' });
+
+  document.querySelectorAll('main section[id]').forEach(s => observer.observe(s));
+
+  majBarre();
+</script>
+</body>
+</html>

@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Les tokens et le contexte expliqués simplement</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bureau:      #2B2118;
+    --bureau-soft: #3F3225;
+    --bg:          #F5F3EF;
+    --card:        #FFFFFF;
+    --jeton:       #3FA7D6;
+    --limite:      #D64550;
+    --cache:       #62A87C;
+    --encre:       #241D15;
+    --gris-txt:    #6E6255;
+    --border:      #E5E0D7;
+
+    --font-display: "Bricolage Grotesque", system-ui, sans-serif;
+    --font-body: "Work Sans", system-ui, -apple-system, sans-serif;
+
+    --sidebar-width: 300px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font-body);
+    color: var(--encre);
+    background: var(--bg);
+    line-height: 1.7;
+    font-size: 17px;
+  }
+
+  .layout { display: flex; min-height: 100vh; }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar {
+    width: var(--sidebar-width);
+    flex-shrink: 0;
+    background: var(--bureau);
+    color: #DCD3C6;
+    padding: 1.75rem 1.1rem 3rem;
+    overflow-y: auto;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+  }
+  .brand { display: flex; align-items: center; gap: .6rem; margin-bottom: .25rem; }
+  .brand-coin {
+    width: 38px; height: 38px; flex-shrink: 0;
+    border-radius: 50%;
+    background: var(--jeton);
+    display: grid; place-items: center;
+    font-size: 1.02rem;
+    box-shadow: 0 0 0 4px rgba(63,167,214,.22);
+  }
+  .sidebar h1 {
+    font-family: var(--font-display);
+    font-size: 1.14rem; line-height: 1.2;
+    color: #fff; font-weight: 700;
+  }
+  .brand-sub { font-size: .78rem; color: #9A8D7C; margin-bottom: 1.4rem; padding-left: 3px; }
+
+  .progress-mini {
+    background: var(--bureau-soft);
+    border-radius: 10px; padding: .6rem .75rem; margin-bottom: 1.4rem;
+    font-size: .78rem; color: #BCAF9E;
+  }
+  .progress-mini .track {
+    height: 6px; background: #1B140E; border-radius: 99px; margin-top: .45rem; overflow: hidden;
+  }
+  .progress-mini .track span {
+    display: block; height: 100%; width: 0%;
+    background: linear-gradient(90deg, var(--jeton), var(--cache));
+    transition: width .25s ease;
+  }
+
+  .module-group { margin-bottom: .35rem; }
+  .module-title {
+    font-family: var(--font-display); font-weight: 600; font-size: .93rem;
+    color: #fff; padding: .5rem .55rem; border-radius: 8px; cursor: pointer;
+    display: flex; justify-content: space-between; align-items: center; gap: .5rem;
+    user-select: none;
+  }
+  .module-title:hover { background: var(--bureau-soft); }
+  .module-title .chev { font-size: .7rem; color: #8B7E6D; transition: transform .2s ease; }
+  .module-group.collapsed .chev { transform: rotate(-90deg); }
+  .module-group.collapsed .lesson-list { display: none; }
+
+  .lesson-list { list-style: none; padding-left: .5rem; margin-bottom: .4rem; }
+  .lesson-list li a {
+    display: flex; align-items: center; gap: .55rem;
+    padding: .35rem .5rem; border-radius: 7px;
+    color: #BCAF9E; text-decoration: none; font-size: .86rem; line-height: 1.35;
+  }
+  .lesson-list li a:hover { background: var(--bureau-soft); color: #fff; }
+  .lesson-list li a.active { color: #fff; background: var(--bureau-soft); font-weight: 600; }
+
+  /* La pastille de progression : un jeton */
+  .lesson-check {
+    width: 14px; height: 14px; flex-shrink: 0;
+    border: 1.5px solid #6B5E4D; border-radius: 50%;
+    position: relative;
+  }
+  .lesson-check::after {
+    content: ""; position: absolute; left: 2.5px; right: 2.5px; top: 5.2px;
+    height: 1.5px; background: #6B5E4D; border-radius: 1px;
+  }
+  .lesson-check.done { background: var(--jeton); border-color: var(--jeton); }
+  .lesson-check.done::after { background: var(--bureau); }
+
+  /* ---------- Barre de progression ---------- */
+  .progress-bar { height: 4px; position: fixed; top: 0; left: 0; right: 0; z-index: 25; }
+  .progress-bar-fill {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, var(--jeton), var(--cache), var(--limite));
+    transition: width .25s ease;
+  }
+
+  /* ---------- Contenu ---------- */
+  .content { flex: 1; max-width: 820px; margin: 0 auto; padding: 3rem 2.5rem 6rem; }
+
+  .hero {
+    background: var(--bureau); color: #fff;
+    border-radius: 20px; padding: 2.2rem 2rem; margin-bottom: 2.5rem;
+    position: relative; overflow: hidden;
+  }
+  .hero::after {
+    content: ""; position: absolute; right: -50px; top: -55px;
+    width: 205px; height: 205px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(63,167,214,.38), transparent 70%);
+  }
+  .hero h1 {
+    font-family: var(--font-display); font-size: 2.1rem; line-height: 1.13;
+    margin-bottom: .6rem; font-weight: 800; letter-spacing: -.02em;
+  }
+  .hero p { color: #C2B6A6; font-size: 1.02rem; max-width: 47ch; }
+  .hero .tags { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1.2rem; }
+  .hero .tags span {
+    background: var(--bureau-soft); color: #D6CBBB;
+    padding: .25rem .7rem; border-radius: 99px; font-size: .78rem; font-weight: 500;
+  }
+
+  section { scroll-margin-top: 2rem; margin-bottom: 4.5rem; }
+
+  .lesson-num {
+    display: inline-block;
+    font-family: var(--font-display); font-weight: 700; font-size: .74rem;
+    color: var(--jeton); letter-spacing: .08em; text-transform: uppercase;
+    margin-bottom: .2rem;
+  }
+  .content h2 {
+    font-family: var(--font-display); font-size: 1.78rem; line-height: 1.2;
+    font-weight: 800; margin-bottom: 1.1rem; letter-spacing: -.02em;
+  }
+  .content h3 { font-family: var(--font-display); font-size: 1.2rem; margin: 2rem 0 .6rem; font-weight: 700; }
+  .content p { margin-bottom: 1rem; }
+  .content ul, .content ol { margin: 0 0 1rem 1.2rem; }
+  .content li { margin-bottom: .4rem; }
+  .content a { color: var(--jeton); }
+  strong { font-weight: 600; }
+
+  /* ---------- Signature : les deux cartes ---------- */
+  .kid, .grown { border-radius: 16px; padding: 1.2rem 1.3rem; margin: 1.2rem 0 1.5rem; }
+  .kid { background: #E9F5FB; border: 2px dashed var(--jeton); font-size: 1.08rem; }
+  .grown { background: #EDF6F0; border-left: 5px solid var(--cache); }
+  .kid .label, .grown .label {
+    font-family: var(--font-display); font-weight: 700; font-size: .76rem;
+    text-transform: uppercase; letter-spacing: .07em; display: block; margin-bottom: .45rem;
+  }
+  .kid .label { color: #1B6E92; }
+  .grown .label { color: #2F7A4E; }
+  .kid p:last-child, .grown p:last-child { margin-bottom: 0; }
+
+  /* ---------- Signature 2 : la jauge de contexte ---------- */
+  .jauge {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 1rem 1.1rem; margin: 1.3rem 0;
+    box-shadow: 0 1px 3px rgba(43,33,24,.06);
+  }
+  .jauge-titre {
+    font-family: var(--font-display); font-weight: 700; font-size: .8rem;
+    text-transform: uppercase; letter-spacing: .06em; color: var(--gris-txt);
+    margin-bottom: .7rem; display: flex; justify-content: space-between; gap: 1rem;
+  }
+  .jauge-barre {
+    display: flex; height: 26px; border-radius: 6px; overflow: hidden;
+    background: #EFEBE3; font-size: .68rem; font-weight: 600;
+  }
+  .jauge-barre div {
+    display: grid; place-items: center; color: #fff; overflow: hidden;
+    white-space: nowrap; min-width: 0;
+  }
+  .jauge-legende {
+    display: flex; flex-wrap: wrap; gap: .35rem 1rem; margin-top: .65rem; font-size: .82rem;
+  }
+  .jauge-legende span { display: flex; align-items: center; gap: .4rem; color: var(--gris-txt); }
+  .jauge-legende i {
+    width: 11px; height: 11px; border-radius: 3px; display: inline-block; flex-shrink: 0;
+  }
+
+  /* ---------- Schémas ---------- */
+  .schema {
+    background: var(--bureau); color: #DAD1C4;
+    border-radius: 14px; padding: 1.2rem 1.3rem; margin: 1.3rem 0; overflow-x: auto;
+    border-left: 5px solid var(--jeton);
+  }
+  .schema pre {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: .84rem; line-height: 1.55; background: none; padding: 0; color: inherit;
+    white-space: pre;
+  }
+  .schema .cap { display: block; margin-top: .8rem; font-size: .8rem; color: #9A8D7C; font-style: italic; }
+
+  pre { border-radius: 12px; padding: 1rem 1.1rem; overflow-x: auto; margin: 1.1rem 0; font-size: .88rem; }
+  code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+  p code, li code, td code {
+    background: #EBE7DF; color: #453A2C; padding: .1rem .38rem;
+    border-radius: 5px; font-size: .87em; font-weight: 600;
+  }
+
+  /* ---------- Callouts ---------- */
+  .callout {
+    border-radius: 0 12px 12px 0; padding: 1rem 1.2rem; margin: 1.3rem 0;
+    background: var(--card); border-left: 5px solid var(--gris-txt);
+    box-shadow: 0 1px 3px rgba(43,33,24,.07);
+  }
+  .callout strong:first-child { font-family: var(--font-display); }
+  .callout.pitfall { border-left-color: var(--jeton); background: #EAF5FA; }
+  .callout.exercise { border-left-color: var(--cache); background: var(--card); }
+  .callout.danger { border-left-color: var(--limite); background: #FCEDEE; }
+  .callout p:last-child { margin-bottom: 0; }
+
+  details.quiz {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: .85rem 1.1rem; margin: 1rem 0;
+  }
+  details.quiz summary {
+    cursor: pointer; font-weight: 700; font-family: var(--font-display);
+    color: var(--bureau); list-style: none;
+  }
+  details.quiz summary::before { content: "💡 "; }
+  details.quiz[open] summary { margin-bottom: .7rem; color: var(--jeton); }
+  details.quiz p:last-child { margin-bottom: 0; }
+
+  table {
+    width: 100%; border-collapse: collapse; margin: 1.2rem 0;
+    background: var(--card); border-radius: 12px; overflow: hidden;
+    box-shadow: 0 1px 3px rgba(43,33,24,.07); font-size: .93rem;
+  }
+  th, td { padding: .7rem .9rem; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--bureau); color: #fff; font-family: var(--font-display); font-weight: 600; font-size: .87rem; }
+  tr:last-child td { border-bottom: none; }
+
+  .timeline { list-style: none; margin: 1.3rem 0 1.3rem .4rem; padding-left: 1.4rem; border-left: 2px dotted var(--jeton); }
+  .timeline li { position: relative; margin-bottom: 1rem; }
+  .timeline li::before {
+    content: ""; position: absolute; left: -1.85rem; top: .55rem;
+    width: 10px; height: 10px; border-radius: 50%; background: var(--jeton);
+    box-shadow: 0 0 0 3px var(--bg);
+  }
+  .timeline .t { font-family: var(--font-display); font-weight: 700; color: var(--bureau-soft); }
+
+  .end-card {
+    background: linear-gradient(135deg, var(--bureau), #1E3038);
+    color: #fff; border-radius: 20px; padding: 2rem; margin-top: 3rem;
+  }
+  .end-card h3 { color: #fff; margin-top: 0; }
+  .end-card p, .end-card li { color: #C8BEB0; }
+
+  .menu-toggle { display: none; }
+
+  @media (max-width: 900px) {
+    body { font-size: 16px; }
+    .sidebar {
+      position: fixed; left: -100%; top: 0;
+      transition: left .22s ease; z-index: 30;
+      box-shadow: 6px 0 24px rgba(43,33,24,.32);
+    }
+    .sidebar.open { left: 0; }
+    .menu-toggle {
+      display: block; position: fixed; top: .85rem; left: .85rem; z-index: 40;
+      background: var(--jeton); color: #fff; border: none;
+      border-radius: 10px; padding: .5rem .8rem; cursor: pointer; font-size: 1rem;
+      box-shadow: 0 2px 8px rgba(43,33,24,.28);
+    }
+    .content { padding: 4.2rem 1.15rem 4rem; }
+    .hero { padding: 1.6rem 1.3rem; }
+    .hero h1 { font-size: 1.65rem; }
+    .schema pre { font-size: .72rem; }
+    .jauge-barre { font-size: 0; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-bar-fill" id="progressFill"></div></div>
+<button class="menu-toggle" id="menuToggle">☰</button>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-coin">🪙</div>
+      <h1>Les tokens et le contexte<br>expliqués simplement</h1>
+    </div>
+    <div class="brand-sub">12 leçons · ~45 min de lecture</div>
+
+    <div class="progress-mini">
+      <span id="progressText">0 / 12 leçons vues</span>
+      <div class="track"><span id="progressMini"></span></div>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title">Module 1 — C'est quoi ? <span class="chev">▼</span></div>
+      <ul class="lesson-list">
+        <li><a href="#m1-l1" data-lesson="m1-l1"><span class="lesson-check"></span> 1. L'IA ne lit pas des mots</a></li>
+        <li><a href="#m1-l2" data-lesson="m1-l2"><span class="lesson-check"></span> 2. Pourquoi ça change tout</a></li>
+        <li><a href="#m1-l3" data-lesson="m1-l3"><span class="lesson-check"></span> 3. La table de travail</a></li>
+        <li><a href="#m1-l4" data-lesson="m1-l4"><span class="lesson-check"></span> 4. Le vocabulaire en 6 mots</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title">Module 2 — Comment ça marche <span class="chev">▼</span></div>
+      <ul class="lesson-list">
+        <li><a href="#m2-l5" data-lesson="m2-l5"><span class="lesson-check"></span> 5. L'IA ne se souvient de rien</a></li>
+        <li><a href="#m2-l6" data-lesson="m2-l6"><span class="lesson-check"></span> 6. Ce qui remplit ta table</a></li>
+        <li><a href="#m2-l7" data-lesson="m2-l7"><span class="lesson-check"></span> 7. Le milieu qu'on lit mal</a></li>
+        <li><a href="#m2-l8" data-lesson="m2-l8"><span class="lesson-check"></span> 8. Le cache</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title">Module 3 — Ce que ça coûte <span class="chev">▼</span></div>
+      <ul class="lesson-list">
+        <li><a href="#m3-l9" data-lesson="m3-l9"><span class="lesson-check"></span> 9. Lire sa facture</a></li>
+        <li><a href="#m3-l10" data-lesson="m3-l10"><span class="lesson-check"></span> 10. Quand la table déborde</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title">Module 4 — Deux histoires <span class="chev">▼</span></div>
+      <ul class="lesson-list">
+        <li><a href="#m4-l11" data-lesson="m4-l11"><span class="lesson-check"></span> 11. L'assistant d'Amine</a></li>
+        <li><a href="#m4-l12" data-lesson="m4-l12"><span class="lesson-check"></span> 12. Le support de Clara</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main class="content">
+
+    <div class="hero">
+      <h1>Les tokens et le contexte,<br>expliqués comme à un enfant de 5 ans</h1>
+      <p>L'IA ne lit pas des mots, et elle ne se souvient de rien. Ces deux phrases expliquent ta facture, tes lenteurs, et pourquoi ses réponses se dégradent dans les longues conversations.</p>
+      <div class="tags"><span>🪙 Zéro jargon</span><span>📐 Cas concrets</span><span>⏱ ~45 minutes</span></div>
+    </div>
+
+    <!-- ══════════════ MODULE 1 ══════════════ -->
+
+    <section id="m1-l1">
+      <span class="lesson-num">Module 1 · Leçon 1</span>
+      <h2>L'IA ne lit pas des mots</h2>
+
+      <div class="kid">
+        <span class="label">🪙 Version 5 ans</span>
+        <p>Quand tu lis une phrase, tu vois des <strong>mots</strong>. L'IA, non. Elle découpe tout en petits morceaux, comme des pièces de puzzle.</p>
+        <p>Parfois un morceau, c'est un mot entier : <code>chat</code>. Parfois c'est un bout de mot : <code>anti</code> + <code>constitution</code> + <code>nelle</code> + <code>ment</code>. Parfois c'est juste une virgule.</p>
+        <p>Et le plus important : <strong>on compte ces morceaux, et c'est eux qu'on paie.</strong> Pas les mots.</p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>Ces morceaux s'appellent des <strong>tokens</strong>. Un programme appelé <em>tokenizer</em> découpe le texte avant que le modèle ne le voie — et le modèle ne voit jamais autre chose que cette suite de morceaux.</p>
+        <p>Le découpage n'est pas arbitraire : il a été appris sur d'énormes quantités de texte, avec une règle simple — <strong>ce qui est fréquent devient un seul morceau, ce qui est rare est découpé en plusieurs</strong>.</p>
+      </div>
+
+      <div class="schema">
+<pre>
+  « Le chat dort sur le canapé. »
+     │
+     ▼  découpage en tokens
+  [Le][ chat][ dort][ sur][ le][ canap][é][.]        →  8 tokens
+
+  Remarque : l'espace fait partie du token suivant,
+  et « canapé » est coupé en deux — il est moins fréquent
+  que « chat ».
+
+  ── Comparaison ──────────────────────────────────────────
+
+  « chat »                          →  1 token
+  « anticonstitutionnellement »     →  7 tokens environ
+  « 2026 »                          →  1 token
+  « 18471 »                         →  3 tokens ← les nombres
+                                                   sont découpés
+                                                   bizarrement
+  « 😀 »                            →  2 à 3 tokens
+</pre>
+        <span class="cap">Le découpage exact varie d'un modèle à l'autre. Les ordres de grandeur, eux, se ressemblent.</span>
+      </div>
+
+      <h3>L'ordre de grandeur à retenir</h3>
+      <p>Tu n'as pas besoin de compter précisément au quotidien, mais il te faut une intuition. Retiens ceci :</p>
+      <ul>
+        <li><strong>En anglais : 1 token ≈ 4 caractères ≈ 0,75 mot.</strong> Autrement dit, 100 mots font environ 130 tokens.</li>
+        <li><strong>En français : nettement moins efficace.</strong> Nos accents, nos mots plus longs, nos terminaisons — le même texte traduit consomme couramment 15 à 20 % de tokens en plus.</li>
+        <li><strong>Une page de texte</strong> (environ 500 mots) ≈ 700 tokens.</li>
+        <li><strong>Un livre de 300 pages</strong> ≈ 150 000 à 200 000 tokens.</li>
+      </ul>
+      <p>Ce dernier repère est utile : il te donne immédiatement une idée de ce que « une fenêtre de 200 000 tokens » représente physiquement.</p>
+
+      <h3>Pourquoi on ne découpe pas simplement par mots</h3>
+      <p>La question mérite d'être posée, parce que la réponse explique beaucoup de comportements bizarres. Découper par mots poserait deux problèmes insolubles :</p>
+      <ul>
+        <li><strong>Le vocabulaire serait infini.</strong> Il faudrait un identifiant pour chaque mot de chaque langue, plus les noms propres, les fautes de frappe, les mots inventés. Impossible.</li>
+        <li><strong>Un mot jamais vu serait illisible.</strong> Avec un découpage en morceaux, un mot inconnu se décompose toujours en fragments connus. Le modèle peut donc lire n'importe quoi, y compris ce qu'il n'a jamais rencontré.</li>
+      </ul>
+      <p>Le découpage par morceaux est le compromis : un vocabulaire de taille fixe (souvent 50 000 à 200 000 entrées), et la capacité de représenter absolument tout texte.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Estimer un coût en comptant les mots. L'écart peut être considérable selon ce que tu envoies : du texte français ordinaire, ça va ; du JSON, du code, des identifiants, des tableaux de chiffres, et tu peux te retrouver à <strong>deux fois plus de tokens que ton estimation</strong>. Les caractères de structure (accolades, guillemets, indentation) sont tous des tokens qui ne portent aucune information utile.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Classe du moins au plus coûteux en tokens, à contenu informatif égal : <strong>(a)</strong> un tableau en JSON bien indenté ; <strong>(b)</strong> le même tableau en CSV ; <strong>(c)</strong> le même en phrases. <em>(Réponse : le CSV est le plus économique — pas de noms de champs répétés ; le JSON est le plus coûteux, car il répète chaque nom de clé à chaque ligne. C'est un levier réel : passer un gros tableau en CSV plutôt qu'en JSON peut diviser sa taille par deux ou trois.)</em>
+      </div>
+    </section>
+
+    <section id="m1-l2">
+      <span class="lesson-num">Module 1 · Leçon 2</span>
+      <h2>Pourquoi ça change tout</h2>
+
+      <div class="kid">
+        <span class="label">🪙 Version 5 ans</span>
+        <p>Imagine que tu paies <strong>un centime par morceau de puzzle</strong>. Pour une phrase, ça ne se voit pas. Mais si tu envoies mille phrases mille fois par jour, ça devient une vraie somme.</p>
+        <p>Et il y a une chose injuste : les morceaux que <strong>l'IA fabrique</strong> quand elle répond coûtent <strong>beaucoup plus cher</strong> que ceux que tu lui donnes à lire.</p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>Tout se facture au token, et il y a <strong>deux tarifs distincts</strong> : l'<strong>entrée</strong> (ce que tu envoies) et la <strong>sortie</strong> (ce que le modèle produit). La sortie coûte typiquement <strong>4 à 5 fois plus cher</strong> que l'entrée.</p>
+        <p>C'est logique : lire est parallélisable, produire un texte se fait un token après l'autre. Mais la conséquence pratique est contre-intuitive.</p>
+      </div>
+
+      <div class="callout danger">
+        <strong>⚠ La conséquence qu'on ne voit pas venir</strong> — Une réponse deux fois plus longue coûte <strong>beaucoup plus</strong> qu'un document deux fois plus long en entrée. Ajouter « <em>réponds en trois phrases maximum</em> » dans ta consigne est souvent <strong>une des économies les plus rentables</strong> que tu puisses faire — et elle ne coûte rien à mettre en place.
+      </div>
+
+      <h3>Ce qui fait varier le prix, dans l'ordre</h3>
+      <p>Trois facteurs, du plus au moins important :</p>
+
+      <p><strong>① Le modèle choisi.</strong> C'est de très loin le premier levier. L'écart de prix entre les modèles de pointe de 2026 va d'environ <strong>0,14 $ à 10 $ par million de tokens d'entrée</strong> — soit un facteur 70. Utiliser un modèle très capable pour classer des emails en trois catégories, c'est payer soixante-dix fois le prix nécessaire.</p>
+
+      <p><strong>② La langue.</strong> Rarement mentionné, et pourtant réel. Le même contenu coûte plus cher en français qu'en anglais, et nettement plus cher encore dans les écritures non latines. Les tokenizers ont été optimisés d'abord sur l'anglais. Si tu traites de gros volumes, c'est un facteur à connaître — même si on ne change évidemment pas la langue de ses utilisateurs pour ça.</p>
+
+      <p><strong>③ La forme de ce que tu envoies.</strong> Le levier le plus facile à actionner. Un même tableau de données peut coûter du simple au triple selon le format :</p>
+
+      <div class="schema">
+<pre>
+  LES MÊMES 3 LIGNES, TROIS FORMATS
+
+  JSON indenté                            ≈ 95 tokens
+  [
+    { "nom": "Dupont", "ville": "Lyon",  "montant": 240 },
+    { "nom": "Martin", "ville": "Paris", "montant": 180 },
+    { "nom": "Leroy",  "ville": "Nice",  "montant": 310 }
+  ]
+
+  CSV                                     ≈ 32 tokens
+  nom,ville,montant
+  Dupont,Lyon,240
+  Martin,Paris,180
+  Leroy,Nice,310
+
+  → Même information. Trois fois moins cher.
+    Et sur 10 000 lignes, ce n'est plus un détail.
+</pre>
+        <span class="cap">Les noms de clés répétés à chaque ligne sont du pur gaspillage. Le modèle lit très bien le CSV.</span>
+      </div>
+
+      <h3>Le piège de l'estimation</h3>
+      <p>Beaucoup d'équipes découvrent leur consommation réelle au moment de la facture, parce qu'elles ont estimé « à la louche » sur un exemple court. Or la consommation d'un système réel est presque toujours dominée par des choses qu'on n'avait pas comptées : la consigne système renvoyée à chaque appel, les définitions d'outils, l'historique de conversation, les documents récupérés. C'est le sujet de la leçon 6.</p>
+      <p>La bonne pratique tient en une phrase : <strong>mesure avant d'optimiser, et mesure sur du trafic réel, pas sur un exemple.</strong></p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Optimiser le mauvais bout. Beaucoup de gens passent des heures à raccourcir leur consigne système de 200 tokens, alors que leur vraie dépense vient d'une réponse de 2 000 tokens là où 200 suffiraient, ou d'un cache qui ne fonctionne pas. <strong>Regarde d'abord la répartition entrée / sortie de ta facture</strong> : elle te dit en trente secondes de quel côté chercher.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Ton assistant reçoit 1 500 tokens en entrée et produit 800 tokens en sortie, à chaque requête. Si la sortie coûte 5 fois l'entrée, quelle part de ta facture vient de la sortie ? <em>(Réponse : 800 × 5 = 4 000 « unités » contre 1 500 pour l'entrée, soit environ 73 % de la facture. Diviser la longueur des réponses par deux économise plus que supprimer toute l'entrée.)</em>
+      </div>
+    </section>
+
+    <section id="m1-l3">
+      <span class="lesson-num">Module 1 · Leçon 3</span>
+      <h2>La table de travail</h2>
+
+      <div class="kid">
+        <span class="label">🪙 Version 5 ans</span>
+        <p>L'IA travaille sur une <strong>table</strong>. Tout ce dont elle a besoin doit être posé dessus <strong>en même temps</strong> : ta question, les documents, les règles à suivre — et il faut aussi garder la place pour écrire la réponse.</p>
+        <p>La table est grande. Mais elle a un bord. Et quand on arrive au bord, ça tombe.</p>
+        <p>Et le soir, <strong>on débarrasse tout</strong>. Complètement. Le lendemain, la table est vide.</p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>C'est la <strong>fenêtre de contexte</strong> : le nombre maximum de tokens que le modèle peut traiter en une fois. Elle couvre <strong>l'entrée et la sortie ensemble</strong> — ce qui surprend souvent : si ta fenêtre est pleine à ras bord d'entrée, il ne reste plus de place pour la réponse.</p>
+      </div>
+
+      <div class="jauge">
+        <div class="jauge-titre"><span>Une requête ordinaire</span><span>32 000 / 200 000 tokens</span></div>
+        <div class="jauge-barre">
+          <div style="width:4%;background:#D64550">3k</div>
+          <div style="width:6%;background:#8E6C3F">5k</div>
+          <div style="width:4%;background:#3FA7D6">3k</div>
+          <div style="width:2%;background:#62A87C">2k</div>
+          <div style="width:84%;background:#EFEBE3"></div>
+        </div>
+        <div class="jauge-legende">
+          <span><i style="background:#D64550"></i>Consigne système</span>
+          <span><i style="background:#8E6C3F"></i>Définitions d'outils</span>
+          <span><i style="background:#3FA7D6"></i>Question + historique</span>
+          <span><i style="background:#62A87C"></i>Place pour la réponse</span>
+          <span><i style="background:#EFEBE3;border:1px solid #ddd"></i>Libre</span>
+        </div>
+      </div>
+
+      <h3>Les fenêtres ont énormément grandi</h3>
+      <p>C'est le changement le plus visible de ces dernières années. On est passé de quelques milliers de tokens à <strong>un million</strong> sur les modèles de pointe actuels — soit, avec les repères de la leçon 1, l'équivalent d'environ cinq à sept livres d'un coup.</p>
+      <p>Ça a rendu possibles des choses qui ne l'étaient pas : analyser un contrat entier, un dépôt de code complet, des mois de conversation. Et ça a fait naître une idée fausse très répandue, qu'il faut démonter tout de suite.</p>
+
+      <div class="callout danger">
+        <strong>⚠ La limite annoncée n'est pas la limite utilisable</strong> — Une fenêtre d'un million de tokens ne signifie pas que tu peux en mettre un million <em>utilement</em>. La qualité des réponses <strong>se dégrade bien avant</strong> d'atteindre la limite technique : le modèle exploite moins bien ce qui se trouve au milieu d'un très long contexte. C'est le sujet entier de la leçon 7, et c'est le piège le plus coûteux de ce cours.
+      </div>
+
+      <h3>Le point que personne ne dit assez</h3>
+      <p>La fenêtre de contexte <strong>n'est pas une mémoire</strong>. C'est une table qu'on débarrasse après chaque requête.</p>
+      <p>Quand tu as une longue conversation avec un assistant et qu'il « se souvient » de ce que tu as dit au début, ce n'est pas qu'il s'en souvient : c'est qu'<strong>on lui a remis toute la conversation sous les yeux</strong>, du premier message au dernier. À chaque fois. C'est la leçon 5, et c'est l'idée qui explique le plus de choses dans tout ce cours.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Oublier de réserver la place pour la sortie. Si tu remplis 199 000 tokens d'une fenêtre de 200 000, il reste 1 000 tokens pour répondre — et ta réponse sera coupée au milieu d'une phrase. Prévois toujours une marge pour la sortie, et sache que <strong>certaines API comptent la limite de sortie séparément de la fenêtre</strong> : vérifie laquelle s'applique chez toi plutôt que de le supposer.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Tu veux faire analyser un rapport de 180 pages. Avec les repères de la leçon 1, combien de tokens environ ? Est-ce que ça tient dans une fenêtre de 200 000 ? Et <em>devrais-tu</em> pour autant tout y mettre ? <em>(Environ 90 000 à 125 000 tokens : ça tient techniquement. La deuxième question est le vrai sujet — réponse en leçon 7.)</em>
+      </div>
+    </section>
+
+    <section id="m1-l4">
+      <span class="lesson-num">Module 1 · Leçon 4</span>
+      <h2>Le vocabulaire en 6 mots</h2>
+
+      <div class="kid">
+        <span class="label">🪙 Version 5 ans</span>
+        <p>Six mots : <strong>les morceaux</strong>, <strong>la table</strong>, <strong>ce que tu poses dessus</strong>, <strong>ce que l'IA écrit</strong>, <strong>les règles du jeu</strong>, et <strong>le marque-page</strong> qui évite de tout relire.</p>
+      </div>
+
+      <table>
+        <thead><tr><th>Le mot technique</th><th>Ce que ça veut dire</th><th>Sur la table</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Token</strong></td><td>Le morceau de texte élémentaire. L'unité de compte, et de facturation.</td><td>Une pièce de puzzle</td></tr>
+          <tr><td><strong>Fenêtre de contexte</strong></td><td>Le nombre maximum de tokens traitables en une fois, entrée et sortie comprises.</td><td>La taille de la table</td></tr>
+          <tr><td><strong>Entrée</strong> (<em>input</em>)</td><td>Tout ce que tu envoies. Le moins cher des deux tarifs.</td><td>Ce que tu poses dessus</td></tr>
+          <tr><td><strong>Sortie</strong> (<em>output</em>)</td><td>Ce que le modèle produit. 4 à 5 fois plus cher.</td><td>Ce qu'il écrit</td></tr>
+          <tr><td><strong>Prompt système</strong></td><td>La consigne permanente : le rôle, les règles, le format attendu. Renvoyée à chaque requête.</td><td>Les règles du jeu, affichées au mur</td></tr>
+          <tr><td><strong>Cache de prompt</strong></td><td>Un mécanisme qui évite de refacturer ce qui n'a pas changé depuis la requête précédente.</td><td>Un marque-page : « jusqu'ici, je connais »</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Trois mots de plus qui reviennent</h3>
+      <p><strong>Tokenizer</strong> — le programme qui fait le découpage. Chaque famille de modèles a le sien, donc <strong>le même texte ne fait pas le même nombre de tokens d'un modèle à l'autre</strong>. Quand tu changes de modèle, tes estimations sont à refaire.</p>
+      <p><strong>Troncature</strong> — couper ce qui ne rentre plus. C'est la solution la plus brutale au débordement, et la plus dangereuse : on supprime silencieusement de l'information, souvent la plus ancienne, sans que rien ne signale la perte.</p>
+      <p><strong>Compaction</strong> (ou résumé) — remplacer les échanges anciens par un résumé pour faire de la place. Plus intelligent que la troncature, et pas gratuit non plus. Leçon 10.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Confondre <strong>fenêtre de contexte</strong> et <strong>limite de sortie</strong>. Ce sont deux nombres différents : un modèle peut accepter un million de tokens en entrée et ne produire que 64 000 tokens en sortie au maximum. Demander « réécris-moi ce livre entier » échoue sur la seconde limite, pas sur la première.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Dans « ma consigne système fait 2 000 tokens, l'historique 15 000, la réponse 600, et le cache m'en a fait économiser 12 000 », place les six mots du tableau. Puis calcule ce que tu paies vraiment.
+      </div>
+
+      <details class="quiz">
+        <summary>Mini-quiz : vrai ou faux ?</summary>
+        <p><strong>« Plus la fenêtre de contexte est grande, meilleures sont les réponses. »</strong></p>
+        <p><strong>Faux</strong>, et c'est l'idée fausse la plus coûteuse du domaine. Une grande fenêtre permet de traiter <em>plus de choses</em> — c'est une capacité, pas une qualité. En pratique, remplir une grande fenêtre <strong>dégrade</strong> souvent la réponse : plus de bruit autour de l'information utile, et une exploitation moins fiable de ce qui se trouve au milieu. Moins de contexte, mieux choisi, bat presque toujours plus de contexte.</p>
+      </details>
+    </section>
+
+    <!-- ══════════════ MODULE 2 ══════════════ -->
+
+    <section id="m2-l5">
+      <span class="lesson-num">Module 2 · Leçon 5</span>
+      <h2>L'IA ne se souvient de rien</h2>
+
+      <div class="kid">
+        <span class="label">🪙 Version 5 ans</span>
+        <p>Voici le truc le plus bizarre de tout ce cours, et c'est celui qui explique le reste.</p>
+        <p>L'IA <strong>oublie tout</strong> entre deux questions. Absolument tout.</p>
+        <p>Alors comment se fait-il qu'elle se souvienne de ton prénom que tu as dit il y a dix messages ? Parce qu'<strong>on lui relit toute la conversation depuis le début, à chaque fois.</strong> Du premier message au dernier. À chaque question.</p>
+        <p>Elle ne se souvient pas. <strong>Elle relit.</strong></p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>Le modèle est <strong>sans état</strong> (<em>stateless</em>). Chaque appel est totalement indépendant du précédent. Il n'y a aucune mémoire côté serveur : c'est ton programme (ou l'interface de chat que tu utilises) qui <strong>renvoie l'historique complet</strong> à chaque tour.</p>
+        <p>Une fois qu'on a compris ça, la facture des conversations longues devient évidente.</p>
+      </div>
+
+      <div class="schema">
+<pre>
+  CE QUE TU CROIS QU'IL SE PASSE
+    Toi : « bonjour »          → l'IA retient
+    Toi : « je m'appelle Léo » → l'IA retient
+    Toi : « comment je m'appelle ? » → elle se souvient ✓
+
+  CE QUI SE PASSE VRAIMENT
+    Appel 1 : [bonjour]
+    Appel 2 : [bonjour][réponse 1][je m'appelle Léo]
+    Appel 3 : [bonjour][réponse 1][je m'appelle Léo][réponse 2]
+              [comment je m'appelle ?]
+                    ▲
+                    └─ tout est renvoyé, et tout est REFACTURÉ
+</pre>
+        <span class="cap">Ce n'est pas de la mémoire, c'est de la relecture. Et la relecture se paie.</span>
+      </div>
+
+      <h3>La conséquence : le coût grimpe en accéléré</h3>
+      <p>Voici ce que ça donne sur une conversation ordinaire, où chaque échange ajoute environ 400 tokens :</p>
+
+      <table>
+        <thead><tr><th>Tour</th><th>Nouveau texte</th><th>Tokens envoyés à ce tour</th><th>Cumul facturé en entrée</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>400</td><td>400</td><td>400</td></tr>
+          <tr><td>2</td><td>400</td><td>800</td><td>1 200</td></tr>
+          <tr><td>5</td><td>400</td><td>2 000</td><td>6 000</td></tr>
+          <tr><td>10</td><td>400</td><td>4 000</td><td>22 000</td></tr>
+          <tr><td>20</td><td>400</td><td>8 000</td><td><strong>84 000</strong></td></tr>
+          <tr><td>40</td><td>400</td><td>16 000</td><td><strong>328 000</strong></td></tr>
+        </tbody>
+      </table>
+
+      <p>Regarde la dernière ligne. L'utilisateur a écrit <strong>16 000 tokens de texte au total</strong>, et tu as payé <strong>328 000 tokens d'entrée</strong>. Vingt fois plus.</p>
+      <p>C'est la propriété la plus importante à intégrer : <strong>le coût d'une conversation ne grandit pas proportionnellement à sa longueur, mais au carré</strong>. Doubler le nombre de tours quadruple la facture. C'est exactement le phénomène évoqué dans le cours sur les agents, où chaque tour de boucle relit tout l'historique.</p>
+
+      <h3>Ce que ça implique concrètement</h3>
+      <ul>
+        <li><strong>Les longues conversations sont chères, mécaniquement.</strong> Ce n'est pas un défaut de conception de ton système, c'est la nature du mécanisme. La question n'est pas de l'éviter mais de le gérer — leçons 8 et 10.</li>
+        <li><strong>Une consigne système longue est payée à chaque tour.</strong> 3 000 tokens de consignes sur une conversation de 40 tours, ce sont 120 000 tokens rien que pour elle. C'est là que le cache devient décisif.</li>
+        <li><strong>« Nouvelle conversation » est un bouton d'optimisation.</strong> Quand un sujet est terminé, repartir de zéro remet le compteur à zéro. Beaucoup d'utilisateurs enchaînent des sujets sans rapport dans un seul fil, et paient l'intégralité de l'historique inutile à chaque message.</li>
+      </ul>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Croire que les longues conversations « se dégradent parce que l'IA fatigue ». Elle ne fatigue pas. Deux choses se produisent en réalité : le contexte se remplit — donc l'information utile est noyée et moins bien exploitée (leçon 7) — et le coût explose. Ce sont deux problèmes mesurables, avec des solutions concrètes, pas une fatalité.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Ta consigne système fait 2 500 tokens. Ton assistant tient des conversations de 25 tours en moyenne, 500 fois par jour. Combien de tokens par jour rien que pour la consigne système ? <em>(Réponse : 2 500 × 25 × 500 = 31 millions de tokens par jour. Pour un texte que tu as écrit une fois. C'est ce chiffre que le cache de la leçon 8 va faire s'effondrer.)</em>
+      </div>
+    </section>
+
+    <section id="m2-l6">
+      <span class="lesson-num">Module 2 · Leçon 6</span>
+      <h2>Ce qui remplit ta table</h2>
+
+      <div class="kid">
+        <span class="label">🪙 Version 5 ans</span>
+        <p>Tu crois que sur la table, il y a surtout <strong>ta question</strong>.</p>
+        <p>En vrai, ta question c'est le tout petit papier dans le coin. Le reste de la table est couvert par des choses que tu n'as pas vues : les règles du jeu, la liste des outils, les documents qu'on est allé chercher, et toute la conversation d'avant.</p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>C'est la leçon la plus utile avant d'optimiser quoi que ce soit : <strong>tu ne sais pas ce qui remplit ton contexte tant que tu ne l'as pas mesuré</strong>. Et la répartition surprend presque toujours.</p>
+      </div>
+
+      <h3>Un agent réel, décortiqué</h3>
+      <div class="jauge">
+        <div class="jauge-titre"><span>Un agent avec 12 outils, au tour 8</span><span>47 200 tokens</span></div>
+        <div class="jauge-barre">
+          <div style="width:5%;background:#D64550">2,4k</div>
+          <div style="width:19%;background:#8E6C3F">8,8k</div>
+          <div style="width:26%;background:#3FA7D6">12,3k</div>
+          <div style="width:45%;background:#7C5CA8">21,4k</div>
+          <div style="width:5%;background:#62A87C">2,3k</div>
+        </div>
+        <div class="jauge-legende">
+          <span><i style="background:#D64550"></i>Consigne système 5 %</span>
+          <span><i style="background:#8E6C3F"></i>Définitions d'outils 19 %</span>
+          <span><i style="background:#3FA7D6"></i>Documents récupérés 26 %</span>
+          <span><i style="background:#7C5CA8"></i>Historique des tours 45 %</span>
+          <span><i style="background:#62A87C"></i>Réponse 5 %</span>
+        </div>
+      </div>
+
+      <p>Trois observations sautent aux yeux, et ce sont exactement celles qu'on ne fait jamais sans mesurer :</p>
+      <ul>
+        <li><strong>L'historique domine tout</strong> — 45 % au tour 8, et ça ne fera que croître. C'est le phénomène de la leçon 5, rendu visible.</li>
+        <li><strong>Les définitions d'outils coûtent cher</strong> — 8 800 tokens, renvoyés <em>à chaque tour</em>, même les tours où aucun outil n'est appelé. Douze outils bien décrits, c'est un budget permanent. C'est le vrai argument derrière le conseil « ne branche que les outils utiles » du cours sur le MCP.</li>
+        <li><strong>La consigne système et la réponse sont marginales</strong> — 10 % à elles deux. C'est pourtant là que la plupart des gens commencent à optimiser.</li>
+      </ul>
+
+      <h3>Les six occupants de ta table</h3>
+      <table>
+        <thead><tr><th>Ce que c'est</th><th>Renvoyé à chaque fois ?</th><th>Comment le réduire</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Consigne système</strong></td><td>Oui</td><td>Le cache la rend quasi gratuite (leçon 8). Ne la raccourcis pas au détriment de la qualité</td></tr>
+          <tr><td><strong>Définitions d'outils</strong></td><td>Oui</td><td>Moins d'outils. Des descriptions denses plutôt que bavardes</td></tr>
+          <tr><td><strong>Documents récupérés</strong></td><td>À chaque requête</td><td>Un meilleur tri : 5 bons extraits valent mieux que 20 moyens</td></tr>
+          <tr><td><strong>Historique</strong></td><td>Oui, et il grandit</td><td>Résumé, troncature, ou nouvelle conversation (leçon 10)</td></tr>
+          <tr><td><strong>Fichiers joints</strong></td><td>Tant qu'ils sont dans le fil</td><td>Extraire ce qui sert plutôt que tout coller</td></tr>
+          <tr><td><strong>La réponse</strong></td><td>Elle devient de l'historique</td><td>Demander des réponses courtes — et c'est le tarif le plus cher</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Comment mesurer, concrètement</h3>
+      <p>Deux moyens, et il faut les deux :</p>
+      <ul>
+        <li><strong>La réponse de l'API te donne les chiffres.</strong> Chaque réponse contient un bloc d'usage avec les tokens d'entrée, de sortie, et ceux lus depuis le cache. <strong>Journalise-les systématiquement.</strong> C'est trois lignes de code et ça t'évite de deviner pour toujours.</li>
+        <li><strong>Compte avant d'envoyer.</strong> Les API proposent un point d'entrée de comptage de tokens. Il sert à vérifier qu'une requête tient avant de l'envoyer, et à mesurer ce que coûte chaque partie séparément.</li>
+      </ul>
+      <p>Un conseil de méthode qui vaut pour tout le module : <strong>compte les tokens avec l'outil du fournisseur, jamais avec une bibliothèque d'un autre écosystème</strong>. Chaque famille de modèles a son propre découpage — un compteur fait pour un autre modèle donne un résultat faux, parfois de 20 %.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Optimiser au jugé. « Je vais raccourcir ma consigne système » est le réflexe le plus fréquent, et dans l'exemple ci-dessus il porte sur 5 % de la dépense. Pendant ce temps, l'historique en représente 45 % et le cache est peut-être inactif. <strong>Trente secondes de mesure évitent trois jours d'optimisation inutile.</strong>
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Prends un de tes appels et décompose-le en six catégories du tableau. Laquelle domine ? Est-ce celle que tu aurais devinée ? <em>(Chez la plupart des gens, la réponse est non — et c'est tout l'intérêt de l'exercice.)</em>
+      </div>
+    </section>
+
+    <section id="m2-l7">
+      <span class="lesson-num">Module 2 · Leçon 7</span>
+      <h2>Le milieu qu'on lit mal</h2>
+
+      <div class="kid">
+        <span class="label">🪙 Version 5 ans</span>
+        <p>Tu poses <strong>quarante feuilles</strong> sur la table et tu demandes : « trouve-moi le numéro de téléphone ».</p>
+        <p>Si le numéro est sur la <strong>première</strong> feuille, l'IA le trouve. S'il est sur la <strong>dernière</strong>, elle le trouve aussi.</p>
+        <p>Mais s'il est sur la <strong>vingtième</strong>, au milieu de la pile… elle le rate beaucoup plus souvent. Alors qu'il est là, bien visible, sur la table.</p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>Ce phénomène a un nom — <strong>« lost in the middle »</strong>, mis en évidence par Liu et ses co-auteurs en 2023 — et une conséquence générale qu'on appelle aujourd'hui le <strong>context rot</strong> : <em>la performance du modèle se dégrade à mesure que l'entrée s'allonge, même quand il reste techniquement de la place dans la fenêtre.</em></p>
+        <p>L'attention du modèle se concentre sur le début et la fin. Ce qui est au milieu reçoit un traitement moins fiable.</p>
+      </div>
+
+      <div class="schema">
+<pre>
+  PRÉCISION SELON LA POSITION DE L'INFORMATION CHERCHÉE
+
+  début                        milieu                        fin
+    │                             │                            │
+   75% ██████████                                        ██████ 73%
+       ███████████                                     ████████
+       ████████████                                  ██████████
+       █████████████    ███████████████████████    ████████████
+       ██████████████  ██ 55-60 % ███████████████ █████████████
+       ───────────────────────────────────────────────────────────
+       pos. 1        pos. 5      pos. 10      pos. 15      pos. 20
+
+  Une chute de 30 à 50 % sur l'information placée au milieu.
+  Et ça arrive BIEN AVANT la limite annoncée de la fenêtre.
+</pre>
+        <span class="cap">Ordres de grandeur issus des travaux publics sur le sujet. La forme en U est constante d'un modèle à l'autre.</span>
+      </div>
+
+      <div class="callout danger">
+        <strong>⚠ Le piège le plus coûteux de ce cours</strong> — « J'ai un million de tokens de fenêtre, donc je mets tout dedans. » <strong>Non.</strong> La limite annoncée est une limite <em>technique</em>, pas une limite <em>utile</em>. Tu peux parfaitement remplir 800 000 tokens, ne recevoir aucune erreur, et obtenir des réponses nettement moins bonnes qu'avec 20 000 tokens bien choisis. <strong>Rien ne t'avertira.</strong>
+      </div>
+
+      <h3>Ce que ça change dans la pratique</h3>
+
+      <p><strong>① Place l'important au début et à la fin.</strong> C'est gratuit et immédiat. Ta consigne la plus critique va en tête ; ta question va en dernier, après les documents. Si tu as un extrait crucial, ne le mets pas au milieu de quinze autres.</p>
+
+      <p><strong>② Moins de documents, mieux choisis.</strong> C'est la justification de tout le travail de tri du cours sur le RAG. Cinq extraits pertinents battent vingt extraits « au cas où » — pas seulement pour le coût, mais <strong>pour la qualité de la réponse</strong>. Ajouter du contexte moyen dégrade activement le résultat.</p>
+
+      <p><strong>③ Découpe plutôt que d'entasser.</strong> Pour un document de 300 pages, traiter chapitre par chapitre puis synthétiser donne souvent de meilleurs résultats que tout envoyer d'un coup — et coûte moins cher. C'est contre-intuitif, et c'est mesurable.</p>
+
+      <p><strong>④ Dans une longue conversation, rappelle l'essentiel.</strong> Si une contrainte a été posée au tour 2 et qu'on en est au tour 30, elle est au milieu — donc dans la zone faible. La reformuler brièvement dans le message courant la ramène à la fin, là où elle sera bien lue. C'est aussi pour ça que les agents écrivent leur plan dans un fichier plutôt que de compter sur l'historique.</p>
+
+      <h3>Pourquoi ça arrive</h3>
+      <p>Sans entrer dans les détails : le mécanisme d'attention d'un modèle doit répartir un budget limité sur l'ensemble des tokens. Plus il y en a, plus ce budget se disperse. Les positions extrêmes bénéficient de signaux plus nets — un début de document et une fin de document sont structurellement saillants, un milieu ne l'est pas.</p>
+      <p>Ce n'est donc pas un bug qu'on corrigera dans la prochaine version. Les modèles s'améliorent sur ce point, mais <strong>la forme en U persiste</strong>. Il faut faire avec, en concevant ses prompts en conséquence.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Tester son système sur des entrées courtes, puis le déployer sur des entrées longues. Tout fonctionne parfaitement en développement avec trois documents, et se dégrade silencieusement en production avec trente. <strong>Teste avec des contextes de la taille réelle</strong> — et vérifie spécifiquement que l'information placée au milieu est bien retrouvée.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Tu envoies 20 extraits à ton modèle et il ignore le n°11, qui contenait la réponse. Cite trois actions, de la moins à la plus coûteuse à mettre en œuvre. <em>(Pistes : ① réordonner pour placer le mieux classé en premier ; ② passer de 20 à 6 extraits en améliorant le tri ; ③ faire deux appels sur deux moitiés puis synthétiser. Et note qu'aucune ne consiste à changer de modèle.)</em>
+      </div>
+    </section>
+
+    <section id="m2-l8">
+      <span class="lesson-num">Module 2 · Leçon 8</span>
+      <h2>Le cache</h2>
+
+      <div class="kid">
+        <span class="label">🪙 Version 5 ans</span>
+        <p>On a vu qu'à chaque question, on relit toute la conversation depuis le début. C'est long et ça coûte cher.</p>
+        <p>Alors on met un <strong>marque-page</strong> : « jusqu'ici, je connais déjà, je ne relis pas ».</p>
+        <p>Mais attention, il y a une règle très stricte : si tu changes <strong>ne serait-ce qu'une seule lettre</strong> avant le marque-page, tout ce qui suit doit être relu. Le marque-page ne sert plus à rien.</p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>C'est le <strong>cache de prompt</strong>. Le fournisseur conserve le travail déjà effectué sur le début de ta requête, et te le refacture à un tarif très réduit — les économies vont couramment de <strong>50 à 80 %</strong> sur des systèmes avec une grosse partie stable.</p>
+        <p>Et la règle stricte de l'enfant est littéralement vraie. C'est ce qu'il faut absolument comprendre.</p>
+      </div>
+
+      <div class="callout danger">
+        <strong>⚠ Le cache fonctionne par PRÉFIXE</strong> — Il compare le début de ta requête, octet par octet, avec la précédente. <strong>Le moindre changement, à n'importe quel endroit du préfixe, invalide tout ce qui vient après.</strong> Un espace, une virgule, une date qui change, l'ordre de deux outils — et tu repaies l'intégralité au tarif plein. Sans le moindre message d'erreur.
+      </div>
+
+      <h3>D'où la règle d'or : le stable devant, le variable derrière</h3>
+      <div class="schema">
+<pre>
+  ✓ BON ORDRE                          ✗ MAUVAIS ORDRE
+  ┌──────────────────────┐             ┌──────────────────────┐
+  │ Consigne système     │ ▒ caché     │ « Nous sommes le     │ ← change à
+  │ (figée)              │ ▒           │   14/03 à 09:41 »    │   chaque
+  ├──────────────────────┤ ▒           ├──────────────────────┤   requête
+  │ Définitions d'outils │ ▒ caché     │ Consigne système     │ ✗ jamais
+  │ (ordre déterministe) │ ▒           ├──────────────────────┤   caché
+  ├──────────────────────┤ ▒           │ Définitions d'outils │ ✗ jamais
+  │ Historique ancien    │ ▒ caché     ├──────────────────────┤   caché
+  ├──────────────────────┤ ──┐         │ Historique           │ ✗ jamais
+  │ Message courant      │   │ payé    ├──────────────────────┤   caché
+  │ (variable)           │   │ plein   │ Message courant      │ ✗ jamais
+  └──────────────────────┘ ──┘         └──────────────────────┘   caché
+
+  À gauche : 90 % de la requête au tarif réduit.
+  À droite : 100 % au tarif plein, pour une seule ligne mal placée.
+</pre>
+        <span class="cap">La seule différence entre les deux colonnes est la position d'une ligne. Le coût est multiplié par plusieurs fois.</span>
+      </div>
+
+      <h3>Les invalidateurs silencieux</h3>
+      <p>Voici la liste des coupables les plus fréquents. Ils ont tous en commun de ne produire <strong>aucune erreur</strong> — le système fonctionne parfaitement, il coûte juste beaucoup trop cher :</p>
+      <ul>
+        <li><strong>Une date ou une heure dans la consigne système.</strong> « Nous sommes le {date} » en tête de prompt : le préfixe change à chaque requête, le cache ne sert jamais. C'est le coupable n°1, et c'est l'histoire de la leçon 12.</li>
+        <li><strong>Un identifiant de requête ou de session</strong> placé avant le contenu stable.</li>
+        <li><strong>Un ordre d'outils non déterministe.</strong> Si ta liste d'outils vient d'un dictionnaire parcouru sans tri, l'ordre peut varier d'une exécution à l'autre. Même contenu, préfixe différent, cache perdu.</li>
+        <li><strong>Du JSON re-sérialisé sans ordre stable.</strong> Les mêmes données, des clés dans un ordre différent : ce n'est pas le même texte.</li>
+        <li><strong>Le prénom de l'utilisateur en tête de consigne.</strong> Chaque utilisateur a alors son propre cache, au lieu d'un cache partagé par tous. Mets-le à la fin.</li>
+      </ul>
+
+      <h3>Comment vérifier que ça marche</h3>
+      <p>Il n'y a qu'une seule façon fiable, et elle prend deux minutes :</p>
+      <div class="callout">
+        <strong>Le test</strong> — Envoie deux fois la même requête et regarde le champ <strong>« tokens lus depuis le cache »</strong> dans la réponse de la deuxième.<br><br>
+        <strong>S'il est à zéro, ton cache ne fonctionne pas.</strong> Quelque chose invalide ton préfixe. Cherche dans la liste ci-dessus avant toute autre chose.
+      </div>
+      <p>Ce champ est le seul indicateur qui compte. Beaucoup d'équipes « activent le cache », ne vérifient jamais cette valeur, et croient bénéficier d'économies qu'elles n'ont pas. C'est exactement ce qui arrive à Clara en leçon 12.</p>
+
+      <h3>Une limite à connaître</h3>
+      <p>Le cache a une <strong>durée de vie</strong> — quelques minutes typiquement, parfois davantage selon les options. Si tes requêtes sont très espacées, le cache expire entre chaque et ne sert à rien. Il y a aussi souvent une <strong>taille minimale</strong> en dessous de laquelle un préfixe n'est pas mis en cache du tout : sur de petits prompts, l'activer ne change rien, et ce n'est pas un bug.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Activer le cache et ne jamais vérifier. C'est une optimisation entièrement silencieuse : qu'elle fonctionne ou non, ton système rend exactement les mêmes réponses. <strong>Le seul retour que tu auras, c'est la facture</strong> — et à ce moment-là tu auras payé plusieurs semaines de trop.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Ta consigne système commence par « Tu es l'assistant de {nom_entreprise}, nous sommes le {date}. » Que se passe-t-il pour le cache ? Réécris cette ligne correctement. <em>(Réponse : le nom d'entreprise est stable et peut rester en tête ; la date doit descendre à la fin, juste avant le message de l'utilisateur. On ne la supprime pas — on la déplace.)</em>
+      </div>
+    </section>
+
+    <!-- ══════════════ MODULE 3 ══════════════ -->
+
+    <section id="m3-l9">
+      <span class="lesson-num">Module 3 · Leçon 9</span>
+      <h2>Lire sa facture</h2>
+
+      <div class="kid">
+        <span class="label">🪙 Version 5 ans</span>
+        <p>Quand la facture est trop grosse, on a envie de tout changer d'un coup. C'est la mauvaise idée.</p>
+        <p>Il faut regarder <strong>dans l'ordre</strong> : d'abord ce qui ne coûte rien à corriger et qui ne change rien à la qualité. Ensuite seulement, ce qui demande de faire des choix.</p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>Les leviers ne se valent pas, et ils ont un ordre. Les quatre premiers sont des <strong>gains gratuits</strong> : ils réduisent la dépense <em>sans toucher à la qualité</em>. Les suivants sont des <strong>arbitrages</strong> : on échange de la qualité contre du coût, et ça mérite une mesure.</p>
+        <p>Ne touche jamais aux arbitrages avant d'avoir épuisé les gains gratuits.</p>
+      </div>
+
+      <h3>D'abord : établir une base de référence</h3>
+      <p>Avant tout levier, deux chiffres. Sans eux, tu optimises à l'aveugle :</p>
+      <ul>
+        <li><strong>La répartition entrée / sortie / cache.</strong> Elle te dit en trente secondes de quel côté chercher (leçon 6).</li>
+        <li><strong>Le coût par tâche terminée</strong>, pas par requête. Une requête moins chère qui demande trois tentatives pour aboutir n'est pas moins chère. C'est la métrique qui compte, et c'est celle que presque personne ne calcule.</li>
+      </ul>
+
+      <h3>Les gains gratuits, dans l'ordre</h3>
+
+      <p><strong>① Le cache.</strong> Toujours en premier, sans exception. C'est le seul levier qui peut diviser une facture par trois ou quatre sans modifier une seule réponse. Vérifie que les tokens lus depuis le cache ne sont pas à zéro, et range ton prompt du stable vers le variable (leçon 8).</p>
+
+      <p><strong>② L'hygiène de l'entrée.</strong> Arrête d'envoyer ce qui ne sert pas. Concrètement : le JSON verbeux qui pourrait être du CSV ; les vingt extraits récupérés là où six suffisent ; le fichier entier collé là où deux sections suffisaient ; les définitions de douze outils quand la tâche en utilise trois. <strong>Bonus : chacun de ces gestes améliore aussi la qualité</strong>, pour les raisons de la leçon 7.</p>
+
+      <p><strong>③ L'hygiène de la sortie.</strong> Le levier le plus sous-estimé, parce que la sortie est le tarif le plus cher. Une consigne explicite — « réponds en trois phrases », « rends uniquement le JSON, sans commentaire » — peut diviser la partie la plus coûteuse de ta facture par deux ou trois. <strong>Et c'est presque toujours une meilleure expérience utilisateur</strong> : personne ne réclame des réponses plus longues.</p>
+
+      <p><strong>④ L'hygiène de la boucle.</strong> Si tu as un agent : chaque tour relit tout (leçon 5). Réduire le nombre de tours réduit le coût au carré. Un outil qui renvoie un résultat exploitable du premier coup vaut deux tours économisés.</p>
+
+      <h3>Ensuite : les arbitrages</h3>
+
+      <p><strong>⑤ Le choix du modèle.</strong> Le levier le plus puissant, et le plus risqué. L'écart va d'environ <strong>0,14 $ à 10 $ par million de tokens d'entrée</strong> entre les modèles de pointe de 2026 : un facteur 70. Mais attention au piège classique — un modèle moins capable qui échoue une fois sur cinq et qu'il faut relancer n'est pas moins cher. <strong>Mesure le coût par tâche terminée, pas par requête.</strong></p>
+      <p>Un réflexe utile : plutôt qu'un modèle plus faible, essaie d'abord <strong>le même modèle avec un effort de raisonnement réduit</strong> quand l'API le permet. Tu gardes la capacité, tu réduis la dépense, et tu conserves un seul cache — alors qu'une cascade de modèles perd le bénéfice du cache à chaque changement.</p>
+
+      <p><strong>⑥ Le traitement par lots.</strong> Si tes tâches ne sont pas urgentes — classer des milliers de documents, générer des résumés nocturnes — les API de traitement par lots sont typiquement <strong>deux fois moins chères</strong>, en échange d'un délai de quelques heures. C'est un gain énorme pour un inconvénient souvent nul.</p>
+
+      <table>
+        <thead><tr><th>Levier</th><th>Gain typique</th><th>Coût en qualité</th><th>Effort</th></tr></thead>
+        <tbody>
+          <tr><td>① Cache</td><td>50 à 80 %</td><td><strong>Aucun</strong></td><td>Faible</td></tr>
+          <tr><td>② Hygiène de l'entrée</td><td>20 à 50 %</td><td><strong>Négatif — ça améliore</strong></td><td>Moyen</td></tr>
+          <tr><td>③ Hygiène de la sortie</td><td>30 à 60 % de la partie chère</td><td><strong>Négatif le plus souvent</strong></td><td>Très faible</td></tr>
+          <tr><td>④ Hygiène de la boucle</td><td>Variable, parfois énorme</td><td>Aucun</td><td>Moyen</td></tr>
+          <tr><td>⑤ Modèle / effort</td><td>Jusqu'à un facteur 70</td><td><strong>Réel — à mesurer</strong></td><td>Faible à poser, lourd à valider</td></tr>
+          <tr><td>⑥ Lots</td><td>~50 %</td><td>Aucun, mais délai</td><td>Moyen</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Commencer par changer de modèle. C'est le premier réflexe de presque tout le monde, et c'est le seul levier de la liste qui <strong>dégrade potentiellement la qualité</strong>. Les quatre premiers ne coûtent rien en qualité — et deux d'entre eux l'améliorent. Change de modèle en dernier, avec un jeu de cas de test pour vérifier que tu n'as rien cassé.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Ta facture se répartit en 70 % d'entrée et 30 % de sortie, et tes tokens lus depuis le cache sont à zéro. Par quoi commences-tu, et quel gain peux-tu espérer ? <em>(Réponse : le cache, évidemment. Avec 70 % de la facture en entrée et une partie stable importante, le rendre fonctionnel peut à lui seul réduire la facture totale de moitié. Tout le reste attend.)</em>
+      </div>
+    </section>
+
+    <section id="m3-l10">
+      <span class="lesson-num">Module 3 · Leçon 10</span>
+      <h2>Quand la table déborde</h2>
+
+      <div class="kid">
+        <span class="label">🪙 Version 5 ans</span>
+        <p>La table est pleine et il faut encore poser des choses. Tu as quatre solutions :</p>
+        <p><strong>① Jeter par terre</strong> ce qui dépasse. Rapide. Dangereux : tu ne sais pas ce que tu as jeté.<br>
+        <strong>② Résumer</strong> les vieilles feuilles en une seule. Tu gardes l'idée, tu perds les détails.<br>
+        <strong>③ Faire en plusieurs fois</strong> : tu traites une pile, tu notes le résultat, tu passes à la suivante.<br>
+        <strong>④ Ne rien poser du tout</strong>, et aller chercher dans l'armoire seulement ce dont tu as besoin.</p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>Ces quatre options sont <strong>troncature</strong>, <strong>compaction</strong>, <strong>découpage</strong> et <strong>récupération</strong>. Elles ne sont pas interchangeables : chacune convient à une situation précise, et en choisir une mauvaise crée des bugs très difficiles à diagnostiquer.</p>
+      </div>
+
+      <h3>① La troncature — à éviter</h3>
+      <p>On coupe ce qui dépasse, en général les messages les plus anciens. C'est ce que font beaucoup d'implémentations par défaut, et c'est le pire choix pour une raison précise : <strong>la perte est silencieuse</strong>. Une contrainte posée au début de la conversation disparaît, l'assistant recommence une erreur qu'il avait corrigée, et rien n'indique pourquoi.</p>
+      <p>Si tu dois tronquer, au minimum : <strong>garde toujours la consigne système</strong>, et <strong>signale-le dans le contexte</strong> (« les 12 premiers échanges ont été retirés »). Un modèle informé de la troncature se comporte bien mieux qu'un modèle à qui on a discrètement retiré la moitié de sa mémoire.</p>
+
+      <h3>② La compaction — le compromis courant</h3>
+      <p>On remplace les échanges anciens par un résumé. C'est ce que font les assistants conversationnels sur les longues sessions, et c'est ce qui leur permet de tenir des heures.</p>
+      <p>Le coût est réel et il faut le connaître : <strong>un résumé perd du détail, et tu ne choisis pas lequel</strong>. Une contrainte précise mentionnée une fois au tour 3 peut disparaître du résumé, et l'assistant refera l'erreur. C'est exactement ce qui rend l'agent de Karim amnésique, dans le cours sur les agents.</p>
+      <p>La parade : <strong>ce qui est vital ne doit pas vivre uniquement dans l'historique</strong>. Mets-le dans la consigne système, ou dans un fichier de notes que le système relit — deux endroits que la compaction ne touche pas.</p>
+
+      <h3>③ Le découpage — souvent le meilleur</h3>
+      <p>Au lieu d'un appel avec 300 pages, on fait dix appels de 30 pages et on synthétise. C'est plus de travail à écrire, et c'est fréquemment <strong>meilleur et moins cher</strong> — pour les raisons de la leçon 7 : chaque appel a un contexte court, donc bien exploité, sans zone morte au milieu.</p>
+      <p>C'est aussi la seule option qui passe à l'échelle indéfiniment. Mille documents ne tiendront jamais dans une fenêtre, quelle que soit sa taille future.</p>
+
+      <h3>④ La récupération — quand le volume est ingérable</h3>
+      <p>On ne met rien dans le contexte, on va chercher au moment voulu les quelques passages pertinents. <strong>C'est le RAG</strong>, et ce cours-ci en est le complément exact : il explique <em>pourquoi</em> le RAG existe.</p>
+
+      <h3>Le tableau de décision</h3>
+      <table>
+        <thead><tr><th>Ta situation</th><th>Fais ça</th></tr></thead>
+        <tbody>
+          <tr><td>Tout tient confortablement dans la fenêtre</td><td><strong>Mets tout.</strong> Pas d'infrastructure, pas de risque de mal chercher</td></tr>
+          <tr><td>Ça tient, mais ça remplit la fenêtre</td><td><strong>Découpe.</strong> Ça tient ≠ c'est bien exploité (leçon 7)</td></tr>
+          <tr><td>Ça ne tient pas, mais c'est une tâche unique</td><td><strong>Découpe et synthétise</strong></td></tr>
+          <tr><td>Ça ne tient pas, et c'est un corpus permanent interrogé souvent</td><td><strong>RAG</strong></td></tr>
+          <tr><td>Une conversation qui s'allonge</td><td><strong>Compaction</strong>, en protégeant l'essentiel ailleurs</td></tr>
+          <tr><td>Un agent qui boucle</td><td><strong>Notes dans un fichier</strong> + limite de tours (cours sur les agents)</td></tr>
+        </tbody>
+      </table>
+
+      <p>Note la première ligne : <strong>ne construis pas de RAG si tes documents tiennent dans le contexte.</strong> C'est le conseil de la leçon 10 du cours RAG, et ce cours-ci te donne enfin de quoi savoir si « ça tient » — et surtout si ça tient <em>utilement</em>, ce qui est une question différente.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Croire que les fenêtres géantes rendent le découpage inutile. Elles déplacent le seuil, elles ne le suppriment pas — et le vrai seuil n'est pas la limite technique, c'est le point où la qualité commence à se dégrader. <strong>Ce point-là arrive bien avant, et c'est à toi de le mesurer sur ton cas</strong> : prends une question dont tu connais la réponse, place-la au milieu d'un contexte de plus en plus long, et regarde à partir de quand le modèle la rate.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Pour chaque cas, quelle option ? <strong>(a)</strong> analyser un contrat de 40 pages, une fois ; <strong>(b)</strong> un assistant sur 8 000 documents internes ; <strong>(c)</strong> une conversation de support qui dure depuis 50 messages ; <strong>(d)</strong> résumer 200 rapports de 60 pages chacun. <em>(Réponses : a → tout mettre ; b → RAG ; c → compaction ; d → découpage, un rapport à la fois puis une synthèse finale.)</em>
+      </div>
+
+      <details class="quiz">
+        <summary>Mini-quiz : la question à se poser en premier</summary>
+        <p><strong>Ton contexte est plein. Quel est le premier réflexe ?</strong></p>
+        <p><strong>Regarder ce qu'il y a dedans</strong> (leçon 6). Dans la grande majorité des cas, une part importante ne sert à rien : du JSON verbeux, des outils inutilisés, des extraits récupérés « au cas où », des messages sans rapport avec le sujet en cours. <strong>Enlever ce qui est inutile est toujours préférable à compresser ce qui est utile</strong> — et c'est le seul geste qui améliore le coût <em>et</em> la qualité en même temps.</p>
+      </details>
+    </section>
+
+    <!-- ══════════════ MODULE 4 ══════════════ -->
+
+    <section id="m4-l11">
+      <span class="lesson-num">Module 4 · Leçon 11</span>
+      <h2>📐 L'assistant d'Amine</h2>
+
+      <div class="kid">
+        <span class="label">🪙 Version 5 ans</span>
+        <p>Amine a construit un assistant. Avant de commencer, il a fait quelque chose que presque personne ne fait : il a <strong>décidé à l'avance combien de place chaque chose aurait le droit de prendre</strong> sur la table.</p>
+        <p>Les règles : ce coin-là. Les documents : ce coin-là. La conversation : ce coin-là. Et si quelque chose déborde de son coin, on le sait tout de suite.</p>
+      </div>
+
+      <h3>La situation</h3>
+      <p><em>Doculab</em> est un éditeur de logiciel fictif de 40 personnes. Amine construit un assistant interne : les développeurs lui posent des questions sur la documentation technique, l'architecture et les procédures de déploiement. Environ 900 questions par jour.</p>
+      <p>La première version, mise en ligne en trois jours, fonctionne bien. Elle coûte <strong>2 100 € par mois</strong>, ce qui est trois fois le budget prévu. Personne ne comprend pourquoi.</p>
+
+      <h3>La mesure, avant tout</h3>
+      <p>Amine applique la leçon 6 : il journalise la décomposition de 200 appels réels. Voilà ce qu'il trouve.</p>
+
+      <div class="jauge">
+        <div class="jauge-titre"><span>Version 1 — moyenne par requête</span><span>28 400 tokens d'entrée</span></div>
+        <div class="jauge-barre">
+          <div style="width:11%;background:#D64550">3,1k</div>
+          <div style="width:24%;background:#8E6C3F">6,8k</div>
+          <div style="width:51%;background:#3FA7D6">14,5k</div>
+          <div style="width:14%;background:#7C5CA8">4,0k</div>
+        </div>
+        <div class="jauge-legende">
+          <span><i style="background:#D64550"></i>Consigne système</span>
+          <span><i style="background:#8E6C3F"></i>Définitions d'outils (14 outils)</span>
+          <span><i style="background:#3FA7D6"></i>Extraits récupérés (top-20)</span>
+          <span><i style="background:#7C5CA8"></i>Historique</span>
+        </div>
+      </div>
+
+      <p>Deux découvertes, dont une qu'il n'attendait pas du tout :</p>
+      <ul>
+        <li><strong>Les extraits récupérés représentent la moitié de tout.</strong> Il avait mis <code>top_k=20</code> « pour être sûr de ne rien rater », sans jamais vérifier si les extraits 7 à 20 servaient à quelque chose.</li>
+        <li><strong>Les tokens lus depuis le cache sont à zéro.</strong> Il croyait le cache actif : il l'avait bien activé. Mais sa consigne système commençait par la liste des dépôts de code disponibles, construite en parcourant un dictionnaire — <strong>dont l'ordre variait d'un redémarrage à l'autre</strong>. Le préfixe changeait, le cache ne prenait jamais.</li>
+      </ul>
+
+      <h3>Les quatre corrections, dans l'ordre de la leçon 9</h3>
+      <ol>
+        <li><strong>Le cache d'abord.</strong> Il trie la liste des dépôts par ordre alphabétique. Une ligne de code. Les tokens lus depuis le cache passent de 0 à environ 9 900 par requête — la consigne et les outils deviennent quasi gratuits.</li>
+        <li><strong>L'hygiène de l'entrée.</strong> Il ajoute un reranking et descend de 20 à 6 extraits. Les extraits passent de 14 500 à 4 100 tokens. <strong>Et la qualité s'améliore</strong>, exactement comme le prédit la leçon 7 : moins de bruit autour de la bonne réponse.</li>
+        <li><strong>L'hygiène de la sortie.</strong> Il ajoute « réponds en moins de 200 mots sauf si on te demande un exemple de code complet ». La sortie moyenne passe de 740 à 310 tokens — sur le tarif le plus cher.</li>
+        <li><strong>Les outils.</strong> Sur 14 outils, 5 n'avaient jamais été appelés en trois semaines. Il les retire. 6 800 → 4 200 tokens, et le modèle hésite moins.</li>
+      </ol>
+
+      <div class="jauge">
+        <div class="jauge-titre"><span>Version 2 — moyenne par requête</span><span>13 600 tokens, dont 8 900 au tarif cache</span></div>
+        <div class="jauge-barre">
+          <div style="width:23%;background:#62A87C">3,1k ▒</div>
+          <div style="width:31%;background:#62A87C">4,2k ▒</div>
+          <div style="width:30%;background:#3FA7D6">4,1k</div>
+          <div style="width:16%;background:#7C5CA8">2,2k</div>
+        </div>
+        <div class="jauge-legende">
+          <span><i style="background:#62A87C"></i>▒ Lu depuis le cache (tarif réduit)</span>
+          <span><i style="background:#3FA7D6"></i>Extraits (top-6)</span>
+          <span><i style="background:#7C5CA8"></i>Historique</span>
+        </div>
+      </div>
+
+      <h3>Le résultat</h3>
+      <table>
+        <thead><tr><th></th><th>Version 1</th><th>Version 2</th></tr></thead>
+        <tbody>
+          <tr><td>Tokens d'entrée par requête</td><td>28 400</td><td>13 600</td></tr>
+          <tr><td>dont au tarif cache</td><td>0</td><td><strong>8 900</strong></td></tr>
+          <tr><td>Tokens de sortie</td><td>740</td><td>310</td></tr>
+          <tr><td>Coût mensuel</td><td>2 100 €</td><td><strong>310 €</strong></td></tr>
+          <tr><td>Satisfaction interne</td><td>3,8 / 5</td><td><strong>4,4 / 5</strong></td></tr>
+        </tbody>
+      </table>
+
+      <p>Regarde la dernière ligne, c'est elle qui compte. <strong>Amine n'a pas échangé de la qualité contre du coût : il a obtenu les deux.</strong> C'est normal, et c'est le message de la leçon 9 : les quatre premiers leviers sont des gains gratuits, et deux d'entre eux améliorent activement les réponses. Il n'a jamais eu besoin de toucher au modèle.</p>
+
+      <h3>Ce qu'il a mis en place pour que ça tienne</h3>
+      <p>Un <strong>budget de contexte</strong>, déclaré explicitement dans le code, avec une alerte quand une catégorie le dépasse :</p>
+      <pre><code class="language-python">BUDGET = {
+    "systeme":  3_500,    # figé, caché
+    "outils":   5_000,    # figé, caché
+    "extraits": 5_000,    # variable — on tronque au-delà
+    "historique": 8_000,  # au-delà : on résume (leçon 10)
+    "sortie":   1_500,
+}
+
+def assembler(question, extraits, historique):
+    extraits   = couper_a_budget(extraits,   BUDGET["extraits"])
+    historique = resumer_si_besoin(historique, BUDGET["historique"])
+
+    total = compter_tokens(...)
+    if total > sum(BUDGET.values()):
+        alerte("budget de contexte dépassé", detail=decomposition())
+    ...</code></pre>
+      <p>L'intérêt n'est pas de faire des économies — c'est de <strong>rendre visible</strong> le moment où quelque chose grossit. Six mois plus tard, quand un collègue a ajouté un outil très verbeux, l'alerte s'est déclenchée le jour même au lieu d'apparaître sur la facture du mois suivant.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Le <code>top_k=20</code> « pour être sûr ». C'est exactement l'inverse de ce qu'on croit faire : on n'augmente pas ses chances de trouver, on noie le bon extrait dans quatorze extraits médiocres, placés qui plus est au milieu du contexte — la zone faible de la leçon 7. <strong>Moins d'extraits, mieux triés, coûte moins cher ET répond mieux.</strong>
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Sur ton propre système : vérifie une seule chose, le champ « tokens lus depuis le cache » sur deux requêtes identiques successives. S'il est à zéro, tu viens probablement de trouver ton plus gros levier. <em>(C'est l'exercice le plus rentable de tout ce cours, et il prend deux minutes.)</em>
+      </div>
+    </section>
+
+    <section id="m4-l12">
+      <span class="lesson-num">Module 4 · Leçon 12</span>
+      <h2>🕘 Le support de Clara (le cache qui ne marchait jamais)</h2>
+
+      <div class="kid">
+        <span class="label">🪙 Version 5 ans</span>
+        <p>Clara a mis un marque-page pour ne pas tout relire à chaque fois. Elle était très contente.</p>
+        <p>Sauf qu'au tout début de son cahier, sur la première ligne, elle avait écrit <strong>l'heure qu'il est</strong>. Et l'heure change tout le temps.</p>
+        <p>Alors à chaque fois, la première ligne était différente — et le marque-page ne servait à rien. Il fallait tout relire. <strong>Pendant sept semaines.</strong></p>
+        <p>Et personne ne s'en est aperçu, parce que tout marchait très bien. Juste, ça coûtait six fois trop cher.</p>
+      </div>
+
+      <h3>La situation</h3>
+      <p><em>Zelio</em> est une plateforme de réservation fictive, 60 salariés. Clara y a construit l'assistant de support client : il répond aux questions des clients à partir de la documentation et de l'historique de leur compte. Environ 4 000 conversations par jour.</p>
+      <p>Sa consigne système est longue — 4 800 tokens — parce qu'elle contient les règles commerciales, les cas particuliers, le ton à adopter et une douzaine d'exemples de bonnes réponses. C'est un bon prompt, patiemment construit.</p>
+      <p>Elle active le cache dès le premier jour. C'est exactement le bon réflexe : une grosse partie stable, beaucoup de requêtes. Le manuel dit qu'elle devrait économiser 70 à 80 %.</p>
+
+      <h3>Le prompt, dans sa version d'origine</h3>
+      <pre><code class="language-python">SYSTEME = f"""Nous sommes le {datetime.now():%d/%m/%Y à %H:%M}.
+Tu es l'assistant de support de Zelio.
+
+[... 4 800 tokens de règles, de cas particuliers et d'exemples ...]
+"""</code></pre>
+      <p>La première ligne est là pour une bonne raison : l'assistant doit pouvoir dire « votre réservation est dans trois jours », donc il a besoin de la date. Clara l'a mise en haut parce que c'est le premier réflexe de tout le monde — on met le contexte en premier.</p>
+
+      <div class="callout danger">
+        <strong>⚠ Ce que fait cette ligne</strong> — L'heure change à chaque minute. Donc <strong>le premier token de la requête change à chaque minute</strong>. Et comme le cache fonctionne par préfixe (leçon 8), un préfixe différent invalide <strong>tout ce qui suit</strong> : les 4 800 tokens de consigne, les définitions d'outils, tout.<br><br>
+        Taux de cache : <strong>zéro</strong>. Sur absolument toutes les requêtes. Pendant sept semaines.
+      </div>
+
+      <h3>Pourquoi personne n'a rien vu</h3>
+      <ul class="timeline">
+        <li><span class="t">Jour 1</span> — Mise en ligne. L'assistant fonctionne parfaitement. Les réponses sont bonnes, les clients satisfaits, l'équipe support soulagée.</li>
+        <li><span class="t">Jour 1 à 49</span> — <strong>Aucune erreur. Aucune alerte. Aucun ralentissement perceptible.</strong> C'est le point essentiel : que le cache fonctionne ou non, le système rend exactement les mêmes réponses. L'optimisation est entièrement silencieuse, dans les deux sens.</li>
+        <li><span class="t">Semaine 3</span> — Clara regarde la consommation globale et la trouve élevée. Elle conclut que l'assistant est simplement plus utilisé que prévu — ce qui est vrai, et ce qui masque le vrai problème.</li>
+        <li><span class="t">Semaine 5</span> — Quelqu'un suggère que « le cache du fournisseur ne doit pas être si efficace que ça ». L'hypothèse est acceptée sans vérification. <strong>Personne ne regarde le champ des tokens lus depuis le cache.</strong></li>
+        <li><span class="t">Semaine 7</span> — La facture trimestrielle arrive : <strong>11 400 €</strong> au lieu des 1 900 € estimés.</li>
+      </ul>
+
+      <div class="schema">
+<pre>
+  CE QUI ÉTAIT ENVOYÉ, REQUÊTE APRÈS REQUÊTE
+
+  09:41  [Nous sommes le 14/03/2026 à 09:41.][4 800 tokens...]
+  09:42  [Nous sommes le 14/03/2026 à 09:42.][4 800 tokens...]
+                                        ▲
+                                        │ un seul caractère différent
+                                        │
+         ┌──────────────────────────────┴──────────────────────┐
+         │ le préfixe ne correspond plus                       │
+         │ → TOUT ce qui suit est refacturé au tarif plein     │
+         │ → y compris les 4 800 tokens strictement identiques │
+         └─────────────────────────────────────────────────────┘
+
+  Attendu :  ~1 100 tokens plein tarif + 4 800 au tarif cache
+  Réel    :   5 900 tokens plein tarif, à chaque fois
+</pre>
+        <span class="cap">Un caractère. Sept semaines. 9 500 € d'écart.</span>
+      </div>
+
+      <h3>Le diagnostic — deux minutes</h3>
+      <p>Clara finit par appliquer le test de la leçon 8 : envoyer deux fois la même requête et regarder les tokens lus depuis le cache. <strong>Zéro.</strong> Le cache n'a jamais fonctionné une seule fois.</p>
+      <p>Et en cherchant la cause, elle en trouve <strong>une deuxième</strong> qu'elle n'aurait jamais soupçonnée : ses définitions d'outils étaient construites en parcourant un dictionnaire Python sans tri. L'ordre variait d'un processus à l'autre. Même en corrigeant la date, ses quatre serveurs auraient chacun eu leur propre cache au lieu d'en partager un seul.</p>
+
+      <h3>La correction</h3>
+      <pre><code class="language-python"># ✓ Le stable devant, le variable derrière
+SYSTEME = """Tu es l'assistant de support de Zelio.
+
+[... 4 800 tokens de règles, de cas particuliers et d'exemples ...]
+"""                                          # ← figé, mis en cache
+
+outils = sorted(OUTILS.values(), key=lambda o: o["name"])   # ← ordre stable
+
+messages = [
+    *historique,
+    {"role": "user", "content":
+        f"[Date du jour : {datetime.now():%d/%m/%Y %H:%M}]\n\n{question}"},
+]                                            # ← la date descend ICI</code></pre>
+
+      <p>La date n'a pas été supprimée — elle était nécessaire. Elle a simplement été <strong>déplacée à la fin</strong>, juste avant la question. Le modèle la lit tout aussi bien ; mieux, même, puisqu'elle est désormais dans la zone de fin, celle qui est le mieux exploitée (leçon 7).</p>
+
+      <table>
+        <thead><tr><th></th><th>Avant</th><th>Après</th></tr></thead>
+        <tbody>
+          <tr><td>Tokens lus depuis le cache</td><td>0</td><td><strong>5 600</strong></td></tr>
+          <tr><td>Tokens plein tarif par requête</td><td>5 900</td><td><strong>1 150</strong></td></tr>
+          <tr><td>Coût mensuel</td><td>3 800 €</td><td><strong>620 €</strong></td></tr>
+          <tr><td>Qualité des réponses</td><td>—</td><td><strong>Inchangée</strong></td></tr>
+        </tbody>
+      </table>
+
+      <h3>Ce qu'elle a mis en place ensuite</h3>
+      <ul>
+        <li><strong>Le taux de cache est devenu un indicateur suivi</strong>, affiché à côté du coût. S'il descend sous 60 %, une alerte part. C'est la correction la plus importante : elle transforme un échec invisible en échec visible.</li>
+        <li><strong>Un test automatisé</strong> qui envoie deux requêtes identiques et vérifie que la seconde lit bien depuis le cache. Il tourne à chaque déploiement — parce que n'importe qui peut réintroduire un invalidateur en ajoutant une ligne en tête de prompt, sans le savoir.</li>
+        <li><strong>Une alerte de dépense journalière</strong>, sur un canal d'équipe. Sept semaines sans que personne ne regarde, c'est le vrai scandale de cette histoire — pas la ligne de code.</li>
+        <li><strong>Une règle d'équipe écrite</strong> : tout ce qui varie d'une requête à l'autre va dans le message utilisateur, jamais dans la consigne système. Elle tient en une phrase, et elle rend le piège impossible à reproduire.</li>
+      </ul>
+
+      <div class="callout danger">
+        <strong>⚠ Ce qu'il faut retenir de cette histoire</strong> — Les optimisations de tokens sont <strong>silencieuses dans les deux sens</strong>. Un cache qui fonctionne ne se voit pas ; un cache qui ne fonctionne pas ne se voit pas non plus. Aucune erreur, aucun ralentissement, aucune dégradation des réponses. <strong>Le seul retour que tu auras, c'est la facture — et elle arrive trop tard.</strong> D'où la règle : ce qui n'est pas mesuré en continu n'existe pas.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice final</strong> — Regarde le tout début de ton propre prompt système. Y a-t-il quoi que ce soit qui change d'une requête à l'autre — une date, un nom d'utilisateur, un identifiant, une liste construite dynamiquement ? Puis fais le test des deux requêtes identiques. <em>(Si tu ne devais retenir qu'un seul geste de ce cours, c'est celui-là.)</em>
+      </div>
+
+      <div class="end-card">
+        <h3>🎓 Ton résumé, à réciter à un enfant de 5 ans</h3>
+        <p><strong>1.</strong> L'IA ne lit pas des mots, elle lit des petits morceaux — et c'est ces morceaux qu'on compte et qu'on paie.</p>
+        <p><strong>2.</strong> Elle ne se souvient de rien : à chaque question, on lui relit toute la conversation depuis le début. C'est pour ça que les longues discussions coûtent si cher.</p>
+        <p><strong>3.</strong> Et sa table a beau être immense, elle lit mal ce qu'il y a au milieu. Mettre moins de choses, bien choisies, marche mieux que tout entasser.</p>
+
+        <h3 style="margin-top:1.8rem">✅ La checklist</h3>
+        <ul>
+          <li>Je <strong>journalise les tokens</strong> d'entrée, de sortie et de cache de chaque appel.</li>
+          <li>J'ai <strong>décomposé mon contexte</strong> en catégories et je sais laquelle domine.</li>
+          <li>Mon prompt va du <strong>stable vers le variable</strong> : consigne, outils, historique, puis message courant.</li>
+          <li>Rien qui change d'une requête à l'autre ne se trouve <strong>avant</strong> la partie stable — ni date, ni identifiant, ni liste non triée.</li>
+          <li>J'ai fait le <strong>test des deux requêtes identiques</strong> et vérifié que le cache est bien lu.</li>
+          <li>Le <strong>taux de cache est un indicateur suivi</strong>, avec une alerte s'il s'effondre.</li>
+          <li>Je demande explicitement des <strong>réponses courtes</strong> — c'est le tarif le plus cher.</li>
+          <li>J'envoie <strong>peu d'extraits, bien triés</strong>, et je place l'important au début et à la fin.</li>
+          <li>J'ai <strong>mesuré où mon système se dégrade</strong> quand le contexte s'allonge, au lieu de me fier à la limite annoncée.</li>
+          <li>Je juge au <strong>coût par tâche terminée</strong>, pas par requête.</li>
+          <li>Je ne change de modèle qu'<strong>en dernier</strong>, avec des cas de test pour vérifier.</li>
+        </ul>
+
+        <h3 style="margin-top:1.8rem">🔗 Où ça se raccroche au reste</h3>
+        <p>Ce cours est le <strong>socle</strong> des autres. Il explique pourquoi un <strong>RAG</strong> existe (tout ne rentre pas, et ce qui rentre n'est pas forcément bien lu), pourquoi un <strong>agent</strong> coûte au carré et finit amnésique après compaction, et pourquoi on ne branche pas quarante outils <strong>MCP</strong> « au cas où ». Si tu as lu les autres avant celui-ci, plusieurs conseils qui semblaient arbitraires viennent de recevoir leur justification.</p>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+  hljs.highlightAll();
+
+  const sidebar = document.getElementById('sidebar');
+  document.getElementById('menuToggle').addEventListener('click', () => {
+    sidebar.classList.toggle('open');
+  });
+
+  document.querySelectorAll('.module-title').forEach(t => {
+    t.addEventListener('click', () => t.parentElement.classList.toggle('collapsed'));
+  });
+
+  const lessonLinks = document.querySelectorAll('[data-lesson]');
+  const storageKey = 'course-progress-tokens';
+  const done = JSON.parse(localStorage.getItem(storageKey) || '{}');
+  const fill = document.getElementById('progressFill');
+  const mini = document.getElementById('progressMini');
+  const text = document.getElementById('progressText');
+
+  function marquer(id) {
+    if (done[id]) return;
+    done[id] = true;
+    localStorage.setItem(storageKey, JSON.stringify(done));
+    const lien = document.querySelector('[data-lesson="' + id + '"]');
+    if (lien) lien.querySelector('.lesson-check').classList.add('done');
+    majBarre();
+  }
+
+  function majBarre() {
+    const total = lessonLinks.length;
+    const faites = Object.values(done).filter(Boolean).length;
+    const pct = total ? (faites / total * 100) : 0;
+    fill.style.width = pct + '%';
+    mini.style.width = pct + '%';
+    text.textContent = faites + ' / ' + total + ' leçons vues';
+  }
+
+  lessonLinks.forEach(link => {
+    if (done[link.dataset.lesson]) link.querySelector('.lesson-check').classList.add('done');
+    link.addEventListener('click', () => {
+      marquer(link.dataset.lesson);
+      sidebar.classList.remove('open');
+    });
+  });
+
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (!e.isIntersecting) return;
+      const id = e.target.id;
+      document.querySelectorAll('[data-lesson]').forEach(a =>
+        a.classList.toggle('active', a.dataset.lesson === id));
+      marquer(id);
+    });
+  }, { rootMargin: '-45% 0px -45% 0px' });
+
+  document.querySelectorAll('main section[id]').forEach(s => observer.observe(s));
+
+  majBarre();
+</script>
+</body>
+</html>

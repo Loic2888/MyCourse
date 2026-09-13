@@ -1,0 +1,1324 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>L'authentification expliquée simplement</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --coffre:      #331222;
+    --coffre-soft: #4B2034;
+    --bg:          #F7F4F6;
+    --card:        #FFFFFF;
+    --cle:         #E8455F;
+    --badge:       #4DA8DA;
+    --valide:      #47B881;
+    --encre:       #24161C;
+    --gris-txt:    #756570;
+    --border:      #E8E0E4;
+
+    --font-display: "Manrope", system-ui, sans-serif;
+    --font-body: "Public Sans", system-ui, -apple-system, sans-serif;
+
+    --sidebar-width: 300px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font-body);
+    color: var(--encre);
+    background: var(--bg);
+    line-height: 1.7;
+    font-size: 17px;
+  }
+
+  .layout { display: flex; min-height: 100vh; }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar {
+    width: var(--sidebar-width);
+    flex-shrink: 0;
+    background: var(--coffre);
+    color: #E0D2D9;
+    padding: 1.75rem 1.1rem 3rem;
+    overflow-y: auto;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+  }
+  .brand { display: flex; align-items: center; gap: .6rem; margin-bottom: .25rem; }
+  .brand-key {
+    width: 38px; height: 38px; flex-shrink: 0;
+    border-radius: 11px;
+    background: var(--cle);
+    display: grid; place-items: center;
+    font-size: 1.05rem;
+    box-shadow: 0 0 0 4px rgba(232,69,95,.2);
+  }
+  .sidebar h1 {
+    font-family: var(--font-display);
+    font-size: 1.18rem; line-height: 1.2;
+    color: #fff; font-weight: 700;
+  }
+  .brand-sub { font-size: .78rem; color: #A2858F; margin-bottom: 1.4rem; padding-left: 3px; }
+
+  .progress-mini {
+    background: var(--coffre-soft);
+    border-radius: 10px; padding: .6rem .75rem; margin-bottom: 1.4rem;
+    font-size: .78rem; color: #C0A9B3;
+  }
+  .progress-mini .track {
+    height: 6px; background: #220B16; border-radius: 99px; margin-top: .45rem; overflow: hidden;
+  }
+  .progress-mini .track span {
+    display: block; height: 100%; width: 0%;
+    background: linear-gradient(90deg, var(--cle), var(--badge), var(--valide));
+    transition: width .25s ease;
+  }
+
+  .module-group { margin-bottom: .35rem; }
+  .module-title {
+    font-family: var(--font-display); font-weight: 600; font-size: .93rem;
+    color: #fff; padding: .5rem .55rem; border-radius: 8px; cursor: pointer;
+    display: flex; justify-content: space-between; align-items: center; gap: .5rem;
+    user-select: none;
+  }
+  .module-title:hover { background: var(--coffre-soft); }
+  .module-title .chev { font-size: .7rem; color: #977B86; transition: transform .2s ease; }
+  .module-group.collapsed .chev { transform: rotate(-90deg); }
+  .module-group.collapsed .lesson-list { display: none; }
+
+  .lesson-list { list-style: none; padding-left: .5rem; margin-bottom: .4rem; }
+  .lesson-list li a {
+    display: flex; align-items: center; gap: .55rem;
+    padding: .35rem .5rem; border-radius: 7px;
+    color: #C0A9B3; text-decoration: none; font-size: .86rem; line-height: 1.35;
+  }
+  .lesson-list li a:hover { background: var(--coffre-soft); color: #fff; }
+  .lesson-list li a.active { color: #fff; background: var(--coffre-soft); font-weight: 600; }
+
+  /* La pastille de progression : un cadenas qui s'ouvre */
+  .lesson-check {
+    width: 13px; height: 10px; flex-shrink: 0; margin-top: 5px;
+    border: 1.5px solid #77606B; border-radius: 2px;
+    position: relative;
+  }
+  .lesson-check::before {
+    content: ""; position: absolute; left: 2.5px; bottom: 8px;
+    width: 6px; height: 6px;
+    border: 1.5px solid #77606B; border-bottom: none;
+    border-radius: 3px 3px 0 0;
+    transition: transform .2s ease;
+  }
+  .lesson-check.done { background: var(--valide); border-color: var(--valide); }
+  .lesson-check.done::before {
+    border-color: var(--valide);
+    transform: translateX(4px) rotate(12deg);
+  }
+
+  /* ---------- Barre de progression ---------- */
+  .progress-bar { height: 4px; position: fixed; top: 0; left: 0; right: 0; z-index: 25; }
+  .progress-bar-fill {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, var(--cle), var(--badge), var(--valide));
+    transition: width .25s ease;
+  }
+
+  /* ---------- Contenu ---------- */
+  .content { flex: 1; max-width: 820px; margin: 0 auto; padding: 3rem 2.5rem 6rem; }
+
+  .hero {
+    background: var(--coffre); color: #fff;
+    border-radius: 20px; padding: 2.2rem 2rem; margin-bottom: 2.5rem;
+    position: relative; overflow: hidden;
+  }
+  .hero::after {
+    content: ""; position: absolute; right: -50px; top: -55px;
+    width: 205px; height: 205px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(232,69,95,.4), transparent 70%);
+  }
+  .hero h1 {
+    font-family: var(--font-display); font-size: 2.15rem; line-height: 1.13;
+    margin-bottom: .6rem; font-weight: 800; letter-spacing: -.02em;
+  }
+  .hero p { color: #C8B2BC; font-size: 1.02rem; max-width: 46ch; }
+  .hero .tags { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1.2rem; }
+  .hero .tags span {
+    background: var(--coffre-soft); color: #DBC7D0;
+    padding: .25rem .7rem; border-radius: 99px; font-size: .78rem; font-weight: 500;
+  }
+
+  section { scroll-margin-top: 2rem; margin-bottom: 4.5rem; }
+
+  .lesson-num {
+    display: inline-block;
+    font-family: var(--font-display); font-weight: 700; font-size: .74rem;
+    color: var(--cle); letter-spacing: .08em; text-transform: uppercase;
+    margin-bottom: .2rem;
+  }
+  .content h2 {
+    font-family: var(--font-display); font-size: 1.8rem; line-height: 1.2;
+    font-weight: 800; margin-bottom: 1.1rem; letter-spacing: -.02em;
+  }
+  .content h3 { font-family: var(--font-display); font-size: 1.2rem; margin: 2rem 0 .6rem; font-weight: 700; }
+  .content p { margin-bottom: 1rem; }
+  .content ul, .content ol { margin: 0 0 1rem 1.2rem; }
+  .content li { margin-bottom: .4rem; }
+  .content a { color: var(--cle); }
+  strong { font-weight: 600; }
+
+  /* ---------- Signature : les deux cartes ---------- */
+  .kid, .grown { border-radius: 16px; padding: 1.2rem 1.3rem; margin: 1.2rem 0 1.5rem; }
+  .kid { background: #FDEFF2; border: 2px dashed var(--cle); font-size: 1.08rem; }
+  .grown { background: #ECF5FB; border-left: 5px solid var(--badge); }
+  .kid .label, .grown .label {
+    font-family: var(--font-display); font-weight: 700; font-size: .76rem;
+    text-transform: uppercase; letter-spacing: .07em; display: block; margin-bottom: .45rem;
+  }
+  .kid .label { color: #B12840; }
+  .grown .label { color: #1C6F9C; }
+  .kid p:last-child, .grown p:last-child { margin-bottom: 0; }
+
+  /* ---------- Schémas ---------- */
+  .schema {
+    background: var(--coffre); color: #DFD1D8;
+    border-radius: 14px; padding: 1.2rem 1.3rem; margin: 1.3rem 0; overflow-x: auto;
+    border-left: 5px solid var(--cle);
+  }
+  .schema pre {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: .84rem; line-height: 1.55; background: none; padding: 0; color: inherit;
+    white-space: pre;
+  }
+  .schema .cap { display: block; margin-top: .8rem; font-size: .8rem; color: #A2858F; font-style: italic; }
+
+  pre { border-radius: 12px; padding: 1rem 1.1rem; overflow-x: auto; margin: 1.1rem 0; font-size: .88rem; }
+  code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+  p code, li code, td code {
+    background: #EEE6EA; color: #4A2E3A; padding: .1rem .38rem;
+    border-radius: 5px; font-size: .87em; font-weight: 600;
+  }
+
+  /* ---------- Callouts ---------- */
+  .callout {
+    border-radius: 0 12px 12px 0; padding: 1rem 1.2rem; margin: 1.3rem 0;
+    background: var(--card); border-left: 5px solid var(--gris-txt);
+    box-shadow: 0 1px 3px rgba(51,18,34,.07);
+  }
+  .callout strong:first-child { font-family: var(--font-display); }
+  .callout.pitfall { border-left-color: var(--badge); background: #EDF6FC; }
+  .callout.exercise { border-left-color: var(--valide); background: var(--card); }
+  .callout.danger { border-left-color: var(--cle); background: #FDEFF2; }
+  .callout p:last-child { margin-bottom: 0; }
+
+  details.quiz {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: .85rem 1.1rem; margin: 1rem 0;
+  }
+  details.quiz summary {
+    cursor: pointer; font-weight: 700; font-family: var(--font-display);
+    color: var(--coffre); list-style: none;
+  }
+  details.quiz summary::before { content: "💡 "; }
+  details.quiz[open] summary { margin-bottom: .7rem; color: var(--cle); }
+  details.quiz p:last-child { margin-bottom: 0; }
+
+  table {
+    width: 100%; border-collapse: collapse; margin: 1.2rem 0;
+    background: var(--card); border-radius: 12px; overflow: hidden;
+    box-shadow: 0 1px 3px rgba(51,18,34,.07); font-size: .93rem;
+  }
+  th, td { padding: .7rem .9rem; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--coffre); color: #fff; font-family: var(--font-display); font-weight: 600; font-size: .87rem; }
+  tr:last-child td { border-bottom: none; }
+
+  .timeline { list-style: none; margin: 1.3rem 0 1.3rem .4rem; padding-left: 1.4rem; border-left: 2px dotted var(--cle); }
+  .timeline li { position: relative; margin-bottom: 1rem; }
+  .timeline li::before {
+    content: ""; position: absolute; left: -1.85rem; top: .55rem;
+    width: 10px; height: 10px; border-radius: 50%; background: var(--cle);
+    box-shadow: 0 0 0 3px var(--bg);
+  }
+  .timeline .t { font-family: var(--font-display); font-weight: 700; color: var(--coffre-soft); }
+
+  .end-card {
+    background: linear-gradient(135deg, var(--coffre), #1E2B4A);
+    color: #fff; border-radius: 20px; padding: 2rem; margin-top: 3rem;
+  }
+  .end-card h3 { color: #fff; margin-top: 0; }
+  .end-card p, .end-card li { color: #CDBFC8; }
+
+  .menu-toggle { display: none; }
+
+  @media (max-width: 900px) {
+    body { font-size: 16px; }
+    .sidebar {
+      position: fixed; left: -100%; top: 0;
+      transition: left .22s ease; z-index: 30;
+      box-shadow: 6px 0 24px rgba(51,18,34,.32);
+    }
+    .sidebar.open { left: 0; }
+    .menu-toggle {
+      display: block; position: fixed; top: .85rem; left: .85rem; z-index: 40;
+      background: var(--cle); color: #fff; border: none;
+      border-radius: 10px; padding: .5rem .8rem; cursor: pointer; font-size: 1rem;
+      box-shadow: 0 2px 8px rgba(51,18,34,.28);
+    }
+    .content { padding: 4.2rem 1.15rem 4rem; }
+    .hero { padding: 1.6rem 1.3rem; }
+    .hero h1 { font-size: 1.7rem; }
+    .schema pre { font-size: .72rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-bar-fill" id="progressFill"></div></div>
+<button class="menu-toggle" id="menuToggle">☰</button>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-key">🔑</div>
+      <h1>L'authentification<br>expliquée simplement</h1>
+    </div>
+    <div class="brand-sub">12 leçons · ~45 min de lecture</div>
+
+    <div class="progress-mini">
+      <span id="progressText">0 / 12 leçons vues</span>
+      <div class="track"><span id="progressMini"></span></div>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title">Module 1 — C'est quoi ? <span class="chev">▼</span></div>
+      <ul class="lesson-list">
+        <li><a href="#m1-l1" data-lesson="m1-l1"><span class="lesson-check"></span> 1. Deux questions différentes</a></li>
+        <li><a href="#m1-l2" data-lesson="m1-l2"><span class="lesson-check"></span> 2. Les 3 façons de prouver</a></li>
+        <li><a href="#m1-l3" data-lesson="m1-l3"><span class="lesson-check"></span> 3. Le mot de passe</a></li>
+        <li><a href="#m1-l4" data-lesson="m1-l4"><span class="lesson-check"></span> 4. Le vocabulaire en 6 mots</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title">Module 2 — Comment ça marche <span class="chev">▼</span></div>
+      <ul class="lesson-list">
+        <li><a href="#m2-l5" data-lesson="m2-l5"><span class="lesson-check"></span> 5. Le bracelet du festival</a></li>
+        <li><a href="#m2-l6" data-lesson="m2-l6"><span class="lesson-check"></span> 6. Le ticket signé</a></li>
+        <li><a href="#m2-l7" data-lesson="m2-l7"><span class="lesson-check"></span> 7. La clé du voiturier</a></li>
+        <li><a href="#m2-l8" data-lesson="m2-l8"><span class="lesson-check"></span> 8. Les machines entre elles</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title">Module 3 — Où ça va <span class="chev">▼</span></div>
+      <ul class="lesson-list">
+        <li><a href="#m3-l9" data-lesson="m3-l9"><span class="lesson-check"></span> 9. Les passkeys</a></li>
+        <li><a href="#m3-l10" data-lesson="m3-l10"><span class="lesson-check"></span> 10. 8 façons de se faire avoir</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title">Module 4 — Deux histoires <span class="chev">▼</span></div>
+      <ul class="lesson-list">
+        <li><a href="#m4-l11" data-lesson="m4-l11"><span class="lesson-check"></span> 11. Le SaaS de Yann</a></li>
+        <li><a href="#m4-l12" data-lesson="m4-l12"><span class="lesson-check"></span> 12. La startup d'Inès</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main class="content">
+
+    <div class="hero">
+      <h1>L'authentification,<br>expliquée comme à un enfant de 5 ans</h1>
+      <p>Prouver qui tu es, et avoir le droit d'entrer, ce sont deux choses différentes. Tout ce cours part de cette distinction — et elle explique presque tous les malentendus du sujet.</p>
+      <div class="tags"><span>🔑 Zéro jargon</span><span>🎟 Cas concrets</span><span>⏱ ~45 minutes</span></div>
+    </div>
+
+    <!-- ══════════════ MODULE 1 ══════════════ -->
+
+    <section id="m1-l1">
+      <span class="lesson-num">Module 1 · Leçon 1</span>
+      <h2>Deux questions différentes</h2>
+
+      <div class="kid">
+        <span class="label">🔑 Version 5 ans</span>
+        <p>Tu arrives à l'entrée d'un parc d'attractions. Le monsieur te pose <strong>deux questions, pas une</strong> :</p>
+        <p><strong>① « Qui es-tu ? »</strong> Tu montres ta carte avec ta photo. Il regarde, il te reconnaît. D'accord, tu es bien toi.</p>
+        <p><strong>② « As-tu le droit de monter dans le grand huit ? »</strong> Là, ce n'est plus pareil. Il te met contre la toise. Tu es bien toi — mais tu mesures 95 cm, alors c'est non.</p>
+        <p>👉 Savoir <strong>qui</strong> tu es, et savoir ce que tu as le <strong>droit</strong> de faire, ce sont deux choses complètement séparées.</p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>Ces deux questions ont des noms qui se ressemblent beaucoup trop, ce qui est la source d'un nombre considérable de confusions :</p>
+        <ul>
+          <li><strong>Authentification</strong> (<em>authentication</em>, souvent abrégé <strong>authN</strong>) — « qui es-tu ? »</li>
+          <li><strong>Autorisation</strong> (<em>authorization</em>, abrégé <strong>authZ</strong>) — « as-tu le droit de faire ceci ? »</li>
+        </ul>
+        <p>L'ordre compte : on ne peut pas autoriser quelqu'un qu'on n'a pas identifié. Mais l'inverse est faux — <strong>être identifié ne donne aucun droit en soi</strong>.</p>
+      </div>
+
+      <div class="schema">
+<pre>
+  ┌── ① AUTHENTIFICATION ────────────────────────────┐
+  │   « Qui es-tu ? »                                │
+  │   → Tu es bien Marie Dupont, compte n°4417       │
+  │   Résultat : une IDENTITÉ                        │
+  └───────────────────┬──────────────────────────────┘
+                      ▼
+  ┌── ② AUTORISATION ────────────────────────────────┐
+  │   « Marie Dupont a-t-elle le droit de            │
+  │     supprimer cette facture ? »                  │
+  │   → Elle est comptable, pas administratrice      │
+  │   Résultat : OUI ou NON, pour CETTE action       │
+  └──────────────────────────────────────────────────┘
+
+  On répond à ① UNE FOIS à l'entrée.
+  On répond à ② À CHAQUE action.
+</pre>
+        <span class="cap">Deux étapes, deux moments, deux logiques. Les confondre est la faille de sécurité la plus banale qui soit.</span>
+      </div>
+
+      <h3>Pourquoi cette confusion coûte cher</h3>
+      <p>La faille la plus répandue du web tient exactement dans cet écart. Voici à quoi elle ressemble en vrai :</p>
+      <pre><code class="language-javascript">// L'utilisateur est bien connecté ✓ (authentification faite)
+app.get('/factures/:id', authentifie, (req, res) => {
+  const facture = db.trouver(req.params.id);
+  res.json(facture);            // ← et l'autorisation ?
+});</code></pre>
+      <p>Marie est authentifiée, donc le code lui répond. Sauf que rien ne vérifie que <strong>cette facture-là est bien la sienne</strong>. Elle change <code>/factures/4417</code> en <code>/factures/4418</code> dans la barre d'adresse, et lit la facture d'un autre client.</p>
+      <p>Ça porte un nom — une <em>référence directe non sécurisée</em> — et c'est l'une des vulnérabilités les plus fréquentes au monde. La cause n'est jamais technique : c'est d'avoir cru qu'« être connecté » signifiait « avoir le droit ».</p>
+      <pre><code class="language-javascript">// La version correcte : les deux questions, pas une
+app.get('/factures/:id', authentifie, (req, res) => {
+  const facture = db.trouver(req.params.id);
+  if (facture.proprietaire !== req.utilisateur.id) {   // ← autorisation
+    return res.sendStatus(404);    // 404, pas 403 : on ne confirme pas
+  }                                //  même l'existence de la facture
+  res.json(facture);
+});</code></pre>
+
+      <h3>Le troisième mot qu'on oublie toujours</h3>
+      <p>Il y a en fait une troisième question, qui ne sert à rien tant que tout va bien — et qui devient la seule qui compte le jour où quelque chose se passe mal :</p>
+      <p><strong>La traçabilité</strong> (<em>audit</em>) : « <em>qui a fait quoi, et quand ?</em> » Sans journal, tu peux savoir qu'une facture a disparu, mais jamais qui l'a supprimée. Les trois ensemble forment le trépied : <strong>identifier, autoriser, tracer</strong>.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Dire « l'utilisateur est authentifié, donc il peut accéder à la page ». Non : il peut accéder à <strong>ses</strong> données. Chaque requête doit revérifier le droit sur <em>l'objet précis</em> demandé. C'est fastidieux, ça se répète, et c'est justement pour ça qu'on l'oublie.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — AuthN ou authZ ? <strong>(a)</strong> saisir son mot de passe ; <strong>(b)</strong> le bouton « supprimer » qui n'apparaît pas pour les stagiaires ; <strong>(c)</strong> recevoir un code par SMS ; <strong>(d)</strong> « vous n'avez pas accès à ce dossier ». <em>(Réponses : a et c → authN ; b et d → authZ. Et attention au piège de (b) : cacher un bouton n'est pas une autorisation — le serveur doit refuser aussi.)</em>
+      </div>
+    </section>
+
+    <section id="m1-l2">
+      <span class="lesson-num">Module 1 · Leçon 2</span>
+      <h2>Les 3 façons de prouver</h2>
+
+      <div class="kid">
+        <span class="label">🔑 Version 5 ans</span>
+        <p>Pour prouver que tu es bien toi, il n'existe que trois sortes de preuves. Trois, pas quatre.</p>
+        <p><strong>① Quelque chose que tu SAIS</strong> — un mot de passe, un code secret. Ça se devine, ça s'oublie, et ça se raconte.</p>
+        <p><strong>② Quelque chose que tu AS</strong> — ton téléphone, une clé, une carte. Ça se perd, et ça se vole.</p>
+        <p><strong>③ Quelque chose que tu ES</strong> — ton doigt, ton visage. Ça ne se perd pas… mais ça ne se change pas non plus.</p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>Ce sont les <strong>trois facteurs d'authentification</strong>. Leur intérêt vient de ce qu'ils ont des faiblesses <em>indépendantes</em> : la manière de voler un mot de passe ne permet pas de voler un téléphone.</p>
+        <p>D'où l'idée de <strong>l'authentification à plusieurs facteurs</strong> (MFA, ou 2FA à deux facteurs) : en combiner deux de <em>catégories différentes</em>.</p>
+      </div>
+
+      <table>
+        <thead><tr><th>Facteur</th><th>Exemples</th><th>Se fait voler par…</th><th>Et si tu le perds ?</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>① Ce que tu sais</strong></td>
+            <td>Mot de passe, code PIN, question secrète</td>
+            <td>Fuite de base, hameçonnage, devinette, réutilisation</td>
+            <td>On te le réinitialise</td>
+          </tr>
+          <tr>
+            <td><strong>② Ce que tu as</strong></td>
+            <td>Téléphone, clé physique, application d'authentification</td>
+            <td>Vol physique, détournement de carte SIM</td>
+            <td>Problème sérieux — c'est le talon d'Achille</td>
+          </tr>
+          <tr>
+            <td><strong>③ Ce que tu es</strong></td>
+            <td>Empreinte, visage, voix</td>
+            <td>Très difficile à distance</td>
+            <td><strong>Irrécupérable.</strong> On ne change pas de doigt</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Deux facteurs, mais pas n'importe lesquels</h3>
+      <p>Un mot de passe plus une question secrète, ce n'est <strong>pas</strong> du double facteur : les deux appartiennent à la catégorie « ce que tu sais », et la même fuite de base de données les emporte tous les deux. Le principe n'a de sens que si les catégories diffèrent.</p>
+      <p>Et tous les deuxièmes facteurs ne se valent pas, loin de là :</p>
+      <ul>
+        <li><strong>SMS</strong> — le plus répandu, le plus faible. Un attaquant qui convainc l'opérateur de transférer ton numéro sur sa carte SIM reçoit tes codes à ta place. C'est une attaque documentée et courante. Mieux que rien, mais nettement en dessous du reste.</li>
+        <li><strong>Application d'authentification</strong> (le code à 6 chiffres qui change toutes les 30 secondes) — bien meilleur, parce que le secret ne quitte jamais ton téléphone. Faiblesse restante : tu peux être amené à taper ce code sur un faux site.</li>
+        <li><strong>Clé physique ou passkey</strong> — la seule catégorie qui résiste à l'hameçonnage, parce que <strong>la clé vérifie elle-même l'adresse du site</strong> avant de répondre. Un faux site n'obtient rien, même si tu tombes dans le piège. C'est le sujet de la leçon 9.</li>
+      </ul>
+
+      <h3>Le facteur biométrique, mal compris</h3>
+      <p>Une précision qui surprend : quand tu déverrouilles une application bancaire avec ton empreinte, <strong>ton empreinte n'est jamais envoyée à la banque</strong>. Elle ne sort pas de ton téléphone. Elle sert uniquement à déverrouiller <em>localement</em> une clé stockée dans l'appareil, et c'est cette clé qui parle à la banque.</p>
+      <p>La biométrie n'est donc presque jamais un facteur « à distance » : c'est un moyen pratique de déverrouiller le facteur ② — ce que tu as. Cette nuance est exactement ce qui rend les passkeys possibles.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Traiter la biométrie comme un mot de passe très solide. Ce n'en est pas un, et pour une raison définitive : <strong>en cas de fuite, tu ne peux pas en changer</strong>. Un mot de passe compromis se remplace en dix secondes. Une empreinte compromise l'est pour la vie. C'est pour ça qu'on l'utilise en local, jamais comme un secret transmis sur le réseau.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Vrai double facteur ou faux ? <strong>(a)</strong> mot de passe + code par SMS ; <strong>(b)</strong> mot de passe + nom de jeune fille de la mère ; <strong>(c)</strong> empreinte + code PIN sur le même téléphone ; <strong>(d)</strong> mot de passe + clé physique. <em>(Réponses : a et d → vrai ; b → faux, deux fois « ce que tu sais » ; c → discutable, les deux déverrouillent le même appareil, donc un vol de téléphone déverrouillé emporte les deux.)</em>
+      </div>
+    </section>
+
+    <section id="m1-l3">
+      <span class="lesson-num">Module 1 · Leçon 3</span>
+      <h2>Le mot de passe</h2>
+
+      <div class="kid">
+        <span class="label">🔑 Version 5 ans</span>
+        <p>Le mot de passe, c'est un secret que tu <strong>dis à quelqu'un</strong> pour qu'il te reconnaisse.</p>
+        <p>Le problème saute aux yeux dès qu'on le formule comme ça : <strong>pour prouver que tu connais le secret, tu dois le donner</strong>. Et à chaque fois que tu le donnes, quelqu'un pourrait l'entendre, le noter, ou faire semblant d'être celui à qui tu devais le dire.</p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>Le mot de passe est un <strong>secret partagé</strong>, et c'est son défaut de conception fondamental : deux parties le connaissent, donc il peut fuiter des deux côtés. Toutes les autres faiblesses en découlent.</p>
+      </div>
+
+      <h3>La règle absolue : on ne stocke jamais un mot de passe</h3>
+      <p>S'il n'y a qu'une chose à retenir de cette leçon, c'est celle-ci. Un site correctement construit <strong>ne connaît pas ton mot de passe</strong>. Il n'en garde qu'une empreinte à sens unique :</p>
+
+      <div class="schema">
+<pre>
+  À L'INSCRIPTION
+    "MonChat2026"  ──► [ hachage lent + sel ] ──►  $argon2id$v=19$m=65536...
+                                                    │
+                           on stocke CECI ──────────┘
+                           et on jette le mot de passe
+
+  À LA CONNEXION
+    "MonChat2026"  ──► [ même calcul ] ──►  $argon2id$v=19$m=65536...
+                                             │
+                                   identique ?  ──► oui : c'est bon ✓
+
+  On ne peut PAS faire le chemin inverse.
+  Une base volée ne rend donc pas les mots de passe.
+</pre>
+        <span class="cap">C'est pour ça qu'un site sérieux ne peut jamais « te renvoyer ton mot de passe » — il ne l'a pas.</span>
+      </div>
+
+      <p>Deux détails de ce schéma ne sont pas décoratifs :</p>
+      <ul>
+        <li><strong>Le sel</strong> (<em>salt</em>) — une valeur aléatoire différente pour chaque utilisateur, mélangée au mot de passe avant le calcul. Sans lui, deux personnes ayant le même mot de passe auraient la même empreinte, et un attaquant casserait toute la base d'un coup avec une table pré-calculée. Avec le sel, il doit s'attaquer à chaque compte séparément.</li>
+        <li><strong>Lent, exprès</strong> — on utilise des algorithmes conçus pour être <em>coûteux</em> (Argon2, bcrypt, scrypt). Un hachage rapide comme SHA-256 permet de tester des milliards de mots de passe par seconde. Un hachage lent en autorise quelques milliers. La différence entre une base cassée en une heure et une base cassée en dix ans.</li>
+      </ul>
+
+      <div class="callout danger">
+        <strong>⚠ Le signal d'alarme absolu</strong> — Si un service peut <strong>te renvoyer ton mot de passe en clair</strong> par mail, ce n'est pas un service pratique : c'est un service qui stocke les mots de passe en clair. Le jour de la fuite, tous les comptes partent — et avec eux tous les autres comptes où tu as réutilisé ce mot de passe. Change de service, ou au minimum de mot de passe.
+      </div>
+
+      <h3>Ce que les bons conseils sont devenus</h3>
+      <p>Les recommandations officielles ont beaucoup changé depuis dix ans, et beaucoup de gens en sont restés aux anciennes :</p>
+      <table>
+        <thead><tr><th>Ancien conseil</th><th>Conseil actuel</th><th>Pourquoi</th></tr></thead>
+        <tbody>
+          <tr><td>« Majuscule, chiffre, caractère spécial »</td><td><strong>De la longueur avant tout</strong></td><td><code>cheval-agrafe-batterie-lampe</code> est bien plus solide que <code>P@ssw0rd!</code> et bien plus facile à retenir</td></tr>
+          <tr><td>« Changez-le tous les 90 jours »</td><td><strong>Ne le changez que s'il a fuité</strong></td><td>Le changement forcé pousse à faire <code>Motdepasse1</code>, puis <code>2</code>, puis <code>3</code> — ça affaiblit tout</td></tr>
+          <tr><td>« Ne les notez jamais »</td><td><strong>Utilisez un gestionnaire</strong></td><td>Un mot de passe unique et aléatoire par site, ce qui est impossible de mémoire</td></tr>
+          <tr><td>—</td><td><strong>Vérifiez les fuites connues</strong></td><td>Refuser un mot de passe déjà apparu dans une fuite publique est plus efficace que toutes les règles de complexité réunies</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Le vrai problème : la réutilisation</h3>
+      <p>Voici le mécanisme d'attaque le plus rentable qui existe, et il n'a rien de sophistiqué. Un petit site sans importance se fait pirater. L'attaquant récupère des couples email / mot de passe. Puis il les essaie <strong>automatiquement sur des centaines d'autres sites</strong> — banque, messagerie, réseaux sociaux.</p>
+      <p>Ça s'appelle le <em>credential stuffing</em>, et ça fonctionne extraordinairement bien, pour une raison simple : la plupart des gens réutilisent leurs mots de passe. Ton mot de passe de forum de jardinage devient la clé de ta messagerie — et ta messagerie, c'est le bouton « mot de passe oublié » de tout le reste.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Imposer des règles de complexité tarabiscotées en croyant renforcer la sécurité. Elles poussent les gens vers des schémas prévisibles (<code>Prenom2026!</code>) que les outils d'attaque connaissent parfaitement. <strong>Une longueur minimale généreuse, plus un refus des mots de passe déjà connus des fuites publiques, vaut mieux que dix règles de composition.</strong>
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Classe du plus faible au plus solide : <strong>(a)</strong> <code>Tr0ub4dor&3</code> ; <strong>(b)</strong> <code>correct-horse-battery-staple</code> ; <strong>(c)</strong> <code>azertyuiop</code> ; <strong>(d)</strong> 20 caractères aléatoires d'un gestionnaire. <em>(Réponse : c, puis a, puis b, puis d. Et (a) est plus faible qu'il n'en a l'air : ce sont des substitutions que tous les outils d'attaque essaient en premier.)</em>
+      </div>
+    </section>
+
+    <section id="m1-l4">
+      <span class="lesson-num">Module 1 · Leçon 4</span>
+      <h2>Le vocabulaire en 6 mots</h2>
+
+      <div class="kid">
+        <span class="label">🔑 Version 5 ans</span>
+        <p>Six mots suffisent : <strong>qui tu es</strong>, <strong>ce que tu as le droit de faire</strong>, <strong>la preuve que tu montres</strong>, <strong>le bracelet qu'on te donne</strong>, <strong>celui qui vérifie</strong>, et <strong>le moment où le bracelet ne marche plus</strong>.</p>
+      </div>
+
+      <table>
+        <thead><tr><th>Le mot technique</th><th>Ce que ça veut dire</th><th>Au parc d'attractions</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Authentification</strong> (authN)</td><td>Prouver qui tu es. Une fois, à l'entrée.</td><td>Montrer sa carte d'identité</td></tr>
+          <tr><td><strong>Autorisation</strong> (authZ)</td><td>Vérifier que tu as le droit de faire cette action précise. À chaque fois.</td><td>La toise devant le grand huit</td></tr>
+          <tr><td><strong>Identifiant</strong> (<em>credential</em>)</td><td>La preuve que tu présentes : mot de passe, clé, empreinte, certificat.</td><td>La carte, le badge</td></tr>
+          <tr><td><strong>Session / Token</strong></td><td>Ce qu'on te remet après la vérification, pour ne pas tout recommencer à chaque page.</td><td>Le bracelet à ton poignet</td></tr>
+          <tr><td><strong>Fournisseur d'identité</strong> (IdP)</td><td>Celui qui vérifie l'identité pour les autres : Google, Microsoft, l'annuaire de ton entreprise.</td><td>Le guichet d'entrée</td></tr>
+          <tr><td><strong>Expiration / Révocation</strong></td><td>Le moment où l'accès cesse : soit tout seul (expiration), soit parce qu'on l'a coupé (révocation).</td><td>Le bracelet du jour, ou celui qu'on découpe</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Trois mots de plus qu'on croise partout</h3>
+      <p><strong>SSO</strong> (<em>Single Sign-On</em>) — « connexion unique ». Tu t'authentifies une fois auprès de ton entreprise, et tu accèdes à trente applications sans retaper quoi que ce soit. C'est le confort de l'utilisateur et le cauchemar du responsable sécurité : un seul compte compromis ouvre trente portes.</p>
+      <p><strong>Scope</strong> (<em>portée</em>) — la liste précise de ce qu'un accès permet. « Lire ton agenda » est une portée ; « gérer ton compte Google » en est une autre, bien plus large. C'est le cœur de la leçon 7.</p>
+      <p><strong>Rotation</strong> — remplacer régulièrement un secret par un nouveau, avant qu'il ne soit compromis. Le concept qui manque cruellement dans l'histoire de la leçon 12.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Confondre <strong>expiration</strong> et <strong>révocation</strong>. Un accès qui expire s'arrête tout seul au bout d'un temps prévu. Un accès révoqué est coupé <em>immédiatement</em>, par décision. Beaucoup de systèmes ne savent faire que le premier — et c'est précisément ce qui pose problème quand quelqu'un quitte l'entreprise et qu'il faut couper maintenant, pas dans sept jours. On y revient en leçon 6.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Dans « je me connecte avec Google, je reçois un jeton valable une heure qui me donne le droit de lire mon agenda », place les six mots du tableau. <em>(Réponse : authentification par Google, qui est le fournisseur d'identité ; le jeton est la session ; « valable une heure » est l'expiration ; « lire mon agenda » est l'autorisation avec sa portée ; le compte Google est l'identifiant.)</em>
+      </div>
+
+      <details class="quiz">
+        <summary>Mini-quiz : vrai ou faux ?</summary>
+        <p><strong>« Si je suis connecté, c'est que j'ai le droit d'être là. »</strong></p>
+        <p><strong>Faux</strong>, et c'est le contresens fondateur de tout le sujet. Être connecté répond seulement à « qui es-tu ». Le droit d'accéder à une ressource précise est une question <em>séparée</em>, qui doit être posée à chaque requête, sur chaque objet. Tu es bien toi — et tu n'as quand même pas le droit de lire la facture du voisin.</p>
+      </details>
+    </section>
+
+    <!-- ══════════════ MODULE 2 ══════════════ -->
+
+    <section id="m2-l5">
+      <span class="lesson-num">Module 2 · Leçon 5</span>
+      <h2>Le bracelet du festival</h2>
+
+      <div class="kid">
+        <span class="label">🔑 Version 5 ans</span>
+        <p>Tu arrives au festival. À l'entrée, tu montres ton billet et ta carte d'identité. Le monsieur vérifie, puis il te met un <strong>bracelet au poignet</strong>.</p>
+        <p>Après ça, tu circules partout. Personne ne te redemande jamais ta carte d'identité — on regarde juste ton bracelet. <strong>C'est tout l'intérêt : on ne vérifie en profondeur qu'une seule fois.</strong></p>
+        <p>Et le bracelet, à lui seul, ne dit rien de qui tu es. Il a juste un numéro. C'est le <strong>cahier à l'entrée</strong> qui sait que le bracelet n°7741, c'est toi.</p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>C'est une <strong>session</strong>. Après une connexion réussie, le serveur crée une entrée dans sa mémoire (« session 7741 = utilisateur Marie ») et envoie au navigateur un <strong>cookie</strong> contenant uniquement l'identifiant de session. Le navigateur le renvoie automatiquement à chaque requête.</p>
+      </div>
+
+      <div class="schema">
+<pre>
+  ① CONNEXION (une seule fois)
+     Navigateur ── email + mot de passe ──► Serveur
+                                             │ vérifie
+                                             │ crée la session 7741
+     Navigateur ◄── Set-Cookie: sid=7741 ────┘
+
+  ② TOUTES LES REQUÊTES SUIVANTES
+     Navigateur ── GET /factures  (Cookie: sid=7741) ──► Serveur
+                                                          │
+                              ┌───────────────────────────┘
+                              │ « 7741 ? c'est Marie, compte 4417 »
+                              ▼
+                    ┌──────────────────────┐
+                    │  MÉMOIRE DU SERVEUR  │  ← le cahier de l'entrée
+                    │  7741 → Marie        │
+                    │  7742 → Paul         │
+                    └──────────────────────┘
+
+  ③ DÉCONNEXION
+     On efface la ligne 7741 du cahier. Le bracelet ne vaut plus rien,
+     immédiatement.
+</pre>
+        <span class="cap">Le cookie ne contient qu'un numéro. Toute l'information réelle est côté serveur.</span>
+      </div>
+
+      <h3>La grande force : on peut couper</h3>
+      <p>Retiens bien l'étape ③, parce qu'elle sera le point de comparaison de toute la leçon suivante. Comme la vérité est dans la mémoire du serveur, <strong>il suffit d'effacer une ligne pour que l'accès cesse instantanément</strong>.</p>
+      <p>« Déconnecter tous mes appareils », « bloquer ce compte immédiatement », « couper l'accès de la personne qui vient de partir » : tout ça est trivial avec des sessions. C'est une propriété qu'on ne remarque que le jour où on ne l'a plus.</p>
+
+      <h3>Les trois réglages du cookie qui comptent</h3>
+      <p>Un cookie de session mal configuré annule tout le reste. Trois attributs, trois problèmes réglés :</p>
+      <pre><code class="language-http">Set-Cookie: sid=7741; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=86400</code></pre>
+      <ul>
+        <li><strong><code>HttpOnly</code></strong> — le JavaScript de la page ne peut pas lire ce cookie. Si un attaquant réussit à injecter du script dans ton site, il ne pourra pas voler les sessions de tes visiteurs. Sans cet attribut, une seule faille d'affichage suffit à tout emporter.</li>
+        <li><strong><code>Secure</code></strong> — le cookie n'est envoyé qu'en HTTPS. Sans ça, il circule en clair sur le premier réseau Wi-Fi public venu.</li>
+        <li><strong><code>SameSite</code></strong> — le cookie n'est pas envoyé quand la requête vient d'un autre site. Ça bloque une attaque classique : un site malveillant qui fait exécuter une action sur ton site en profitant de ta session ouverte.</li>
+      </ul>
+
+      <h3>La limite : ça ne passe pas à l'échelle facilement</h3>
+      <p>Si la session vit dans la mémoire d'un serveur et que tu en as dix derrière un répartiteur de charge, une requête qui atterrit sur le serveur n°7 ne trouve pas la session créée sur le n°3. L'utilisateur se fait déconnecter au hasard.</p>
+      <p>La solution est simple et très répandue : mettre les sessions dans un <strong>magasin partagé</strong> (Redis, une base de données) que tous les serveurs consultent. C'est une dépendance supplémentaire, mais on garde la révocation instantanée. Beaucoup d'équipes abandonnent les sessions bien trop tôt en croyant ce problème insoluble — c'est le sujet de la leçon suivante.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Ne pas changer l'identifiant de session au moment de la connexion. Un attaquant peut donner à sa victime un identifiant de session <em>qu'il connaît déjà</em> (par un lien piégé), et attendre qu'elle se connecte : la session devient authentifiée, et lui la partage. Le réflexe est simple et absolu : <strong>à chaque changement de niveau de privilège — connexion, élévation de droits — on régénère l'identifiant de session.</strong>
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Ton cookie de session n'a pas l'attribut <code>HttpOnly</code>, et un formulaire de commentaires de ton site affiche le texte des visiteurs sans le neutraliser. Décris l'attaque complète. <em>(Réponse : l'attaquant poste un commentaire contenant du script ; le script s'exécute chez chaque visiteur, lit</em> <code>document.cookie</code><em>, et envoie la session à l'attaquant, qui se fait alors passer pour n'importe lequel d'entre eux.)</em>
+      </div>
+    </section>
+
+    <section id="m2-l6">
+      <span class="lesson-num">Module 2 · Leçon 6</span>
+      <h2>Le ticket signé</h2>
+
+      <div class="kid">
+        <span class="label">🔑 Version 5 ans</span>
+        <p>Autre méthode. Au lieu d'un bracelet avec un numéro, on te donne un <strong>papier où tout est écrit</strong> : « Marie Dupont, accès aux manèges, valable jusqu'à 18 h ». Et en bas, le <strong>tampon du directeur</strong>.</p>
+        <p>N'importe quel employé peut lire ton papier et vérifier le tampon. <strong>Il n'a plus besoin d'appeler l'entrée pour savoir qui tu es</strong> — tout est écrit dessus.</p>
+        <p>Mais il y a un revers, et il est gros : si on te retire le droit d'entrer à 15 h, ton papier dit toujours « valable jusqu'à 18 h ». <strong>Et personne ne peut le savoir juste en le regardant.</strong></p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>C'est un <strong>token</strong>, et le format le plus répandu est le <strong>JWT</strong> (<em>JSON Web Token</em>). Contrairement au cookie de session, il est <strong>auto-porteur</strong> : il contient les informations, et une signature qui prouve qu'elles n'ont pas été modifiées.</p>
+      </div>
+
+      <h3>À quoi ça ressemble</h3>
+      <p>Un JWT est un texte en trois parties séparées par des points :</p>
+      <pre><code class="language-text">eyJhbGciOiJIUzI1NiJ9 . eyJzdWIiOiI0NDE3Iiwicm9sZSI6ImNvbXB0YSJ9 . dBjftJeZ4CV
+└──── en-tête ────┘   └────────── contenu ──────────────────┘   └─ signature ─┘</code></pre>
+      <p>Les deux premières parties sont simplement du JSON encodé. En les décodant, on obtient :</p>
+      <pre><code class="language-json">{ "sub": "4417", "role": "compta", "exp": 1789459200, "iss": "api.monsaas.fr" }</code></pre>
+
+      <div class="callout danger">
+        <strong>⚠ Le malentendu n°1 sur les JWT</strong> — <strong>Ce n'est pas chiffré. C'est seulement signé.</strong> N'importe qui interceptant le token peut lire son contenu en deux secondes : l'encodage n'est pas du chiffrement. La signature garantit qu'on ne peut pas <em>modifier</em> le contenu — pas qu'on ne peut pas le <em>lire</em>. Ne mets donc jamais dans un JWT quoi que ce soit de confidentiel.
+      </div>
+
+      <h3>La signature, en une image</h3>
+      <div class="schema">
+<pre>
+  ÉMISSION (par le serveur d'authentification)
+     contenu + CLÉ SECRÈTE  ──► calcul ──►  signature
+     token = contenu + signature
+
+  VÉRIFICATION (par n'importe quel service qui a la clé)
+     contenu reçu + CLÉ SECRÈTE ──► calcul ──► signature attendue
+                                                 │
+                          identique à celle reçue ? ──► oui : authentique ✓
+
+  Si quelqu'un change "role":"compta" en "role":"admin",
+  la signature ne correspond plus. Le token est rejeté.
+</pre>
+        <span class="cap">Exactement le même mécanisme que la signature des webhooks. Une clé secrète, un calcul, une comparaison.</span>
+      </div>
+
+      <h3>Le vrai sujet : on ne peut pas les annuler</h3>
+      <p>Voici le compromis central, et il faut le comprendre avant de choisir des tokens. Un JWT est valide <strong>tant qu'il n'a pas expiré</strong>, et le serveur qui le vérifie n'interroge aucune base : c'est précisément ce qui le rend rapide et facile à répartir sur dix machines.</p>
+      <p>Mais ça veut dire que <strong>tu ne peux pas le révoquer</strong>. Un employé part à 15 h, son token expire à 23 h ? Il garde son accès pendant huit heures. Il n'y a aucune ligne à effacer : la vérité est dans le papier, pas dans un cahier.</p>
+
+      <table>
+        <thead><tr><th></th><th>🎟 Session (le bracelet)</th><th>📜 Token (le papier signé)</th></tr></thead>
+        <tbody>
+          <tr><td>Où est la vérité</td><td>Sur le serveur</td><td>Dans le token lui-même</td></tr>
+          <tr><td>Vérifier coûte</td><td>Une lecture en base</td><td>Un calcul, rien d'autre</td></tr>
+          <tr><td><strong>Révoquer</strong></td><td><strong>Immédiat</strong></td><td><strong>Impossible sans ajouter une liste</strong></td></tr>
+          <tr><td>Plusieurs serveurs</td><td>Il faut un magasin partagé</td><td>Naturellement simple</td></tr>
+          <tr><td>Bon pour</td><td>Une application web classique</td><td>Des API, du multi-service, du mobile</td></tr>
+        </tbody>
+      </table>
+
+      <h3>La solution universelle : deux tokens</h3>
+      <p>Presque tous les systèmes sérieux règlent le problème de la même façon — et c'est le motif à connaître :</p>
+      <ul>
+        <li><strong>Un token d'accès</strong>, de très courte durée (5 à 15 minutes). C'est lui qu'on envoie à chaque requête. Comme il expire vite, le fait de ne pas pouvoir le révoquer devient acceptable : le pire cas est quelques minutes.</li>
+        <li><strong>Un token de rafraîchissement</strong>, de longue durée (jours ou semaines), qui ne sert qu'à obtenir un nouveau token d'accès. Celui-là est <strong>stocké côté serveur</strong>, donc révocable instantanément.</li>
+      </ul>
+      <div class="schema">
+<pre>
+  10:00  connexion     → accès (15 min) + rafraîchissement (30 j)
+  10:14  requêtes      → le token d'accès suffit, aucun accès en base
+  10:16  expiré        → on présente le rafraîchissement
+                       → le serveur VÉRIFIE EN BASE qu'il est encore valide
+                       → nouveau token d'accès (15 min)
+
+  15:00  l'employé part → on supprime son token de rafraîchissement
+  15:14  son accès actuel fonctionne encore  ← le trou, au maximum 15 min
+  15:16  il tente de rafraîchir → refusé ✗   ← l'accès est coupé
+</pre>
+        <span class="cap">On récupère la révocation, au prix d'une fenêtre de quelques minutes qu'on choisit soi-même.</span>
+      </div>
+      <p>Le réglage de cette durée est exactement le curseur du compromis : plus le token d'accès est court, plus la révocation est réactive — et plus on interroge la base. C'est un choix de conception, pas une valeur universelle.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Le JWT valable un an, « pour éviter de gérer le rafraîchissement ». C'est un badge d'accès permanent qu'on ne peut ni retirer, ni tracer, ni limiter. S'il fuite — dans un journal, dans l'historique d'un navigateur, dans une capture d'écran — l'attaquant a un an d'accès et <strong>tu ne peux rien faire d'autre que changer la clé de signature</strong>, ce qui déconnecte tout le monde en même temps.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Ton token d'accès dure 15 minutes. Un attaquant vole celui d'un utilisateur à 14:02. Jusqu'à quand peut-il s'en servir, et que se passe-t-il ensuite ? Et si tu avais choisi 24 heures ? <em>(Réponse : jusqu'à 14:15 au pire, puis il lui faudrait le token de rafraîchissement, qui est révocable. Avec 24 h, il a une journée entière — et tu n'as aucun moyen de l'interrompre.)</em>
+      </div>
+    </section>
+
+    <section id="m2-l7">
+      <span class="lesson-num">Module 2 · Leçon 7</span>
+      <h2>La clé du voiturier</h2>
+
+      <div class="kid">
+        <span class="label">🔑 Version 5 ans</span>
+        <p>Tu arrives au restaurant et un voiturier propose de garer ta voiture. Tu vas lui donner tes clés ?</p>
+        <p>Avec tes clés, il peut ouvrir le coffre, lire les papiers dans la boîte à gants, et repartir avec la voiture pour toujours.</p>
+        <p>Alors les voitures ont une <strong>deuxième clé</strong>, spéciale : elle démarre le moteur et ouvre les portes, mais <strong>elle n'ouvre pas le coffre</strong>, et elle ne roule pas plus de deux kilomètres.</p>
+        <p>👉 Tu donnes <strong>juste ce qu'il faut</strong> pour le service demandé. Rien de plus, et pas pour toujours.</p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>C'est <strong>OAuth</strong>, et il répond à une question très précise : <em>comment donner à une application l'accès à mes données chez un autre service, <strong>sans lui donner mon mot de passe</strong> ?</em></p>
+        <p>Retiens cette formulation, parce qu'elle dissipe la confusion la plus répandue : <strong>OAuth est un protocole d'autorisation, pas d'authentification.</strong> Il répond à « que peut faire cette application ? », pas à « qui es-tu ? ».</p>
+      </div>
+
+      <h3>Le monde d'avant OAuth</h3>
+      <p>Pour qu'une application de gestion de photos accède à ton compte de stockage, il fallait… lui donner ton identifiant et ton mot de passe. Elle les stockait. Elle avait alors accès à <strong>tout</strong>, pour toujours, et la seule façon de lui retirer l'accès était de changer ton mot de passe — ce qui cassait aussi toutes les autres applications. Ce n'est pas une caricature : c'est ainsi que ça fonctionnait.</p>
+
+      <h3>Le ballet en cinq temps</h3>
+      <div class="schema">
+<pre>
+  TOI          L'APPLI              GOOGLE (le service qui détient tes données)
+   │             │                     │
+   │─ « connecte mon agenda » ────────►│
+   │             │─ te redirige vers ─►│
+   │             │                     │
+   │◄─────── « L'appli PlanniPro demande : ────────┐
+   │           • voir les événements de votre agenda │  ← ① TU vois
+   │           • (rien d'autre)                      │     exactement
+   │          [ Autoriser ]  [ Refuser ]             │     ce qui est
+   │──────────────────────────────────────────────► │     demandé
+   │             │                     │
+   │             │◄── un code à usage unique ────────│  ← ② passe par toi
+   │             │                     │
+   │             │── code + son secret d'appli ─────►│  ← ③ l'appli prouve
+   │             │◄── token d'accès (limité) ────────│     qu'elle est bien
+   │             │                     │                  elle-même
+   │             │── lit l'agenda ────►│             │
+   │             │  (et RIEN d'autre)  │
+</pre>
+        <span class="cap">Ton mot de passe n'a jamais quitté Google. L'application ne l'a jamais vu et ne le verra jamais.</span>
+      </div>
+
+      <p>Trois propriétés découlent de ce schéma, et ce sont elles qui font tout l'intérêt d'OAuth :</p>
+      <ul>
+        <li><strong>L'application n'a jamais ton mot de passe.</strong> Tu le saisis chez Google, sur le site de Google. L'application ne voit qu'un token.</li>
+        <li><strong>La portée est limitée et visible.</strong> L'écran d'autorisation liste <em>précisément</em> ce qui est demandé. « Voir vos événements » n'est pas « gérer votre compte ».</li>
+        <li><strong>Tu peux révoquer sans rien casser d'autre.</strong> Dans les réglages de ton compte Google, tu retires l'accès de cette application — et uniquement d'elle. Les autres continuent de fonctionner.</li>
+      </ul>
+
+      <h3>« Se connecter avec Google » — et là, c'est autre chose</h3>
+      <p>Ce bouton n'est pas exactement OAuth. C'est <strong>OpenID Connect</strong>, une couche <em>d'authentification</em> construite par-dessus OAuth. La différence tient en une ligne : OIDC ajoute un <strong>token d'identité</strong>, un JWT qui dit qui tu es (ton identifiant, ton email, ton nom).</p>
+      <p>Autrement dit : <strong>OAuth dit ce que l'application a le droit de faire ; OIDC dit qui tu es.</strong> C'est exactement la distinction de la leçon 1, appliquée au monde réel — et c'est pour ça que les deux sigles se croisent sans arrêt.</p>
+
+      <h3>Le lien avec les agents IA</h3>
+      <p>Un développement récent qui mérite d'être signalé : <strong>OAuth 2.1 s'impose comme la base pour authentifier les agents IA</strong>. Le problème est exactement celui du voiturier, transposé : un agent doit agir sur tes services sans détenir tes mots de passe, avec une portée limitée et une révocation possible.</p>
+      <p>Si tu as suivi le cours sur les agents, tu reconnais le principe du moindre privilège de la leçon 8 : un agent reçoit un token étroit, à durée limitée, révocable — pas ton compte d'administrateur.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Cliquer « Autoriser » sans lire la liste des permissions. C'est le même réflexe que le « toujours autoriser » du cours MCP, et le même angle mort. Une application de retouche photo qui réclame l'accès en écriture à tous tes fichiers et à tes contacts ne se trompe pas : elle demande exactement ce qu'elle veut. <strong>L'écran d'autorisation est le seul endroit où un humain lit ce qui va se passer.</strong>
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Va dans les réglages de sécurité de ton compte Google ou Microsoft, section « applications ayant accès à votre compte ». Combien y en a-t-il ? Combien reconnais-tu ? Combien utilises-tu encore ? <em>(C'est l'exercice le plus utile de tout ce cours, et il prend deux minutes.)</em>
+      </div>
+
+      <details class="quiz">
+        <summary>Mini-quiz : OAuth authentifie-t-il ?</summary>
+        <p><strong>« OAuth me permet de me connecter à un site. » Vrai ou faux ?</strong></p>
+        <p><strong>Faux, techniquement.</strong> OAuth donne à une application une autorisation d'accès à des ressources. Ce qui te connecte, c'est <strong>OpenID Connect</strong>, la couche d'authentification bâtie au-dessus, qui ajoute un token d'identité. Dans la vie courante on dit « connexion OAuth » et tout le monde comprend — mais la distinction devient importante dès qu'on implémente, parce qu'utiliser un token OAuth brut comme preuve d'identité est une erreur classique et exploitable.</p>
+      </details>
+    </section>
+
+    <section id="m2-l8">
+      <span class="lesson-num">Module 2 · Leçon 8</span>
+      <h2>Les machines entre elles</h2>
+
+      <div class="kid">
+        <span class="label">🔑 Version 5 ans</span>
+        <p>Jusqu'ici, il y avait toujours <strong>toi</strong> quelque part : tu tapais un mot de passe, tu cliquais « autoriser ».</p>
+        <p>Mais quand deux machines se parlent à trois heures du matin, il n'y a personne pour cliquer. Alors on leur donne un <strong>mot de passe à elles</strong> — sauf qu'il n'y a personne pour le retenir, le protéger, ou remarquer qu'il a été volé.</p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>C'est l'authentification <strong>machine à machine</strong>. Elle est beaucoup plus dangereuse que l'authentification humaine, pour une raison simple : <strong>un secret de machine est écrit quelque part</strong> — dans un fichier, une variable d'environnement, un dépôt de code — et il vit souvent des années.</p>
+      </div>
+
+      <h3>Les trois mécanismes</h3>
+
+      <p><strong>① La clé d'API.</strong> Une longue chaîne de caractères, envoyée à chaque requête. Le plus simple, le plus répandu, et le plus risqué : <strong>quiconque détient la chaîne est la machine</strong>. C'est un mot de passe permanent, sans double facteur, sans expiration.</p>
+      <pre><code class="language-bash">curl https://api.monservice.fr/clients \
+  -H "Authorization: Bearer msv_live_4eC39HqLyjWDarjtT1zdp7dc"</code></pre>
+
+      <p><strong>② Le token OAuth de service.</strong> La machine échange un identifiant et un secret contre un token à durée limitée, qu'elle renouvelle. Plus de travail à mettre en place, mais on récupère l'expiration et la portée. C'est le bon choix dès que l'enjeu est sérieux.</p>
+
+      <p><strong>③ La signature de requête.</strong> Pas de secret transmis du tout : chaque requête est signée avec une clé partagée, et le destinataire recalcule la signature. <strong>Tu as déjà vu ça</strong> — c'est exactement le mécanisme des signatures de webhooks. Sa vertu : intercepter une requête ne donne pas de quoi en fabriquer une autre.</p>
+
+      <h3>Les cinq règles d'une clé d'API qui ne finit pas mal</h3>
+      <ol>
+        <li><strong>Un préfixe lisible.</strong> <code>sk_live_...</code>, <code>ghp_...</code>, <code>AKIA...</code>. Ça permet à des outils automatiques de reconnaître une clé qui traîne dans un fichier — et c'est ce qui permet à GitHub de détecter une fuite en quelques secondes. Le revers est dans l'histoire de la leçon 12.</li>
+        <li><strong>Une portée étroite.</strong> Une clé en lecture seule pour un tableau de bord, pas une clé d'administration. Le moindre privilège, encore et toujours.</li>
+        <li><strong>Une clé par usage.</strong> Une par service, par environnement, par intégration. Comme ça, révoquer l'une ne casse pas les autres — et le journal dit laquelle a servi.</li>
+        <li><strong>Stockée hachée, jamais en clair.</strong> Exactement comme un mot de passe (leçon 3) : tu ne la montres à l'utilisateur qu'une seule fois, à la création. Un service qui peut te réafficher ta clé la stocke en clair.</li>
+        <li><strong>Une date d'expiration et une rotation.</strong> Une clé éternelle est une dette qui grossit. Prévois le remplacement <em>avant</em> d'en avoir besoin en urgence.</li>
+      </ol>
+
+      <h3>Où mettre le secret — et surtout où pas</h3>
+      <table>
+        <thead><tr><th></th><th>Où</th><th>Verdict</th></tr></thead>
+        <tbody>
+          <tr><td>❌</td><td>En dur dans le code</td><td>Il part dans le dépôt, et il y reste pour toujours. Leçon 12.</td></tr>
+          <tr><td>❌</td><td>Dans un fichier de configuration versionné</td><td>Même chose, avec un faux sentiment de propreté</td></tr>
+          <tr><td>❌</td><td>Dans le code qui tourne dans le navigateur</td><td><strong>Tout le monde peut le lire.</strong> Un secret côté client n'est pas un secret</td></tr>
+          <tr><td>⚠️</td><td>Dans une variable d'environnement</td><td>Acceptable, mais ça fuit facilement dans les logs et les messages d'erreur</td></tr>
+          <tr><td>✅</td><td>Dans un coffre à secrets</td><td>Chiffré, tracé, avec rotation. Le bon choix dès qu'on est en production</td></tr>
+          <tr><td>✅✅</td><td>Pas de secret du tout — identité de la machine</td><td>Le service prouve son identité par son environnement d'exécution. Rien à voler</td></tr>
+        </tbody>
+      </table>
+
+      <p>La dernière ligne mérite un mot, parce que c'est là que va le métier : plutôt que de distribuer des secrets, on donne à chaque machine une <strong>identité vérifiable</strong> liée à son environnement — un conteneur, une fonction, une machine virtuelle. Elle obtient des jetons courts sans qu'aucun secret de longue durée n'existe. <strong>On ne peut pas voler un secret qui n'existe pas.</strong></p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Mettre une clé d'API dans une application mobile ou dans du JavaScript de page web. Beaucoup de gens croient que « compilé » ou « minifié » signifie « caché ». Ce n'est pas le cas : n'importe qui peut extraire les chaînes d'une application en quelques minutes. <strong>Tout secret livré au client est un secret public</strong> — s'il doit rester secret, l'appel doit passer par ton serveur.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Ta clé d'API de production vient de fuiter. Dans quel ordre agis-tu ? <em>(Réponse : ① créer une nouvelle clé et déployer ; ② révoquer l'ancienne ; ③ relire les journaux d'accès pour voir ce qui a été fait avec ; ④ chercher d'où venait la fuite. Beaucoup révoquent en premier et se coupent eux-mêmes le service — l'ordre compte.)</em>
+      </div>
+    </section>
+
+    <!-- ══════════════ MODULE 3 ══════════════ -->
+
+    <section id="m3-l9">
+      <span class="lesson-num">Module 3 · Leçon 9</span>
+      <h2>Les passkeys</h2>
+
+      <div class="kid">
+        <span class="label">🔑 Version 5 ans</span>
+        <p>Souviens-toi du problème du mot de passe : <strong>pour prouver que tu connais le secret, tu dois le dire</strong>. Et quelqu'un peut l'entendre.</p>
+        <p>Alors on a inventé autre chose. Tu gardes une <strong>clé magique</strong> dans ton téléphone, et elle ne sort jamais. Jamais.</p>
+        <p>Le site t'envoie une devinette. Ta clé fabrique la réponse, à l'intérieur du téléphone. Tu envoies <strong>la réponse</strong>, pas la clé. Le site vérifie, et il est content.</p>
+        <p>Et le plus malin : ta clé <strong>regarde d'abord l'adresse du site</strong>. Si ce n'est pas le vrai site, elle ne répond pas du tout. Même si tu insistes.</p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>C'est une <strong>passkey</strong>, bâtie sur la norme <strong>WebAuthn</strong>. Le principe est la cryptographie à clés asymétriques : une paire de clés est générée par appareil et par site. La <strong>clé privée ne quitte jamais l'appareil</strong> ; seule la <strong>clé publique</strong> est envoyée au site.</p>
+        <p>Il n'y a donc plus de secret partagé. Le site ne détient rien qui puisse servir à se faire passer pour toi — et c'est un changement de nature, pas un simple perfectionnement.</p>
+      </div>
+
+      <div class="schema">
+<pre>
+  À L'INSCRIPTION
+    Ton appareil génère une paire, pour ce site uniquement :
+      🔒 clé privée   → reste dans l'appareil, POUR TOUJOURS
+      🔓 clé publique → envoyée au site, qui la stocke
+
+    Une base de clés publiques volée ne sert à RIEN.
+    Il n'y a rien à casser : une clé publique est publique.
+
+  À LA CONNEXION
+    Site  ──► « voici un défi aléatoire : a7f3e9... »
+              │
+              │  l'appareil vérifie L'ADRESSE DU SITE     ← ★
+              │  puis te demande empreinte / visage / PIN
+              │  puis signe le défi avec la clé privée
+              ▼
+    Site  ◄── signature
+              │
+              └► vérifiée avec la clé publique ──► connecté ✓
+
+  ★ C'est cette ligne qui tue l'hameçonnage.
+    Sur "g00gle.com", l'appareil ne trouve aucune clé
+    enregistrée pour ce domaine. Il ne propose rien.
+</pre>
+        <span class="cap">Même en tombant dans le piège, tu ne peux rien donner : la clé refuse de répondre au mauvais domaine.</span>
+      </div>
+
+      <h3>Ce que ça règle, concrètement</h3>
+      <table>
+        <thead><tr><th>Problème</th><th>Mot de passe</th><th>Passkey</th></tr></thead>
+        <tbody>
+          <tr><td>Fuite de la base du site</td><td>Catastrophe</td><td><strong>Sans effet</strong> — il n'y a que des clés publiques</td></tr>
+          <tr><td>Hameçonnage</td><td>Marche très bien</td><td><strong>Impossible</strong> — le domaine est vérifié par l'appareil</td></tr>
+          <tr><td>Réutilisation entre sites</td><td>Le fléau n°1</td><td><strong>Inexistante</strong> — une paire de clés par site</td></tr>
+          <tr><td>Mot de passe deviné</td><td>Possible</td><td><strong>Sans objet</strong> — il n'y a rien à deviner</td></tr>
+          <tr><td>Interception réseau</td><td>Risque réel</td><td><strong>Inutile</strong> — la signature ne vaut que pour ce défi</td></tr>
+        </tbody>
+      </table>
+
+      <p>Et les chiffres suivent : les connexions par passkey <strong>réussissent dans 93 % des cas contre 63 % pour les mots de passe</strong>, et sont environ <strong>73 % plus rapides</strong>. Le déploiement est massif — plus de 15 milliards de comptes sont aujourd'hui compatibles, et Microsoft crée désormais les nouveaux comptes grand public directement en passkey.</p>
+
+      <h3>Alors pourquoi tout le monde n'y est pas encore ?</h3>
+      <p>Parce que l'adoption cale, et pour deux raisons qui n'ont rien à voir avec la cryptographie.</p>
+
+      <p><strong>① L'écosystème est cloisonné.</strong> Une passkey créée sur un appareil Apple vit dans le trousseau d'Apple, une passkey Google dans celui de Google, une passkey Microsoft dans celui de Microsoft. Passer de l'un à l'autre est pénible, parfois impossible. L'utilisateur qui change de téléphone de marque découvre le problème au pire moment, et l'expérience varie d'un site à l'autre — ce qui ruine la confiance.</p>
+
+      <p><strong>② La récupération de compte n'est pas résolue.</strong> C'est le vrai point noir, et il mérite qu'on s'y arrête, parce qu'il est plus profond qu'un problème d'outillage.</p>
+
+      <div class="callout danger">
+        <strong>⚠ Le problème non résolu</strong> — Que se passe-t-il quand quelqu'un perd son téléphone ? Il faut bien une porte de secours. Or les solutions existantes — codes de secours, lien magique par email, vérification par SMS, questions secrètes — <strong>réintroduisent chacune une partie de la surface d'attaque que la passkey venait justement d'éliminer</strong>.<br><br>
+        Autrement dit : <strong>ton compte n'est jamais plus solide que son chemin de récupération.</strong> Une passkey inattaquable avec une réinitialisation par SMS reste attaquable par détournement de carte SIM. Il n'existe aujourd'hui aucune bonne pratique universelle sur ce point.
+      </div>
+
+      <h3>Le montage le plus courant en entreprise</h3>
+      <p>Face à ça, le motif qui s'impose est pragmatique : <strong>la passkey au niveau du fournisseur d'identité, et de l'OIDC vers les applications</strong>. Concrètement, l'utilisateur s'authentifie une seule fois par passkey auprès de l'annuaire de l'entreprise, et cet annuaire délivre ensuite des tokens d'identité aux trente applications internes.</p>
+      <p>L'avantage est net : un seul endroit à sécuriser correctement, un seul chemin de récupération à soigner, et les applications n'ont plus à gérer d'authentification du tout. C'est le SSO de la leçon 4, avec une porte d'entrée bien meilleure.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Ajouter les passkeys tout en gardant la connexion par mot de passe « pour ceux qui préfèrent ». C'est compréhensible, et ça annule une grande partie du bénéfice : un attaquant ignorera simplement la passkey et attaquera le mot de passe, qui est toujours là. Une passkey n'apporte sa pleine valeur que quand elle <strong>remplace</strong> le mot de passe — ce qui suppose d'avoir d'abord réglé la question de la récupération.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Tu ajoutes les passkeys à ton service. Un utilisateur perd son téléphone. Écris ton chemin de récupération, puis attaque-le : <strong>comment quelqu'un pourrait-il l'emprunter à sa place ?</strong> <em>(C'est l'exercice décisif : si ton chemin de secours est plus faible que ta passkey, tu n'as pas déplacé le risque, tu l'as juste rendu moins visible.)</em>
+      </div>
+    </section>
+
+    <section id="m3-l10">
+      <span class="lesson-num">Module 3 · Leçon 10</span>
+      <h2>8 façons de se faire avoir</h2>
+
+      <div class="kid">
+        <span class="label">🔑 Version 5 ans</span>
+        <p>Presque personne ne casse la serrure. C'est difficile, c'est long, et il y a beaucoup plus simple.</p>
+        <p>On te demande gentiment la clé. On regarde sous le paillasson. On attend que tu laisses la porte ouverte. Ou on entre par la fenêtre de derrière, celle que tu as oubliée.</p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>Les huit façons ci-dessous représentent l'écrasante majorité des compromissions réelles. <strong>Aucune ne consiste à casser de la cryptographie.</strong> Toutes contournent le système plutôt que de l'attaquer de front — et c'est précisément ce qui les rend efficaces.</p>
+      </div>
+
+      <h3>1. L'hameçonnage</h3>
+      <p>Un faux site, une vraie apparence. Tu saisis ton mot de passe et même ton code à 6 chiffres, l'attaquant les rejoue en direct sur le vrai site. Le double facteur par code ne protège pas de ça : tu le tapes toi-même sur le faux site. <strong>Seules les passkeys et les clés physiques y résistent</strong>, parce que la vérification du domaine n'est pas confiée à l'humain.</p>
+
+      <h3>2. La réutilisation de mots de passe</h3>
+      <p>Le mécanisme de la leçon 3. Une fuite sur un site sans importance devient un accès à ta messagerie. <strong>Parade : un gestionnaire de mots de passe, un mot de passe unique par site.</strong> C'est la mesure individuelle la plus rentable, sans concurrence.</p>
+
+      <h3>3. Le secret dans le dépôt de code</h3>
+      <p>Une clé d'API commitée par mégarde. Des robots scrutent les dépôts publics en permanence et exploitent les clés en quelques minutes. <strong>Et le supprimer dans un commit suivant ne l'efface pas</strong> — c'est le sujet de la leçon 12.</p>
+
+      <h3>4. Le secret dans les journaux</h3>
+      <p>Moins connu, très fréquent. Un token passé en paramètre d'URL atterrit dans les journaux du serveur, ceux du proxy, ceux du CDN, et dans l'historique du navigateur. Tout le monde a accès aux journaux — c'est leur raison d'être. <strong>Les secrets voyagent dans les en-têtes, jamais dans les URL.</strong></p>
+
+      <h3>5. La session qui ne se ferme jamais</h3>
+      <p>Un token valable un an, une session sans expiration, un accès qui survit au départ d'un employé. <strong>La question à poser régulièrement : qui a encore accès, et est-ce que ça devrait être le cas ?</strong> Le compte du prestataire parti il y a deux ans est un classique universel.</p>
+
+      <h3>6. L'autorisation oubliée</h3>
+      <p>La faille de la leçon 1 : l'utilisateur est authentifié, donc le code lui répond — sans vérifier que l'objet demandé lui appartient. Changer un numéro dans une URL, et lire les données de quelqu'un d'autre. <strong>C'est l'une des vulnérabilités les plus répandues du web, et elle ne demande aucune compétence pour être exploitée.</strong></p>
+
+      <h3>7. La porte de derrière : la récupération de compte</h3>
+      <p>Le point de la leçon 9, généralisé. Un système d'authentification impeccable avec une réinitialisation par question secrète (« nom de votre premier animal ») est aussi solide que cette question — dont la réponse est souvent sur les réseaux sociaux. <strong>Attaque toujours ton propre chemin de récupération : c'est là que va l'attaquant.</strong></p>
+
+      <h3>8. Le secret côté client</h3>
+      <p>Une clé dans une application mobile, dans du JavaScript de page, dans un fichier de configuration public. <strong>Tout ce qui est livré à l'utilisateur est lisible par l'utilisateur</strong> — et par n'importe qui d'autre. Minifier n'est pas cacher.</p>
+
+      <h3>Le point commun</h3>
+      <p>Regarde les huit ensemble. Deux constats en sortent, et ils valent mieux que n'importe quelle liste de bonnes pratiques :</p>
+      <ul>
+        <li><strong>Le maillon faible n'est presque jamais l'algorithme.</strong> C'est un secret mal rangé, un droit non vérifié, ou un humain qu'on a convaincu. Investir dans du chiffrement plus sophistiqué quand ta clé est dans ton dépôt Git, c'est renforcer la porte blindée d'une maison sans fenêtres fermées.</li>
+        <li><strong>Un système vaut son chemin le plus faible.</strong> Passkey imparable + récupération par SMS = sécurité du SMS. C'est le raisonnement à appliquer systématiquement : ne regarde pas ta porte principale, cherche toutes les autres entrées.</li>
+      </ul>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Vouloir « chiffrer plus » pour se sentir en sécurité. Le chiffrement n'est quasiment jamais le problème : les algorithmes standards sont solides et gratuits. Le problème, c'est <strong>où sont rangées les clés, qui y a accès, et pendant combien de temps</strong>. Ce sont trois questions d'organisation, pas de mathématiques.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Prends un service que tu utilises tous les jours et passe les huit points en revue. Combien te concernent réellement ? Commence par le n°2 — un gestionnaire de mots de passe — si ce n'est pas déjà fait : c'est celui qui a le meilleur rapport effort / risque évité.
+      </div>
+
+      <details class="quiz">
+        <summary>Mini-quiz : quelle attaque le double facteur n'arrête pas ?</summary>
+        <p><strong>Tu as activé le 2FA par code à 6 chiffres. De quoi n'es-tu toujours pas protégé ?</strong></p>
+        <p><strong>De l'hameçonnage en temps réel.</strong> Le faux site te demande ton mot de passe <em>et</em> ton code, et les rejoue immédiatement sur le vrai site pendant que le code est encore valable. Le 2FA par code protège très bien du <em>credential stuffing</em> (une fuite de mots de passe réutilisés) — ce qui est déjà énorme — mais pas d'un site qui te convainc de tout lui donner. Pour ça, il faut une passkey ou une clé physique, parce que la vérification du domaine ne dépend plus de ta vigilance.</p>
+      </details>
+    </section>
+
+    <!-- ══════════════ MODULE 4 ══════════════ -->
+
+    <section id="m4-l11">
+      <span class="lesson-num">Module 4 · Leçon 11</span>
+      <h2>🏢 Le SaaS de Yann</h2>
+
+      <div class="kid">
+        <span class="label">🔑 Version 5 ans</span>
+        <p>Yann s'occupe d'un grand immeuble où travaillent plein de gens. Il a réfléchi <strong>avant</strong> d'installer les serrures.</p>
+        <p>Du coup, le jour où quelqu'un a rendu son badge, il a suffi d'appuyer sur un bouton — et en une minute, toutes les portes de l'immeuble ne s'ouvraient plus pour lui.</p>
+        <p>Ça n'arrive pas par hasard. Ça arrive parce qu'il y a pensé le premier jour.</p>
+      </div>
+
+      <h3>La situation</h3>
+      <p><em>Plannéo</em> est un logiciel de planning fictif, vendu à 400 entreprises, avec 18 000 utilisateurs. Yann y est responsable technique. Trois publics très différents s'y connectent, et c'est ce qui rend le cas intéressant :</p>
+      <ul>
+        <li>Des <strong>utilisateurs</strong> via l'interface web et l'application mobile</li>
+        <li>Des <strong>clients d'entreprise</strong> qui veulent le SSO de leur annuaire interne</li>
+        <li>Des <strong>intégrations</strong> : les serveurs de ses clients qui appellent son API</li>
+      </ul>
+
+      <h3>Ses cinq décisions, et pourquoi</h3>
+      <table>
+        <thead><tr><th>Décision</th><th>Pourquoi</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Passkey proposée, mot de passe + 2FA en repli</strong></td>
+            <td>Il ne peut pas imposer la passkey à 18 000 personnes du jour au lendemain. Mais il refuse le SMS comme second facteur : application d'authentification ou clé physique uniquement (leçon 2).</td>
+          </tr>
+          <tr>
+            <td><strong>Session en cookie pour le web, tokens pour l'API mobile</strong></td>
+            <td>Le web classique n'a aucune raison de se priver de la révocation instantanée. Le mobile et l'API ont besoin d'un mécanisme sans cookie.</td>
+          </tr>
+          <tr>
+            <td><strong>Token d'accès de 10 minutes, rafraîchissement de 14 jours stocké en base</strong></td>
+            <td>Le motif de la leçon 6. La fenêtre de non-révocation est de 10 minutes au pire, et c'est un chiffre qu'il a choisi consciemment.</td>
+          </tr>
+          <tr>
+            <td><strong>OIDC vers l'annuaire du client pour le SSO</strong></td>
+            <td>Plannéo ne gère aucun mot de passe d'entreprise. C'est l'annuaire du client qui authentifie ; Yann reçoit un token d'identité. Moins de responsabilité, et c'est ce que les clients exigent de toute façon.</td>
+          </tr>
+          <tr>
+            <td><strong>Clés d'API préfixées, hachées, avec portée et expiration</strong></td>
+            <td>Les cinq règles de la leçon 8, appliquées sans exception. Le préfixe <code>pln_live_</code> permet aux outils de détection de repérer une fuite.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Une connexion, du début à la fin</h3>
+      <div class="schema">
+<pre>
+  08:41  Marie ouvre l'application mobile
+           │
+           ├─ token d'accès expiré (il datait d'hier)
+           ├─ envoie son token de rafraîchissement
+           │     │
+           │     ▼  le serveur VÉRIFIE EN BASE qu'il est valide ✓
+           │        et en émet un nouveau (rotation)
+           ◄─ nouveau token d'accès (10 min)
+           │
+  08:41  GET /plannings/8842
+           │  ① authentifié ? signature du token valide ✓
+           │  ② autorisé ?   ce planning appartient-il à SON entreprise ?
+           │                 ✓ — sinon : 404, pas 403
+           ◄─ 200 OK
+           │
+  08:52  le token d'accès expire, rafraîchissement automatique,
+         Marie ne s'aperçoit de rien
+</pre>
+        <span class="cap">Les deux questions de la leçon 1, posées dans l'ordre, à chaque requête. Sans exception.</span>
+      </div>
+
+      <p>Un détail de ce schéma vaut d'être souligné : à chaque rafraîchissement, <strong>l'ancien token de rafraîchissement est invalidé et remplacé</strong>. Ça s'appelle la rotation, et ça donne un effet secondaire précieux : si un ancien token de rafraîchissement est réutilisé, c'est qu'il a été volé — le serveur le détecte et coupe toute la famille de tokens de cet utilisateur.</p>
+
+      <h3>Le jeudi où un employé est parti</h3>
+      <ul class="timeline">
+        <li><span class="t">14:00</span> — Un développeur d'une entreprise cliente quitte la société. Son responsable le désactive dans l'annuaire interne.</li>
+        <li><span class="t">14:00:04</span> — Comme Plannéo utilise l'OIDC de cet annuaire, <strong>il n'y a rien à faire côté Plannéo</strong> : l'annuaire ne délivrera plus de token d'identité pour ce compte. C'est le bénéfice caché du SSO — un seul endroit à couper.</li>
+        <li><span class="t">14:07</span> — Son token d'accès en cours expire. Sa tentative de rafraîchissement est refusée. Il est dehors.</li>
+        <li><span class="t">14:08</span> — Reste le vrai sujet : il avait créé <strong>deux clés d'API</strong> pour des scripts personnels. Celles-là ne dépendent pas de l'annuaire.</li>
+        <li><span class="t">14:09</span> — Son responsable ouvre la page « clés d'API » de son espace. Chaque clé affiche son créateur, sa date de dernière utilisation et sa portée. Il révoque les deux. <strong>Cette page existe uniquement parce que Yann a décidé, au premier jour, qu'une clé serait toujours rattachée à une personne.</strong></li>
+      </ul>
+
+      <p>Le contraste mérite d'être vu : la partie « utilisateur » s'est coupée toute seule, sans que personne n'intervienne. La partie « machine » a demandé un geste humain — et elle n'a été possible que parce que les clés étaient traçables. <strong>C'est presque toujours là que les départs laissent des trous.</strong></p>
+
+      <h3>Ce que Yann a vraiment gagné</h3>
+      <p>Pas « de la sécurité » au sens vague. Deux choses précises :</p>
+      <p><strong>La capacité de couper.</strong> Chaque accès de son système peut être interrompu en moins de dix minutes, et il sait exactement comment pour chacun. C'est une propriété qui ne se rajoute pas après coup : elle découle du choix des tokens courts et du stockage des rafraîchissements, fait au départ.</p>
+      <p><strong>La capacité de répondre « qui ? ».</strong> Chaque action de son système est rattachée à une personne ou à une clé nommée. Le jour où un client demandera « qui a modifié ce planning le 14 mars ? », il aura une réponse — c'est la troisième question de la leçon 1, celle dont on ne mesure l'importance que trop tard.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Les clés d'API « de l'équipe », créées par personne en particulier. Elles survivent à tous les départs, personne n'ose les révoquer parce que personne ne sait ce qui en dépend, et elles finissent par tourner pendant des années. <strong>Toute clé doit avoir un propriétaire nommé et une date de dernière utilisation visible</strong> — sans quoi tu ne peux ni faire le ménage, ni répondre à « qui ? ».
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Dans ton propre système ou celui de ton entreprise : combien de temps faudrait-il pour couper <strong>tous</strong> les accès d'une personne qui part ? Liste les endroits à toucher. <em>(Si la liste dépasse cinq entrées, ou si tu n'es pas sûr qu'elle soit complète, c'est déjà la réponse.)</em>
+      </div>
+    </section>
+
+    <section id="m4-l12">
+      <span class="lesson-num">Module 4 · Leçon 12</span>
+      <h2>🔓 La startup d'Inès (la clé poussée sur GitHub)</h2>
+
+      <div class="kid">
+        <span class="label">🔑 Version 5 ans</span>
+        <p>Inès a écrit la clé de la maison sur une feuille, et elle a accroché la feuille sur la porte de l'immeuble, dehors, dans la rue.</p>
+        <p>Elle s'en est rendu compte quatre minutes plus tard et elle a arraché la feuille. Trop tard : quelqu'un était déjà passé.</p>
+        <p>Et il y a pire. En arrachant la feuille, elle croyait que c'était réglé. <strong>Mais il y avait une photocopieuse qui gardait une copie de tout ce qui était affiché.</strong> La clé était toujours là, pour qui savait où regarder.</p>
+      </div>
+
+      <h3>La situation</h3>
+      <p><em>Grenio</em> est une startup fictive de six personnes qui fait de l'analyse de données. Leur infrastructure tourne chez un hébergeur cloud. Inès, développeuse, travaille un vendredi soir sur un script d'import.</p>
+      <p>Pour aller vite, elle met la clé d'accès de l'hébergeur directement dans le fichier — « je la sortirai après ». Puis elle commit, et elle pousse. Le dépôt est <strong>public</strong> : ils ont ouvert leur bibliothèque de traitement en open source six mois plus tôt, et ce script est dans le même dépôt.</p>
+
+      <pre><code class="language-python"># import_donnees.py — la version du vendredi soir
+CLE_ACCES = "AKIA3H7QX2M4EXAMPLE"
+CLE_SECRETE = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"   # ← à sortir avant merge
+
+client = cloud.connecter(CLE_ACCES, CLE_SECRETE)</code></pre>
+
+      <h3>Vendredi 19:12 — l'incident</h3>
+      <ul class="timeline">
+        <li><span class="t">19:12:00</span> — <code>git push</code>. Le commit est public.</li>
+        <li><span class="t">19:12:50</span> — Un robot qui surveille en continu les nouveaux commits publics repère la chaîne. Il n'a rien de sophistiqué à faire : <strong>le préfixe <code>AKIA</code> est reconnaissable au premier coup d'œil</strong>. C'est exactement la propriété de la leçon 8 — utile pour la détection défensive, utile aussi pour l'attaquant.</li>
+        <li><span class="t">19:13:20</span> — La clé est testée. Elle fonctionne. Et elle a des droits étendus, parce que personne n'avait pris le temps d'en créer une restreinte.</li>
+        <li><span class="t">19:16</span> — Inès se rend compte de son erreur. Elle retire la clé du fichier, commit, pousse. <strong>Elle pense sincèrement que le problème est réglé.</strong></li>
+        <li><span class="t">19:31</span> — 40 machines de calcul sont démarrées dans six régions différentes, pour du minage de cryptomonnaie.</li>
+        <li><span class="t">Samedi 02:00</span> — L'alerte de facturation de l'hébergeur se déclenche. Personne ne la lit : elle part sur une adresse générique que personne ne consulte le week-end.</li>
+        <li><span class="t">Lundi 09:10</span> — L'équipe découvre la situation. <strong>14 200 € de consommation.</strong></li>
+      </ul>
+
+      <div class="schema">
+<pre>
+  19:12:00  git push          ─────────────► dépôt public
+                                                  │
+  19:12:50                    robot de scan ◄──────┘
+                                    │  préfixe AKIA reconnu
+  19:13:20                          ▼
+                              clé testée → valide, droits étendus
+                                    │
+  19:16     Inès « corrige »         │
+            ┌──────────────────────┐ │
+            │ commit qui retire    │ │   ✗ la clé reste dans
+            │ la clé du fichier    │ │      L'HISTORIQUE GIT
+            └──────────────────────┘ │      et le robot l'a déjà
+                                     ▼
+  19:31                      40 machines démarrées
+  Lundi                          14 200 €
+
+  La correction de 19:16 n'a RIEN corrigé.
+</pre>
+        <span class="cap">Quatre minutes entre la faute et la correction. Et la correction n'en était pas une.</span>
+      </div>
+
+      <h3>Le diagnostic — et la chose qu'Inès ignorait</h3>
+      <p>Deux erreurs se sont enchaînées, et la seconde est de loin la plus instructive.</p>
+
+      <p><strong>La première</strong> est connue : une clé en dur dans le code, et un dépôt public. Classique, banal, évitable.</p>
+
+      <div class="callout danger">
+        <strong>⚠ La seconde : retirer un secret d'un fichier ne le retire pas de Git</strong><br>
+        Git conserve <strong>tout l'historique</strong>. Le commit de 19:12 existe toujours, avec la clé dedans, et il reste accessible à n'importe qui — par <code>git log</code>, par l'interface web, par un clone. Le commit de 19:16 ajoute simplement une modification par-dessus ; il n'efface rien.<br><br>
+        <strong>Un secret poussé sur un dépôt est compromis définitivement.</strong> La seule réponse valable est de le <strong>révoquer et le remplacer</strong> — jamais de le supprimer d'un fichier. Nettoyer l'historique est utile pour l'hygiène, mais ça ne change rien au fait que la clé a été publique : il faut partir du principe qu'elle a été copiée.
+      </div>
+
+      <p>Et un troisième facteur a transformé un incident en facture : <strong>l'alerte est partie sur une boîte que personne ne lit</strong>. Détecter sans prévenir quelqu'un de joignable ne sert à rien. C'est exactement le même angle mort que dans l'histoire de Karim, dans le cours sur les agents.</p>
+
+      <h3>Ce qu'ils ont fait, dans l'ordre</h3>
+      <p>L'ordre compte, et c'est l'exercice de la leçon 8 :</p>
+      <ol>
+        <li><strong>Créer une nouvelle clé</strong> et la déployer, pour que le service continue de tourner.</li>
+        <li><strong>Révoquer l'ancienne.</strong> Pas l'inverse — révoquer d'abord, c'est se couper soi-même en pleine crise.</li>
+        <li><strong>Arrêter les 40 machines</strong> et relire les journaux d'accès pour établir précisément ce qui a été fait avec la clé. Ils ont pu confirmer qu'aucune donnée client n'avait été lue — ce qui a évité une obligation de notification.</li>
+        <li><strong>Contacter l'hébergeur.</strong> Il a annulé une partie de la facture : c'est fréquent au premier incident de ce type, et beaucoup d'équipes ne le demandent jamais.</li>
+      </ol>
+
+      <h3>Les cinq changements durables</h3>
+      <ul>
+        <li><strong>Un contrôle avant chaque commit.</strong> Un outil de détection de secrets installé sur chaque poste et dans l'intégration continue. Le commit est refusé si une chaîne ressemblant à une clé apparaît. <strong>C'est la seule correction qui empêche vraiment le problème de se reproduire</strong> — les autres en limitent les conséquences.</li>
+        <li><strong>Un coffre à secrets.</strong> Plus aucun secret dans un fichier, même local, même temporaire. Les secrets sont lus au démarrage depuis le coffre.</li>
+        <li><strong>Des clés à portée étroite et à durée limitée.</strong> La clé compromise pouvait tout faire. Sa remplaçante ne peut lire qu'un seul emplacement de stockage, et expire tous les 90 jours.</li>
+        <li><strong>Une alerte de dépense qui réveille quelqu'un.</strong> Sur un canal d'équipe, avec une astreinte, pas sur une boîte générique. Seuil à 50 € par heure.</li>
+        <li><strong>Une répétition d'incident.</strong> Une fois par trimestre, ils simulent une fuite de clé et mesurent le temps de révocation. La première fois : 40 minutes. La quatrième : 6 minutes.</li>
+      </ul>
+
+      <div class="callout exercise">
+        <strong>Exercice final</strong> — Lance <code>git log -p | grep -iE "api[_-]?key|secret|token|password"</code> sur un de tes dépôts. Puis pose-toi la vraie question : <strong>si tu trouves quelque chose, quelle est la bonne action ?</strong> <em>(Réponse : révoquer et remplacer le secret. Pas le supprimer du fichier, pas réécrire l'historique en priorité — révoquer. Tant que le secret est valide, il est dangereux, où qu'il se trouve.)</em>
+      </div>
+
+      <div class="end-card">
+        <h3>🎓 Ton résumé, à réciter à un enfant de 5 ans</h3>
+        <p><strong>1.</strong> Savoir qui tu es et avoir le droit d'entrer, ce sont deux questions différentes. On pose la première une fois, la deuxième à chaque porte.</p>
+        <p><strong>2.</strong> Un mot de passe, il faut le dire pour s'en servir — donc quelqu'un peut l'entendre. Une passkey, elle, ne sort jamais de ton téléphone, et elle vérifie elle-même l'adresse du site.</p>
+        <p><strong>3.</strong> Et une clé perdue une seule seconde est perdue pour toujours : on ne la cache pas, on en fabrique une nouvelle.</p>
+
+        <h3 style="margin-top:1.8rem">✅ La checklist</h3>
+        <p style="color:#E3D6DE;font-weight:600;margin-bottom:.4rem">Pour toi, personnellement</p>
+        <ul>
+          <li>Un <strong>gestionnaire de mots de passe</strong>, un mot de passe unique par site.</li>
+          <li>Un <strong>double facteur</strong> partout où c'est possible — application ou clé, pas SMS.</li>
+          <li>Une <strong>passkey</strong> là où c'est proposé, en commençant par ta messagerie : c'est elle qui réinitialise tout le reste.</li>
+          <li>Faire le ménage dans les <strong>applications autorisées</strong> sur tes comptes Google / Microsoft.</li>
+        </ul>
+        <p style="color:#E3D6DE;font-weight:600;margin:1.2rem 0 .4rem">Pour ce que tu construis</p>
+        <ul>
+          <li>Je vérifie l'<strong>autorisation sur l'objet demandé</strong>, à chaque requête — pas seulement que l'utilisateur est connecté.</li>
+          <li>Les mots de passe sont <strong>hachés avec un algorithme lent et salés</strong>. Jamais stockés, jamais renvoyés.</li>
+          <li>Mes cookies de session portent <strong><code>HttpOnly</code>, <code>Secure</code>, <code>SameSite</code></strong>, et l'identifiant est régénéré à la connexion.</li>
+          <li>Mes tokens d'accès sont <strong>courts</strong>, et le rafraîchissement est stocké côté serveur pour rester révocable.</li>
+          <li>Rien de confidentiel dans un JWT — <strong>c'est signé, pas chiffré</strong>.</li>
+          <li>Mes clés d'API sont <strong>préfixées, hachées, à portée étroite, nominatives et expirables</strong>.</li>
+          <li>Aucun secret dans le code, dans les URL, dans les journaux, ni côté client. Un <strong>coffre à secrets</strong>, et une détection avant commit.</li>
+          <li>J'ai <strong>attaqué mon propre chemin de récupération</strong> — c'est là que va l'attaquant.</li>
+          <li>Je sais <strong>en combien de temps je peux couper tous les accès</strong> d'une personne, et je l'ai déjà testé.</li>
+        </ul>
+
+        <h3 style="margin-top:1.8rem">🔗 Où ça se raccroche au reste</h3>
+        <p>Ce cours comble le trou transversal des quatre autres : la <strong>signature</strong> qui prouve qu'un webhook vient bien de son émetteur, le <strong>jeton</strong> et le consentement d'un serveur <strong>MCP</strong>, le <strong>filtre de droits</strong> appliqué à la recherche d'un <strong>RAG</strong>, et le <strong>moindre privilège</strong> accordé à un <strong>agent</strong> — c'est à chaque fois cette leçon-ci, vue depuis un autre angle.</p>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+  hljs.highlightAll();
+
+  const sidebar = document.getElementById('sidebar');
+  document.getElementById('menuToggle').addEventListener('click', () => {
+    sidebar.classList.toggle('open');
+  });
+
+  document.querySelectorAll('.module-title').forEach(t => {
+    t.addEventListener('click', () => t.parentElement.classList.toggle('collapsed'));
+  });
+
+  const lessonLinks = document.querySelectorAll('[data-lesson]');
+  const storageKey = 'course-progress-auth';
+  const done = JSON.parse(localStorage.getItem(storageKey) || '{}');
+  const fill = document.getElementById('progressFill');
+  const mini = document.getElementById('progressMini');
+  const text = document.getElementById('progressText');
+
+  function marquer(id) {
+    if (done[id]) return;
+    done[id] = true;
+    localStorage.setItem(storageKey, JSON.stringify(done));
+    const lien = document.querySelector('[data-lesson="' + id + '"]');
+    if (lien) lien.querySelector('.lesson-check').classList.add('done');
+    majBarre();
+  }
+
+  function majBarre() {
+    const total = lessonLinks.length;
+    const faites = Object.values(done).filter(Boolean).length;
+    const pct = total ? (faites / total * 100) : 0;
+    fill.style.width = pct + '%';
+    mini.style.width = pct + '%';
+    text.textContent = faites + ' / ' + total + ' leçons vues';
+  }
+
+  lessonLinks.forEach(link => {
+    if (done[link.dataset.lesson]) link.querySelector('.lesson-check').classList.add('done');
+    link.addEventListener('click', () => {
+      marquer(link.dataset.lesson);
+      sidebar.classList.remove('open');
+    });
+  });
+
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (!e.isIntersecting) return;
+      const id = e.target.id;
+      document.querySelectorAll('[data-lesson]').forEach(a =>
+        a.classList.toggle('active', a.dataset.lesson === id));
+      marquer(id);
+    });
+  }, { rootMargin: '-45% 0px -45% 0px' });
+
+  document.querySelectorAll('main section[id]').forEach(s => observer.observe(s));
+
+  majBarre();
+</script>
+</body>
+</html>
