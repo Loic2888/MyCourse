@@ -61,25 +61,27 @@ A 25-course curriculum on preparing data for AI systems, organized into 7 progre
 
 ### 🧩 Explained Simply — [`LesBases/`](./LesBases/)
 
-Eight deliberately light, one-sitting courses, each explaining a single concept from zero with the stated goal that a five-year-old could explain it afterwards. Every lesson pairs a plain-language story with its technical equivalent, and ends on two fully worked fictional case studies — one that goes well, one that goes wrong. Folder numbers are reading order.
+Nine deliberately light, one-sitting courses, each explaining a single concept from zero with the stated goal that a five-year-old could explain it afterwards. Every lesson pairs a plain-language story with its technical equivalent, and ends on two fully worked fictional case studies — one that goes well, one that goes wrong. Folder numbers are reading order.
 
 | # | Course | Description | Lessons |
 |---|--------|-------------|---------|
 | 1 | [AI](./LesBases/1.AI/) | How a language model actually works: next-word prediction, lossy compression, why it invents with confidence, what it can't know about itself | 12 |
 | 2 | [Tokens & Context](./LesBases/2.Tokens/) | What the model actually reads and what it costs: tokenization, the context window, lost-in-the-middle, prompt caching | 12 |
 | 3 | [Talking to AI](./LesBases/3.Prompt/) | Writing good prompts: the four ingredients, why magic formulas don't work, and when rewriting won't help | 12 |
-| 4 | [Webhooks](./LesBases/4.Webhooks/) | What a webhook is, how it works step by step, what it's for, and why duplicates are the hard part | 12 |
-| 5 | [MCP](./LesBases/5.MCP/) | The Model Context Protocol as a universal plug: hosts and servers, tools/resources/prompts, transports, and the security rules that matter | 12 |
-| 6 | [RAG](./LesBases/6.RAG/) | Retrieval-Augmented Generation as a librarian: chunking, embeddings, hybrid search, and why refusing to answer must be built | 12 |
-| 7 | [AI Agents](./LesBases/7.Agents/) | The recipe vs. the cook: the loop, tools, memory, the five brakes, and when a workflow is the better answer | 12 |
-| 8 | [Authentication](./LesBases/8.Auth/) | Who you are vs. what you may do: passwords, sessions, tokens, OAuth, API keys, passkeys, and how people actually get compromised | 12 |
+| 4 | [Terminal & CLIs](./LesBases/4.CLI/) | An AI can't click a button but can write a command — how that one fact turns a task into something delegable, repeatable and schedulable | 12 |
+| 5 | [Webhooks](./LesBases/5.Webhooks/) | What a webhook is, how it works step by step, what it's for, and why duplicates are the hard part | 12 |
+| 6 | [MCP](./LesBases/6.MCP/) | The Model Context Protocol as a universal plug: hosts and servers, tools/resources/prompts, transports, and the security rules that matter | 12 |
+| 7 | [RAG](./LesBases/7.RAG/) | Retrieval-Augmented Generation as a librarian: chunking, embeddings, hybrid search, and why refusing to answer must be built | 12 |
+| 8 | [AI Agents](./LesBases/8.Agents/) | The recipe vs. the cook: the loop, tools, memory, the five brakes, and when a workflow is the better answer | 12 |
+| 9 | [Authentication](./LesBases/9.Auth/) | Who you are vs. what you may do: passwords, sessions, tokens, OAuth, API keys, passkeys, and how people actually get compromised | 12 |
 
-**Two reading paths.** The first three need no technical background at all; the next four are the technical building blocks, in the order each leans on the last; the eighth is a closing layer over all of it.
+**Two reading paths, and a bridge.** The first three need no technical background at all. The fourth is the step between the two halves. The next four are the technical building blocks, in the order each leans on the last; the ninth is a closing layer over all of it.
 
 - **No technical background** — read **1 → 2 → 3**: how a model works, what it reads and costs, and how to talk to it. Nothing in that path requires writing code.
-- **If you build things** — continue **4 → 5 → 6 → 7 → 8**: Webhooks first (the most self-contained building block), then MCP (tools) and RAG (memory) which both lean on it, then Agents (the loop that combines all three), then Auth as the closing layer underneath everything.
+- **The bridge** — **4 (Terminal & CLIs)**. Not a dev course: it explains *how an AI actually acts on the world*, since it can write a command but cannot click a button. Read it even if you stop there — it's what turns a task you do by hand into one you can delegate.
+- **If you build things** — continue **5 → 6 → 7 → 8 → 9**: Webhooks first (the most self-contained building block), then MCP (tools) and RAG (memory) which both lean on it, then Agents (the loop that combines all three), then Auth as the closing layer underneath everything.
 
-**How they fit.** [AI](./LesBases/1.AI/) is the foundation — everything else is engineering around one limitation: *the model doesn't know that it doesn't know.* [Tokens & context](./LesBases/2.Tokens/) describe the table you put things on. [Talking to AI](./LesBases/3.Prompt/) turns that foundation into practice. [Webhooks](./LesBases/4.Webhooks/) wake a system up or report what it did. [MCP](./LesBases/5.MCP/) plugs in tools for what the model does badly. [RAG](./LesBases/6.RAG/) converts recall into transformation at scale. [Agents](./LesBases/7.Agents/) are the loop that combines tools, memory and triggers to fetch what's missing instead of guessing. [Authentication](./LesBases/8.Auth/) decides what any of it may reach — the webhook signature, the MCP token, the RAG access filter, the agent's least-privilege scope are all this one lesson, seen four times before it's finally named.
+**How they fit.** [AI](./LesBases/1.AI/) is the foundation — everything else is engineering around one limitation: *the model doesn't know that it doesn't know.* [Tokens & context](./LesBases/2.Tokens/) describe the table you put things on. [Talking to AI](./LesBases/3.Prompt/) turns that foundation into practice. [Terminal & CLIs](./LesBases/4.CLI/) is where a model stops explaining and starts *doing*: it can't click a button, but it can write a command. [Webhooks](./LesBases/5.Webhooks/) wake a system up or report what it did. [MCP](./LesBases/6.MCP/) plugs in tools for what the model does badly. [RAG](./LesBases/7.RAG/) converts recall into transformation at scale. [Agents](./LesBases/8.Agents/) are the loop that combines tools, memory and triggers to fetch what's missing instead of guessing — and that loop, at ground level, is the terminal one: write an action, read the result, correct. [Authentication](./LesBases/9.Auth/) decides what any of it may reach — the webhook signature, the MCP token, the RAG access filter, the agent's least-privilege scope are all this one lesson, seen four times before it's finally named.
 
 → Each course ends on a production checklist — see the per-course READMEs for the outlines.
 
@@ -120,15 +122,16 @@ MyCourse/
 │   ├── 5.prepa-data-for-agent-IA/
 │   ├── 6.prepa-data-for-fine-tuning/
 │   └── 7.outillage-industrialisation/
-└── LesBases/                    ← Theme: Explained Simply (8 short courses, numbered in reading order)
+└── LesBases/                    ← Theme: Explained Simply (9 short courses, numbered in reading order)
     ├── 1.AI/
     ├── 2.Tokens/
     ├── 3.Prompt/
-    ├── 4.Webhooks/
-    ├── 5.MCP/
-    ├── 6.RAG/
-    ├── 7.Agents/
-    └── 8.Auth/              (each: README.md + index.html)
+    ├── 4.CLI/
+    ├── 5.Webhooks/
+    ├── 6.MCP/
+    ├── 7.RAG/
+    ├── 8.Agents/
+    └── 9.Auth/              (each: README.md + index.html)
 ```
 
 Last updated: **September 2026**
