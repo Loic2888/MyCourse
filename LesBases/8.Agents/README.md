@@ -10,7 +10,7 @@ Open [`index.html`](./index.html) in Chrome or Firefox — no server, no build, 
 
 ## What makes this one different
 
-Seventh entry in the *Explained Simply* series — the capstone of the technical building blocks — after [`../4.Webhooks/`](../4.Webhooks/), [`../5.MCP/`](../5.MCP/) and [`../6.RAG/`](../6.RAG/). Same deliberately **light** format: 12 short lessons, roughly 45 minutes end to end.
+Eighth entry in the *Explained Simply* series — the capstone of the technical building blocks — after [`../5.Webhooks/`](../5.Webhooks/), [`../6.MCP/`](../6.MCP/) and [`../7.RAG/`](../7.RAG/). Same deliberately **light** format: 12 short lessons, roughly 45 minutes end to end.
 
 It also closes the series: **the agent is the loop, MCP gives it tools, RAG gives it long-term memory, and webhooks wake it or report what it did.** Each of the other three answers a question this one raises.
 

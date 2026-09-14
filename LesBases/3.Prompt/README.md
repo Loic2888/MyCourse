@@ -10,7 +10,7 @@ Open [`index.html`](./index.html) in Chrome or Firefox — no server, no build, 
 
 ## What makes this one different
 
-Third entry in the *Explained Simply* series, right after [`../1.AI/`](../1.AI/) and [`../2.Tokens/`](../2.Tokens/) — and the **most immediately useful course of the eight, with no technical prerequisite at all**: no server, no API, no code. It's the practical counterpart to AI: that course explains *why* the model invents and why it's good at transformation and bad at recall; this one turns that into what to actually type.
+Third entry in the *Explained Simply* series, right after [`../1.AI/`](../1.AI/) and [`../2.Tokens/`](../2.Tokens/) — and the **most immediately useful course of the nine, with no technical prerequisite at all**: no server, no API, no code. It's the practical counterpart to AI: that course explains *why* the model invents and why it's good at transformation and bad at recall; this one turns that into what to actually type.
 
 Every lesson follows the series' two-card pattern:
 

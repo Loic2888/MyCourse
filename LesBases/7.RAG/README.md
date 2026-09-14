@@ -10,7 +10,7 @@ Open [`index.html`](./index.html) in Chrome or Firefox — no server, no build, 
 
 ## What makes this one different
 
-Sixth entry in the *Explained Simply* series, after [`../4.Webhooks/`](../4.Webhooks/) and [`../5.MCP/`](../5.MCP/). Same deliberately **light** format: 12 short lessons, roughly 45 minutes end to end.
+Seventh entry in the *Explained Simply* series, after [`../5.Webhooks/`](../5.Webhooks/) and [`../6.MCP/`](../6.MCP/). Same deliberately **light** format: 12 short lessons, roughly 45 minutes end to end.
 
 For the deep treatment (vector stores, ChromaDB, hybrid retrieval implementations, agentic RAG, persistent agent memory), see [`../../dev-agentique/rag-memoire-agents/`](../../dev-agentique/rag-memoire-agents/) instead.
 

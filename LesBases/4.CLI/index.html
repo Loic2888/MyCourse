@@ -1,0 +1,1237 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Le terminal et les CLI — expliqué simplement</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --terminal:      #12211C;
+    --terminal-soft: #1F3830;
+    --bg:            #F2F5F3;
+    --card:          #FFFFFF;
+    --invite:        #3FCB8E;
+    --arg:           #EFB93B;
+    --flag:          #6FA8F0;
+    --ko:            #E8615A;
+    --encre:         #16211D;
+    --gris-txt:      #5E7169;
+    --border:        #DFE7E3;
+
+    --font-display: "Archivo", system-ui, sans-serif;
+    --font-body: "Figtree", system-ui, -apple-system, sans-serif;
+
+    --sidebar-width: 300px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font-body);
+    color: var(--encre);
+    background: var(--bg);
+    line-height: 1.7;
+    font-size: 17px;
+  }
+
+  .layout { display: flex; min-height: 100vh; }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar {
+    width: var(--sidebar-width);
+    flex-shrink: 0;
+    background: var(--terminal);
+    color: #CFDDD7;
+    padding: 1.75rem 1.1rem 3rem;
+    overflow-y: auto;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+  }
+  .brand { display: flex; align-items: center; gap: .6rem; margin-bottom: .25rem; }
+  .brand-caret {
+    width: 38px; height: 38px; flex-shrink: 0;
+    border-radius: 9px;
+    background: var(--invite);
+    display: grid; place-items: center;
+    font-size: 1.05rem; font-weight: 700; color: var(--terminal);
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    box-shadow: 0 0 0 4px rgba(63,203,142,.2);
+  }
+  .sidebar h1 {
+    font-family: var(--font-display);
+    font-size: 1.16rem; line-height: 1.2;
+    color: #fff; font-weight: 800;
+  }
+  .brand-sub { font-size: .78rem; color: #7C948B; margin-bottom: 1.4rem; padding-left: 3px; }
+
+  .progress-mini {
+    background: var(--terminal-soft);
+    border-radius: 10px; padding: .6rem .75rem; margin-bottom: 1.4rem;
+    font-size: .78rem; color: #A5BAB2;
+  }
+  .progress-mini .track {
+    height: 6px; background: #0A1511; border-radius: 99px; margin-top: .45rem; overflow: hidden;
+  }
+  .progress-mini .track span {
+    display: block; height: 100%; width: 0%;
+    background: linear-gradient(90deg, var(--invite), var(--arg));
+    transition: width .25s ease;
+  }
+
+  .module-group { margin-bottom: .35rem; }
+  .module-title {
+    font-family: var(--font-display); font-weight: 700; font-size: .92rem;
+    color: #fff; padding: .5rem .55rem; border-radius: 8px; cursor: pointer;
+    display: flex; justify-content: space-between; align-items: center; gap: .5rem;
+    user-select: none;
+  }
+  .module-title:hover { background: var(--terminal-soft); }
+  .module-title .chev { font-size: .7rem; color: #6E8A80; transition: transform .2s ease; }
+  .module-group.collapsed .chev { transform: rotate(-90deg); }
+  .module-group.collapsed .lesson-list { display: none; }
+
+  .lesson-list { list-style: none; padding-left: .5rem; margin-bottom: .4rem; }
+  .lesson-list li a {
+    display: flex; align-items: center; gap: .55rem;
+    padding: .35rem .5rem; border-radius: 7px;
+    color: #A5BAB2; text-decoration: none; font-size: .86rem; line-height: 1.35;
+  }
+  .lesson-list li a:hover { background: var(--terminal-soft); color: #fff; }
+  .lesson-list li a.active { color: #fff; background: var(--terminal-soft); font-weight: 600; }
+
+  /* La pastille de progression : un curseur de terminal */
+  .lesson-check {
+    width: 9px; height: 14px; flex-shrink: 0;
+    border: 1.5px solid #57706A; border-radius: 2px;
+  }
+  .lesson-check.done { background: var(--invite); border-color: var(--invite); }
+
+  /* ---------- Barre de progression ---------- */
+  .progress-bar { height: 4px; position: fixed; top: 0; left: 0; right: 0; z-index: 25; }
+  .progress-bar-fill {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, var(--invite), var(--arg), var(--flag));
+    transition: width .25s ease;
+  }
+
+  /* ---------- Contenu ---------- */
+  .content { flex: 1; max-width: 820px; margin: 0 auto; padding: 3rem 2.5rem 6rem; }
+
+  .hero {
+    background: var(--terminal); color: #fff;
+    border-radius: 20px; padding: 2.2rem 2rem; margin-bottom: 2.5rem;
+    position: relative; overflow: hidden;
+  }
+  .hero::after {
+    content: ""; position: absolute; right: -50px; top: -55px;
+    width: 205px; height: 205px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(63,203,142,.32), transparent 70%);
+  }
+  .hero h1 {
+    font-family: var(--font-display); font-size: 2.12rem; line-height: 1.13;
+    margin-bottom: .6rem; font-weight: 800; letter-spacing: -.02em;
+  }
+  .hero p { color: #ADC2BA; font-size: 1.02rem; max-width: 47ch; }
+  .hero .tags { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1.2rem; }
+  .hero .tags span {
+    background: var(--terminal-soft); color: #C6D6D0;
+    padding: .25rem .7rem; border-radius: 99px; font-size: .78rem; font-weight: 500;
+  }
+
+  section { scroll-margin-top: 2rem; margin-bottom: 4.5rem; }
+
+  .lesson-num {
+    display: inline-block;
+    font-family: var(--font-display); font-weight: 700; font-size: .74rem;
+    color: var(--invite); letter-spacing: .08em; text-transform: uppercase;
+    margin-bottom: .2rem;
+  }
+  .content h2 {
+    font-family: var(--font-display); font-size: 1.8rem; line-height: 1.2;
+    font-weight: 800; margin-bottom: 1.1rem; letter-spacing: -.02em;
+  }
+  .content h3 { font-family: var(--font-display); font-size: 1.2rem; margin: 2rem 0 .6rem; font-weight: 700; }
+  .content p { margin-bottom: 1rem; }
+  .content ul, .content ol { margin: 0 0 1rem 1.2rem; }
+  .content li { margin-bottom: .4rem; }
+  .content a { color: #1E8F60; }
+  strong { font-weight: 600; }
+
+  /* ---------- Signature 1 : les deux cartes ---------- */
+  .kid, .grown { border-radius: 16px; padding: 1.2rem 1.3rem; margin: 1.2rem 0 1.5rem; }
+  .kid { background: #FDF6E3; border: 2px dashed var(--arg); font-size: 1.08rem; }
+  .grown { background: #E9F7F1; border-left: 5px solid var(--invite); }
+  .kid .label, .grown .label {
+    font-family: var(--font-display); font-weight: 700; font-size: .76rem;
+    text-transform: uppercase; letter-spacing: .07em; display: block; margin-bottom: .45rem;
+  }
+  .kid .label { color: #9A7415; }
+  .grown .label { color: #17805A; }
+  .kid p:last-child, .grown p:last-child { margin-bottom: 0; }
+
+  /* ---------- Signature 2 : la commande décomposée ---------- */
+  .cmd {
+    background: var(--terminal); border-radius: 14px;
+    padding: 1.1rem 1.25rem; margin: 1.3rem 0; overflow-x: auto;
+  }
+  .cmd-ligne {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: .95rem; white-space: nowrap; margin-bottom: .55rem;
+  }
+  .cmd-ligne .prompt { color: var(--invite); user-select: none; }
+  .cmd-ligne .prog { color: #FFFFFF; font-weight: 700; }
+  .cmd-ligne .act  { color: var(--invite); }
+  .cmd-ligne .a    { color: var(--arg); }
+  .cmd-ligne .f    { color: var(--flag); }
+  .cmd-legende {
+    display: flex; flex-wrap: wrap; gap: .4rem 1.1rem;
+    padding-top: .6rem; border-top: 1px solid rgba(255,255,255,.1);
+    font-size: .8rem;
+  }
+  .cmd-legende span { display: flex; align-items: center; gap: .4rem; color: #96ADA5; }
+  .cmd-legende i { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+  .cmd-note { margin-top: .6rem; font-size: .82rem; color: #7C948B; font-style: italic; }
+
+  /* ---------- Schémas ---------- */
+  .schema {
+    background: var(--terminal); color: #CCDCD5;
+    border-radius: 14px; padding: 1.2rem 1.3rem; margin: 1.3rem 0; overflow-x: auto;
+    border-left: 5px solid var(--invite);
+  }
+  .schema pre {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: .84rem; line-height: 1.55; background: none; padding: 0; color: inherit;
+    white-space: pre;
+  }
+  .schema .cap { display: block; margin-top: .8rem; font-size: .8rem; color: #7C948B; font-style: italic; }
+
+  pre { border-radius: 12px; padding: 1rem 1.1rem; overflow-x: auto; margin: 1.1rem 0; font-size: .88rem; }
+  code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+  p code, li code, td code {
+    background: #E4EDE9; color: #2B4239; padding: .1rem .38rem;
+    border-radius: 5px; font-size: .87em; font-weight: 600;
+  }
+
+  /* ---------- Callouts ---------- */
+  .callout {
+    border-radius: 0 12px 12px 0; padding: 1rem 1.2rem; margin: 1.3rem 0;
+    background: var(--card); border-left: 5px solid var(--gris-txt);
+    box-shadow: 0 1px 3px rgba(18,33,28,.07);
+  }
+  .callout strong:first-child { font-family: var(--font-display); }
+  .callout.pitfall { border-left-color: var(--arg); background: #FDF7E8; }
+  .callout.exercise { border-left-color: var(--invite); background: var(--card); }
+  .callout.danger { border-left-color: var(--ko); background: #FCEEED; }
+  .callout p:last-child { margin-bottom: 0; }
+
+  details.quiz {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: .85rem 1.1rem; margin: 1rem 0;
+  }
+  details.quiz summary {
+    cursor: pointer; font-weight: 700; font-family: var(--font-display);
+    color: var(--terminal); list-style: none;
+  }
+  details.quiz summary::before { content: "💡 "; }
+  details.quiz[open] summary { margin-bottom: .7rem; color: #1E8F60; }
+  details.quiz p:last-child { margin-bottom: 0; }
+
+  table {
+    width: 100%; border-collapse: collapse; margin: 1.2rem 0;
+    background: var(--card); border-radius: 12px; overflow: hidden;
+    box-shadow: 0 1px 3px rgba(18,33,28,.07); font-size: .93rem;
+  }
+  th, td { padding: .7rem .9rem; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--terminal); color: #fff; font-family: var(--font-display); font-weight: 700; font-size: .87rem; }
+  tr:last-child td { border-bottom: none; }
+
+  .timeline { list-style: none; margin: 1.3rem 0 1.3rem .4rem; padding-left: 1.4rem; border-left: 2px dotted var(--invite); }
+  .timeline li { position: relative; margin-bottom: 1rem; }
+  .timeline li::before {
+    content: ""; position: absolute; left: -1.85rem; top: .55rem;
+    width: 10px; height: 10px; border-radius: 50%; background: var(--invite);
+    box-shadow: 0 0 0 3px var(--bg);
+  }
+  .timeline .t { font-family: var(--font-display); font-weight: 700; color: var(--terminal-soft); }
+
+  .end-card {
+    background: linear-gradient(135deg, var(--terminal), #1B3A4A);
+    color: #fff; border-radius: 20px; padding: 2rem; margin-top: 3rem;
+  }
+  .end-card h3 { color: #fff; margin-top: 0; }
+  .end-card p, .end-card li { color: #BFD2CB; }
+
+  .menu-toggle { display: none; }
+
+  @media (max-width: 900px) {
+    body { font-size: 16px; }
+    .sidebar {
+      position: fixed; left: -100%; top: 0;
+      transition: left .22s ease; z-index: 30;
+      box-shadow: 6px 0 24px rgba(18,33,28,.32);
+    }
+    .sidebar.open { left: 0; }
+    .menu-toggle {
+      display: block; position: fixed; top: .85rem; left: .85rem; z-index: 40;
+      background: var(--invite); color: var(--terminal); border: none;
+      border-radius: 10px; padding: .5rem .8rem; cursor: pointer; font-size: 1rem;
+      font-weight: 700;
+      box-shadow: 0 2px 8px rgba(18,33,28,.28);
+    }
+    .content { padding: 4.2rem 1.15rem 4rem; }
+    .hero { padding: 1.6rem 1.3rem; }
+    .hero h1 { font-size: 1.66rem; }
+    .schema pre { font-size: .72rem; }
+    .cmd-ligne { font-size: .82rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-bar-fill" id="progressFill"></div></div>
+<button class="menu-toggle" id="menuToggle">☰</button>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-caret">&gt;_</div>
+      <h1>Le terminal<br>expliqué simplement</h1>
+    </div>
+    <div class="brand-sub">12 leçons · ~45 min de lecture</div>
+
+    <div class="progress-mini">
+      <span id="progressText">0 / 12 leçons vues</span>
+      <div class="track"><span id="progressMini"></span></div>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title">Module 1 — C'est quoi ? <span class="chev">▼</span></div>
+      <ul class="lesson-list">
+        <li><a href="#m1-l1" data-lesson="m1-l1"><span class="lesson-check"></span> 1. Parler au lieu de cliquer</a></li>
+        <li><a href="#m1-l2" data-lesson="m1-l2"><span class="lesson-check"></span> 2. La grammaire d'une commande</a></li>
+        <li><a href="#m1-l3" data-lesson="m1-l3"><span class="lesson-check"></span> 3. Pourquoi l'IA s'en sert</a></li>
+        <li><a href="#m1-l4" data-lesson="m1-l4"><span class="lesson-check"></span> 4. Le vocabulaire en 6 mots</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title">Module 2 — Comment ça marche <span class="chev">▼</span></div>
+      <ul class="lesson-list">
+        <li><a href="#m2-l5" data-lesson="m2-l5"><span class="lesson-check"></span> 5. Où tu te trouves</a></li>
+        <li><a href="#m2-l6" data-lesson="m2-l6"><span class="lesson-check"></span> 6. Ce que la machine répond</a></li>
+        <li><a href="#m2-l7" data-lesson="m2-l7"><span class="lesson-check"></span> 7. Enchaîner les commandes</a></li>
+        <li><a href="#m2-l8" data-lesson="m2-l8"><span class="lesson-check"></span> 8. Quand ça tourne sans toi</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title">Module 3 — En pratique <span class="chev">▼</span></div>
+      <ul class="lesson-list">
+        <li><a href="#m3-l9" data-lesson="m3-l9"><span class="lesson-check"></span> 9. 8 commandes qui servent</a></li>
+        <li><a href="#m3-l10" data-lesson="m3-l10"><span class="lesson-check"></span> 10. Quand ce n'est pas la bonne idée</a></li>
+      </ul>
+    </div>
+
+    <div class="module-group">
+      <div class="module-title">Module 4 — Deux histoires <span class="chev">▼</span></div>
+      <ul class="lesson-list">
+        <li><a href="#m4-l11" data-lesson="m4-l11"><span class="lesson-check"></span> 11. Les photos de Jade</a></li>
+        <li><a href="#m4-l12" data-lesson="m4-l12"><span class="lesson-check"></span> 12. La boîte noire d'Elias</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main class="content">
+
+    <div class="hero">
+      <h1>Le terminal,<br>expliqué comme à un enfant de 5 ans</h1>
+      <p>Une IA ne peut pas cliquer sur un bouton. Mais elle peut écrire une commande — et c'est très exactement par là qu'elle agit sur le monde réel.</p>
+      <div class="tags"><span>&gt;_ Zéro jargon</span><span>🤖 Centré sur l'IA</span><span>⏱ ~45 minutes</span></div>
+    </div>
+
+    <!-- ══════════════ MODULE 1 ══════════════ -->
+
+    <section id="m1-l1">
+      <span class="lesson-num">Module 1 · Leçon 1</span>
+      <h2>Parler au lieu de cliquer</h2>
+
+      <div class="kid">
+        <span class="label">&gt;_ Version 5 ans</span>
+        <p>Il y a deux façons de demander quelque chose à un ordinateur.</p>
+        <p><strong>Avec des boutons.</strong> Tu cliques sur une image, et il fait ce que l'image représente. C'est facile : tu n'as rien à apprendre, tu vois ce qui est possible.</p>
+        <p><strong>Avec des mots.</strong> Tu <em>écris</em> ce que tu veux, et il le fait. C'est moins joli, il faut connaître les mots — mais tu peux demander des choses que personne n'avait prévues.</p>
+        <p>Une télécommande ne fait que ce que ses boutons prévoient. Quand tu <strong>parles</strong>, tu peux tout demander.</p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p><strong>CLI</strong> veut dire <em>Command Line Interface</em> : interface en ligne de commande. Piloter un programme en tapant du texte plutôt qu'en cliquant.</p>
+        <p>Ce n'est pas un vestige du passé qu'on garderait par nostalgie. C'est un mode d'interaction qui a des propriétés que les boutons n'ont pas — et l'une d'elles est devenue décisive avec l'arrivée des IA. C'est la leçon 3.</p>
+      </div>
+
+      <h3>Trois mots qu'on confond tout le temps</h3>
+      <p>Autant les séparer tout de suite, ça évite beaucoup de flottement :</p>
+      <table>
+        <thead><tr><th>Le mot</th><th>Ce que c'est</th><th>Image</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Le terminal</strong></td><td>La fenêtre. Juste un contenant : un endroit où du texte s'affiche et où tu peux taper.</td><td>La feuille de papier</td></tr>
+          <tr><td><strong>Le shell</strong></td><td>Le programme qui tourne dedans en permanence et qui interprète ce que tu écris. Il s'appelle <code>bash</code>, <code>zsh</code>, <code>powershell</code> selon les machines.</td><td>La personne qui lit la feuille</td></tr>
+          <tr><td><strong>Le CLI</strong></td><td>Chaque programme que tu lances depuis là : <code>git</code>, <code>python</code>, <code>npm</code>… Chacun a son propre vocabulaire.</td><td>Ce que tu lui demandes de faire</td></tr>
+        </tbody>
+      </table>
+      <p>Dans la vie courante tout le monde dit « le terminal » pour l'ensemble, et ça ne gêne personne. Mais quand une documentation te dit « ouvre un shell » ou « installe ce CLI », tu sauras de quoi elle parle.</p>
+
+      <h3>Ce que les boutons ne savent pas faire</h3>
+      <p>Quatre propriétés, et elles expliquent pourquoi le terminal n'a jamais disparu :</p>
+      <ul>
+        <li><strong>C'est précis.</strong> « Supprime les fichiers de plus de six mois dans ce dossier, sauf les PDF » est une commande. Ce n'est pas un bouton, et ça ne le sera jamais — il y a trop de variantes possibles pour qu'on les dessine toutes.</li>
+        <li><strong>Ça se répète à l'identique.</strong> Une commande qui marche sur 3 fichiers marche sur 8 000, sans effort supplémentaire. Cliquer 8 000 fois, non.</li>
+        <li><strong>Ça se transmet.</strong> Je peux te coller une commande exacte dans un message. Je ne peux pas te coller un clic.</li>
+        <li><strong>Ça s'écrit dans un fichier.</strong> Et donc ça peut être relancé automatiquement, à 3 h du matin, sans personne devant l'écran. C'est tout le module 2.</li>
+      </ul>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Croire que le terminal est « pour les développeurs ». Il est surtout <strong>pour les tâches répétitives</strong>. Une photographe qui renomme 800 fichiers, un comptable qui fusionne trente exports : ce sont les meilleurs usages du terminal, et aucun des deux n'écrit de logiciel. C'est l'histoire de la leçon 11.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Pense à une tâche que tu fais en cliquant, à l'identique, plus de dix fois d'affilée. Renommer, trier, convertir, télécharger. <em>(Garde-la de côté : c'est exactement le profil de ce qu'une seule ligne de commande fait disparaître.)</em>
+      </div>
+    </section>
+
+    <section id="m1-l2">
+      <span class="lesson-num">Module 1 · Leçon 2</span>
+      <h2>La grammaire d'une commande</h2>
+
+      <div class="kid">
+        <span class="label">&gt;_ Version 5 ans</span>
+        <p>Bonne nouvelle : les commandes ont toutes la <strong>même forme</strong>. Une fois que tu la vois, tu la vois partout.</p>
+        <p>C'est comme une phrase : <strong>qui</strong> fait <strong>quoi</strong>, sur <strong>quoi</strong>, et <strong>comment</strong>.</p>
+        <p>« Papa · range · les jouets · doucement. » Voilà. Tu sais déjà lire une commande.</p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>Presque toutes les commandes suivent la même structure : <strong>programme · action · arguments · options</strong>. Cette régularité n'est pas un hasard — et elle a une conséquence directe qu'on verra en leçon 3.</p>
+      </div>
+
+      <div class="cmd">
+        <div class="cmd-ligne"><span class="prompt">$ </span><span class="prog">git</span> <span class="act">push</span> <span class="a">origin main</span> <span class="f">--force</span></div>
+        <div class="cmd-legende">
+          <span><i style="background:#FFFFFF"></i>programme — à qui je parle</span>
+          <span><i style="background:#3FCB8E"></i>action — ce qu'il doit faire</span>
+          <span><i style="background:#EFB93B"></i>arguments — sur quoi</span>
+          <span><i style="background:#6FA8F0"></i>options — comment</span>
+        </div>
+        <div class="cmd-note">Le $ n'est jamais à taper : c'est l'invite, la marque que la machine attend tes ordres.</div>
+      </div>
+
+      <p>Regarde la même structure sur trois commandes qui n'ont rien à voir entre elles :</p>
+
+      <div class="cmd">
+        <div class="cmd-ligne"><span class="prompt">$ </span><span class="prog">python</span> <span class="a">mon_script.py</span></div>
+        <div class="cmd-ligne"><span class="prompt">$ </span><span class="prog">npm</span> <span class="act">install</span> <span class="a">express</span> <span class="f">--save-dev</span></div>
+        <div class="cmd-ligne"><span class="prompt">$ </span><span class="prog">ffmpeg</span> <span class="f">-i</span> <span class="a">film.mov</span> <span class="a">film.mp4</span></div>
+        <div class="cmd-note">Trois univers différents, une seule grammaire. C'est ce qui rend les CLI apprenables.</div>
+      </div>
+
+      <h3>Les options : le petit tiret qui change tout</h3>
+      <p>Les options (ou <em>flags</em>) se reconnaissent à leur tiret. Deux conventions cohabitent :</p>
+      <ul>
+        <li><strong>Un tiret + une lettre</strong> : <code>-f</code>, <code>-r</code>, <code>-v</code>. Court à taper, illisible à relire.</li>
+        <li><strong>Deux tirets + un mot</strong> : <code>--force</code>, <code>--recursive</code>, <code>--verbose</code>. Plus long, beaucoup plus clair.</li>
+      </ul>
+      <p>Ce sont souvent les mêmes : <code>-f</code> et <code>--force</code> font la même chose. <strong>Quand tu enregistres une commande quelque part pour la relancer plus tard, préfère toujours la version longue</strong> — dans six mois, <code>--recursive</code> te dira quelque chose, <code>-r</code> non.</p>
+
+      <h3>Le réflexe qui te sauve : <code>--help</code></h3>
+      <p>Presque tous les CLI répondent à la même question. Tu ne connais pas un programme ? Demande-lui :</p>
+      <pre><code class="language-bash">git --help          # que sait faire git ?
+git push --help     # et que fait 'push' exactement ?</code></pre>
+      <p>C'est une convention quasi universelle. Ça, et le fait que la grammaire soit toujours la même, veut dire quelque chose d'important : <strong>tu n'as pas à apprendre des milliers de commandes.</strong> Tu apprends une structure, et tu demandes le reste au programme lui-même.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Recopier le <code>$</code> du début. Il est là pour signaler « ceci est une commande », comme les guillemets signalent une citation. Si tu le colles, tu auras une erreur du type <code>command not found: $</code>. Certaines documentations utilisent <code>&gt;</code> ou <code>#</code> à la place — même principe, ça ne se tape pas.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Décompose cette commande en quatre parties : <code>docker run -d nginx</code>. <em>(Réponse : <code>docker</code> le programme, <code>run</code> l'action, <code>nginx</code> l'argument, <code>-d</code> l'option. Tu n'as pas besoin de savoir ce qu'est Docker pour lire sa structure — c'est tout l'intérêt.)</em>
+      </div>
+    </section>
+
+    <section id="m1-l3">
+      <span class="lesson-num">Module 1 · Leçon 3</span>
+      <h2>Pourquoi l'IA s'en sert</h2>
+
+      <div class="kid">
+        <span class="label">&gt;_ Version 5 ans</span>
+        <p>Voilà la leçon la plus importante du cours.</p>
+        <p>Une IA ne peut <strong>pas cliquer sur un bouton</strong>. Elle n'a pas de main, pas de souris, pas d'yeux pour voir où est le bouton sur l'écran.</p>
+        <p>Mais elle sait faire une chose extrêmement bien : <strong>écrire du texte</strong>.</p>
+        <p>Et une commande, c'est du texte.</p>
+        <p>👉 Alors quand une IA veut <em>vraiment faire</em> quelque chose — pas te l'expliquer, le faire — elle écrit une commande. <strong>C'est sa main.</strong></p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>Le cours sur l'IA le dit : un modèle est une fonction qui prend du texte et rend du texte. Il n'a aucun effet sur le monde. Pour qu'il en ait un, il faut que ce qu'il produit soit <strong>exécutable</strong>.</p>
+        <p>Un bouton n'est exécutable que par un humain devant un écran. Une commande est exécutable par une machine. <strong>Le CLI est donc la surface la plus directe par laquelle un modèle agit sur le réel</strong> — et ça explique une bonne partie de ce que tu as lu dans les autres cours.</p>
+      </div>
+
+      <div class="schema">
+<pre>
+  CE QU'UNE IA PEUT ATTEINDRE
+
+  ┌─ Interface graphique ────────────────────────────────┐
+  │  Un bouton « Exporter » en bas à droite               │
+  │  → il faut des yeux pour le voir                      │
+  │  → il faut une souris pour l'atteindre                │
+  │  → sa position change à chaque mise à jour            │
+  │  ✗ hors de portée (sauf outils spécialisés, fragiles) │
+  └───────────────────────────────────────────────────────┘
+
+  ┌─ Ligne de commande ──────────────────────────────────┐
+  │  monoutil export --format csv --depuis 2026-01-01     │
+  │  → c'est du texte : le modèle sait l'écrire           │
+  │  → c'est stable : ça ne bouge pas d'une version       │
+  │     à l'autre                                         │
+  │  → ça répond du texte : le modèle sait le lire        │
+  │  ✓ directement utilisable                             │
+  └───────────────────────────────────────────────────────┘
+</pre>
+        <span class="cap">Texte à l'aller, texte au retour. C'est exactement le format natif d'un modèle de langage.</span>
+      </div>
+
+      <h3>Ce que ça débloque : l'automatisation</h3>
+      <p>C'est là que ça devient intéressant pour toi, et pas seulement pour les informaticiens. Parce qu'une IA sait écrire des commandes, elle peut :</p>
+      <ul>
+        <li><strong>Faire le travail elle-même</strong>, au lieu de t'expliquer comment le faire. « Renomme-moi ces 800 photos » devient une action, pas un tutoriel.</li>
+        <li><strong>Enchaîner plusieurs étapes</strong> sans toi : lire un dossier, trier, convertir, ranger, prévenir. Chaque étape est une commande, et elle voit le résultat de l'une avant d'écrire la suivante.</li>
+        <li><strong>Recommencer toute seule quand ça rate.</strong> Une commande qui échoue renvoie un message d'erreur — donc du texte — que le modèle lit et comprend. C'est la leçon 6, et c'est le cœur de la boucle d'un agent.</li>
+        <li><strong>Travailler pendant que tu dors.</strong> Une commande s'écrit dans un fichier, un fichier se déclenche à heure fixe. Leçon 8.</li>
+      </ul>
+
+      <h3>Le fil qui relie tes autres cours</h3>
+      <p>Trois choses que tu as lues ailleurs prennent leur sens ici :</p>
+      <ul>
+        <li>Un <strong>agent</strong> est une boucle qui écrit des actions et lit des résultats. Une grande partie de ces actions sont des commandes, et son harnais est ce qui les exécute réellement.</li>
+        <li>Un serveur <strong>MCP</strong> local se lance… par une commande. C'est littéralement ce que contient sa configuration : quel programme démarrer, avec quels arguments.</li>
+        <li><strong>Claude Code</strong>, avec lequel ces cours ont été écrits, est un CLI. Ce n'est pas un choix esthétique : c'est parce qu'un assistant qui doit <em>agir</em> a besoin d'être là où les actions s'écrivent.</li>
+      </ul>
+
+      <div class="callout danger">
+        <strong>⚠ Le réflexe minimum avant de coller une commande</strong><br><br>
+        Soyons honnêtes : si tu n'as aucune base technique, tu ne vas pas auditer une commande ligne par ligne. Personne ne le fait. Mais il y a un geste réaliste, qui prend dix secondes :<br><br>
+        <strong>Copie la commande et demande à une <em>autre</em> IA : « qu'est-ce que fait exactement cette commande, et est-ce qu'elle peut supprimer ou modifier des données ? »</strong> Un second avis attrape très bien ce qui est manifestement destructeur.<br><br>
+        Deux limites à connaître quand même, parce qu'elles comptent : cette seconde IA <strong>ne connaît pas ton contexte</strong> — elle ignore ce qu'il y a dans ce dossier et si ce fichier compte pour toi. Et elle peut se tromper aussi. Donc garde deux réflexes en plus, qui eux ne dépendent d'aucune compétence : <strong>aie une sauvegarde de ce qui compte</strong>, et <strong>méfie-toi particulièrement de tout ce qui supprime, déplace ou écrase</strong> — ce sont les seules opérations qu'on ne peut pas défaire.
+      </div>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Croire que l'IA « voit » ce qui se passe sur ton écran. Sauf outil spécifique, non : elle ne sait de ta machine que ce que les commandes lui renvoient. Si tu lui dis « ça n'a pas marché » sans coller le message d'erreur, elle devine. <strong>Colle toujours la sortie complète, erreur comprise</strong> — c'est son seul moyen de voir.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Demande à une IA de te donner une commande pour une tâche simple sur ton ordinateur. Puis, sans l'exécuter, ouvre une autre conversation et demande ce qu'elle fait. Compare les deux explications. <em>(Tu viens de faire le geste de vérification ci-dessus — et de constater qu'il coûte dix secondes.)</em>
+      </div>
+    </section>
+
+    <section id="m1-l4">
+      <span class="lesson-num">Module 1 · Leçon 4</span>
+      <h2>Le vocabulaire en 6 mots</h2>
+
+      <div class="kid">
+        <span class="label">&gt;_ Version 5 ans</span>
+        <p>Six mots : <strong>la fenêtre</strong>, <strong>celui qui lit</strong>, <strong>ce que tu tapes</strong>, <strong>ce qu'il te répond</strong>, <strong>l'endroit où tu es</strong>, et <strong>le papier où tu notes tout pour le refaire plus tard</strong>.</p>
+      </div>
+
+      <table>
+        <thead><tr><th>Le mot</th><th>Ce que ça veut dire</th><th>Pourquoi ça compte pour l'IA</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Terminal</strong></td><td>La fenêtre où s'affiche le texte et où tu tapes.</td><td>C'est là que l'agent travaille</td></tr>
+          <tr><td><strong>Shell</strong></td><td>Le programme qui interprète ce que tu écris (<code>bash</code>, <code>zsh</code>…).</td><td>C'est lui qui exécute vraiment ce que le modèle a écrit</td></tr>
+          <tr><td><strong>Commande</strong></td><td>Une ligne de texte : programme, action, arguments, options.</td><td>C'est la forme que prend une action d'IA</td></tr>
+          <tr><td><strong>Sortie</strong> (<em>output</em>)</td><td>Ce que la machine affiche en réponse : un résultat, ou une erreur.</td><td>C'est ce que le modèle lit pour décider de la suite</td></tr>
+          <tr><td><strong>Chemin</strong> (<em>path</em>)</td><td>L'adresse d'un fichier ou d'un dossier sur la machine.</td><td>Sans ça, une commande agit au mauvais endroit</td></tr>
+          <tr><td><strong>Script</strong></td><td>Un fichier contenant plusieurs commandes, exécutable d'un coup.</td><td>C'est ce qui transforme une action en automatisation</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Trois mots de plus qu'on croise sans arrêt</h3>
+      <p><strong>Répertoire courant</strong> (<em>working directory</em>) — l'endroit où tu te trouves. Une commande s'exécute <em>depuis</em> quelque part, et ça change tout. Leçon 5.</p>
+      <p><strong><code>sudo</code></strong> — « fais ça en tant qu'administrateur ». Ça lève les protections du système. C'est parfois nécessaire, et c'est le mot devant lequel il faut être le plus attentif : ce qui est protégé l'est pour une raison.</p>
+      <p><strong>Code de retour</strong> — un nombre invisible que chaque commande renvoie en finissant : <code>0</code> si tout va bien, autre chose sinon. Personne ne le regarde à la main, mais <strong>c'est sur lui que les automatisations décident</strong> de continuer ou de s'arrêter. Leçon 6.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Confondre <strong>commande</strong> et <strong>script</strong>. Une commande, c'est une ligne que tu tapes maintenant. Un script, c'est un fichier qui en contient plusieurs et qu'on peut relancer indéfiniment. La différence a l'air mineure ; c'est pourtant exactement le passage du <em>geste</em> à l'<em>automatisation</em> — et donc de « l'IA m'aide » à « l'IA travaille pendant que je dors ».
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Dans « le script tourne toutes les nuits depuis le mauvais répertoire, et sa sortie finit dans un fichier que personne ne lit », place quatre des six mots. <em>(Réponse : script, répertoire — courant —, sortie. Et c'est, à un mot près, le résumé de l'histoire de la leçon 12.)</em>
+      </div>
+
+      <details class="quiz">
+        <summary>Mini-quiz : vrai ou faux ?</summary>
+        <p><strong>« Si je sais utiliser une interface graphique, le terminal ne m'apportera rien. »</strong></p>
+        <p><strong>Faux</strong>, et la raison est précise. Les deux font des choses différentes : une interface graphique est meilleure pour <em>explorer</em> — voir ce qui existe, découvrir des options. Le terminal est meilleur pour <em>répéter</em> et pour <em>automatiser</em>. Et surtout : c'est le seul des deux qu'une IA peut utiliser à ta place. Tant que tu cliques, tu travailles ; dès que tu écris une commande, tu peux la déléguer.</p>
+      </details>
+    </section>
+
+    <!-- ══════════════ MODULE 2 ══════════════ -->
+
+    <section id="m2-l5">
+      <span class="lesson-num">Module 2 · Leçon 5</span>
+      <h2>Où tu te trouves</h2>
+
+      <div class="kid">
+        <span class="label">&gt;_ Version 5 ans</span>
+        <p>Quand tu tapes une commande, tu es <strong>quelque part</strong>. Dans un dossier précis.</p>
+        <p>Et la commande agit <strong>là où tu es</strong>, pas ailleurs.</p>
+        <p>« Range les jouets » ne veut pas dire la même chose selon que tu es dans la chambre ou dans le garage. La phrase est identique ; le résultat n'a rien à voir.</p>
+        <p>Alors avant de demander quoi que ce soit, il faut savoir dans quelle pièce on est.</p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>C'est le <strong>répertoire courant</strong>. Le shell en garde un en permanence, et toute commande s'y applique par défaut. C'est la source d'erreur numéro un des débutants — et une cause fréquente d'automatisations qui font n'importe quoi.</p>
+      </div>
+
+      <h3>Les trois commandes qui répondent à « où suis-je ? »</h3>
+      <div class="cmd">
+        <div class="cmd-ligne"><span class="prompt">$ </span><span class="prog">pwd</span></div>
+        <div class="cmd-ligne"><span class="prompt">  </span><span class="a">/home/jade/photos/mariage-dupont</span></div>
+        <div class="cmd-note">pwd = « print working directory ». Où je suis, exactement.</div>
+      </div>
+      <div class="cmd">
+        <div class="cmd-ligne"><span class="prompt">$ </span><span class="prog">ls</span></div>
+        <div class="cmd-ligne"><span class="prompt">  </span><span class="a">IMG_0341.CR2  IMG_0342.CR2  IMG_0343.CR2  ...</span></div>
+        <div class="cmd-note">ls = « list ». Ce qu'il y a ici. À faire systématiquement avant d'agir.</div>
+      </div>
+      <div class="cmd">
+        <div class="cmd-ligne"><span class="prompt">$ </span><span class="prog">cd</span> <span class="a">/home/jade/photos</span></div>
+        <div class="cmd-note">cd = « change directory ». Se déplacer. Et cd .. remonte d'un cran.</div>
+      </div>
+
+      <h3>Les chemins : deux façons de désigner un endroit</h3>
+      <table>
+        <thead><tr><th></th><th>Chemin absolu</th><th>Chemin relatif</th></tr></thead>
+        <tbody>
+          <tr><td>À quoi ça ressemble</td><td><code>/home/jade/photos/mariage</code></td><td><code>photos/mariage</code> ou <code>../factures</code></td></tr>
+          <tr><td>Point de départ</td><td>La racine de la machine. Toujours le même.</td><td>Là où tu te trouves. <strong>Ça dépend.</strong></td></tr>
+          <tr><td>Avantage</td><td>Sans ambiguïté, où que tu sois</td><td>Court à écrire, et le dossier peut être déplacé</td></tr>
+          <tr><td>Risque</td><td>Long, et lié à une machine précise</td><td><strong>Désigne autre chose si tu n'es pas là où tu crois</strong></td></tr>
+        </tbody>
+      </table>
+
+      <p>Deux raccourcis à connaître, parce qu'ils sont partout : <code>.</code> désigne le dossier courant, <code>..</code> le dossier parent, et <code>~</code> ton dossier personnel (<code>/home/jade</code> par exemple).</p>
+
+      <div class="callout danger">
+        <strong>⚠ La règle qui vaut pour toutes les automatisations</strong> — Un chemin relatif est confortable quand tu tapes toi-même, parce que tu vois où tu es. <strong>Dans un script ou une tâche automatique, utilise toujours des chemins absolus.</strong><br><br>
+        La raison : quand une commande est lancée par toi, elle part de là où tu es. Quand elle est lancée automatiquement — par une tâche planifiée, par un agent — <strong>elle peut partir d'un endroit totalement différent</strong>, souvent la racine ou ton dossier personnel. Le script ne change pas, l'endroit change, et le résultat n'a plus rien à voir. C'est exactement ce qui arrive à Elias en leçon 12.
+      </div>
+
+      <h3>Pourquoi un agent doit savoir où il est</h3>
+      <p>La même contrainte vaut pour une IA, en plus marqué. Un agent qui enchaîne dix commandes garde un répertoire courant entre elles — et s'il se déplace au tour 3 sans s'en souvenir au tour 7, il agit au mauvais endroit sans qu'aucune erreur ne s'affiche.</p>
+      <p>C'est pour ça que les agents bien construits commencent souvent par un <code>pwd</code> et un <code>ls</code> : <strong>ils se localisent avant d'agir</strong>, exactement comme on te conseille de le faire. Ce n'est pas de la précaution excessive, c'est la seule façon de savoir sur quoi on travaille.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Lancer une commande destructrice sans avoir fait <code>ls</code> d'abord. <code>ls</code> coûte une seconde et te montre exactement ce que la commande suivante va toucher. <strong>C'est la vérification la plus rentable du terminal</strong>, et elle ne demande de comprendre ni la commande, ni le système : tu lis juste la liste des fichiers concernés.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Ouvre un terminal et tape <code>pwd</code>, puis <code>ls</code>. Rien de ce que tu viens de faire ne modifie quoi que ce soit — ces deux commandes ne font que regarder. <em>(C'est aussi la bonne façon de se familiariser : les commandes qui lisent sont sans danger, ce sont celles qui écrivent qui demandent de l'attention.)</em>
+      </div>
+    </section>
+
+    <section id="m2-l6">
+      <span class="lesson-num">Module 2 · Leçon 6</span>
+      <h2>Ce que la machine répond</h2>
+
+      <div class="kid">
+        <span class="label">&gt;_ Version 5 ans</span>
+        <p>Quand tu demandes quelque chose, on te répond. Trois réponses possibles :</p>
+        <p><strong>Rien du tout.</strong> Bizarrement, c'est bon signe : ça veut dire « c'est fait, il n'y avait rien à raconter ».</p>
+        <p><strong>Un résultat.</strong> La liste que tu as demandée, le fichier trouvé.</p>
+        <p><strong>Un reproche.</strong> « Je ne trouve pas ce fichier. » « Tu n'as pas le droit. »</p>
+        <p>Et ce reproche, il ne faut surtout pas le fuir : <strong>c'est lui qui dit quoi faire ensuite.</strong></p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>Une commande produit une <strong>sortie</strong> (du texte) et un <strong>code de retour</strong> (un nombre : <code>0</code> si tout va bien, autre chose sinon). Le texte est pour les humains ; le nombre est pour les automatisations.</p>
+        <p>Et c'est ici que le lien avec l'IA est le plus direct de tout le cours.</p>
+      </div>
+
+      <div class="schema">
+<pre>
+  LA BOUCLE D'UN AGENT, AU NIVEAU DU TERMINAL
+
+     ┌─────────────────────────────────────────┐
+     │  Le modèle ÉCRIT une commande           │
+     │  ls photos/2026/                        │
+     └────────────────┬────────────────────────┘
+                      ▼
+     ┌─────────────────────────────────────────┐
+     │  Le harnais l'EXÉCUTE vraiment          │
+     └────────────────┬────────────────────────┘
+                      ▼
+     ┌─────────────────────────────────────────┐
+     │  La machine RÉPOND du texte             │
+     │  « ls: photos/2026/: No such file »     │
+     └────────────────┬────────────────────────┘
+                      ▼
+     ┌─────────────────────────────────────────┐
+     │  Le modèle LIT ce texte et corrige      │
+     │  « le dossier n'existe pas, regardons   │
+     │    ce qu'il y a dans photos/ »          │
+     │  ls photos/                             │
+     └────────────────┬────────────────────────┘
+                      │
+                      └──► et ça recommence
+</pre>
+        <span class="cap">Texte à l'aller, texte au retour. Le message d'erreur n'est pas un échec : c'est l'information qui permet le tour suivant.</span>
+      </div>
+
+      <h3>Pourquoi la qualité des messages d'erreur décide de tout</h3>
+      <p>Le cours sur les agents dit que les messages d'erreur sont ton principal moyen de pilotage. Voilà où ça se joue concrètement :</p>
+      <pre><code class="language-text">✗ « Error »
+     → l'agent n'a aucune piste. Il réessaie au hasard, ou abandonne.
+
+✓ « cp: cannot stat 'rapport.pdf': No such file or directory »
+     → l'agent sait QUOI (rapport.pdf), et QUOI FAIRE (vérifier le nom,
+       ou regarder dans quel dossier il se trouve). Il corrige au tour
+       suivant, sans intervention.</code></pre>
+      <p>Les CLI bien faits produisent la seconde forme. C'est une des raisons pour lesquelles ils sont si bien adaptés aux agents : <strong>des décennies de conventions ont produit des messages d'erreur conçus pour être lus</strong>, ce qui tombe parfaitement pour une machine qui ne sait faire que lire du texte.</p>
+
+      <h3>Les erreurs que tu croiseras vraiment</h3>
+      <table>
+        <thead><tr><th>Le message</th><th>Ce que ça veut dire</th><th>Quoi faire</th></tr></thead>
+        <tbody>
+          <tr><td><code>command not found</code></td><td>Le programme n'est pas installé, ou son nom est mal écrit</td><td>Vérifier l'orthographe, sinon l'installer</td></tr>
+          <tr><td><code>No such file or directory</code></td><td>Le chemin ne mène à rien depuis là où tu es</td><td><code>pwd</code> puis <code>ls</code> — tu n'es probablement pas où tu crois</td></tr>
+          <tr><td><code>Permission denied</code></td><td>Tu n'as pas le droit de toucher à ça</td><td><strong>Réfléchir avant d'ajouter <code>sudo</code></strong> : c'est protégé pour une raison</td></tr>
+          <tr><td><code>... is a directory</code></td><td>Tu traites un dossier comme un fichier</td><td>Souvent il manque l'option <code>-r</code> (récursif)</td></tr>
+        </tbody>
+      </table>
+      <p>Quatre messages couvrent l'écrasante majorité de ce qui t'arrivera. Et le deuxième, <code>No such file or directory</code>, est presque toujours un problème de répertoire courant — la leçon 5.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Dire à une IA « ça n'a pas marché » sans coller le message. Elle ne voit pas ton écran : ce message <strong>est</strong> son information. Colle-le en entier, y compris les lignes qui te semblent du charabia — c'est souvent là qu'est la cause. Tu passes d'une devinette à un diagnostic.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Tape volontairement une commande qui n'existe pas, par exemple <code>bonjour</code>. Lis le message. <em>(Tu obtiens </em><code>command not found</code><em> — et tu viens de constater que le terminal explique précisément ce qui ne va pas, au lieu d'afficher un message d'erreur opaque comme une application graphique le ferait.)</em>
+      </div>
+    </section>
+
+    <section id="m2-l7">
+      <span class="lesson-num">Module 2 · Leçon 7</span>
+      <h2>Enchaîner les commandes</h2>
+
+      <div class="kid">
+        <span class="label">&gt;_ Version 5 ans</span>
+        <p>Voici l'idée la plus belle du terminal, et elle est très simple.</p>
+        <p>Chaque commande sait faire <strong>une seule chose</strong>, mais très bien. L'une sait lister. L'autre sait filtrer. Une autre sait compter.</p>
+        <p>Et on peut les brancher <strong>bout à bout</strong>, comme des tuyaux : ce qui sort de la première entre dans la deuxième.</p>
+        <p>Chacune est bête toute seule. Mises à la suite, elles font des choses que personne n'avait programmées.</p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>Le caractère <code>|</code> (le « tuyau », ou <em>pipe</em>) envoie la sortie d'une commande dans l'entrée de la suivante. C'est le principe fondateur de la ligne de commande : <strong>de petits outils spécialisés qu'on compose</strong>, plutôt que de gros programmes qui font tout.</p>
+      </div>
+
+      <div class="cmd">
+        <div class="cmd-ligne"><span class="prompt">$ </span><span class="prog">ls</span> <span class="f">|</span> <span class="prog">grep</span> <span class="a">"2026"</span> <span class="f">|</span> <span class="prog">wc</span> <span class="f">-l</span></div>
+        <div class="cmd-legende">
+          <span><i style="background:#FFFFFF"></i>ls — liste les fichiers</span>
+          <span><i style="background:#6FA8F0"></i>| — et donne le résultat à…</span>
+          <span><i style="background:#FFFFFF"></i>grep — garde ceux qui contiennent 2026</span>
+          <span><i style="background:#FFFFFF"></i>wc -l — compte les lignes</span>
+        </div>
+        <div class="cmd-note">Traduction : « combien de fichiers ont 2026 dans leur nom ? » Trois outils, aucun ne connaît les deux autres.</div>
+      </div>
+
+      <p>Il y a aussi <code>&gt;</code>, qui envoie le résultat dans un fichier au lieu de l'afficher :</p>
+      <div class="cmd">
+        <div class="cmd-ligne"><span class="prompt">$ </span><span class="prog">ls</span> <span class="f">|</span> <span class="prog">grep</span> <span class="a">"2026"</span> <span class="f">&gt;</span> <span class="a">liste-2026.txt</span></div>
+        <div class="cmd-note">Attention : &gt; écrase le fichier s'il existe. &gt;&gt; ajoute à la suite.</div>
+      </div>
+
+      <h3>Pourquoi cette idée compte pour l'IA</h3>
+      <p>Un modèle ne peut pas inventer un logiciel pour chaque besoin. Mais il peut <strong>assembler des outils existants</strong> — et c'est exactement ce que permet la composition.</p>
+      <p>Quand tu demandes « combien de photos prises en 2026 dans ce dossier ? », l'IA n'écrit pas un programme. Elle branche trois outils vieux de quarante ans qui font déjà chacun leur part. <strong>C'est beaucoup plus fiable que du code écrit pour l'occasion</strong> : ces outils sont éprouvés par des millions d'utilisateurs, alors qu'un script neuf n'a jamais tourné.</p>
+      <p>C'est aussi, en petit, le principe d'un agent : de petites actions qui se composent, chacune nourrissant la suivante.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Confondre <code>&gt;</code> et <code>&gt;&gt;</code>. Le premier <strong>écrase</strong> le fichier existant, sans demander confirmation et sans possibilité d'annuler. Le second ajoute à la fin. Une automatisation censée ajouter une ligne à un journal chaque jour, écrite avec <code>&gt;</code> au lieu de <code>&gt;&gt;</code>, garde uniquement la dernière — et efface silencieusement tout l'historique à chaque exécution.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Lis cette commande à voix haute en français : <code>ls | grep "facture" | wc -l</code>. <em>(« Liste les fichiers, garde ceux qui contiennent "facture", compte-les. » Tu viens de lire un enchaînement sans connaître aucun de ces trois programmes — la grammaire suffit.)</em>
+      </div>
+    </section>
+
+    <section id="m2-l8">
+      <span class="lesson-num">Module 2 · Leçon 8</span>
+      <h2>Quand ça tourne sans toi</h2>
+
+      <div class="kid">
+        <span class="label">&gt;_ Version 5 ans</span>
+        <p>Jusqu'ici tu tapes, et ça se fait. Maintenant l'étape d'après.</p>
+        <p>Tu écris tes commandes sur un <strong>papier</strong>. Ce papier, on peut le donner à quelqu'un pour qu'il le refasse. Tous les jours. Sans toi. À trois heures du matin.</p>
+        <p>C'est là que ça devient puissant — et c'est aussi là que ça devient dangereux. Parce que quand tu es devant, tu vois si ça se passe mal. <strong>Quand tu dors, personne ne voit rien.</strong></p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>Un <strong>script</strong> est un fichier texte contenant des commandes. On le lance d'un coup, et surtout on peut le déclencher automatiquement — à heure fixe, ou quand un événement se produit. <strong>C'est le passage du geste à l'automatisation</strong>, et c'est ce que ton cours Agents appelle une boucle qui tourne toute seule.</p>
+      </div>
+
+      <pre><code class="language-bash">#!/bin/bash
+# ranger-photos.sh — trie les photos du jour et fait des miniatures
+
+cd /home/jade/photos/entrantes       # chemin absolu (leçon 5)
+mkdir -p ../triees/$(date +%Y-%m-%d)
+mv *.CR2 ../triees/$(date +%Y-%m-%d)/
+echo "$(date) : $(ls ../triees/$(date +%Y-%m-%d) | wc -l) photos rangées" >> ~/journal.txt</code></pre>
+
+      <p>Quatre lignes. Mais remarque la dernière : elle <strong>écrit ce qui s'est passé dans un journal</strong>. Ce n'est pas décoratif — c'est la seule façon de savoir, demain, si ça a fonctionné.</p>
+
+      <h3>Ce qui change quand tu n'es plus devant</h3>
+      <table>
+        <thead><tr><th></th><th>Tu tapes toi-même</th><th>Ça tourne tout seul</th></tr></thead>
+        <tbody>
+          <tr><td>Le répertoire de départ</td><td>Celui où tu es, tu le vois</td><td><strong>Souvent un autre</strong> — d'où les chemins absolus</td></tr>
+          <tr><td>Une erreur</td><td>Tu la lis immédiatement</td><td>Elle part dans le vide, personne ne la voit</td></tr>
+          <tr><td>Un cas bizarre</td><td>Tu t'arrêtes et tu réfléchis</td><td>Le script continue comme si de rien n'était</td></tr>
+          <tr><td>Une erreur répétée</td><td>Tu la remarques au bout de deux fois</td><td>Elle se reproduit 300 fois avant qu'on s'en aperçoive</td></tr>
+        </tbody>
+      </table>
+
+      <p>La ligne la plus importante est la deuxième. <strong>Une automatisation sans journal ni alerte est une automatisation dont tu ne sauras jamais qu'elle a cessé de fonctionner.</strong> Et « elle a cessé de fonctionner » est l'état normal de toute automatisation au bout d'un certain temps : un dossier renommé, un format qui change, un mot de passe expiré.</p>
+
+      <h3>Les trois règles avant de laisser tourner quelque chose seul</h3>
+      <ol>
+        <li><strong>Des chemins absolus partout.</strong> Ne suppose jamais d'où ça démarre (leçon 5).</li>
+        <li><strong>Un journal.</strong> Une ligne par exécution, avec la date et ce qui a été fait. C'est la dernière ligne du script ci-dessus, et c'est ce qui te permettra de répondre à « depuis quand ça ne marche plus ? ».</li>
+        <li><strong>Un essai à blanc.</strong> Fais-le tourner sur trois fichiers avant de le lâcher sur huit cents. Et si possible, un mode qui <em>affiche</em> ce qu'il ferait sans le faire.</li>
+      </ol>
+      <p>Ces trois règles sont exactement les freins du cours sur les agents, appliqués au plus petit niveau. Un agent qui lance des commandes sans supervision, c'est un script automatique — avec les mêmes exigences.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Tester un script en le lançant à la main, puis le planifier et considérer que c'est fini. <strong>Ce sont deux environnements différents</strong> : quand tu le lances, tu es dans le bon dossier, tes variables sont chargées, tes accès sont ouverts. La tâche planifiée, elle, démarre ailleurs, sans ton contexte. Un script qui marche à la main et échoue en automatique est un grand classique — et la cause est presque toujours un chemin.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Reprends la tâche répétitive que tu as identifiée en leçon 1. Si elle tournait toute seule chaque nuit : <strong>comment saurais-tu, demain matin, qu'elle a fonctionné ?</strong> <em>(Si tu n'as pas de réponse, c'est le journal qui manque — et c'est précisément ce qui manque à Elias en leçon 12.)</em>
+      </div>
+    </section>
+
+    <!-- ══════════════ MODULE 3 ══════════════ -->
+
+    <section id="m3-l9">
+      <span class="lesson-num">Module 3 · Leçon 9</span>
+      <h2>8 commandes qui servent</h2>
+
+      <div class="kid">
+        <span class="label">&gt;_ Version 5 ans</span>
+        <p>Il existe des milliers de commandes. Tu n'en as besoin que de <strong>huit</strong> pour comprendre 90 % de ce qu'une IA t'écrira.</p>
+        <p>Les quatre premières ne font que <strong>regarder</strong> : aucun risque, tu peux les essayer tout de suite. Les quatre suivantes <strong>modifient</strong> : c'est là qu'il faut être attentif.</p>
+      </div>
+
+      <h3>Les quatre qui regardent — sans danger</h3>
+      <table>
+        <thead><tr><th>Commande</th><th>Ce qu'elle fait</th><th>Ce qu'une IA en fait</th></tr></thead>
+        <tbody>
+          <tr><td><code>pwd</code></td><td>Dit où tu te trouves</td><td>Se localise avant d'agir (leçon 5)</td></tr>
+          <tr><td><code>ls</code></td><td>Liste ce qu'il y a ici</td><td>Découvre la structure avant de décider quoi faire</td></tr>
+          <tr><td><code>cat</code> / <code>head</code></td><td>Affiche le contenu d'un fichier (ou ses premières lignes)</td><td>Lit un fichier pour en tirer l'information — la « transformation » du cours IA</td></tr>
+          <tr><td><code>grep</code></td><td>Cherche un texte dans des fichiers</td><td>Trouve où se trouve une chose précise, sans tout lire</td></tr>
+        </tbody>
+      </table>
+      <p>Un mot sur <code>grep</code>, parce qu'il est sous-estimé : c'est la recherche exacte. Ton cours RAG explique que la recherche par le sens est mauvaise sur les références précises et les noms propres — <code>grep</code>, lui, trouve exactement ce que tu cherches. <strong>Pour « où est écrit ce numéro de facture ? », il bat n'importe quelle IA</strong>, et il est gratuit et instantané.</p>
+
+      <h3>Les quatre qui modifient — à lire avant d'exécuter</h3>
+      <table>
+        <thead><tr><th>Commande</th><th>Ce qu'elle fait</th><th>Le point d'attention</th></tr></thead>
+        <tbody>
+          <tr><td><code>cd</code></td><td>Se déplacer dans les dossiers</td><td>Inoffensif, mais change le sens de tout ce qui suit</td></tr>
+          <tr><td><code>mkdir</code></td><td>Crée un dossier</td><td>Sans risque</td></tr>
+          <tr><td><code>cp</code> / <code>mv</code></td><td>Copie / déplace</td><td><strong><code>mv</code> peut écraser</strong> un fichier existant sans prévenir</td></tr>
+          <tr><td><code>rm</code></td><td>Supprime</td><td><strong>Définitif.</strong> Pas de corbeille. <code>-r</code> supprime un dossier entier</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout danger">
+        <strong>⚠ Les trois mots devant lesquels on ralentit</strong> — Tu n'as pas besoin de savoir lire une commande pour repérer ces trois-là :<br><br>
+        <strong><code>rm</code></strong> — supprime, sans corbeille, sans retour en arrière.<br>
+        <strong><code>sudo</code></strong> — lève les protections du système. Ce qui est protégé l'est pour une raison.<br>
+        <strong><code>&gt;</code></strong> — écrase le fichier de destination.<br><br>
+        Si tu vois l'un de ces trois dans une commande qu'on te donne, c'est le moment de faire le geste de la leçon 3 : demander à une autre IA ce qu'elle fait exactement. Et de vérifier que ce qui compte est sauvegardé.
+      </div>
+
+      <h3>Les commandes que tu croiseras surtout à cause de l'IA</h3>
+      <p>Trois de plus, parce qu'elles reviennent constamment dès qu'on installe quoi que ce soit lié à l'IA :</p>
+      <ul>
+        <li><strong><code>npx</code> et <code>npm</code></strong> — installent et lancent des programmes de l'écosystème JavaScript. La plupart des serveurs MCP prêts à l'emploi se lancent avec <code>npx</code>. C'est littéralement ce qu'on colle dans une configuration MCP.</li>
+        <li><strong><code>pip</code> et <code>python</code></strong> — même chose côté Python. <code>python mon_serveur.py</code> est la ligne qui démarre le serveur de Nina, dans ton cours MCP.</li>
+        <li><strong><code>curl</code></strong> — envoie une requête à une adresse web depuis le terminal. C'est avec lui qu'on teste un webhook à la main, comme dans ton cours Webhooks.</li>
+      </ul>
+      <p>Tu ne les apprends pas : tu les <strong>reconnais</strong>. Quand une documentation te dit « lancez <code>npx @modelcontextprotocol/server-filesystem ~/documents</code> », tu sais maintenant lire ça : un programme, un argument, et un chemin qui limite ce à quoi il aura accès.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Chercher à mémoriser des commandes. Ce n'est pas l'objectif, et personne ne le fait — même les développeurs redemandent. <strong>Ce qui compte, c'est de reconnaître la structure et de repérer les trois mots dangereux.</strong> Le reste, tu le demandes à une IA au moment où tu en as besoin.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Ouvre un terminal et lance les quatre commandes de lecture, dans cet ordre : <code>pwd</code>, <code>ls</code>, <code>cd ..</code>, <code>ls</code>. <em>(Tu viens de te déplacer et de regarder. Aucune de ces commandes ne modifie quoi que ce soit — et tu as fait le tour de ce dont tu as besoin 80 % du temps.)</em>
+      </div>
+    </section>
+
+    <section id="m3-l10">
+      <span class="lesson-num">Module 3 · Leçon 10</span>
+      <h2>Quand ce n'est pas la bonne idée</h2>
+
+      <div class="kid">
+        <span class="label">&gt;_ Version 5 ans</span>
+        <p>Le terminal est très fort pour <strong>refaire mille fois la même chose</strong>.</p>
+        <p>Il est très mauvais pour <strong>chercher ce qu'on veut</strong>.</p>
+        <p>Quand tu ne sais pas encore à quoi ressemblera le résultat, tu as besoin de voir, d'essayer, de revenir en arrière. Ça, c'est ce que font bien les boutons.</p>
+      </div>
+
+      <div class="grown">
+        <span class="label">🔧 Version grande personne</span>
+        <p>Comme dans tous les cours de cette série, la leçon la moins agréable : le terminal n'est pas toujours la bonne réponse, et l'enthousiasme de débutant pousse à l'utiliser là où il dessert.</p>
+      </div>
+
+      <h3>Les quatre situations où il faut cliquer</h3>
+
+      <p><strong>① Tu explores.</strong> Tu ne sais pas encore ce que tu veux, tu cherches une idée, tu veux voir les options disponibles. Une interface graphique <em>montre</em> ce qui est possible ; le terminal suppose que tu le sais déjà. Pour découvrir, clique.</p>
+
+      <p><strong>② C'est visuel.</strong> Choisir laquelle de ces 40 photos garder, recadrer une image, ajuster une couleur. Le terminal traite parfaitement les fichiers <em>en masse</em>, il ne t'aide en rien à <em>juger</em> lequel est le bon.</p>
+
+      <p><strong>③ Tu ne le feras qu'une fois.</strong> Le terminal est rentable sur la répétition. Pour une action unique que tu sais faire en trois clics, chercher la bonne commande prend plus de temps que la faire. La bonne question n'est pas « est-ce possible en ligne de commande ? » mais <strong>« est-ce que je vais le refaire ? »</strong></p>
+
+      <p><strong>④ L'erreur est irrattrapable et tu n'es pas sûr.</strong> Une interface graphique met une corbeille, demande confirmation, permet d'annuler. Le terminal ne fait rien de tout ça : il exécute. Si l'action est définitive et que tu hésites, l'interface graphique est objectivement plus sûre — et ce n'est pas une faiblesse de ta part.</p>
+
+      <div class="schema">
+<pre>
+  LE TEST EN UNE QUESTION
+
+  « Est-ce que je vais refaire ça ? »
+
+     NON, une seule fois ──────► clique, c'est plus rapide
+     │
+     OUI, régulièrement ───────► une commande
+     │
+     OUI, et je veux que ça
+     se fasse sans moi ────────► un script, puis une automatisation
+                                  (et un journal, leçon 8)
+</pre>
+        <span class="cap">Le terminal n'est pas « mieux ». Il est meilleur sur la répétition, et moins bon sur l'exploration.</span>
+      </div>
+
+      <h3>Et l'inverse : ce que seul le terminal permet</h3>
+      <p>Pour être juste, la symétrique. Trois choses n'ont aucun équivalent en cliquant :</p>
+      <ul>
+        <li><strong>Agir sur des milliers d'éléments</strong> avec la même précision que sur un seul.</li>
+        <li><strong>Faire faire le travail par une IA.</strong> C'est la leçon 3 : tant que la tâche vit dans des boutons, tu es le seul à pouvoir l'exécuter. Dès qu'elle s'écrit en commandes, elle est délégable.</li>
+        <li><strong>Que ça se reproduise sans toi.</strong> Aucune interface graphique ne tourne à 3 h du matin.</li>
+      </ul>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Vouloir tout faire au terminal après avoir découvert sa puissance. C'est une phase classique, et elle fait perdre du temps : on passe vingt minutes à chercher la commande qui fait ce qu'un clic réglait. <strong>Le bon usage est mixte</strong> — on clique pour explorer et pour juger, on tape pour répéter et pour déléguer.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Applique le test à trois tâches de ta semaine. Combien tombent dans « je vais le refaire » ? <em>(Ce sont exactement celles que tu peux confier à une IA — et les seules pour lesquelles apprendre une commande est rentable.)</em>
+      </div>
+
+      <details class="quiz">
+        <summary>Mini-quiz : la vraie raison d'apprendre ça</summary>
+        <p><strong>Pourquoi quelqu'un qui ne programmera jamais a-t-il intérêt à comprendre le terminal ?</strong></p>
+        <p><strong>Parce que c'est la frontière de ce qu'on peut déléguer à une IA.</strong> Une tâche qui vit dans des boutons ne peut être faite que par toi, à la main, une fois de plus. La même tâche exprimée en commandes peut être écrite par une IA, exécutée par un agent, répétée mille fois et programmée pour la nuit. Tu n'as pas besoin de savoir <em>écrire</em> les commandes — l'IA le fait. Tu as besoin de savoir que <strong>cette porte existe</strong>, et de reconnaître ce qui passe dedans.</p>
+      </details>
+    </section>
+
+    <!-- ══════════════ MODULE 4 ══════════════ -->
+
+    <section id="m4-l11">
+      <span class="lesson-num">Module 4 · Leçon 11</span>
+      <h2>📷 Les photos de Jade</h2>
+
+      <div class="kid">
+        <span class="label">&gt;_ Version 5 ans</span>
+        <p>Jade prend des photos de mariage. À chaque mariage, elle rentre avec <strong>800 photos</strong> et doit toutes les renommer, les trier et en faire des petites versions pour le client.</p>
+        <p>Avant : deux heures de clics, tous les samedis.</p>
+        <p>Puis elle a demandé à une IA. L'IA lui a écrit <strong>une ligne</strong>. Ça a pris quatre secondes.</p>
+        <p>Et ensuite, elle a fait quelque chose de plus malin encore : elle a gardé la ligne.</p>
+      </div>
+
+      <h3>La situation</h3>
+      <p>Jade est photographe indépendante. Elle ne programme pas, n'a jamais ouvert un terminal, et n'a aucune intention d'apprendre l'informatique. Elle a un problème très concret :</p>
+      <ul>
+        <li>800 à 1 200 photos par mariage, nommées <code>IMG_0341.CR2</code> par l'appareil</li>
+        <li>Le client veut des noms lisibles : <code>dupont-2026-09-12-0341.jpg</code></li>
+        <li>Il faut une version légère pour la galerie en ligne, et garder les originaux</li>
+        <li>Deux mariages par week-end en haute saison</li>
+      </ul>
+
+      <h3>Étape 1 — La première commande</h3>
+      <p>Elle décrit sa situation à une IA, en français, sans jargon. Elle obtient ceci :</p>
+      <div class="cmd">
+        <div class="cmd-ligne"><span class="prompt">$ </span><span class="prog">magick</span> <span class="a">*.CR2</span> <span class="f">-resize</span> <span class="a">2000x2000</span> <span class="a">dupont-%04d.jpg</span></div>
+        <div class="cmd-note">Une ligne. 812 photos converties et renommées en une quarantaine de secondes.</div>
+      </div>
+      <p>Ce qu'il faut voir ici : <strong>Jade ne comprend pas cette commande</strong>, et ça n'a pas d'importance à cette étape. Ce qu'elle a fait de juste, c'est de l'essayer <strong>sur un dossier de test avec dix photos copiées</strong>, avant de la lancer sur le vrai. L'essai à blanc de la leçon 8 — elle ne connaissait pas le principe, elle l'a appliqué par prudence naturelle.</p>
+
+      <h3>Étape 2 — Elle arrête de la retaper</h3>
+      <p>Au troisième mariage, elle se rend compte qu'elle retrouve la commande en fouillant dans son historique de conversation. Elle demande à l'IA d'en faire un fichier, et surtout — <strong>d'expliquer chaque ligne en français</strong> :</p>
+      <pre><code class="language-bash">#!/bin/bash
+# ranger-mariage.sh
+# Usage : ./ranger-mariage.sh dupont
+#
+# Ce script fait 3 choses, dans l'ordre :
+#   1. crée deux dossiers : un pour les originaux, un pour la galerie
+#   2. copie les fichiers CR2 de l'appareil vers "originaux"
+#   3. crée des JPG allégés (2000px max) dans "galerie", renommés
+
+CLIENT=$1
+BASE=/home/jade/photos/$CLIENT-$(date +%Y-%m-%d)
+
+mkdir -p "$BASE/originaux" "$BASE/galerie"
+cp *.CR2 "$BASE/originaux/"
+magick *.CR2 -resize 2000x2000 "$BASE/galerie/$CLIENT-%04d.jpg"
+
+echo "$(date) : $CLIENT — $(ls "$BASE/galerie" | wc -l) photos traitées" >> ~/journal-photos.txt</code></pre>
+      <p>Les commentaires en français sont la décision la plus importante de toute cette histoire. Jade ne sait toujours pas lire <code>magick</code> — mais elle sait ce que fait chaque ligne, parce que c'est écrit juste à côté. <strong>Elle a une boîte, pas une boîte noire.</strong> C'est exactement ce qui manquera à Elias en leçon 12.</p>
+      <p>Et remarque la dernière ligne : un journal. Une ligne par mariage, avec la date et le nombre de photos.</p>
+
+      <h3>Étape 3 — Elle ne le lance même plus</h3>
+      <p>Six mois plus tard, elle utilise un assistant IA avec accès à son dossier de travail. Le déroulé d'un dimanche matin :</p>
+      <ul class="timeline">
+        <li><span class="t">9:12</span> — Jade branche sa carte mémoire et écrit : « range les photos du mariage Lefebvre d'hier ».</li>
+        <li><span class="t">9:12:04</span> — L'agent fait d'abord <code>pwd</code> et <code>ls</code>. Il se localise et regarde ce qu'il y a (leçon 5). Il trouve 954 fichiers <code>.CR2</code>.</li>
+        <li><span class="t">9:12:09</span> — Il lance le script avec le bon argument : <code>./ranger-mariage.sh lefebvre</code>.</li>
+        <li><span class="t">9:13:40</span> — Le script échoue à mi-parcours : disque plein. Le message d'erreur le dit précisément.</li>
+        <li><span class="t">9:13:42</span> — <strong>L'agent lit l'erreur</strong> (leçon 6), vérifie l'espace disponible, et s'arrête net : il ne supprime rien de sa propre initiative. Il prévient Jade, lui dit combien de place il manque, et propose deux dossiers anciens qu'elle pourrait archiver.</li>
+        <li><span class="t">9:19</span> — Elle libère de la place, relance d'un mot. Terminé à 9:21.</li>
+      </ul>
+
+      <h3>Ce que Jade a vraiment gagné</h3>
+      <p>Le temps, évidemment : deux heures devenues deux minutes, cinquante fois par an. Mais deux choses moins évidentes comptent autant.</p>
+      <p><strong>La constance.</strong> Avant, à la 700<sup>e</sup> photo d'un dimanche soir, elle se trompait. Le script ne se trompe jamais de la même façon — il fait toujours exactement la même chose.</p>
+      <p><strong>La délégabilité.</strong> Tant que la tâche vivait dans des clics, elle était la seule à pouvoir la faire. Depuis qu'elle vit dans un script, <strong>une IA peut la faire à sa place</strong> — et c'est très exactement la leçon 3 de ce cours. Ce n'est pas le terminal qui lui a fait gagner du temps : c'est le fait d'avoir transformé un geste en texte.</p>
+
+      <div class="callout pitfall">
+        <strong>Piège courant</strong> — Lancer directement sur le vrai dossier parce que « la commande a l'air correcte ». Jade a testé sur dix photos copiées. Ça lui a coûté trois minutes, et c'est ce qui fait la différence entre un essai raté et 812 originaux perdus. <strong>Sur une opération qui touche des fichiers, essaie toujours sur une copie d'abord</strong> — c'est la seule précaution qui ne demande aucune compétence technique.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice</strong> — Reprends la tâche répétitive de la leçon 1 et décris-la à une IA comme Jade l'a fait : en français, avec ta situation, ce que tu as en entrée et ce que tu veux en sortie. Demande-lui la commande <strong>et une explication en français de chaque partie</strong>. Ne l'exécute pas encore — lis juste l'explication.
+      </div>
+    </section>
+
+    <section id="m4-l12">
+      <span class="lesson-num">Module 4 · Leçon 12</span>
+      <h2>📦 La boîte noire d'Elias</h2>
+
+      <div class="kid">
+        <span class="label">&gt;_ Version 5 ans</span>
+        <p>Elias a demandé à une IA de lui fabriquer une machine qui range ses papiers toutes les nuits. Ça a marché du premier coup.</p>
+        <p>Pendant huit mois, la machine a bien travaillé. Elias ne l'a jamais ouverte — pourquoi ouvrir quelque chose qui marche ?</p>
+        <p>Et puis un jour, elle s'est arrêtée.</p>
+        <p>Elias a ouvert le capot. Dedans, il y avait <strong>quarante lignes qu'il n'avait jamais lues</strong>. Il n'a pas su quoi réparer.</p>
+        <p>Ce n'était pas grave : il manquait juste un mot. Mais il ne pouvait pas le savoir.</p>
+      </div>
+
+      <h3>La situation</h3>
+      <p>Elias gère une petite boutique en ligne de matériel de randonnée, fictive, trois salariés. Chaque matin il consacrait quarante minutes à la même corvée : exporter les commandes de la veille, nettoyer le fichier, croiser avec le stock, envoyer un récapitulatif à son fournisseur.</p>
+      <p>Il demande à une IA de l'automatiser. Elle lui produit un script d'une quarantaine de lignes. Il le teste, ça marche. Il le planifie pour 6 h du matin. <strong>Ça fonctionne parfaitement pendant huit mois.</strong></p>
+
+      <h3>Ce qu'il n'a pas fait</h3>
+      <p>Trois choses, chacune sans conséquence sur le moment :</p>
+      <ul>
+        <li>Il n'a <strong>jamais lu</strong> les quarante lignes. Elles marchaient.</li>
+        <li>Il n'a <strong>rien noté</strong> — ni ce que fait le script, ni pourquoi il est écrit comme ça, ni la demande qu'il avait formulée à l'IA pour l'obtenir.</li>
+        <li>Il n'a <strong>pas mis de journal</strong>. Le script travaillait en silence.</li>
+      </ul>
+      <p>Aucune de ces trois omissions n'est stupide. Elles sont même parfaitement rationnelles : pourquoi documenter quelque chose qui marche ?</p>
+
+      <h3>Le 14 mars</h3>
+      <ul class="timeline">
+        <li><span class="t">Un jour de mars</span> — Sa comptable réorganise le dossier partagé. Elle renomme <code>Exports</code> en <code>Exports_2026</code>. Geste anodin, annoncé à personne parce qu'il n'y avait rien à annoncer.</li>
+        <li><span class="t">Le lendemain, 6:00</span> — Le script démarre. Il cherche le dossier <code>Exports</code>. Il ne le trouve pas. Il s'arrête sur une erreur — <strong>que personne ne lit</strong>, puisqu'il n'y a ni journal ni alerte (leçon 8).</li>
+        <li><span class="t">Les jours suivants</span> — Le récapitulatif n'arrive plus chez le fournisseur. Personne ne le remarque : quand une chose arrive tous les jours depuis huit mois, on ne vérifie plus qu'elle est arrivée.</li>
+        <li><span class="t">Onze jours plus tard</span> — Le fournisseur appelle : il n'a rien reçu depuis presque deux semaines et a arrêté de préparer les commandes.</li>
+        <li><span class="t">Elias ouvre le fichier</span> — Quarante lignes. Aucun commentaire. Des commandes qu'il n'a jamais lues, écrites par une IA huit mois plus tôt, dans une conversation qu'il n'a pas gardée.</li>
+        <li><span class="t">Il redemande à une IA</span> — Et il obtient quelque chose de <strong>différent</strong>. Pas une correction : une nouvelle version, écrite autrement, avec ses propres suppositions. L'IA ne peut pas savoir pourquoi l'original était écrit ainsi, ni ce qui, dans son environnement, en dépend.</li>
+        <li><span class="t">Il abandonne</span> — Il revient à ses quarante minutes quotidiennes. Pendant <strong>six mois</strong>.</li>
+      </ul>
+
+      <div class="schema">
+<pre>
+  LA DISPROPORTION
+
+  La cause          : un dossier renommé
+  La correction     : un mot à changer dans une ligne
+  Le temps de fix   : trente secondes — pour qui sait lire le script
+  Le coût réel      : 11 jours d'arrêt non détecté
+                      + un fournisseur qui ne prépare plus
+                      + 6 mois × 40 min/jour repassés à la main
+
+  ┌───────────────────────────────────────────────────────┐
+  │  Rien n'a été détruit. Rien n'a été piraté.           │
+  │  Le script n'avait même pas de bug.                   │
+  │                                                        │
+  │  Elias a simplement construit quelque chose           │
+  │  qu'il ne pouvait pas réparer.                        │
+  └───────────────────────────────────────────────────────┘
+</pre>
+        <span class="cap">Le risque, pour quelqu'un sans bagage technique, n'est pas la commande destructrice. C'est la dépendance à une boîte noire.</span>
+      </div>
+
+      <h3>Le diagnostic</h3>
+      <p>Il faut être précis sur ce qui a échoué, parce que ce n'est pas ce qu'on croit.</p>
+      <p><strong>Ce n'est pas une erreur technique.</strong> Le script était correct. Il a fait exactement ce qu'on lui avait demandé, y compris s'arrêter proprement quand son dossier a disparu.</p>
+      <p><strong>Ce n'est pas non plus « il aurait dû apprendre à coder ».</strong> C'est le piège du conseil habituel, et il est inapplicable : Elias vend du matériel de randonnée, il n'apprendra pas le shell, et il a raison.</p>
+      <p><strong>C'est un problème de traçabilité.</strong> Il a mis en production quelque chose dont il ne pouvait, à aucun moment, expliquer le fonctionnement — même approximativement, même en français. Le jour où il a fallu intervenir, il n'avait pas la plus petite prise.</p>
+
+      <h3>Ce qu'il aurait suffi de faire</h3>
+      <p>Trois gestes, qui prennent chacun moins de deux minutes et ne demandent <strong>aucune compétence technique</strong> :</p>
+
+      <p><strong>① Demander les commentaires en français.</strong> À la fin de la demande, une phrase : <em>« ajoute au-dessus de chaque ligne un commentaire qui explique en français simple ce qu'elle fait et pourquoi ».</em> C'est exactement ce que Jade a fait. Le fichier devient lisible par son propriétaire.</p>
+
+      <p><strong>② Garder la demande d'origine.</strong> Coller, en haut du fichier ou dans un fichier à côté, <strong>ce qu'on avait demandé à l'IA</strong>. C'est le document le plus précieux : il dit l'intention, ce que le script ne dit jamais. Avec lui, redemander une correction fonctionne — l'IA sait ce qu'on voulait.</p>
+
+      <p><strong>③ Un journal et une alerte.</strong> Une ligne écrite quelque part à chaque exécution (leçon 8). Et surtout, pour ce cas précis : <strong>faire en sorte que le silence soit visible.</strong> Onze jours sans que personne ne remarque, c'est le vrai scandale de cette histoire — pas le dossier renommé.</p>
+
+      <pre><code class="language-bash"># --- En-tête que le script aurait dû avoir ---
+#
+# À QUOI ÇA SERT
+#   Chaque matin à 6h : exporte les commandes de la veille, nettoie le
+#   fichier, croise avec le stock, envoie le récapitulatif au fournisseur.
+#
+# CE QUE J'AVAIS DEMANDÉ À L'IA (le 12 juillet)
+#   « J'ai un export de commandes en CSV dans le dossier partagé Exports.
+#     Chaque matin je dois enlever les lignes annulées, ajouter le stock
+#     restant depuis stock.csv, et envoyer le résultat à
+#     commandes@fournisseur.fr. Automatise ça pour 6h. »
+#
+# SI ÇA CASSE
+#   Vérifier d'abord que le dossier Exports existe toujours et n'a pas
+#   été renommé — c'est le chemin ci-dessous qui en dépend.</code></pre>
+      <p>Douze lignes de français. Elles auraient transformé onze jours d'arrêt et six mois d'abandon en trente secondes de correction. <strong>Et elles ne demandent pas de savoir lire une seule commande.</strong></p>
+
+      <div class="callout danger">
+        <strong>⚠ Ce qu'il faut retenir de cette histoire</strong> — Quand une IA te construit une automatisation, <strong>demande-lui d'écrire, à côté, ce qu'elle fait en français — et garde ce que tu lui avais demandé.</strong><br><br>
+        Tu ne sauras peut-être jamais lire les commandes, et ce n'est pas grave. Mais tu dois pouvoir répondre à trois questions le jour où ça casse : <em>à quoi ça sert ? qu'est-ce que j'avais demandé ? par quoi commencer à regarder ?</em> Sans ces réponses, tu n'as pas automatisé une tâche — tu l'as échangée contre une dépendance.
+      </div>
+
+      <div class="callout exercise">
+        <strong>Exercice final</strong> — Si tu as déjà une automatisation quelque part — un script, une règle de messagerie, un scénario sur un outil d'automatisation — pose-toi les trois questions ci-dessus. <em>(Et si tu n'as pas les réponses : ouvre une IA, colle le contenu, et demande-lui de te l'expliquer en français. Colle son explication à côté. Tu viens de récupérer ta boîte noire.)</em>
+      </div>
+
+      <div class="end-card">
+        <h3>🎓 Ton résumé, à réciter à un enfant de 5 ans</h3>
+        <p><strong>1.</strong> Une IA ne peut pas cliquer sur un bouton — mais elle sait écrire du texte, et une commande c'est du texte. C'est par là qu'elle agit vraiment.</p>
+        <p><strong>2.</strong> Du coup, une tâche qui vit dans des clics, tu es le seul à pouvoir la faire. La même tâche écrite en commandes, tu peux la déléguer, la répéter mille fois, et la faire tourner la nuit.</p>
+        <p><strong>3.</strong> Et si tu fais construire une automatisation par une IA : demande-lui d'écrire à côté ce qu'elle fait en français. Sinon, le jour où ça casse, tu es devant une boîte que tu ne peux pas ouvrir.</p>
+
+        <h3 style="margin-top:1.8rem">✅ La checklist</h3>
+        <p style="color:#D6E5DE;font-weight:600;margin-bottom:.4rem">Avant d'exécuter une commande qu'on t'a donnée</p>
+        <ul>
+          <li>Je repère les trois mots qui demandent de ralentir : <strong><code>rm</code></strong>, <strong><code>sudo</code></strong>, <strong><code>&gt;</code></strong>.</li>
+          <li>En cas de doute, je colle la commande dans une <strong>autre IA</strong> et je demande ce qu'elle fait exactement — en sachant qu'elle ne connaît pas mon contexte.</li>
+          <li>Ce qui compte est <strong>sauvegardé</strong>, et j'essaie d'abord sur une <strong>copie</strong> ou sur trois fichiers.</li>
+          <li>Je fais <code>pwd</code> et <code>ls</code> avant toute commande qui modifie : je vois exactement ce qu'elle va toucher.</li>
+        </ul>
+        <p style="color:#D6E5DE;font-weight:600;margin:1.2rem 0 .4rem">Si je garde la commande pour la réutiliser</p>
+        <ul>
+          <li>Je demande à l'IA un <strong>commentaire en français</strong> au-dessus de chaque ligne.</li>
+          <li>Je colle en haut du fichier <strong>ce que j'avais demandé</strong> — l'intention, que le script ne dit jamais.</li>
+          <li>J'écris les <strong>options en version longue</strong> (<code>--force</code> plutôt que <code>-f</code>) : c'est moi dans six mois qui relirai.</li>
+        </ul>
+        <p style="color:#D6E5DE;font-weight:600;margin:1.2rem 0 .4rem">Si ça doit tourner sans moi</p>
+        <ul>
+          <li><strong>Chemins absolus</strong> partout — une tâche automatique ne démarre pas d'où tu crois.</li>
+          <li>Un <strong>journal</strong> : une ligne par exécution, avec la date.</li>
+          <li>Un moyen de savoir que <strong>ça s'est arrêté</strong>. Le silence n'est pas une preuve que ça marche.</li>
+          <li>Un <strong>essai à blanc</strong> sur trois éléments avant de lâcher sur huit cents.</li>
+        </ul>
+
+        <h3 style="margin-top:1.8rem">🔗 Où ça se raccroche au reste</h3>
+        <p>Ce cours est le <strong>pont</strong> entre la partie non technique de la série et la partie technique. Il explique <em>par où</em> une IA agit réellement : les <strong>outils</strong> d'un agent sont en grande partie des commandes, un serveur <strong>MCP</strong> local se lance par une commande, on teste un <strong>webhook</strong> avec <code>curl</code>, et la boucle d'un <strong>agent</strong> — écrire une action, lire le résultat, corriger — est littéralement la boucle du terminal vue en leçon 6.</p>
+        <p style="margin-top:.8rem">Et il prolonge le cours sur l'<strong>IA</strong> : un modèle produit du texte plausible avec aplomb. Tant que ce texte est une explication, une erreur se corrige en relisant. Quand ce texte est une commande, elle s'exécute.</p>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+  hljs.highlightAll();
+
+  const sidebar = document.getElementById('sidebar');
+  document.getElementById('menuToggle').addEventListener('click', () => {
+    sidebar.classList.toggle('open');
+  });
+
+  document.querySelectorAll('.module-title').forEach(t => {
+    t.addEventListener('click', () => t.parentElement.classList.toggle('collapsed'));
+  });
+
+  const lessonLinks = document.querySelectorAll('[data-lesson]');
+  const storageKey = 'course-progress-cli';
+  const done = JSON.parse(localStorage.getItem(storageKey) || '{}');
+  const fill = document.getElementById('progressFill');
+  const mini = document.getElementById('progressMini');
+  const text = document.getElementById('progressText');
+
+  function marquer(id) {
+    if (done[id]) return;
+    done[id] = true;
+    localStorage.setItem(storageKey, JSON.stringify(done));
+    const lien = document.querySelector('[data-lesson="' + id + '"]');
+    if (lien) lien.querySelector('.lesson-check').classList.add('done');
+    majBarre();
+  }
+
+  function majBarre() {
+    const total = lessonLinks.length;
+    const faites = Object.values(done).filter(Boolean).length;
+    const pct = total ? (faites / total * 100) : 0;
+    fill.style.width = pct + '%';
+    mini.style.width = pct + '%';
+    text.textContent = faites + ' / ' + total + ' leçons vues';
+  }
+
+  lessonLinks.forEach(link => {
+    if (done[link.dataset.lesson]) link.querySelector('.lesson-check').classList.add('done');
+    link.addEventListener('click', () => {
+      marquer(link.dataset.lesson);
+      sidebar.classList.remove('open');
+    });
+  });
+
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (!e.isIntersecting) return;
+      const id = e.target.id;
+      document.querySelectorAll('[data-lesson]').forEach(a =>
+        a.classList.toggle('active', a.dataset.lesson === id));
+      marquer(id);
+    });
+  }, { rootMargin: '-45% 0px -45% 0px' });
+
+  document.querySelectorAll('main section[id]').forEach(s => observer.observe(s));
+
+  majBarre();
+</script>
+</body>
+</html>

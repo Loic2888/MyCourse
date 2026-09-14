@@ -10,7 +10,7 @@ Open [`index.html`](./index.html) in Chrome or Firefox — no server, no build, 
 
 ## What makes this one different
 
-Fifth entry in the *Explained Simply* series, right after [`../4.Webhooks/`](../4.Webhooks/) — same deliberately **light** format: 12 short lessons, roughly 45 minutes end to end. It trades exhaustiveness for clarity.
+Sixth entry in the *Explained Simply* series, right after [`../5.Webhooks/`](../5.Webhooks/) — same deliberately **light** format: 12 short lessons, roughly 45 minutes end to end. It trades exhaustiveness for clarity.
 
 For the deep treatment (building MCP servers in Python and TypeScript, function calling from first principles), see [`../../dev-agentique/outils-function-calling-mcp/`](../../dev-agentique/outils-function-calling-mcp/) instead.
 

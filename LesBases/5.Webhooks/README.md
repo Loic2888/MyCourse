@@ -10,7 +10,7 @@ Open [`index.html`](./index.html) in Chrome or Firefox — no server, no build, 
 
 ## What makes this one different
 
-Fourth entry in the *Explained Simply* series, and the first of the technical building blocks — MCP, RAG and Agents each lean on it later. Deliberately **light** — 12 short lessons, roughly 45 minutes end to end. It trades exhaustiveness for clarity.
+Fifth entry in the *Explained Simply* series, and the first of the technical building blocks proper — MCP, RAG and Agents each lean on it later. Deliberately **light** — 12 short lessons, roughly 45 minutes end to end. It trades exhaustiveness for clarity.
 
 Every lesson follows the same two-card pattern, which is the course's visual signature:
 

@@ -10,9 +10,9 @@ Open [`index.html`](./index.html) in Chrome or Firefox — no server, no build, 
 
 ## What makes this one different
 
-Eighth and last entry in the *Explained Simply* series. Same deliberately **light** format: 12 short lessons, roughly 45 minutes end to end.
+Ninth and last entry in the *Explained Simply* series. Same deliberately **light** format: 12 short lessons, roughly 45 minutes end to end.
 
-Where the other seven each explain one system, this one fills the **gap running underneath four of them**: the webhook signature, the MCP server's token and consent screen, the RAG access filter, the agent's least-privilege scope. Each of those was gestured at elsewhere and explained nowhere. This is that lesson — placed last on purpose, as the closing layer over everything before it.
+Where the other eight each explain one system, this one fills the **gap running underneath four of them**: the webhook signature, the MCP server's token and consent screen, the RAG access filter, the agent's least-privilege scope. Each of those was gestured at elsewhere and explained nowhere. This is that lesson — placed last on purpose, as the closing layer over everything before it.
 
 Every lesson follows the series' two-card pattern:
 
